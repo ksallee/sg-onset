@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { editableFields, fieldEditable, fieldValue, formatField, nextField, specFor } from './fields';
+import { stepValue } from '$lib/ios/keypad';
 import type { Lens } from './types';
 
 const prime: Lens = { name: '40', kind: 'prime', focalLength: 40 };
@@ -14,6 +15,13 @@ describe('specFor', () => {
 		expect(specFor('focusDistance', prime).unit).toBe('unit.m');
 		expect(specFor('focalLength', prime).unit).toBe('unit.mm');
 		expect(specFor('tilt', prime)).toMatchObject({ unit: 'unit.deg', min: -90, max: 90 });
+	});
+	it('steps the T-stop by third stops, the other fields by their step', () => {
+		const tStop = specFor('tStop', prime);
+		expect(stepValue(2.8, 1, tStop)).toBe(3.2);
+		expect(stepValue(5.6, -1, tStop)).toBe(5);
+		expect(specFor('focusDistance', prime).stops).toBeUndefined();
+		expect(stepValue(2.8, 1, specFor('focusDistance', prime))).toBe(2.9);
 	});
 });
 

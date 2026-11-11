@@ -1,6 +1,6 @@
 // The number fields of a camera on a take: range, precision, step, unit. Pure.
 import type { NumberSpec } from '$lib/ios/keypad';
-import { formatNumber } from '$lib/ios/keypad';
+import { formatNumber, THIRD_STOPS } from '$lib/ios/keypad';
 import type { MessageKey } from '$lib/i18n/messages';
 import { focalEditable, focalLengthOf } from './focal';
 import type { CameraValues, FieldKey, Lens } from './types';
@@ -13,10 +13,11 @@ export interface FieldSpec extends NumberSpec {
 	unitFirst?: boolean;
 }
 
+/** The T-stop steps by third stops, as a lens ring and a camera mark them: T2.8 to T4 is three presses, not twelve. Any tenth can be typed. */
 export const FIELDS: readonly FieldSpec[] = [
 	{ key: 'focalLength', label: 'field.focalLength', unit: 'unit.mm', min: 1, max: 2000, decimals: 0, step: 1 },
 	{ key: 'focusDistance', label: 'field.focusDistance', unit: 'unit.m', min: 0, max: 999.99, decimals: 2, step: 0.1 },
-	{ key: 'tStop', label: 'field.tStop', unit: 'unit.t', unitFirst: true, min: 0.7, max: 64, decimals: 1, step: 0.1 },
+	{ key: 'tStop', label: 'field.tStop', unit: 'unit.t', unitFirst: true, min: 0.7, max: 64, decimals: 1, step: 0.1, stops: THIRD_STOPS },
 	{ key: 'cameraHeight', label: 'field.cameraHeight', unit: 'unit.m', min: 0, max: 99.99, decimals: 2, step: 0.05 },
 	{ key: 'tilt', label: 'field.tilt', unit: 'unit.deg', min: -90, max: 90, decimals: 1, step: 1 }
 ];

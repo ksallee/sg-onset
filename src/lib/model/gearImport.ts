@@ -10,7 +10,7 @@ import type { Camera, FieldValue, Lens } from './types';
 /**
  * One thing the import could not read. `row` is the 1-based row in the file, 0 for the file as a
  * whole. An error drops the row; a warning drops only the value. Keys: import.noHeader,
- * import.missingModel, import.badValue, import.incompleteSize, import.noFocalLength.
+ * import.missingModel, import.badValue, import.incompleteSize, import.noFocalLength, import.focalConflict.
  */
 export type ImportIssue = { row: number; column?: string; key: string; value?: string; severity: 'error' | 'warning' };
 
@@ -49,7 +49,7 @@ const LENS_COLUMNS: Record<string, string> = {
 	...names('lensSerialNumber', 'serial', 'serialnumber', 'serialno', 'serialnum', 'sn', 'lensserial', 'lensserialnumber', 'lensserialnum', 'lenssn'),
 	...names('focalLength', 'focallength', 'focal', 'fl', 'mm', 'focalrange', 'nominalfocallength'),
 	...names('focalLengthMin', 'focalmin', 'minfocal', 'focallengthmin', 'minfocallength', 'focalstart', 'wide'),
-	...names('focalLengthMax', 'focalmax', 'maxfocal', 'focallengthmax', 'maxfocallength', 'focalend', 'tele'),
+	...names('focalLengthMax', 'focalmax', 'maxfocal', 'focallengthmax', 'maxfocallength', 'focalend', 'tele', 'longend', 'focallengthlongend'),
 	...names('anamorphicSqueeze', 'squeeze', 'anamorphicsqueeze', 'anamorphic', 'squeezefactor')
 };
 
@@ -174,25 +174,42 @@ export function importCameras(text: string, options: ImportOptions): { records: 
 	return { records, report: sheet.report };
 }
 
-/** The focal lengths a row gives, low to high: one for a prime, two for a zoom, none when unread. */
+/** The focal lengths a cell gives, or undefined (and a warning) when it cannot be read. */
+function readFocalCell(sheet: Sheet, row: Row, cell: Cell): number[] | undefined {
+	const m = FOCAL.exec(cell.text);
+	const values = m ? [m[1], m[2]].filter((v) => v !== undefined).map(toNumber) : [];
+	if (values.length > 0 && values.every((v) => v > 0)) return values;
+	sheet.report.issues.push(bad(row, cell));
+	return undefined;
+}
+
+/**
+ * The focal lengths a row gives, low to high: one for a prime, two for a zoom, none when unread.
+ * The focal length column (or the min column without it) and the long end column are read
+ * together. A range in the focal length column wins over a long end that disagrees with it: the
+ * long end is left out, with a warning.
+ */
 function readFocal(sheet: Sheet, row: Row): number[] {
-	const cells = [row.cell('focalLength')].filter((c) => c !== undefined);
-	if (cells.length === 0) cells.push(...[row.cell('focalLengthMin'), row.cell('focalLengthMax')].filter((c) => c !== undefined));
-	const found: number[] = [];
-	for (const cell of cells) {
-		const m = FOCAL.exec(cell.text);
-		const values = m ? [m[1], m[2]].filter((v) => v !== undefined).map(toNumber) : [];
-		if (values.length === 0 || values.some((v) => v <= 0)) sheet.report.issues.push(bad(row, cell));
-		else found.push(...values);
+	const first = row.cell('focalLength') ?? row.cell('focalLengthMin');
+	const longEnd = row.cell('focalLengthMax');
+	if (!first && !longEnd) {
+		sheet.report.issues.push({ row: row.row, key: 'import.noFocalLength', severity: 'warning' });
+		return [];
 	}
-	if (cells.length === 0) sheet.report.issues.push({ row: row.row, key: 'import.noFocalLength', severity: 'warning' });
-	return found.sort((a, b) => a - b);
+	const a = (first && readFocalCell(sheet, row, first)) || [];
+	const b = (longEnd && readFocalCell(sheet, row, longEnd)) || [];
+	if (a.length > 1 && b.length > 0) {
+		if (Math.max(...b) !== Math.max(...a)) sheet.report.issues.push({ row: row.row, column: longEnd!.column, key: 'import.focalConflict', value: longEnd!.text, severity: 'warning' });
+		return a.sort((x, y) => x - y);
+	}
+	return [...a, ...b].sort((x, y) => x - y);
 }
 
 /**
  * Lenses from CSV text. Columns: make, model (required), serial, squeeze, and the focal length
- * either in one column ("32", "24-290mm") or in a min and a max column. One focal length, or a
- * range whose ends are equal, is a prime; a range is a zoom.
+ * in one column ("32", "24-290mm"), in a min and a max column, or in a focal length and a long
+ * end column, as the catalogue names them. One focal length, or a range whose ends are equal, is
+ * a prime; a range is a zoom.
  */
 export function importLenses(text: string, options: ImportOptions): { records: Lens[]; report: ImportReport } {
 	const sheet = readSheet(text, LENS_COLUMNS, 'lensModel');

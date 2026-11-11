@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Camera, Lens } from '$lib/model/types';
-import { cameraLine, countText, focalBadge, focalText, lensLine } from './text';
+import { cameraLine, countText, focalBadge, focalText, lensLine, rowIssueText } from './text';
 
 const lens = (rest: Partial<Lens>): Lens => ({ id: 'l', projectId: 'p', ...rest });
 
@@ -43,5 +43,18 @@ describe('focalBadge', () => {
 		expect(focalBadge(lens({ focalLength: 32 }))).toBe('32');
 		expect(focalBadge(lens({ focalLength: 24, focalLengthMax: 290 }))).toBe('24–290');
 		expect(focalBadge(lens({}))).toBe('–');
+	});
+});
+
+describe('rowIssueText', () => {
+	it('says what went wrong without the row number, which the list shows beside it', () => {
+		expect(rowIssueText({ key: 'import.badValue', row: 4, column: 'Focal', value: 'wide' })).toBe('Focal: “wide” could not be read. The value was left out.');
+		expect(rowIssueText({ key: 'import.missingModel', row: 3 })).toBe('No model. The row was left out.');
+		for (const key of ['missingModel', 'badValue', 'incompleteSize', 'noFocalLength', 'focalConflict']) {
+			expect(rowIssueText({ key: `import.${key}`, row: 7, column: 'Width', value: '36' })).not.toMatch(/Row|\{|\}/);
+		}
+	});
+	it('falls back to the full message for a key with no short form', () => {
+		expect(rowIssueText({ key: 'import.noHeader', row: 0 })).toMatch(/^No header row/);
 	});
 });

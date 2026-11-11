@@ -1,7 +1,9 @@
 <script lang="ts">
 	// The gear of the project as one list: camera setups first (they change all day), then
 	// cameras, then lenses. A search finds across the three. Each section ends with its Add row;
-	// cameras and lenses also with Import.
+	// cameras and lenses also with Import. Out of a search, setups move by the grip on each row:
+	// drag it, or the up and down arrow keys on it. One move is one edit.
+	import { tick } from 'svelte';
 	import { Camera as CameraIcon, FileUp, Plus } from '@lucide/svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import SearchField from '$lib/components/ios/SearchField.svelte';
@@ -25,7 +27,8 @@
 		onselect,
 		onlens,
 		onadd,
-		onimport
+		onimport,
+		onmove
 	}: {
 		cameras: Camera[];
 		lenses: Lens[];
@@ -37,7 +40,72 @@
 		onlens: (setup: CameraSetup) => void;
 		onadd: (scope: GearScope | 'cameraSetup') => void;
 		onimport: (scope: GearScope) => void;
+		/** Move a setup to an index of `setups`. Resolves once it is saved. */
+		onmove: (setup: CameraSetup, to: number) => Promise<void>;
 	} = $props();
+
+	// ---- moving setups: drag the grip, or arrow keys on it
+	const reorderable = $derived(query.trim() === '' && setups.length > 1);
+	let list = $state<HTMLElement | null>(null);
+	let drag = $state<{ id: string; pointer: number; from: number; to: number; y0: number; dy: number; h: number; top: number; mids: number[]; min: number; max: number } | null>(null);
+
+	function grab(setup: CameraSetup, e: PointerEvent) {
+		if (e.button !== 0 || !list) return;
+		e.preventDefault();
+		const rows = [...list.querySelectorAll<HTMLElement>('[data-setup-row]')];
+		const rects = rows.map((r) => r.getBoundingClientRect());
+		const from = setups.findIndex((s) => s.id === setup.id);
+		if (from < 0 || rects.length !== setups.length) return;
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		const own = rects[from];
+		drag = {
+			id: setup.id,
+			pointer: e.pointerId,
+			from,
+			to: from,
+			y0: e.clientY,
+			dy: 0,
+			h: own.height,
+			top: own.top,
+			mids: rects.map((r) => r.top + r.height / 2),
+			min: rects[0].top - own.top,
+			max: rects[rects.length - 1].bottom - own.bottom
+		};
+	}
+	function follow(e: PointerEvent) {
+		const d = drag;
+		if (!d || e.pointerId !== d.pointer) return;
+		const dy = Math.max(d.min, Math.min(d.max, e.clientY - d.y0));
+		// A row above trades places once the dragged top passes its middle; a row below, the dragged bottom.
+		const top = d.top + dy;
+		const to = d.mids.filter((m, i) => (i < d.from ? m < top : i > d.from && m < top + d.h)).length;
+		drag = { ...d, dy, to };
+	}
+	async function drop(e: PointerEvent) {
+		const d = drag;
+		if (!d || e.pointerId !== d.pointer) return;
+		const setup = setups[d.from];
+		if (e.type === 'pointerup' && d.to !== d.from && setup) await onmove(setup, d.to);
+		drag = null;
+	}
+	/** Where a row sits while another is dragged. */
+	function offsetOf(index: number): number {
+		const d = drag;
+		if (!d) return 0;
+		if (index === d.from) return d.dy;
+		if (d.from < d.to && index > d.from && index <= d.to) return -d.h;
+		if (d.to < d.from && index >= d.to && index < d.from) return d.h;
+		return 0;
+	}
+	async function key(setup: CameraSetup, index: number, e: KeyboardEvent) {
+		const to = e.key === 'ArrowUp' ? index - 1 : e.key === 'ArrowDown' ? index + 1 : null;
+		if (to === null) return;
+		e.preventDefault();
+		if (to < 0 || to >= setups.length) return;
+		await onmove(setup, to);
+		await tick();
+		list?.querySelector<HTMLElement>(`[data-setup-handle="${setup.id}"]`)?.focus();
+	}
 
 	const kinds = { prime: t('gear.kind.prime'), zoom: t('gear.kind.zoom') };
 	const shownSetups = $derived(searchSetups(setups, cameras, lenses, query));
@@ -68,9 +136,16 @@
 	<Section><Row title={t('gear.search.none', { query: query.trim() })} class="quiet" /></Section>
 {:else}
 	{#if !searching || shownSetups.length}
+		<!-- The grip button is the control; the drag it starts is followed here, where it bubbles. -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="setups" bind:this={list} onpointermove={follow} onpointerup={drop} onpointercancel={drop}>
 		<Section header={header(t('gear.setups'), shownSetups.length, setups.length)}>
-			{#each shownSetups as setup (setup.id)}
+			{#each shownSetups as setup, i (setup.id)}
 				<SetupRow
+					id={setup.id}
+					handle={reorderable ? { onpointerdown: (e) => grab(setup, e), onkeydown: (e) => key(setup, i, e) } : undefined}
+					offset={offsetOf(i)}
+					dragging={drag?.id === setup.id}
 					label={setup.cameraLabel ?? ''}
 					line={cameraName(setup)}
 					lensName={lensName(setup)}
@@ -89,6 +164,7 @@
 				</Row>
 			{/if}
 		</Section>
+		</div>
 	{/if}
 
 	{#if !searching || shownCameras.length}

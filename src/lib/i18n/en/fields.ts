@@ -47,6 +47,7 @@ export const fields = {
 	'field.cameraSetup.cameraLabel': 'Camera letter',
 	'field.cameraSetup.cameraId': 'Camera',
 	'field.cameraSetup.lensId': 'Lens',
+	'field.cameraSetup.order': 'Order',
 
 	'field.slate.slateUID': 'Slate',
 	'field.slate.sceneNumber': 'Scene',

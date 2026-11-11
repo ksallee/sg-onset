@@ -87,9 +87,9 @@
 		line-height: 22px;
 		letter-spacing: -0.43px;
 		color: var(--label);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		/* A long label (Anamorphic squeeze, on a phone) wraps rather than being cut. */
+		padding: 11px 0;
+		overflow-wrap: break-word;
 	}
 	input {
 		flex: 1;

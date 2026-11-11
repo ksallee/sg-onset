@@ -1,5 +1,6 @@
 // Gear: cameras, lenses, camera setups and CSV import, on the sample project. Every target: on
 // a phone width an entry opens on its own page, with Back to the list.
+import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 import { expect, openApp, test } from './fixtures';
 
@@ -72,14 +73,66 @@ test('makes a camera setup and swaps its lens in two taps', async ({ page }) => 
 	await expect(page.getByRole('button', { name: 'Change the lens of A' })).toHaveText('50 mm');
 });
 
+/** The camera letters of the setups, in list order. */
+async function setupOrder(page: Page): Promise<string[]> {
+	const names = await page.getByRole('button', { name: /^Change the lens of / }).evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? ''));
+	return names.map((n) => n.replace('Change the lens of ', ''));
+}
+
+test('moves camera setups by grip, arrow keys and Move Up; one undo each; kept on reload', async ({ page }) => {
+	await openApp(page, '/gear');
+	await expect.poll(() => setupOrder(page)).toEqual(['A', 'B']);
+
+	// Drag B's grip above A.
+	const grip = page.getByRole('button', { name: 'Move B' });
+	const a = await page.getByRole('button', { name: 'Move A' }).boundingBox();
+	const b = (await grip.boundingBox())!;
+	await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(b.x + b.width / 2, a!.y + 4, { steps: 8 });
+	await page.mouse.up();
+	await expect.poll(() => setupOrder(page)).toEqual(['B', 'A']);
+	await expect(page.getByRole('status').filter({ hasText: 'B moved to place 1' })).toBeVisible();
+	await page.getByRole('status').getByRole('button', { name: 'Undo' }).tap();
+	await expect.poll(() => setupOrder(page)).toEqual(['A', 'B']);
+
+	// The arrow keys on the grip, and focus stays on it.
+	await page.getByRole('button', { name: 'Move A' }).focus();
+	await page.keyboard.press('ArrowDown');
+	await expect.poll(() => setupOrder(page)).toEqual(['B', 'A']);
+	await expect(page.getByRole('button', { name: 'Move A' })).toBeFocused();
+
+	// Move Up on the setup itself.
+	await page.getByRole('button', { name: /^A\b/ }).first().tap();
+	await page.getByRole('button', { name: 'Move Up' }).tap();
+	await expect(page.getByText('Place 1 of 2.', { exact: false })).toBeVisible();
+	await toList(page);
+	await expect.poll(() => setupOrder(page)).toEqual(['A', 'B']);
+
+	await page.getByRole('button', { name: 'Move A' }).focus();
+	await page.keyboard.press('ArrowDown');
+	await expect(page.getByRole('status').filter({ hasText: 'A moved to place 2' })).toBeVisible();
+	await page.reload();
+	await expect.poll(() => setupOrder(page)).toEqual(['B', 'A']);
+});
+
+test('shows the whole Anamorphic squeeze label, whatever the width', async ({ page }) => {
+	await openApp(page, '/gear');
+	await page.getByRole('button', { name: 'Add Lens' }).tap();
+	const sheet = page.getByRole('dialog', { name: 'New Lens' });
+	const label = sheet.getByText('Anamorphic squeeze', { exact: true });
+	const box = await label.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
+	expect(box.scroll).toBeLessThanOrEqual(box.client);
+});
+
 const CSV = ['Make,Model,Serial,Focal,Colour', 'Zeiss,Supreme 25,Z25-1,25,red', ',,X2,50,', 'Zeiss,Supreme 35,Z35-1,wide,', 'Cooke,S4/i 32 mm T2,,32,'].join('\n');
 
 test('imports lenses from CSV: a preview first, one undo for all', async ({ page }) => {
 	await openApp(page, '/gear/import?kind=lens');
-	await page.getByRole('textbox', { name: 'Or paste the text' }).fill(CSV);
+	await page.getByRole('textbox', { name: 'Pasted text' }).fill(CSV);
 
-	await expect(page.getByText('Row 3: no model. The row was left out.')).toBeVisible();
-	await expect(page.getByText('Row 4, Focal: “wide” could not be read. The value was left out.')).toBeVisible();
+	await expect(page.getByText('No model. The row was left out.')).toBeVisible();
+	await expect(page.getByText('Focal: “wide” could not be read. The value was left out.', { exact: true })).toBeVisible();
 	await expect(page.getByText(/^Already in this project · Skipped/)).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Colour' })).toHaveCount(0);
 	await expect(page.getByText('Not read: Colour')).toBeVisible();
@@ -98,8 +151,26 @@ test('imports lenses from CSV: a preview first, one undo for all', async ({ page
 	await expect(page.getByRole('button', { name: /^Cooke S4\/i 32 mm T2/ })).toHaveCount(1);
 });
 
-test('offers a sample CSV that imports cleanly', async ({ page }) => {
-	await openApp(page, '/gear/import?kind=camera');
-	const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download a Sample CSV' }).tap()]);
-	expect(download.suggestedFilename()).toBe('sg-onset-cameras-sample.csv');
-});
+for (const [kind, file, count] of [
+	['camera', 'sg-onset-cameras-sample.csv', 'Import 2 Cameras'],
+	['lens', 'sg-onset-lenses-sample.csv', 'Import 4 Lenses']
+] as const) {
+	test(`offers a ${kind} sample CSV that the paste box shows and that imports cleanly`, async ({ page }) => {
+		await openApp(page, `/gear/import?kind=${kind}`);
+		const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download a Sample CSV' }).tap()]);
+		expect(download.suggestedFilename()).toBe(file);
+		const sample = readFileSync((await download.path())!, 'utf8');
+
+		// The paste box shows the sample's header and its first rows.
+		const box = page.getByRole('textbox', { name: 'Pasted text' });
+		const placeholder = (await box.getAttribute('placeholder')) ?? '';
+		expect(placeholder.split('\n')[0]).toBe(sample.split('\n')[0]);
+		expect(sample.startsWith(placeholder)).toBe(true);
+
+		// Pasted as it is, every row is ready.
+		await box.fill(sample);
+		await expect(page.getByRole('button', { name: count })).toBeEnabled();
+		await expect(page.getByText('With a value left out')).toHaveCount(0);
+		await expect(page.getByText('Not read:', { exact: false })).toHaveCount(0);
+	});
+}

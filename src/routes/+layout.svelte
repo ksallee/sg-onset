@@ -1,6 +1,5 @@
 <script lang="ts">
 	import '../app.css';
-	import favicon from '$lib/assets/favicon.svg';
 	import { onMount } from 'svelte';
 	import { beforeNavigate, onNavigate } from '$app/navigation';
 	import { updated } from '$app/state';
@@ -43,7 +42,6 @@
 	onMount(() => settings.start());
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
 <!-- A touchstart listener anywhere lets iOS Safari apply :active press states. -->
 <svelte:window ontouchstart={() => {}} />
 {#if app}{@render children()}{/if}

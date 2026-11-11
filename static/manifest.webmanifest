@@ -1,19 +1,70 @@
 {
 	"id": "/",
-	"name": "sg-onset",
-	"short_name": "sg-onset",
-	"description": "On-set VFX data capture for Flow Production Tracking.",
+	"name": "SG OnSet",
+	"short_name": "SG OnSet",
+	"description": "On-set VFX data capture: slates, takes, cameras and lenses, logged on an iPad and kept offline.",
 	"lang": "en",
 	"start_url": "/",
 	"scope": "/",
 	"display": "standalone",
 	"orientation": "any",
-	"background_color": "#000000",
-	"theme_color": "#000000",
-	"categories": ["productivity", "photo"],
+	"background_color": "#0a0a0b",
+	"theme_color": "#0a0a0b",
+	"categories": [
+		"productivity",
+		"photo",
+		"utilities"
+	],
 	"icons": [
-		{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-		{ "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-		{ "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+		{
+			"src": "/icons/icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/icons/icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/icons/icon-maskable-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		},
+		{
+			"src": "/icons/icon-monochrome-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "monochrome"
+		}
+	],
+	"shortcuts": [
+		{
+			"name": "Shoot",
+			"description": "Log takes on the slate you are shooting.",
+			"url": "/shoot",
+			"icons": [
+				{
+					"src": "/icons/icon-192.png",
+					"sizes": "192x192",
+					"type": "image/png"
+				}
+			]
+		},
+		{
+			"name": "Slates",
+			"description": "Every slate of the project.",
+			"url": "/slates",
+			"icons": [
+				{
+					"src": "/icons/icon-192.png",
+					"sizes": "192x192",
+					"type": "image/png"
+				}
+			]
+		}
 	]
 }

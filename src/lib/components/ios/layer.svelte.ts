@@ -48,6 +48,30 @@ class Stack {
 }
 export const overlays = new Stack();
 
+/**
+ * A panel that is not a Sheet takes its place on the stack: `use:layer={onclose}`. Escape closes
+ * it only while it is the top one, and goes no further.
+ */
+export function layer(node: HTMLElement, onclose: () => void) {
+	const id = overlays.open();
+	let close = onclose;
+	const key = (e: KeyboardEvent) => {
+		if (e.key !== 'Escape' || e.defaultPrevented || !overlays.top(id)) return;
+		e.preventDefault();
+		close();
+	};
+	window.addEventListener('keydown', key);
+	return {
+		update(next: () => void) {
+			close = next;
+		},
+		destroy() {
+			window.removeEventListener('keydown', key);
+			overlays.close(id);
+		}
+	};
+}
+
 // ---------------------------------------------------------------- sheet pages
 
 export interface SheetContext {
@@ -89,4 +113,12 @@ export function holdFocus(el: HTMLElement): () => void {
 
 // ---------------------------------------------------------------- motion
 
-export const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/**
+ * Whether motion is reduced: `data-motion` on <html> (the Motion setting, resolved; app.html sets
+ * it before the first paint), else what the device asks.
+ */
+export function reducedMotion(): boolean {
+	const set = typeof document === 'undefined' ? undefined : document.documentElement.dataset.motion;
+	if (set === 'reduced' || set === 'full') return set === 'reduced';
+	return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}

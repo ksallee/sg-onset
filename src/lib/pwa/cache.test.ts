@@ -40,6 +40,10 @@ describe('precacheable', () => {
 		expect(precacheable('/sounds/manifest.json')).toBe(true);
 		expect(precacheable('/music/manifest.json')).toBe(true);
 	});
+	it('leaves launch images out: iPadOS fetches them itself', () => {
+		expect(precacheable('/splash/ipad-11-landscape-dark.png')).toBe(false);
+		expect(precacheable('/icons/icon-192.png')).toBe(true);
+	});
 	it('leaves audio to the media cache, fetched when first played', () => {
 		expect(precacheable('/sounds/el/bowl-1.mp3')).toBe(false);
 		expect(precacheable('/music/suno/peak-drums-132.mp3')).toBe(false);

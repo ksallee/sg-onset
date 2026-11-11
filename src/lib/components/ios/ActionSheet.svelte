@@ -2,14 +2,19 @@
 	// An action sheet, in place of confirm(): a title and message, the actions, Cancel apart below.
 	// An action with role 'cancel' becomes the Cancel button; without one, Cancel is added. Closes on
 	// any action, the scrim or Escape. Focus moves in and stays (keys.ts trapStep).
+	// Motion (docs/design/motion.md): a tap brings it up on the page spring, as transitions, so a
+	// tap mid-way turns it around from where it is. It leaves sooner than it came and takes no
+	// touch while it does. Reduced motion: it fades.
 	import { onDestroy } from 'svelte';
 	import { getScreen, holdFocus, overlays, portal, reducedMotion, trapTab } from './layer.svelte';
+	import { t } from '$lib/i18n/messages';
+	import { DURATIONS } from '$lib/theme/motion';
 
 	type Action = { label: string; role?: 'destructive' | 'cancel'; run: () => void };
 	let { open = $bindable(false), title, message, actions }: { open?: boolean; title?: string; message?: string; actions: Action[] } = $props();
 
 	const screen = getScreen();
-	const cancel = $derived(actions.find((a) => a.role === 'cancel') ?? { label: 'Cancel', role: 'cancel' as const, run: () => {} });
+	const cancel = $derived(actions.find((a) => a.role === 'cancel') ?? { label: t('common.cancel'), role: 'cancel' as const, run: () => {} });
 	const main = $derived(actions.filter((a) => a.role !== 'cancel'));
 
 	let phase = $state<'closed' | 'entering' | 'open' | 'leaving'>('closed');
@@ -17,12 +22,15 @@
 	let id = 0;
 	let release: (() => void) | null = null;
 	let timer: ReturnType<typeof setTimeout> | undefined;
-	const reduced = reducedMotion();
+	let reduced = $state(false);
 
 	$effect(() => {
 		if (open && (phase === 'closed' || phase === 'leaving')) {
 			clearTimeout(timer);
-			if (phase === 'closed') id = overlays.open();
+			if (phase === 'closed') {
+				id = overlays.open();
+				reduced = reducedMotion();
+			}
 			phase = 'entering';
 			requestAnimationFrame(() =>
 				requestAnimationFrame(() => {
@@ -40,7 +48,7 @@
 					release?.();
 					release = null;
 				},
-				reduced ? 150 : 300
+				reduced ? DURATIONS.fade : DURATIONS.exit
 			);
 		}
 	});
@@ -65,9 +73,9 @@
 <svelte:window onkeydown={key} />
 
 {#if phase !== 'closed'}
-	<div class="ios-action-layer" class:shown={phase === 'open'} class:reduced {@attach portal(() => screen?.el)}>
-		<button class="scrim" aria-label="Cancel" tabindex="-1" onclick={() => pick(cancel)}></button>
-		<div class="sheet" role="dialog" aria-modal="true" aria-label={title ?? 'Actions'} tabindex="-1" bind:this={el}>
+	<div class="ios-action-layer" class:shown={phase === 'open'} class:leaving={phase === 'leaving'} class:reduced {@attach portal(() => screen?.el)}>
+		<button class="scrim" aria-label={t('common.cancel')} tabindex="-1" onclick={() => pick(cancel)}></button>
+		<div class="sheet" role="dialog" aria-modal="true" aria-label={title ?? t('kit.actions')} tabindex="-1" bind:this={el}>
 			<div class="group">
 				{#if title || message}
 					<div class="info">
@@ -90,40 +98,48 @@
 	.ios-action-layer {
 		position: fixed;
 		z-index: 50;
-		inset: 0 max(0px, calc(50% - 215px));
+		inset: 0;
 	}
 	.scrim {
 		position: absolute;
 		inset: 0;
 		background: var(--scrim);
 		opacity: 0;
-		transition: opacity var(--dur-sheet-out) var(--ease-ios);
+		transition: opacity var(--dur-exit) var(--ease-out);
 		border: 0;
+	}
+	/* On its way out it takes no touch: what is under it answers at once. */
+	.leaving {
+		pointer-events: none;
 	}
 	.sheet {
 		position: absolute;
-		left: 8px;
-		right: 8px;
+		/* A 414 px column at most; the scrim dims everything. */
+		left: max(8px, calc(50% - 207px));
+		right: max(8px, calc(50% - 207px));
 		bottom: calc(8px + var(--safe-bottom));
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
 		transform: translateY(calc(100% + 20px));
-		transition: transform var(--dur-sheet-out) var(--ease-ios);
+		transition: transform var(--dur-exit) var(--ease-out);
 		outline: none;
 	}
 	.shown .scrim {
 		opacity: 1;
-		transition-duration: var(--dur-sheet-in);
+		transition: opacity var(--dur-page) var(--ease-out);
 	}
 	.shown .sheet {
 		transform: none;
-		transition-duration: var(--dur-sheet-in);
+		transition: transform var(--dur-page) var(--spring-page);
+	}
+	.reduced .scrim,
+	.reduced .sheet {
+		transition: opacity var(--dur-fade) linear !important;
 	}
 	.reduced .sheet {
 		transform: none;
 		opacity: 0;
-		transition: opacity 150ms;
 	}
 	.reduced.shown .sheet {
 		opacity: 1;
@@ -177,7 +193,7 @@
 		background: var(--cell-elevated);
 	}
 	.act:focus-visible {
-		outline: 2px solid var(--tint);
+		outline: 2px solid var(--focus);
 		outline-offset: -2px;
 	}
 </style>

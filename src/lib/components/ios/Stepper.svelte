@@ -94,7 +94,7 @@
 		outline: none;
 	}
 	.ios-stepper:focus-visible {
-		box-shadow: 0 0 0 2px var(--tint);
+		box-shadow: 0 0 0 2px var(--focus);
 	}
 	button {
 		position: relative;

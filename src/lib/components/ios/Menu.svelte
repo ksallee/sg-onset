@@ -4,6 +4,9 @@
 	// props to spread on your button: {#snippet trigger(props)}<button {...props}>…</button>{/snippet}.
 	// Positioned `absolute` against the Screen it portals into: `fixed` lands outside the desktop
 	// phone frame, whose transformed body floating-ui does not see as the containing block.
+	// Motion (docs/design/motion.md): it grows out of its trigger (the transform origin is where
+	// the trigger is) from 0.9, never from nothing, and leaves sooner than it came. Its rows are
+	// there with it: no stagger. Reduced motion: it fades.
 	import type { Component, Snippet } from 'svelte';
 	import { DropdownMenu } from 'bits-ui';
 	import { getScreen } from './layer.svelte';
@@ -42,16 +45,17 @@
 		max-width: min(300px, calc(100vw - 16px));
 		border-radius: 13px;
 		overflow: hidden;
-		background: var(--mat-bar);
+		background: var(--mat-sheet);
 		-webkit-backdrop-filter: blur(40px) saturate(180%);
 		backdrop-filter: blur(40px) saturate(180%);
-		box-shadow: 0 10px 40px rgb(0 0 0 / 0.35), 0 0 0 var(--hairline) var(--separator);
+		box-shadow: var(--shadow-2);
 		transform-origin: var(--bits-dropdown-menu-content-transform-origin);
-		animation: ios-menu-in 250ms var(--ease-ios);
+		animation: ios-menu-in var(--dur-snappy) var(--spring-snappy);
 		outline: none;
 	}
 	:global(.ios-menu[data-state='closed']) {
-		animation: ios-menu-out 150ms ease forwards;
+		animation: ios-menu-out var(--dur-fade) var(--ease-out) forwards;
+		pointer-events: none;
 	}
 	:global(.ios-menu-item) {
 		display: flex;
@@ -86,24 +90,26 @@
 	}
 	:global(.ios-menu-gap) {
 		height: 8px;
-		background: rgb(0 0 0 / 0.16);
+		background: var(--fill-3);
 	}
 	@keyframes -global-ios-menu-in {
 		from {
 			opacity: 0;
-			transform: scale(0.6);
+			transform: scale(0.9);
 		}
 	}
 	@keyframes -global-ios-menu-out {
 		to {
 			opacity: 0;
-			transform: scale(0.9);
+			transform: scale(0.96);
 		}
 	}
-	@media (prefers-reduced-motion: reduce) {
-		:global(.ios-menu) {
-			animation: ios-menu-fade 150ms ease;
-		}
+	/* Reduced motion (the setting, not the media query): a fade, both ways. */
+	:global(html[data-motion='reduced'] .ios-menu) {
+		animation: ios-menu-fade var(--dur-fade) linear !important;
+	}
+	:global(html[data-motion='reduced'] .ios-menu[data-state='closed']) {
+		animation: ios-menu-fade var(--dur-fade) linear reverse forwards !important;
 	}
 	@keyframes -global-ios-menu-fade {
 		from {

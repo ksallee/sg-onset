@@ -7,8 +7,9 @@ no network and syncs to the studio's Flow PT site when a connection returns. Bui
 
 ## Status
 
-Scaffold. One placeholder screen, the iOS kit and the installable shell. No data layer, no Flow PT
-yet.
+The app shell. Five destinations (Shoot, Slates, Gear, Templates, Settings) on real data kept on
+the device: a first run, slates by shoot day, settings, backup. The take screen is Shoot.
+Nothing is sent to Flow PT yet. `docs/areas.md` says who builds what next.
 
 ## Run it
 
@@ -24,6 +25,15 @@ Open the URL Vite prints. The rest:
 
 The service worker caches nothing under `pnpm dev`. Try offline and Add to Home Screen on
 `pnpm build && pnpm preview`.
+
+## Sign in
+
+Settings, then Sign In. You type your Flow PT site and approve sg-onset on it. This app never sees your password.
+Capture works signed in or not; only sync needs a session.
+
+The app's server forwards the two sign-in calls to Autodesk-hosted sites only
+(`*.shotgrid.autodesk.com`, `*.shotgunstudio.com`). A self-hosted deploy allows its own site with
+`FPT_EXTRA_HOSTS`. See `.env.example`.
 
 ## License
 

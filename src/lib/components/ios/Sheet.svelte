@@ -7,9 +7,20 @@
 	// A sheet opened over another scales the one under it back. Portals into the Screen.
 	// `--sheet-below` on the panel: how far its foot sits below the screen (a smaller detent), so
 	// something pinned to the foot (SheetPlayer) can stay in sight.
-	import { onDestroy, type Snippet } from 'svelte';
+	//
+	// Motion (docs/design/motion.md). One spring moves the sheet (motion.ts springDriver): it comes
+	// up, snaps and leaves from where it is at the speed it has, so a finger can catch it on its
+	// way and the release carries on at the finger's speed. Under the finger it follows 1:1;
+	// past its largest detent, and under its smallest when it cannot be dismissed, it resists
+	// (ios/gesture.ts rubberband). The scrim's dim goes with the sheet's way down. The spring writes
+	// the transform straight to the panel: no state, no layout. A leaving sheet takes no touch,
+	// so what is under it answers at once. Reduced motion: it fades, in place.
+	import { onDestroy, untrack, type Snippet } from 'svelte';
 	import { detentOffset, snapDetent, type Detent } from '$lib/ios/detent';
+	import { dimProgress, releaseVelocity, rubberband, type Sample } from '$lib/ios/gesture';
 	import { getScreen, holdFocus, overlays, portal, reducedMotion, setSheet, trapTab } from './layer.svelte';
+	import { springDriver } from './motion';
+	import { t } from '$lib/i18n/messages';
 
 	let {
 		open = $bindable(false),
@@ -45,7 +56,7 @@
 			return panel;
 		},
 		get backLabel() {
-			return title ?? 'Back';
+			return title ?? t('common.back');
 		},
 		pages: []
 	});
@@ -57,83 +68,146 @@
 
 	/** The height the large detent would have; the panel is `share(largest)` of it. */
 	let fullH = $state(800);
-	/** px the panel sits below its largest detent (drag moves it; at rest the detent's). */
-	let drag = $state<number | null>(null);
-	let phase = $state<'closed' | 'entering' | 'open' | 'leaving'>('closed');
+	/** How far down the panel must go to be out of sight, px. */
+	let hiddenY = 900;
+	let phase = $state<'closed' | 'open' | 'leaving'>('closed');
 	let id = 0;
 	/** Overlays open under this one when it came up: a stacked sheet sits lower, so the one under peeks out. */
 	let depth = $state(0);
-	const reduced = reducedMotion();
+	/** Reduced motion, as it was when the sheet came up: it fades (`shown`) and nothing slides. */
+	let reduced = $state(false);
+	let shown = $state(false);
+	let scrim = $state<HTMLElement | null>(null);
 
-	const restOffset = $derived(detentOffset(current, fullH) - detentOffset(largest, fullH));
-	const offset = $derived(drag ?? restOffset);
-	const hidden = $derived(phase === 'entering' || phase === 'leaving' || phase === 'closed');
+	const offsetOf = (d: Detent) => detentOffset(d, fullH) - detentOffset(largest, fullH);
+	const restOffset = $derived(offsetOf(current));
+	/** The lowest detent's offset: the scrim is whole down to it. */
+	const lowest = $derived(Math.max(...detents.map(offsetOf), 0));
 	const under = $derived(id && phase === 'open' ? overlays.above(id) > 0 : false);
+
+	/** A finger has the sheet. */
+	let dragging = false;
+	/** The finger's speed when it let go and the sheet was dismissed, px per second. */
+	let fling: number | undefined;
+
+	// px the panel sits below its largest detent. The one thing that moves it.
+	const sheet = springDriver(
+		'sheet',
+		(y) => {
+			if (!panel) return;
+			panel.style.transform = `translate3d(0, ${y}px, 0)`;
+			if (scrim && !reduced) scrim.style.opacity = String(dimProgress(y, lowest, hiddenY));
+		},
+		() => {
+			if (phase === 'leaving') finish();
+		}
+	);
 
 	function measure() {
 		if (!panel) return;
 		fullH = panel.offsetHeight / share(largest);
+		// Its top at the largest detent, whatever it is doing now, down to under the window's foot.
+		hiddenY = window.innerHeight - (panel.getBoundingClientRect().top - sheet.x) + 40;
+	}
+	function resized() {
+		measure();
+		if (phase === 'open' && !dragging && !sheet.moving) sheet.jump(restOffset);
 	}
 
 	let release: (() => void) | null = null;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	$effect(() => {
 		if (open && (phase === 'closed' || phase === 'leaving')) present();
-		else if (!open && (phase === 'open' || phase === 'entering')) dismissNow();
+		else if (!open && phase === 'open') dismissNow();
+	});
+	// A new detent (a tap on the grabber, the wheel, the owner): the sheet goes there.
+	$effect(() => {
+		const to = restOffset;
+		untrack(() => {
+			if (phase === 'open' && panel && !dragging) sheet.to(to);
+		});
 	});
 
 	function present() {
 		clearTimeout(timer);
+		const back = phase === 'leaving';
 		if (phase === 'closed') {
 			id = overlays.open();
 			depth = overlays.ids.length - 1;
+			reduced = reducedMotion();
 		}
 		if (!detent || !detents.includes(detent)) detent = detents[0] ?? 'large';
-		phase = 'entering';
-		requestAnimationFrame(() => {
+		phase = 'open';
+		// It was on its way out: it turns around from where it is.
+		if (back && panel) {
+			shown = true;
+			if (!reduced) sheet.to(restOffset);
+		}
+	}
+	/** The panel is in the page: it starts out of sight and comes up (or, reduced, fades in). */
+	function arrived(node: HTMLElement) {
+		untrack(() => {
+			panel = node;
+			sheet.jump(0);
 			measure();
-			requestAnimationFrame(() => {
-				if (phase !== 'entering') return;
-				phase = 'open';
-				if (panel && !release) release = holdFocus(panel);
-			});
+			if (reduced) {
+				sheet.jump(restOffset);
+				requestAnimationFrame(() => (shown = phase === 'open'));
+			} else {
+				sheet.jump(hiddenY);
+				sheet.to(restOffset);
+			}
+			if (!release) release = holdFocus(node);
 		});
+		return () => {
+			sheet.stop();
+			if (panel === node) panel = null;
+		};
 	}
 	function dismissNow() {
 		phase = 'leaving';
-		drag = null;
+		dragging = false;
+		start = null;
 		clearTimeout(timer);
-		timer = setTimeout(
-			() => {
-				phase = 'closed';
-				overlays.close(id);
-				id = 0;
-				release?.();
-				release = null;
-				onclose?.();
-			},
-			reduced ? 150 : 300
-		);
+		if (reduced || !panel) {
+			shown = false;
+			timer = setTimeout(finish, reduced ? 150 : 0);
+		} else {
+			sheet.to(hiddenY, fling);
+		}
+		fling = undefined;
+	}
+	function finish() {
+		if (phase !== 'leaving') return;
+		phase = 'closed';
+		sheet.stop();
+		overlays.close(id);
+		id = 0;
+		release?.();
+		release = null;
+		onclose?.();
 	}
 	function close() {
 		open = false;
 	}
 	onDestroy(() => {
 		clearTimeout(timer);
+		sheet.stop();
 		if (id) overlays.close(id);
 	});
 
 	// ---- drag
 	let start: { y: number; off: number; from: 'grab' | 'content' } | null = null;
 	let mode: 'undecided' | 'drag' | 'scroll' = 'undecided';
-	let samples: { y: number; t: number }[] = [];
+	let samples: Sample[] = [];
 
 	function begin(y: number, t: number, from: 'grab' | 'content') {
 		if (phase !== 'open') return;
 		measure();
-		start = { y, off: offset, from };
+		// From where it is drawn: a sheet caught on its way starts under the finger.
+		start = { y, off: sheet.x, from };
 		mode = 'undecided';
-		samples = [{ y, t }];
+		samples = [{ p: y, t }];
 	}
 	/** True when this move drags the sheet (the caller then stops the page scrolling). */
 	function step(y: number, t: number, target: EventTarget | null): boolean {
@@ -147,11 +221,14 @@
 			else mode = dy > 0 && (!scroll || scroll.scrollTop <= 0) ? 'drag' : 'scroll';
 		}
 		if (mode !== 'drag') return false;
-		samples = [...samples.filter((s) => t - s.t < 80), { y, t }];
+		dragging = true;
+		samples.push({ p: y, t });
+		if (samples.length > 12) samples.shift();
 		let next = start.off + dy;
-		// Above the largest detent it resists.
-		if (next < 0) next = -Math.sqrt(-next) * 2;
-		drag = next;
+		// Past its largest detent it resists; so does a sheet that cannot be dismissed, under its smallest.
+		if (next < 0) next = rubberband(next, fullH);
+		else if (!dismissible && next > lowest) next = lowest + rubberband(next - lowest, fullH);
+		sheet.jump(next);
 		return true;
 	}
 	function end(y: number, t: number) {
@@ -159,17 +236,21 @@
 		const was = mode;
 		start = null;
 		mode = 'undecided';
-		if (was !== 'drag' || drag === null) return void (drag = null);
-		const first = samples[0];
-		const v = first && t > first.t ? (y - first.y) / (t - first.t) : 0;
+		if (was !== 'drag' || !dragging) return;
+		dragging = false;
+		samples.push({ p: y, t });
+		const v = releaseVelocity(samples, t);
 		const base = detentOffset(largest, fullH);
-		const to = snapDetent(Math.max(0, drag) + base, v, detents, fullH, dismissible);
+		const to = snapDetent(Math.max(0, sheet.x) + base, v / 1000, detents, fullH, dismissible);
 		if (to === null) {
+			fling = v;
 			close();
 			return;
 		}
+		// On from the finger's speed, to the detent.
 		detent = to;
-		drag = null;
+		if (reduced) sheet.jump(offsetOf(to));
+		else sheet.to(offsetOf(to), v);
 	}
 
 	// Mouse and pen: from the grabber and header only (the wheel scrolls the content).
@@ -233,40 +314,31 @@
 		if (e.key === 'Tab') trapTab(e, panel);
 	}
 
-	const transform = $derived.by(() => {
-		if (reduced) return under ? 'scale(0.94)' : 'none';
-		if (hidden) return 'translateY(calc(100% + 40px))';
-		const y = `translateY(${offset}px)`;
-		return under ? `${y} scale(0.94)` : y;
-	});
-	const duration = $derived(drag !== null ? '0ms' : phase === 'leaving' ? 'var(--dur-sheet-out)' : phase === 'open' && !start ? 'var(--dur-snap)' : 'var(--dur-sheet-in)');
 </script>
 
-<svelte:window onkeydown={key} onresize={measure} />
+<svelte:window onkeydown={key} onresize={resized} />
 
 {#if phase !== 'closed'}
-	<div class="ios-sheet-layer" class:under {@attach portal(() => screen?.el)}>
-		<button class="scrim" class:shown={!hidden} aria-label="Close" tabindex="-1" onclick={() => dismissible && close()}></button>
+	<div class="ios-sheet-layer" class:under class:leaving={phase === 'leaving'} {@attach portal(() => screen?.el)}>
+		<button class="scrim" class:reduced class:shown aria-label={t('common.close')} tabindex="-1" onclick={() => dismissible && close()} bind:this={scrim}></button>
 		<div
 			class="panel"
 			class:reduced
-			class:shown={!hidden}
+			class:shown
 			class:large={share(largest) >= 1}
 			role="dialog"
 			aria-modal="true"
 			aria-label={title}
 			tabindex="-1"
 			inert={under}
-			bind:this={panel}
 			style:height="calc((100% - var(--safe-top) - {10 + depth * 12}px) * {share(largest)})"
-			style:transform
-			style:transition-duration={duration}
-			style:--sheet-below="{Math.max(0, offset)}px"
+			style:--sheet-below="{Math.max(0, restOffset)}px"
+			{@attach arrived}
 			{@attach touchListeners}
 		>
 			<div class="top" data-sheet-grab onpointerdown={pdown} onpointermove={pmove} onpointerup={pup} onpointercancel={pup} role="presentation">
 				{#if detents.length > 1}
-					<button type="button" class="grabber" aria-label="Resize sheet" onclick={cycle}><span></span></button>
+					<button type="button" class="grabber" aria-label={t('kit.sheet.resize')} onclick={cycle}><span></span></button>
 				{:else if dismissible}
 					<span class="grabber" aria-hidden="true"><span></span></span>
 				{/if}
@@ -292,55 +364,89 @@
 	.ios-sheet-layer {
 		position: fixed;
 		z-index: 40;
-		top: 0;
-		bottom: 0;
-		left: max(0px, calc(50% - 215px));
-		right: max(0px, calc(50% - 215px));
+		inset: 0;
 		pointer-events: none;
 		--group-bg: var(--cell-elevated);
 	}
+	/* The dim goes with the sheet: the spring writes its opacity (script). */
 	.scrim {
 		position: absolute;
 		inset: 0;
 		background: var(--scrim);
 		opacity: 0;
-		transition: opacity var(--dur-sheet-out) var(--ease-ios);
 		pointer-events: auto;
 		border: 0;
 	}
-	.scrim.shown {
-		opacity: 1;
-		transition-duration: var(--dur-sheet-in);
-	}
 	.under .scrim {
-		opacity: 0;
+		opacity: 0 !important;
 	}
+	/* A sheet on its way out takes no touch: what is under it answers at once. */
+	.leaving .scrim,
+	.leaving .panel {
+		pointer-events: none;
+	}
+	/* The panel keeps to a column: 430 px on a phone screen, wider where the frame says so
+	   (`--sheet-half`, NavShell). The scrim dims everything. */
 	.panel {
 		position: absolute;
-		left: 0;
-		right: 0;
+		left: max(0px, calc(50% - var(--sheet-half, 215px)));
+		right: max(0px, calc(50% - var(--sheet-half, 215px)));
 		bottom: 0;
 		display: flex;
 		flex-direction: column;
-		background: var(--bg-elevated);
+		background: var(--mat-sheet);
+		-webkit-backdrop-filter: var(--mat-blur);
+		backdrop-filter: var(--mat-blur);
 		border-radius: 32px 32px 0 0;
-		box-shadow: 0 -1px 0 rgb(255 255 255 / 0.04), 0 -10px 40px rgb(0 0 0 / 0.25);
+		/* The last shadow is more of the sheet under its foot: pulled up past its top, no gap shows. */
+		box-shadow: var(--shadow-3), 0 240px 0 var(--mat-sheet-solid);
 		pointer-events: auto;
 		overflow: hidden;
 		transform-origin: 50% 0;
-		transition-property: transform, opacity, filter;
-		transition-timing-function: var(--ease-ios);
+		/* Out of sight until the spring places it (script). */
+		transform: translate3d(0, 110vh, 0);
+		transition: scale var(--dur-smooth) var(--spring-smooth);
 		will-change: transform;
 		outline: none;
 	}
+	/* Under another sheet: back a little, and darker (a veil, so only its opacity changes). */
 	.under .panel {
-		filter: brightness(0.7);
+		scale: 0.94;
 	}
-	.panel.reduced {
+	.panel::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 10;
+		background: #000;
 		opacity: 0;
-		transition-duration: 150ms !important;
+		pointer-events: none;
+		transition: opacity var(--dur-smooth) var(--spring-smooth);
 	}
-	.panel.reduced.shown {
+	.under .panel::after {
+		opacity: 0.3;
+	}
+	/* With an iPad's room a full sheet is a form sheet: a card in the middle, clear of the edges.
+	   A sheet with smaller detents stays on the foot. `--sheet-lift` is how far it sits above the
+	   foot, so it still leaves all the way down. */
+	@media (min-width: 700px) and (min-height: 640px) {
+		.panel.large {
+			--sheet-h: min(720px, calc(100dvh - 96px));
+			--sheet-lift: calc((100dvh - var(--sheet-h)) / 2);
+			height: var(--sheet-h) !important;
+			bottom: var(--sheet-lift);
+			border-radius: 32px;
+			box-shadow: var(--shadow-3);
+		}
+	}
+	/* Reduced motion: the sheet and its dim fade, in place. */
+	.panel.reduced,
+	.scrim.reduced {
+		opacity: 0;
+		transition: opacity var(--dur-fade) linear !important;
+	}
+	.panel.reduced.shown,
+	.scrim.reduced.shown {
 		opacity: 1;
 	}
 	.top {

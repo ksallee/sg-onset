@@ -1,20 +1,15 @@
 <script lang="ts">
-	// Placeholder: one kit Screen and NavBar, to prove the kit and the PWA shell.
-	import Screen from '$lib/components/ios/Screen.svelte';
-	import NavBar from '$lib/components/ios/NavBar.svelte';
-	import Section from '$lib/components/ios/Section.svelte';
-	import Row from '$lib/components/ios/Row.svelte';
-	import { readStandalone } from '$lib/pwa/platform';
+	// The way in: to the first run when the device holds no project, else to Shoot. A returning
+	// person never sees the first run (lib/settings/firstRun.ts).
+	import { goto } from '$app/navigation';
+	import { liveList } from '$lib/app/live.svelte';
+	import { t } from '$lib/i18n/messages';
+	import { entryRoute } from '$lib/settings/firstRun';
 
-	const installed = readStandalone();
+	const projects = liveList('project');
+	$effect(() => {
+		if (projects.ready) void goto(entryRoute(projects.value.length), { replaceState: true });
+	});
 </script>
 
-<svelte:head><title>sg-onset</title></svelte:head>
-
-<Screen>
-	<NavBar title="sg-onset" large />
-	<Section header="Status" footer="On-set VFX data capture for Flow Production Tracking.">
-		<Row title="Build" detail="Scaffold" />
-		<Row title="Home Screen" detail={installed ? 'Installed' : 'In the browser'} />
-	</Section>
-</Screen>
+<svelte:head><title>{t('app.name')}</title></svelte:head>

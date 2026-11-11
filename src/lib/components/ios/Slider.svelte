@@ -1,5 +1,5 @@
 <script lang="ts">
-	// The iOS slider: a 4 px track filled in tint up to a white 28 px thumb, a 44 px target; icons
+	// The iOS slider: a 4 px track filled in tint up to a 28 px thumb (--thumb), a 44 px target; icons
 	// or words at either end (`leading`, `trailing`). A native range input: keys and assistive tech
 	// come with it. `onchange` follows the drag.
 	import type { Snippet } from 'svelte';
@@ -53,12 +53,12 @@
 	input::-webkit-slider-runnable-track {
 		height: 4px;
 		border-radius: 2px;
-		background: linear-gradient(to right, var(--tint) var(--p), var(--fill) var(--p));
+		background: linear-gradient(to right, var(--tint-solid) var(--p), var(--fill) var(--p));
 	}
 	input::-moz-range-track {
 		height: 4px;
 		border-radius: 2px;
-		background: linear-gradient(to right, var(--tint) var(--p), var(--fill) var(--p));
+		background: linear-gradient(to right, var(--tint-solid) var(--p), var(--fill) var(--p));
 	}
 	input::-webkit-slider-thumb {
 		-webkit-appearance: none;
@@ -66,8 +66,8 @@
 		height: 28px;
 		margin-top: -12px;
 		border-radius: 50%;
-		background: #fff;
-		box-shadow: 0 0.5px 4px rgb(0 0 0 / 0.12), 0 6px 13px rgb(0 0 0 / 0.12);
+		background: var(--thumb);
+		box-shadow: var(--shadow-1);
 		transition: transform var(--dur-press);
 	}
 	input::-moz-range-thumb {
@@ -75,8 +75,8 @@
 		height: 28px;
 		border: 0;
 		border-radius: 50%;
-		background: #fff;
-		box-shadow: 0 0.5px 4px rgb(0 0 0 / 0.12), 0 6px 13px rgb(0 0 0 / 0.12);
+		background: var(--thumb);
+		box-shadow: var(--shadow-1);
 	}
 	input:active::-webkit-slider-thumb {
 		transform: scale(1.08);
@@ -86,6 +86,6 @@
 		outline: none;
 	}
 	input:focus-visible::-webkit-slider-thumb {
-		box-shadow: 0 0 0 3px var(--tint);
+		box-shadow: 0 0 0 3px var(--focus);
 	}
 </style>

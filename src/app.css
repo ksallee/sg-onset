@@ -1,90 +1,35 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn-svelte/tailwind.css";
+@import './lib/theme/tokens.css';
+@import './lib/theme/motion.css';
 
 /* The iOS kit's theme, from holosession's app.css (#57 there): tokens, type ramp, base, the
    push and pop motion. Its purpose and level colours and the desktop phone frame are left out. */
 
-/* <html data-theme> is the appearance (Settings: System, Light, Dark; set before the first paint
-   by app.html, then lib/ios/appearance.svelte.ts). `.ios-dark` forces dark on a subtree,
-   `.ios-light` light. */
+/* The theme is attributes on <html>: `data-theme="light|dark"` and `data-night="true"`
+   (Settings: Appearance, Red night mode; set before the first paint by app.html, then
+   lib/app/settings.svelte.ts). The tokens are lib/theme/tokens.css, generated from palette.ts
+   (docs/design/colour.md); with no attribute, the system's. `data-theme` on any element forces
+   that theme on its subtree. `dark:` matches dark and red night. */
 @custom-variant dark {
-	&:where([data-theme='dark'], [data-theme='dark'] *):not(:where(.ios-light, .ios-light *)) {
+	&:where([data-theme='dark'], [data-theme='dark'] *, [data-night='true'], [data-night='true'] *):not(:where([data-theme='light']:not([data-night='true']), [data-theme='light']:not([data-night='true']) *)) {
 		@slot;
 	}
-	&:where(.ios-dark, .ios-dark *) {
-		@slot;
+	@media (prefers-color-scheme: dark) {
+		&:where(:root:not([data-theme]), :root:not([data-theme]) *) {
+			@slot;
+		}
 	}
 }
 
-/* ------------------------------------------------------------------ iOS tokens (#57, plan §2)
-   Dark is the default and designed first; light on data-theme="light". Values: Apple's system
-   colours as Konsta UI and the HIG give them. */
-
+/* Everything derived from the tokens: declared wherever a theme is, so a forced subtree derives
+   its own. */
 :root,
-.ios-dark {
-	color-scheme: dark;
-	--bg: #000;
-	--bg-elevated: #1c1c1e;
-	--cell: #1c1c1e;
-	--cell-elevated: #2c2c2e;
-	--label: #fff;
-	--label-2: rgb(235 235 245 / 0.6);
-	--label-3: rgb(235 235 245 / 0.3);
-	--separator: rgb(84 84 88 / 0.65);
-	--fill: rgb(120 120 128 / 0.36);
-	--fill-2: rgb(120 120 128 / 0.32);
-	--fill-3: rgb(120 120 128 / 0.24);
-	--press: rgb(255 255 255 / 0.08);
-	--tint: #63c7b5;
-	--on-tint: #00201b;
-	--destructive: #ff453a;
-	--mat-bar: rgb(22 22 24 / 0.92);
-	--thumb: #fff;
-	--segment-thumb: #636366;
-	--scrim: rgb(0 0 0 / 0.4);
-}
-
-/* Light: the appearance (data-theme, see the top), or `.ios-light`. */
-@media all {
-	:root[data-theme='light']:not(.ios-dark),
-	.ios-light {
-		color-scheme: light;
-		--bg: #f2f2f7;
-		--bg-elevated: #f2f2f7;
-		--cell: #fff;
-		--cell-elevated: #fff;
-		--label: #000;
-		--label-2: rgb(60 60 67 / 0.6);
-		--label-3: rgb(60 60 67 / 0.3);
-		--separator: rgb(60 60 67 / 0.29);
-		--fill: rgb(120 120 128 / 0.2);
-		--fill-2: rgb(120 120 128 / 0.16);
-		--fill-3: rgb(120 120 128 / 0.12);
-		--press: rgb(0 0 0 / 0.06);
-		--tint: #2e8c7e;
-		--on-tint: #fff;
-		--destructive: #ff3b30;
-		--mat-bar: rgb(249 249 249 / 0.92);
-		--segment-thumb: #fff;
-	}
-}
-
-/* Everything derived from the tokens: declared wherever they are, so a forced-dark subtree
-   (`.ios-dark`) gets dark aliases too. */
-:root,
-.ios-dark,
-.ios-light {
+[data-theme],
+[data-night] {
 	--mat-blur: blur(20px) saturate(180%);
 	--hairline: 0.5px;
-	--ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
-	--dur-press: 200ms;
-	--dur-push: 400ms;
-	--dur-sheet-in: 450ms;
-	--dur-sheet-out: 300ms;
-	--dur-snap: 350ms;
-	--dur-control: 250ms;
-	--dur-reveal: 200ms;
 
 	/* shadcn-svelte's names, onto the iOS tokens. */
 	--radius: 0.625rem;
@@ -104,7 +49,11 @@
 	--accent-foreground: var(--label);
 	--border: var(--separator);
 	--input: var(--fill);
-	--ring: var(--tint);
+	--ring: var(--focus);
+	--sidebar-foreground: var(--label);
+	--sidebar-border: var(--separator);
+	--sidebar-accent: var(--fill-3);
+	--sidebar-ring: var(--focus);
 }
 
 @theme {
@@ -174,6 +123,24 @@
 	--color-fill-2: var(--fill-2);
 	--color-fill-3: var(--fill-3);
 	--color-tint: var(--tint);
+	--color-sidebar: var(--sidebar);
+	--color-label-4: var(--label-4);
+	--color-fill-4: var(--fill-4);
+	--color-separator-opaque: var(--separator-opaque);
+	--color-tint-solid: var(--tint-solid);
+	--color-on-tint: var(--on-tint);
+	--color-on-tint-solid: var(--on-tint-solid);
+	--color-tint-fill: var(--tint-fill);
+	--color-selection: var(--selection);
+	--color-focus: var(--focus);
+	--color-record: var(--record);
+	--color-rolling: var(--rolling);
+	--color-good: var(--good);
+	--color-no-good: var(--no-good);
+	--color-warning: var(--warning);
+	--color-unsynced: var(--unsynced);
+	--color-synced: var(--synced);
+	--color-conflict: var(--conflict);
 
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
@@ -224,6 +191,13 @@
 	[role='radio'] {
 		user-select: none;
 	}
+	/* The browser draws the date picker's icon itself, white on a dark scheme: in red night mode
+	   it is the label's red, through a mask. */
+	[data-night='true'] ::-webkit-calendar-picker-indicator {
+		background: var(--label);
+		-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E") center / contain no-repeat;
+		mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E") center / contain no-repeat;
+	}
 	/* iOS zooms into inputs under 16 px. */
 	input,
 	textarea,
@@ -244,115 +218,25 @@
 		text-transform: uppercase;
 		color: var(--label-2);
 	}
+	/* A Row that does something rather than opens or picks (`class="tint"`): tinted, as in iOS
+	   lists. A Row that only says something (`class="quiet"`): secondary. */
+	.ios-row.tint .title {
+		color: var(--tint);
+	}
+	.ios-row.quiet .title {
+		color: var(--label-2);
+	}
 	/* Classic iOS 17 bar material: near-opaque, a subtle blur. No Liquid Glass (Kevin). */
 	.material-bar {
 		background: var(--mat-bar);
 		-webkit-backdrop-filter: var(--mat-blur);
 		backdrop-filter: var(--mat-blur);
 	}
-}
-
-/* ------------------------------------------------------------------ push, pop, cover
-   +layout.svelte sets html[data-nav] and runs a View Transition (ios/direction.ts picks it).
-   The moving snapshot is "screen": the page on a phone, the phone frame on a desktop. */
-
-:root {
-	view-transition-name: screen;
-}
-
-::view-transition-old(screen),
-::view-transition-new(screen) {
-	animation-duration: var(--dur-push);
-	animation-timing-function: var(--ease-ios);
-	animation-fill-mode: both;
-	mix-blend-mode: normal;
-}
-html[data-nav='push']::view-transition-new(screen) {
-	animation-name: nav-in-right;
-}
-html[data-nav='push']::view-transition-old(screen) {
-	animation-name: nav-out-left;
-}
-html[data-nav='pop']::view-transition-old(screen) {
-	animation-name: nav-out-right;
-	z-index: 1;
-}
-html[data-nav='pop']::view-transition-new(screen) {
-	animation-name: nav-in-left;
-}
-html[data-nav='cover']::view-transition-new(screen) {
-	animation-name: nav-cover-in;
-	animation-duration: var(--dur-sheet-in);
-}
-html[data-nav='cover']::view-transition-old(screen) {
-	animation-name: nav-hold;
-	animation-duration: var(--dur-sheet-in);
-}
-html[data-nav='uncover']::view-transition-old(screen) {
-	animation-name: nav-cover-out;
-	animation-duration: var(--dur-sheet-out);
-	z-index: 1;
-}
-html[data-nav='uncover']::view-transition-new(screen) {
-	animation-name: nav-hold;
-	animation-duration: var(--dur-sheet-out);
-}
-
-@keyframes nav-in-right {
-	from {
-		transform: translateX(100%);
-	}
-}
-@keyframes nav-out-left {
-	to {
-		transform: translateX(-30%);
-		filter: brightness(0.7);
-	}
-}
-@keyframes nav-out-right {
-	to {
-		transform: translateX(100%);
-	}
-}
-@keyframes nav-in-left {
-	from {
-		transform: translateX(-30%);
-		filter: brightness(0.7);
-	}
-}
-@keyframes nav-cover-in {
-	from {
-		transform: translateY(100%);
-	}
-}
-@keyframes nav-cover-out {
-	to {
-		transform: translateY(100%);
-	}
-}
-@keyframes nav-hold {
-	from,
-	to {
-		transform: none;
-	}
-}
-@keyframes nav-fade-in {
-	from {
-		opacity: 0;
-	}
-}
-@keyframes nav-fade-out {
-	to {
-		opacity: 0;
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	html[data-nav]::view-transition-new(screen) {
-		animation: nav-fade-in 150ms ease both;
-	}
-	html[data-nav]::view-transition-old(screen) {
-		animation: nav-fade-out 150ms ease both;
+	/* A sheet or menu: thicker than a bar. Reduce Transparency makes both solid (tokens.css). */
+	.material-sheet {
+		background: var(--mat-sheet);
+		-webkit-backdrop-filter: var(--mat-blur);
+		backdrop-filter: var(--mat-blur);
 	}
 }
 

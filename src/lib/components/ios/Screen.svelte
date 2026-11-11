@@ -1,8 +1,8 @@
 <script lang="ts">
 	// A screen: the page on a phone, a centred 430 px column on a desktop. One scroll container
 	// (NavBar reads its scroll), safe areas left, right and below, and an accessory slot under the
-	// scroll (the mini player, a toolbar). Sheets and action sheets portal into it, so a `class`
-	// like `ios-dark` reaches them too.
+	// scroll (the mini player, a toolbar). Sheets and action sheets portal into it, so a theme forced
+	// on it reaches them too.
 	import type { Snippet } from 'svelte';
 	import { setScreen } from './layer.svelte';
 

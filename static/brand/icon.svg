@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+	<title>SG OnSet</title>
+	<!-- The one source. scripts/icons.mjs writes every icon, launch image and lockup from it. -->
+	<defs>
+		<linearGradient id="field" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" stop-color="#232427" />
+			<stop offset="1" stop-color="#0a0a0b" />
+		</linearGradient>
+	</defs>
+	<style>
+		.gold { fill: #eab53b; }
+		.deep { fill: #59481c; }
+	</style>
+	<rect width="1024" height="1024" fill="url(#field)" />
+	<g id="mark">
+		<rect class="deep" x="240" y="240" width="544" height="544" rx="60" />
+		<path class="gold" d="M300 240H512V512H240V300A60 60 0 0 1 300 240Z" />
+		<path class="gold" d="M512 512H784V724A60 60 0 0 1 724 784H512Z" />
+	</g>
+</svg>

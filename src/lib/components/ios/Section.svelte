@@ -8,12 +8,13 @@
 		header,
 		footer,
 		inset = true,
+		id,
 		children,
 		class: cls = ''
-	}: { header?: string | Snippet; footer?: string | Snippet; inset?: boolean; children: Snippet; class?: string } = $props();
+	}: { header?: string | Snippet; footer?: string | Snippet; inset?: boolean; id?: string; children: Snippet; class?: string } = $props();
 </script>
 
-<section class="ios-section {cls}" class:inset>
+<section class="ios-section {cls}" class:inset {id}>
 	{#if header}
 		<h2 class="head section-header">{#if typeof header === 'string'}{header}{:else}{@render header()}{/if}</h2>
 	{/if}
@@ -31,7 +32,7 @@
 		margin-bottom: 32px;
 	}
 	.head {
-		padding: 0 32px 6px;
+		padding: 0 calc(var(--page-margin, 16px) + 16px) 6px;
 		font-weight: 400;
 	}
 	.ios-section:not(.inset) .head {
@@ -40,16 +41,18 @@
 	.group {
 		background: var(--group-bg, var(--cell));
 		overflow: hidden;
+		/* Increase Contrast outlines the group (--cell-ring, 0 otherwise). An outline: the rows paint over an inset shadow. */
+		outline: var(--cell-ring) solid var(--separator-opaque);
 	}
 	.inset .group {
-		margin: 0 16px;
+		margin: 0 var(--page-margin, 16px);
 		border-radius: 24px;
 	}
 	.ios-section:not(.inset) .group {
 		box-shadow: 0 calc(-1 * var(--hairline)) 0 var(--separator), 0 var(--hairline) 0 var(--separator);
 	}
 	.foot {
-		padding: 6px 32px 0;
+		padding: 6px calc(var(--page-margin, 16px) + 16px) 0;
 		font-size: 13px;
 		line-height: 18px;
 		letter-spacing: -0.08px;

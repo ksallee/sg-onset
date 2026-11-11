@@ -34,7 +34,7 @@ beside them; read the test for the exact behaviour.
   - `live(tables, (store) => promise, initial)` for anything else. It runs again after a commit
     to one of `tables`, and when a rune it read before its first `await` changes.
   - `liveUnsynced()`, `liveQueue()` for the outbox.
-- Ids are `app.newId()`. Times are `app.now()`. The model takes both as arguments.
+- Ids are `app.newId()`. Times are `app.now()`, to the second: FPT keeps no more (`sync/clock.ts`). The model takes both as arguments.
 
 ### Edits and undo
 
@@ -104,6 +104,8 @@ Never call `store.apply`, `store.create` or `store.remove` from a feature.
 part an area needs and the kit lacks starts in that area's components directory. Moving it into
 the kit is a shared change.
 
-## Not built
+## Sync
 
-The Flow PT transport. The outbox fills and nothing drains it. The sync status says so.
+`src/lib/app/sync/` (its README): the shell links the current project to an FPT project, runs the
+setup check and drains the outbox while signed in, linked and set up. A feature does nothing for
+sync: every write through `app.edit` is queued and sent.

@@ -1,25 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Entry } from '$lib/outbox/types';
-import { attentionRows, syncSummary } from './sync';
-
-describe('syncSummary', () => {
-	it('says nothing waits', () => {
-		expect(syncSummary({ entries: 0, attention: 0 }, 'signed-in')).toEqual({ state: 'synced', count: 0, key: 'sync.synced', shortKey: 'sync.short.synced' });
-		expect(syncSummary({ entries: 0, attention: 0 }, 'signed-out').state).toBe('empty');
-		expect(syncSummary(undefined, 'signed-out').state).toBe('empty');
-	});
-	it('counts what waits to be sent when signed in', () => {
-		expect(syncSummary({ entries: 12, attention: 0 }, 'signed-in')).toMatchObject({ state: 'pending', count: 12 });
-	});
-	it('says the changes are on this device only when nobody is signed in, or the session expired', () => {
-		expect(syncSummary({ entries: 12, attention: 0 }, 'signed-out')).toMatchObject({ state: 'local', count: 12 });
-		expect(syncSummary({ entries: 3, attention: 0 }, 'expired')).toMatchObject({ state: 'local', count: 3 });
-	});
-	it('puts what needs a look first, and counts that', () => {
-		expect(syncSummary({ entries: 12, attention: 2 }, 'signed-in')).toMatchObject({ state: 'attention', count: 2, key: 'sync.attention' });
-		expect(syncSummary({ entries: 12, attention: 2 }, 'signed-out').state).toBe('attention');
-	});
-});
+import { attentionRows } from './sync';
 
 describe('attentionRows', () => {
 	const entry = (id: string, seq: number, extra: Partial<Entry>): Entry => ({

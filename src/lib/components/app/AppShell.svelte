@@ -7,14 +7,14 @@
 	import { page } from '$app/state';
 	import NavShell from '$lib/components/ios/NavShell.svelte';
 	import Notice from '$lib/components/ios/Notice.svelte';
-	import { auth } from '$lib/auth/session.svelte';
 	import { useApp } from '$lib/app/app.svelte';
 	import { liveUnsynced } from '$lib/app/live.svelte';
 	import { NAV, activeNav, type NavId } from '$lib/app/nav';
 	import { settings } from '$lib/app/settings.svelte';
 	import { provideShell } from '$lib/app/shell.svelte';
 	import { sidebarStrip, sidebarToggle } from '$lib/app/sidebar';
-	import { syncSummary } from '$lib/app/sync';
+	import { useCurrent } from '$lib/app/current.svelte';
+	import { provideSync } from '$lib/app/sync/controller.svelte';
 	import { t, tk } from '$lib/i18n/messages';
 	import ContextSheet from './ContextSheet.svelte';
 	import SyncSheet from './SyncSheet.svelte';
@@ -33,7 +33,12 @@
 
 	const app = useApp();
 	const unsynced = liveUnsynced();
-	const summary = $derived(syncSummary(unsynced.value, auth.status));
+	const current = useCurrent();
+	// Sync runs from here: linked, set up and signed in, for the current project (app/sync).
+	const sync = provideSync(
+		() => current.project?.id,
+		() => unsynced.value
+	);
 	const active = $derived(activeNav(page.url.pathname));
 	const strip = $derived(sidebarStrip(settings.value, !!active?.focus));
 
@@ -82,7 +87,7 @@
 	toggleLabel={strip ? t('nav.expand') : t('nav.collapse')}
 >
 	{#snippet status(placement)}
-		<SyncStatus {summary} {placement} onclick={() => (syncOpen = true)} />
+		<SyncStatus summary={sync.status} {placement} onclick={() => (syncOpen = true)} />
 	{/snippet}
 	{@render children()}
 	{#if notice}

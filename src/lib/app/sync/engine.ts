@@ -14,8 +14,8 @@ import { parseResolution } from '$lib/fpt/schema';
 import { browserEnv, runInForeground, type Foreground, type Page } from '$lib/outbox/foreground';
 import { createRunner, type DrainReport, type Progress, type Runner, type StopReason } from '$lib/outbox/runner';
 import { unsynced, type Unsynced } from '$lib/outbox/select';
-import { TransportError, type TransportErrorKind } from '$lib/outbox/transport';
 import type { DexieStore } from '$lib/store/dexieStore';
+import { syncError, type SyncError } from './errors';
 import { linkOn, linkProblem, type ProjectLink } from './link';
 import { linkStore, type LinkStore } from './links';
 import { PROJECT_FILTER, projectChoices, type ProjectChoice } from './projects';
@@ -35,9 +35,6 @@ export interface SyncDeps {
 	kv: KeyValue;
 	page: Page;
 }
-
-/** Why a call to FPT did not answer, or what it refused. */
-export type SyncError = { kind: TransportErrorKind | 'refused'; message?: string };
 
 export interface SyncState {
 	projectId?: string;
@@ -80,11 +77,6 @@ export interface SyncEngine {
 }
 
 const lastKey = (projectId: string) => `last:${projectId}`;
-
-function errorOf(error: unknown): SyncError {
-	if (error instanceof TransportError) return { kind: error.kind, message: error.message };
-	return { kind: 'refused', message: error instanceof Error ? error.message : String(error) };
-}
 
 export function createSyncEngine(deps: SyncDeps): SyncEngine {
 	const links: LinkStore = linkStore(deps.kv);
@@ -190,7 +182,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 						return report;
 					},
 					(error) => {
-						set({ error: errorOf(error), phase: 'stopped' });
+						set({ error: syncError(error), phase: 'stopped' });
 						throw error;
 					}
 				),
@@ -271,7 +263,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 				align();
 				return report;
 			} catch (error) {
-				set({ error: errorOf(error) });
+				set({ error: syncError(error) });
 				return undefined;
 			} finally {
 				set({ checking: false, creatingFields: false });

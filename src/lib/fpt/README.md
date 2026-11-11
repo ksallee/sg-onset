@@ -1,8 +1,8 @@
 # fpt
 
 Flow Production Tracking: the mapping of our records to a site's entities and fields, and the
-outbox's `Transport` over the REST API. The browser calls `/api/v1` itself with a bearer. Nothing
-here is wired into the app yet.
+outbox's `Transport` over the REST API. The browser calls `/api/v1` itself with a bearer. The app
+wires it in `src/lib/app/sync/` (its README).
 
 Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments name the entries.
 
@@ -54,7 +54,7 @@ if (report.ready) {
 | `lens` | custom, "Lens" or "Lenses" | display name |
 | `cameraSetup` | custom, "Camera Setup" | display name |
 | `lightingSetup` | custom, "Lighting Setup" | display name |
-| `still` | Attachment, in `sg_stills` on the take | file name |
+| `still` | Attachment, in `sg_photos` on the take | file name |
 | `project` | Project | given: `projectId` |
 
 Custom entities are matched trimmed and whatever the case, among `CustomEntityNN` types only.
@@ -99,7 +99,8 @@ type SetupReport = {
 
 Derived from `$lib/model/catalogue`. The display name is the key in words, the `sg_` name follows
 from it by the server's rule, the data type follows from the value type. A new catalogue field is
-mapped with no line. `OVERRIDES` in `mapping.ts` holds the exceptions, one line each.
+mapped with no line. `OVERRIDES` in `mapping.ts` holds the exceptions, one line each. Display
+names follow `docs/vocabulary.md` (its FPT column): Dutch Angle, Start Time, Circled, Photos.
 `mapping.test.ts` fails if a catalogue field or a link key has no mapping.
 
 | value type | FPT type | on the wire |
@@ -117,7 +118,7 @@ mapped with no line. `OVERRIDES` in `mapping.ts` holds the exceptions, one line 
 | ref | entity | `{type, id}` |
 
 Every entity also gets `sg_onset_uuid` (text, unique): the record id on the device. The take gets
-`sg_stills` (multi-entity to Attachment). `created_at` of a take is its `startedAt`.
+`sg_photos` (multi-entity to Attachment). `created_at` of a take is its `startedAt`.
 
 **shootDay**
 
@@ -126,7 +127,7 @@ Every entity also gets `sg_onset_uuid` (text, unique): the record id on the devi
 | `projectId` | `project` | entity | |
 | `shootDate` | `sg_shoot_date`, `code` | date | |
 | `shootDay` | `sg_day_number` | number | |
-| `cameraUnit` | `sg_camera_unit` | text | |
+| `cameraUnit` | `sg_unit` | text | |
 | `location` | `sg_location` | text | |
 | `wrangler` | `sg_wrangler` | text | |
 
@@ -138,7 +139,7 @@ Every entity also gets `sg_onset_uuid` (text, unique): the record id on the devi
 | `label` | `code` | text | |
 | `hdri` | `sg_hdri` | checkbox | |
 | `hdriFilename` | `sg_hdri_filename` | text | |
-| `referenceBalls` | `sg_reference_balls` | checkbox | |
+| `referenceBalls` | `sg_grey_and_chrome_balls` | checkbox | |
 | `colourChart` | `sg_colour_chart` | checkbox | |
 | `notes` | `sg_set_notes` | text | |
 
@@ -178,9 +179,9 @@ Every entity also gets `sg_onset_uuid` (text, unique): the record id on the devi
 | `slateId` | `sg_slate` | entity | |
 | `templateId` | `sg_onset_template` | text | |
 | `take` | `code` | text | |
-| `startedAt` | `sg_started_at` | date_time | |
-| `endedAt` | `sg_ended_at` | date_time | |
-| `circleTake` | `sg_circle_take` | checkbox | |
+| `startedAt` | `sg_start_time` | date_time | |
+| `endedAt` | `sg_end_time` | date_time | |
+| `circleTake` | `sg_circled` | checkbox | |
 | `noGood` | `sg_no_good` | checkbox | |
 | `notes` | `sg_set_notes` | text | |
 | `cameraSetupId` | `sg_camera_setup` | entity | |
@@ -191,17 +192,17 @@ Every entity also gets `sg_onset_uuid` (text, unique): the record id on the devi
 | `focusDistance`, `focusDistanceEnd` | `sg_focus_distance_m`, `sg_focus_distance_end_m` | float | m |
 | `lensHeight`, `lensHeightEnd` | `sg_lens_height_m`, `sg_lens_height_end_m` | float | m |
 | `tilt`, `tiltEnd` | `sg_tilt`, `sg_tilt_end` | float | deg |
-| `roll`, `rollEnd` | `sg_roll`, `sg_roll_end` | float | deg |
-| `distanceToSubject`, `distanceToSubjectEnd` | `sg_distance_to_subject_m`, `sg_distance_to_subject_end_m` | float | m |
-| `captureFrameRate` | `sg_capture_frame_rate` | text | num/denom, Hz |
+| `roll`, `rollEnd` | `sg_dutch_angle`, `sg_dutch_angle_end` | float | deg |
+| `distanceToSubject`, `distanceToSubjectEnd` | `sg_subject_distance_m`, `sg_subject_distance_end_m` | float | m |
+| `captureFrameRate` | `sg_frame_rate` | text | num/denom, Hz |
 | `shutterAngle` | `sg_shutter_angle` | float | deg |
 | `isoSpeed` | `sg_iso` | number | |
 | `whiteBalance` | `sg_white_balance` | number | K |
 | `filter` | `sg_filter` | text | |
 | `cameraRoll` | `sg_camera_roll` | text | |
 | `clipName` | `sg_clip_name` | text | |
-| `timecodeStart` | `sg_timecode_start` | text | |
-| `timecodeEnd` | `sg_timecode_end` | text | |
+| `timecodeStart` | `sg_timecode_in` | text | |
+| `timecodeEnd` | `sg_timecode_out` | text | |
 
 **camera**
 
@@ -223,15 +224,15 @@ Every entity also gets `sg_onset_uuid` (text, unique): the record id on the devi
 | `lensModel` | `code` | text | |
 | `lensSerialNumber` | `sg_lens_serial_number` | text | |
 | `focalLength` | `sg_focal_length` | float | mm |
-| `focalLengthMax` | `sg_focal_length_max` | float | mm |
+| `focalLengthMax` | `sg_focal_length_long_end` | float | mm |
 | `anamorphicSqueeze` | `sg_anamorphic_squeeze` | text | num/denom |
 
 **still** (an Attachment)
 
 | key | field | note |
 |---|---|---|
-| `takeId` | the take's `sg_stills` | set by the upload |
-| `capturedAt` | `display_name` | `Still 2026-11-11T09:01:02.000Z` |
+| `takeId` | the take's `sg_photos` | set by the upload |
+| `capturedAt` | `display_name` | `Photo 2026-11-11T09:01:02.000Z` |
 | `caption` | `description` | |
 | the still id and the blob id | `filename` | `onset_<still>_<blob>.jpg`. Read-only after upload |
 
@@ -251,7 +252,7 @@ These are the names asked for. The name on a site can differ: see decision 3.
 
 ## How an upload goes
 
-1. `beginUpload`: `GET .../<take>/<id>/sg_stills/_upload?filename=`. Above 8 MiB,
+1. `beginUpload`: `GET .../<take>/<id>/sg_photos/_upload?filename=`. Above 8 MiB,
    `multipart_upload=true` and 8 MiB parts. The session expires 840 s later.
 2. `uploadPart`: `PUT` to storage. No Authorization. A 403 is `expired`. A multipart part's URL is
    minted when its bytes are ready.
@@ -260,7 +261,7 @@ These are the names asked for. The name on a site can differ: see decision 3.
 4. `finishUpload`: the completion, with the ETags for multipart. Then, best effort: find the row by
    file name, put back any photo the field lost, write the caption.
 5. `verifyUpload`: find the row by file name, fetch the stored file, compare the size, make sure
-   the take's `sg_stills` holds it. A row with no bytes is deleted. Only ids are returned.
+   the take's `sg_photos` holds it. A row with no bytes is deleted. Only ids are returned.
 
 ## Decisions
 
@@ -308,13 +309,12 @@ Made by Claude. Kevin can overrule any of them.
 
 ## Where FPT did not fit the contract
 
-1. **A checkbox has no null.** An unticked box reads as a missing value. The model's `sameValue`
-   says `false` and missing differ. So a field stored as `false` on the device, then ticked,
-   shows a conflict. The app must clear a boolean (`undefined`), not store `false`. Or
-   `sameValue` treats `false` as missing.
+1. **A checkbox has no null.** An unticked box reads as a missing value. Settled in the model:
+   `sameValue` treats `false` as missing (model README, decision 37).
 2. **The server rounds.** A date_time keeps seconds, a float six decimals, a text loses outer
    spaces. A local value with more than that reads back different, and the next edit of that
-   field shows a conflict. Stamp times to the second on the device.
+   field shows a conflict. Settled for times: `app.now()` stamps to the second and `sameValue`
+   compares two timestamps by moment (model README, decision 38).
 3. **A batch refusal names no request.** See "How a push goes".
 4. **No kind for "the site is not set up".** It is `failed`. Gate the runner on `ready`.
 5. **A failed `fetch` does not say whether the request left.** Offline is `unreachable`. Online, a

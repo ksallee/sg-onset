@@ -36,13 +36,13 @@ describe('still file name', () => {
 
 describe('still display name', () => {
 	it('shows the capture time and gives it back', () => {
-		expect(stillDisplayName('2026-11-11T10:22:33.456Z')).toBe('Still 2026-11-11T10:22:33.456Z');
-		expect(capturedAtOf('Still 2026-11-11T10:22:33.456Z')).toBe('2026-11-11T10:22:33.456Z');
+		expect(stillDisplayName('2026-11-11T10:22:33.456Z')).toBe('Photo 2026-11-11T10:22:33.456Z');
+		expect(capturedAtOf('Photo 2026-11-11T10:22:33.456Z')).toBe('2026-11-11T10:22:33.456Z');
 	});
 
 	it('has a plain name with no capture time', () => {
-		expect(stillDisplayName(undefined)).toBe('Still');
-		expect(capturedAtOf('Still')).toBeUndefined();
+		expect(stillDisplayName(undefined)).toBe('Photo');
+		expect(capturedAtOf('Photo')).toBeUndefined();
 		expect(capturedAtOf('holiday.jpg')).toBeUndefined();
 		expect(capturedAtOf(null)).toBeUndefined();
 	});

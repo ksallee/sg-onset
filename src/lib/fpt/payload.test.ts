@@ -48,15 +48,15 @@ describe('createData', () => {
 			sg_camera: { type: 'Camera', id: 31 },
 			sg_lens: { type: 'CustomEntity19', id: 41 },
 			code: '3',
-			sg_started_at: '2026-11-11T10:22:33Z',
-			sg_ended_at: '2026-11-11T10:23:40Z',
-			sg_circle_take: true,
+			sg_start_time: '2026-11-11T10:22:33Z',
+			sg_end_time: '2026-11-11T10:23:40Z',
+			sg_circled: true,
 			sg_focal_length: '50.0',
 			sg_focal_length_end: '85.0',
 			sg_t_stop: '2.8',
 			sg_focus_distance_m: '1000000000.0',
 			sg_lens_height_m: '1.8288',
-			sg_capture_frame_rate: '24000/1001',
+			sg_frame_rate: '24000/1001',
 			sg_iso: 800,
 			sg_onset_template: 'tpl1'
 		});
@@ -74,7 +74,7 @@ describe('createData', () => {
 			code: '2026-11-11',
 			sg_shoot_date: '2026-11-11',
 			sg_day_number: 12,
-			sg_camera_unit: 'Main'
+			sg_unit: 'Main'
 		});
 		expect(
 			ok(
@@ -177,7 +177,7 @@ describe('updateData', () => {
 	const edit = (value: unknown, base: unknown = undefined) => ({ base, value });
 
 	it('sends only the fields that changed', () => {
-		expect(ok(updateData(RESOLUTION, 'take', { tStop: edit(4, 2.8), circleTake: edit(true) }, {}, PROJECT))).toEqual({ sg_t_stop: '4.0', sg_circle_take: true });
+		expect(ok(updateData(RESOLUTION, 'take', { tStop: edit(4, 2.8), circleTake: edit(true) }, {}, PROJECT))).toEqual({ sg_t_stop: '4.0', sg_circled: true });
 	});
 
 	// corpus findings/field_types: null clears text, float, number, date_time and entity; a checkbox takes false.
@@ -192,7 +192,7 @@ describe('updateData', () => {
 					PROJECT
 				)
 			)
-		).toEqual({ sg_t_stop: null, sg_set_notes: null, sg_circle_take: false, sg_lens: null });
+		).toEqual({ sg_t_stop: null, sg_set_notes: null, sg_circled: false, sg_lens: null });
 		expect(ok(updateData(RESOLUTION, 'camera', { activeSensorResolution: edit(undefined) }, {}, PROJECT))).toEqual({
 			sg_sensor_resolution_width: null,
 			sg_sensor_resolution_height: null
@@ -213,7 +213,7 @@ describe('updateData', () => {
 
 	// findings/070: created_at is editable on create only.
 	it('never sends created_at', () => {
-		expect(ok(updateData(RESOLUTION, 'take', { startedAt: edit('2026-11-11T10:00:00Z') }, {}, PROJECT))).toEqual({ sg_started_at: '2026-11-11T10:00:00Z' });
+		expect(ok(updateData(RESOLUTION, 'take', { startedAt: edit('2026-11-11T10:00:00Z') }, {}, PROJECT))).toEqual({ sg_start_time: '2026-11-11T10:00:00Z' });
 	});
 
 	it('refuses an unknown key', () => {
@@ -223,7 +223,7 @@ describe('updateData', () => {
 
 describe('readFields', () => {
 	it('asks for the FPT fields behind our keys', () => {
-		expect(readFields(RESOLUTION, 'take', ['tStop', 'focusDistance', 'circleTake'])).toEqual(['sg_t_stop', 'sg_focus_distance_m', 'sg_circle_take']);
+		expect(readFields(RESOLUTION, 'take', ['tStop', 'focusDistance', 'circleTake'])).toEqual(['sg_t_stop', 'sg_focus_distance_m', 'sg_circled']);
 		expect(readFields(RESOLUTION, 'camera', ['activeSensorResolution'])).toEqual(['sg_sensor_resolution_width', 'sg_sensor_resolution_height']);
 		expect(readFields(STEPPED_ASIDE, 'lens', ['focalLength'])).toEqual(['sg_onset_focal_length']);
 	});
@@ -246,7 +246,7 @@ describe('fromRow', () => {
 		id: 900,
 		attributes: {
 			sg_t_stop: '2.8',
-			sg_circle_take: false,
+			sg_circled: false,
 			sg_focus_distance_m: '1000000000.0',
 			sg_iso: null,
 			code: '3',

@@ -57,9 +57,9 @@ describe('checkSetup', () => {
 			]
 		});
 		expect(fpt.fields.CustomEntity09.sg_onset_uuid.unique?.value).toBe(true);
-		expect(fpt.fields.CustomEntity09.sg_stills.properties?.valid_types?.value).toEqual(['Attachment']);
+		expect(fpt.fields.CustomEntity09.sg_photos.properties?.valid_types?.value).toEqual(['Attachment']);
 		expect(fpt.fields.CustomEntity09.sg_slate.properties?.valid_types?.value).toEqual(['Slate']);
-		expect(fpt.fields.CustomEntity09.sg_circle_take.data_type.value).toBe('checkbox');
+		expect(fpt.fields.CustomEntity09.sg_circled.data_type.value).toBe('checkbox');
 	});
 
 	it('finds them present the next time', async () => {

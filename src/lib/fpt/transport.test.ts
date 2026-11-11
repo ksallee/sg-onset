@@ -124,7 +124,7 @@ describe('push', () => {
 			sg_camera_setup: { type: 'CustomEntity10', id: cs1 },
 			// The take keeps its capture time (corpus findings/070_authored_timestamps.md).
 			created_at: '2026-11-11T09:00:00Z',
-			sg_started_at: '2026-11-11T09:00:00Z',
+			sg_start_time: '2026-11-11T09:00:00Z',
 			sg_lens_height_m: 1.8288
 		});
 	});
@@ -144,9 +144,9 @@ describe('push', () => {
 		const w = world();
 		const ids = await shoot(w);
 		await applied(w, [update('take', 't1', ids.t1, { tStop: [2.8, 4], circleTake: [undefined, true], notes: [undefined, 'good'] })]);
-		expect(w.fpt.byUuid('CustomEntity09', 't1')!.values).toMatchObject({ sg_t_stop: 4, sg_circle_take: true, sg_set_notes: 'good' });
+		expect(w.fpt.byUuid('CustomEntity09', 't1')!.values).toMatchObject({ sg_t_stop: 4, sg_circled: true, sg_set_notes: 'good' });
 		await applied(w, [update('take', 't1', ids.t1, { tStop: [4, undefined], circleTake: [true, undefined] })]);
-		expect(w.fpt.byUuid('CustomEntity09', 't1')!.values).toMatchObject({ sg_t_stop: null, sg_circle_take: false });
+		expect(w.fpt.byUuid('CustomEntity09', 't1')!.values).toMatchObject({ sg_t_stop: null, sg_circled: false });
 		await applied(w, [del('take', 't1', ids.t1)]);
 		expect(w.fpt.byUuid('CustomEntity09', 't1')).toBeUndefined();
 	});
@@ -463,7 +463,7 @@ async function send(w: World, ref: BlobRef, session?: UploadSession): Promise<{ 
 	return { session: s, parts, ...(done.remoteId !== undefined ? { remoteId: done.remoteId } : {}) };
 }
 
-const stills = (w: World, take: number) => (w.fpt.rows.get(`CustomEntity09:${take}`)!.values.sg_stills as { id: number }[] | undefined) ?? [];
+const stills = (w: World, take: number) => (w.fpt.rows.get(`CustomEntity09:${take}`)!.values.sg_photos as { id: number }[] | undefined) ?? [];
 const attachments = (w: World) => w.fpt.live('Attachment');
 
 describe('a still', () => {
@@ -501,7 +501,7 @@ describe('upload', () => {
 		const sent = await send(w, ref, session);
 		const [attachment] = attachments(w);
 		expect(sent.remoteId).toBe(attachment.id);
-		expect(attachment.values).toMatchObject({ filename: 'onset_ph1_b-ph1.jpg', display_name: 'Still 2026-11-11T09:01:02.000Z', description: 'Chart' });
+		expect(attachment.values).toMatchObject({ filename: 'onset_ph1_b-ph1.jpg', display_name: 'Photo 2026-11-11T09:01:02.000Z', description: 'Chart' });
 		expect(stills(w, s.take)).toEqual([{ type: 'Attachment', id: attachment.id }]);
 		expect(await w.transport.verifyUpload(ref, sent.remoteId)).toEqual({ verified: true, remoteId: attachment.id });
 
@@ -510,7 +510,7 @@ describe('upload', () => {
 		expect(put.headers.has('authorization')).toBe(false);
 		expect(put.headers.get('content-type')).toBe('image/jpeg');
 		const init = w.fpt.requests.find((r) => r.path.endsWith('/_upload') && r.method === 'GET')!;
-		expect(init.path).toBe(`/api/v1/entity/custom_entity09s/${s.take}/sg_stills/_upload`);
+		expect(init.path).toBe(`/api/v1/entity/custom_entity09s/${s.take}/sg_photos/_upload`);
 		expect(init.query.get('filename')).toBe('onset_ph1_b-ph1.jpg');
 		expect(init.query.get('multipart_upload')).toBeNull();
 	});
@@ -639,7 +639,7 @@ describe('upload', () => {
 		const s = await still(w);
 		const ref = s.ref(700);
 		const sent = await send(w, ref);
-		w.fpt.rows.get(`CustomEntity09:${s.take}`)!.values.sg_stills = [];
+		w.fpt.rows.get(`CustomEntity09:${s.take}`)!.values.sg_photos = [];
 		expect(await w.transport.verifyUpload(ref, sent.remoteId)).toMatchObject({ verified: true });
 		expect(stills(w, s.take)).toEqual([{ type: 'Attachment', id: sent.remoteId }]);
 	});

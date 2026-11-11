@@ -22,7 +22,7 @@ describe('upload plan', () => {
 describe('partLink', () => {
 	// Shape: corpus endpoints/get_entity_type_id_field_upload_multipart.md.
 	const link =
-		'/api/v1/entity/custom_entity09s/900/sg_stills/_upload/multipart?filename=onset_ph1_b1.jpg&part_number=2&timestamp=2026-09-04T04%3A41%3A49Z&upload_id=abc.def&upload_type=Attachment';
+		'/api/v1/entity/custom_entity09s/900/sg_photos/_upload/multipart?filename=onset_ph1_b1.jpg&part_number=2&timestamp=2026-09-04T04%3A41%3A49Z&upload_id=abc.def&upload_type=Attachment';
 
 	it('points a part link at another part and keeps the rest', () => {
 		expect(partLink(link, 1)).toBe(link.replace('part_number=2', 'part_number=1'));

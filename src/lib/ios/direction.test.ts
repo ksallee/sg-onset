@@ -23,6 +23,16 @@ describe('sg-onset routes', () => {
 		expect(navDirection('/settings', '/sign-in')).toBe('push');
 		expect(navDirection('/sign-in', '/settings')).toBe('pop');
 	});
+	it('a page of one destination to a page of another does not slide, back or forward either', () => {
+		expect(navDirection('/slates/abc', '/shoot')).toBe('none');
+		expect(navDirection('/shoot', '/slates/abc')).toBe('none');
+		expect(navDirection('/sign-in', '/slates')).toBe('none');
+		expect(navDirection('/shoot', '/slates/abc', 'back')).toBe('none');
+	});
+	it('a page outside the destinations still pushes', () => {
+		expect(navDirection('/shoot', '/proto/take')).toBe('push');
+		expect(navDirection('/proto/take', '/shoot')).toBe('pop');
+	});
 	it('a slate pushes over the list and pops back', () => {
 		expect(navDirection('/slates', '/slates/abc')).toBe('push');
 		expect(navDirection('/slates/abc', '/slates')).toBe('pop');

@@ -71,7 +71,10 @@
 		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 		align-items: center;
 		height: 44px;
-		padding: 0 8px;
+		/* In a Page the bar's content keeps to the page's column. */
+		max-width: var(--page-w, none);
+		margin: 0 auto;
+		padding: 0 calc(var(--page-margin, 16px) - 8px);
 	}
 	.side {
 		display: flex;
@@ -129,7 +132,7 @@
 	}
 	.large-title {
 		flex: none;
-		padding: 2px 16px 8px;
+		padding: 2px calc(var(--page-margin, 16px) + var(--title-inset, 0px)) 8px;
 		font-size: 34px;
 		line-height: 41px;
 		font-weight: 700;

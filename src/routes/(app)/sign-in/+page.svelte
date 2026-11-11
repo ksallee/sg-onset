@@ -1,16 +1,18 @@
 <script lang="ts">
 	// Sign in to Flow PT: the site, then approval on the site itself. The flow is in
-	// $lib/auth/sign-in.ts, the state in $lib/auth/session.svelte.ts, the copy in
-	// $lib/auth/strings.ts.
+	// $lib/auth/sign-in.ts, the state in $lib/auth/session.svelte.ts, the copy in the `auth`
+	// area of the catalogue. It sits in the shell, under Settings: a form column in the content pane
+	// on an iPad, the phone column under 700 px (Page).
 	import { onDestroy } from 'svelte';
-	import Screen from '$lib/components/ios/Screen.svelte';
+	import Page from '$lib/components/ios/Page.svelte';
 	import NavBar from '$lib/components/ios/NavBar.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import Button from '$lib/components/ios/Button.svelte';
 	import { auth, completeSignIn, signOut } from '$lib/auth/session.svelte';
 	import { requestSignIn, SignInError, waitForApproval, type PendingSignIn } from '$lib/auth/sign-in';
-	import { failureText, SIGN_IN as T } from '$lib/auth/strings';
+	import { failureText } from '$lib/i18n/authText';
+	import { t } from '$lib/i18n/messages';
 
 	let site = $state(auth.site ? new URL(auth.site).host : '');
 	let busy = $state(false);
@@ -43,43 +45,43 @@
 	onDestroy(cancel);
 </script>
 
-<svelte:head><title>{T.title} · sg-onset</title></svelte:head>
+<svelte:head><title>{t('auth.title')} · {t('app.name')}</title></svelte:head>
 
-<Screen>
-	<NavBar title={T.title} large back={{ href: '/', label: T.back }} />
+<Page width="form">
+	<NavBar title={t('auth.title')} large back={{ href: '/settings', label: t('nav.settings') }} />
 
 	{#if auth.status === 'signed-in'}
-		<Section header={T.signedInHeader} footer={T.signedInFooter}>
-			<Row title={T.site} detail={auth.site ? new URL(auth.site).host : ''} />
-			<Row title={T.user} detail={auth.user ?? ''} />
+		<Section header={t('auth.signedIn.header')} footer={t('auth.signedIn.footer')}>
+			<Row title={t('auth.site')} detail={auth.site ? new URL(auth.site).host : ''} />
+			<Row title={t('auth.user')} detail={auth.user ?? ''} />
 		</Section>
 		<Section>
-			<Row title={T.signOut} destructive onclick={signOut} />
+			<Row title={t('auth.signOut')} destructive onclick={signOut} />
 		</Section>
 	{:else if pending}
-		<Section header={T.waitingHeader} footer={T.waitingFooter}>
-			<Row title={T.waiting} subtitle={new URL(pending.site).host} />
+		<Section header={t('auth.waiting.header')} footer={t('auth.waiting.footer')}>
+			<Row title={t('auth.waiting')} subtitle={new URL(pending.site).host} />
 		</Section>
 		<div class="actions">
 			<!-- Opened from the tap itself, so no popup blocker stops it. -->
-			<Button variant="filled" size="large" full onclick={() => pending && window.open(pending.url, '_blank', 'noopener')}>{T.open}</Button>
-			<Button variant="plain" full onclick={cancel}>{T.cancel}</Button>
+			<Button variant="filled" size="large" full onclick={() => pending && window.open(pending.url, '_blank', 'noopener')}>{t('auth.open')}</Button>
+			<Button variant="plain" full onclick={cancel}>{t('auth.cancel')}</Button>
 		</div>
 	{:else}
 		<form onsubmit={start} novalidate>
-			<Section header={T.siteHeader} footer={auth.status === 'expired' ? T.expired : T.siteFooter}>
+			<Section header={t('auth.site.header')} footer={auth.status === 'expired' ? t('auth.expired') : t('auth.site.footer')}>
 				<Row title={siteField} />
 			</Section>
 			{#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 			<div class="actions">
 				<Button variant="filled" size="large" full type="submit" disabled={busy || site.trim() === ''}>
-					{busy ? T.asking : T.continue}
+					{busy ? t('auth.asking') : t('auth.continue')}
 				</Button>
 			</div>
-			{#if auth.status === 'signed-out'}<p class="note">{T.signedOutFooter}</p>{/if}
+			{#if auth.status === 'signed-out'}<p class="note">{t('auth.signedOut.footer')}</p>{/if}
 		</form>
 	{/if}
-</Screen>
+</Page>
 
 {#snippet siteField()}
 	<input
@@ -91,8 +93,8 @@
 		autocorrect="off"
 		spellcheck="false"
 		enterkeyhint="go"
-		placeholder={T.sitePlaceholder}
-		aria-label={T.siteLabel}
+		placeholder={t('auth.site.placeholder')}
+		aria-label={t('auth.site.label')}
 		bind:value={site}
 		disabled={busy}
 	/>
@@ -116,17 +118,17 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		padding: 0 16px;
+		padding: 0 var(--page-margin, 16px);
 		margin-bottom: 24px;
 	}
 	.problem {
-		margin: -20px 32px 20px;
+		margin: -20px calc(var(--page-margin, 16px) + 16px) 20px;
 		font-size: 13px;
 		line-height: 18px;
 		color: var(--destructive);
 	}
 	.note {
-		padding: 0 32px;
+		padding: 0 calc(var(--page-margin, 16px) + 16px);
 		font-size: 13px;
 		line-height: 18px;
 		color: var(--label-2);

@@ -2,8 +2,8 @@
 // setup (`?hand=left&theme=night&gloves=1`). Pure.
 import type { Hand } from '$lib/ios/handedness';
 
-export type ThemeName = 'day' | 'dark' | 'night';
-export const THEMES: readonly ThemeName[] = ['day', 'dark', 'night'];
+export { THEMES, themeClass, type ThemeName } from '$lib/ios/theme';
+import type { ThemeName } from '$lib/ios/theme';
 export const HANDS: readonly Hand[] = ['left', 'right'];
 
 export interface Settings {
@@ -22,11 +22,4 @@ export function parseSettings(params: URLSearchParams): Settings {
 		theme: theme === 'day' || theme === 'dark' || theme === 'night' ? theme : DEFAULT_SETTINGS.theme,
 		gloves: params.get('gloves') === '1'
 	};
-}
-
-/** The classes that force a theme on a subtree (app.css): Day sits on light, Night on dark. */
-export function themeClass(theme: ThemeName): string {
-	if (theme === 'day') return 'ios-light ios-day';
-	if (theme === 'night') return 'ios-dark ios-night';
-	return 'ios-dark';
 }

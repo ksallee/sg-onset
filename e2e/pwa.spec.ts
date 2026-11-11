@@ -59,7 +59,8 @@ test.describe('pwa', () => {
 		test('after one online load, / opens offline', async ({ page }) => {
 			await onlineThenOffline(page, '/');
 			await open(page, server.origin + '/');
-			await expect(page.getByRole('link', { name: /Take screen/ })).toBeVisible();
+			// A device with no project: the way in leads to the first run.
+			await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
 		});
 
 		test('a page loaded online opens offline', async ({ page }) => {

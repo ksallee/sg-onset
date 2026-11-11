@@ -46,3 +46,19 @@ export async function open(page: Page, path: string) {
 	await page.goto(path);
 	await page.waitForFunction(() => document.body.innerText.trim().length > 0);
 }
+
+/**
+ * Open a page of the app proper (anything in the shell). Those need a project, so this first
+ * loads the sample project through the first run, on a device that has none, then goes to `path`.
+ */
+export async function openApp(page: Page, path: string) {
+	await page.goto('/');
+	await page.waitForURL(/\/(welcome|shoot)$/);
+	if (page.url().endsWith('/welcome')) {
+		await page.getByRole('button', { name: 'Load the Sample Project' }).tap();
+		await page.waitForURL(/\/shoot$/);
+	}
+	if (path !== '/shoot') await page.goto(path);
+	await page.getByRole('navigation', { name: 'Sections' }).waitFor();
+	await page.waitForFunction(() => document.querySelector('.ios-page, .ios-workspace') !== null);
+}

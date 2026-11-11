@@ -4,10 +4,14 @@
 	import { onMount } from 'svelte';
 	import { beforeNavigate, onNavigate } from '$app/navigation';
 	import { updated } from '$app/state';
+	import { provideApp } from '$lib/app/app.svelte';
+	import { settings } from '$lib/app/settings.svelte';
 	import { navDirection } from '$lib/ios/direction';
-	import { appearance } from '$lib/ios/appearance.svelte';
 
 	let { children } = $props();
+
+	// The store, opened once, for every page (lib/app). Nothing opens on the server.
+	const app = provideApp();
 
 	// A new deploy is out (polled, see vite.config.ts): the next in-app navigation loads it in
 	// full, so an open app never keeps the old version or asks for files the deploy removed.
@@ -35,11 +39,11 @@
 		});
 	});
 
-	// The appearance; with System, it follows the device.
-	onMount(() => appearance.start());
+	// The theme, the holding hand and the target sizes, from the settings (lib/app).
+	onMount(() => settings.start());
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 <!-- A touchstart listener anywhere lets iOS Safari apply :active press states. -->
 <svelte:window ontouchstart={() => {}} />
-{@render children()}
+{#if app}{@render children()}{/if}

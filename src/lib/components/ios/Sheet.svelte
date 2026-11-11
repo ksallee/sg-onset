@@ -235,7 +235,7 @@
 
 	const transform = $derived.by(() => {
 		if (reduced) return under ? 'scale(0.94)' : 'none';
-		if (hidden) return 'translateY(calc(100% + 40px))';
+		if (hidden) return 'translateY(calc(100% + 40px + var(--sheet-lift, 0px)))';
 		const y = `translateY(${offset}px)`;
 		return under ? `${y} scale(0.94)` : y;
 	});
@@ -292,10 +292,7 @@
 	.ios-sheet-layer {
 		position: fixed;
 		z-index: 40;
-		top: 0;
-		bottom: 0;
-		left: max(0px, calc(50% - 215px));
-		right: max(0px, calc(50% - 215px));
+		inset: 0;
 		pointer-events: none;
 		--group-bg: var(--cell-elevated);
 	}
@@ -315,10 +312,12 @@
 	.under .scrim {
 		opacity: 0;
 	}
+	/* The panel keeps to a column: 430 px on a phone screen, wider where the frame says so
+	   (`--sheet-half`, NavShell). The scrim dims everything. */
 	.panel {
 		position: absolute;
-		left: 0;
-		right: 0;
+		left: max(0px, calc(50% - var(--sheet-half, 215px)));
+		right: max(0px, calc(50% - var(--sheet-half, 215px)));
 		bottom: 0;
 		display: flex;
 		flex-direction: column;
@@ -335,6 +334,19 @@
 	}
 	.under .panel {
 		filter: brightness(0.7);
+	}
+	/* With an iPad's room a full sheet is a form sheet: a card in the middle, clear of the edges.
+	   A sheet with smaller detents stays on the foot. `--sheet-lift` is how far it sits above the
+	   foot, so it still leaves all the way down. */
+	@media (min-width: 700px) and (min-height: 640px) {
+		.panel.large {
+			--sheet-h: min(720px, calc(100dvh - 96px));
+			--sheet-lift: calc((100dvh - var(--sheet-h)) / 2);
+			height: var(--sheet-h) !important;
+			bottom: var(--sheet-lift);
+			border-radius: 32px;
+			box-shadow: 0 0 0 var(--hairline) var(--separator), 0 24px 64px rgb(0 0 0 / 0.35);
+		}
 	}
 	.panel.reduced {
 		opacity: 0;

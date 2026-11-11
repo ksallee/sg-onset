@@ -90,7 +90,7 @@
 	.ios-action-layer {
 		position: fixed;
 		z-index: 50;
-		inset: 0 max(0px, calc(50% - 215px));
+		inset: 0;
 	}
 	.scrim {
 		position: absolute;
@@ -102,8 +102,9 @@
 	}
 	.sheet {
 		position: absolute;
-		left: 8px;
-		right: 8px;
+		/* A 414 px column at most; the scrim dims everything. */
+		left: max(8px, calc(50% - 207px));
+		right: max(8px, calc(50% - 207px));
 		bottom: calc(8px + var(--safe-bottom));
 		display: flex;
 		flex-direction: column;

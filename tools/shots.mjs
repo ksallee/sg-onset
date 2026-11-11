@@ -8,8 +8,8 @@
 //
 // Without --url it starts `vite dev` on a free port: the code as it is now, no build. Viewports
 // are the e2e targets (e2e/targets.mjs: ipad-landscape, ipad-portrait, phone) or WIDTHxHEIGHT.
-// Themes: day, dark, night (the take screen's `?theme=`, and the app's stored appearance:
-// day is light, the others dark). Hands: right, left (`?hand=`). Files are named
+// Themes: day, dark, night (the take screen's `?theme=`, and the app's stored settings: day is
+// the light appearance, night is red night mode). A page in the shell gets the sample project. Hands: right, left (`?hand=`). Files are named
 // <route>_<viewport>_<theme>_<hand>.png. Prints each path; exits 1 if a page threw.
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
@@ -22,7 +22,7 @@ import { contextFor, targetFor } from '../e2e/targets.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 function args(argv) {
-	const a = { routes: ['/', '/sign-in', '/proto/take'], viewports: ['ipad-landscape', 'ipad-portrait', 'phone'], themes: ['dark'], hands: ['right'], settle: 600 };
+	const a = { routes: ['/welcome', '/shoot', '/slates', '/settings', '/sign-in', '/proto/take'], viewports: ['ipad-landscape', 'ipad-portrait', 'phone'], themes: ['dark'], hands: ['right'], settle: 600 };
 	const list = (v) => v.split(',').map((s) => s.trim()).filter(Boolean);
 	for (let i = 0; i < argv.length; i++) {
 		const k = argv[i];
@@ -99,17 +99,31 @@ async function main() {
 			browsers[target.browser] ??= await (target.browser === 'webkit' ? webkit : chromium).launch();
 			for (const theme of a.themes) {
 				const context = await browsers[target.browser].newContext({ ...contextFor(target), colorScheme: theme === 'day' ? 'light' : 'dark' });
-				await context.addInitScript((mode) => localStorage.setItem('sg-onset.appearance', mode), theme === 'day' ? 'light' : 'dark');
 				const page = await context.newPage();
 				const errors = [];
 				page.on('pageerror', (e) => errors.push(e.message));
 				for (const hand of a.hands) {
+					// The app's stored settings (lib/app/settings.ts), kept over whatever a page changes.
+					// Init scripts add up and the last one wins.
+					await context.addInitScript(
+						(look) => localStorage.setItem('sg-onset.settings', JSON.stringify({ ...JSON.parse(localStorage.getItem('sg-onset.settings') ?? '{}'), ...look })),
+						{ appearance: theme === 'day' ? 'light' : 'dark', night: theme === 'night', hand }
+					);
 					for (const route of a.routes) {
 						const url = new URL(base + route);
 						url.searchParams.set('theme', theme);
 						url.searchParams.set('hand', hand);
 						await page.goto(url.href, { waitUntil: 'load' });
 						await page.waitForFunction(() => document.body.innerText.trim().length > 0, null, { timeout: 15_000 });
+						// A page in the shell needs a project. A device with none is sent to the first run:
+						// load the sample project there, then open the page again.
+						await page.waitForTimeout(300);
+						if (new URL(page.url()).pathname === '/welcome' && url.pathname !== '/welcome') {
+							await page.getByRole('button', { name: 'Load the Sample Project' }).click();
+							await page.waitForURL('**/shoot');
+							await page.goto(url.href, { waitUntil: 'load' });
+							await page.waitForFunction(() => document.body.innerText.trim().length > 0, null, { timeout: 15_000 });
+						}
 						// A dev server optimises dependencies on first sight and reloads: let it settle.
 						await page.waitForTimeout(a.settle);
 						const file = resolve(out, `${slug(route)}_${target.name}_${theme}_${hand}.png`);

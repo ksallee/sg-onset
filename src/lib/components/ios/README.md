@@ -3,7 +3,7 @@
 From holosession (#57 there). Classic iOS 17 look: bar material (`--mat-bar`, `.material-bar`)
 and hairlines, no Liquid Glass (Kevin, 2026-10-29). Tokens and type utilities in `src/app.css`.
 The phone parts are from holosession; the iPad parts (Workspace, Rail, RailButton, RecordButton,
-Keypad, Chip) are sg-onset's own (#1).
+Keypad, Chip, #1; NavShell, Page, Columns, InputRow, Notice, #9) are sg-onset's own.
 
 ## Deviations from docs/ios/plan.md §2
 
@@ -83,6 +83,58 @@ One line each: props, then an example.
   `ios/handedness.ts` `formFor`, `workspaceLayout`, `gridAreas`; `ios/keypad.ts` `keypadPress`,
   `entryValue`, `stepValue`, `formatNumber`.
 
+## Tablet first (#9)
+
+The app is built for an iPad. A page is never a centred phone column there.
+
+- Every page outside the capture path is a `Page`, not a `Screen`. `Screen` stays for a
+  phone-only view.
+- Inside the shell a page fills what `NavShell` leaves. Pick the column by what the page holds:
+  `form` (560 px) for a few fields, `readable` (720 px, the default) for a list or a detail,
+  `columns` (1080 px) with `Columns` for many short sections, `full` for a table or a grid.
+- From 700 px of room a Page has an iPad's margins (24 px) and its large title lines up with the
+  text of the rows. Under 700 px it is the phone column: full width, 16 px margins. Your own
+  blocks follow with `padding: 0 var(--page-margin, 16px)`.
+- A full sheet is a form sheet from 700 px: a card in the middle. A sheet with a text field is a
+  full sheet, so the keyboard never covers the field.
+- The capture path is a `Workspace`, in the shell too: it fills the same space.
+- Sizes come from the room an element has (container queries, `bind:clientWidth`), not from the
+  window: the sidebar takes 80 or 248 px of it.
+- Touch targets are `var(--touch, 44px)` tall at least; capture targets `var(--target)`. Both grow
+  at the large button size.
+- Motion: `data-motion="full|reduced"` on `<html>` is the setting, resolved. Style against it,
+  not against the media query; `reducedMotion()` in `layer.svelte.ts` reads it. Reduced turns
+  every transition and animation off (app.css). On the capture path nothing waits on an
+  animation: the state lands on the first frame, motion follows as feedback. Elsewhere motion
+  is transform and opacity only, and interruptible.
+- Theme: `data-theme="light|dark"` and `data-night="true"` on `<html>`, with the kit classes
+  (`ios/theme.ts`) that carry the tokens. Use the tokens, never a colour of your own.
+
+- `NavShell {items: {id, href, label, icon}[], active?, hand, strip?, focus?, label, title?, ontoggle?, toggleLabel?, status?, children}`:
+  the app's frame. Wide: a sidebar on the side edge away from the holding hand, 248 px with
+  names or an 80 px strip of icons (`strip`; `focus` forces the strip and stills it). Under
+  1000 px: a bar across the top, the tabs from the far corner; under 700 px an icon over a word.
+  Never along the foot, never on the holding hand's edge: the action rail is there. `status(placement)`
+  is a quiet control at the end (`side`, `strip`, `top`). The page gets the rest as `--app-height`.
+  Sheets opened inside land on the shell. Pure: `ios/shell.ts` `shellLayout`.
+- `Page {children, accessory?, width = 'readable', scroller?}`: one scroll, the content a centred
+  column. First child a `NavBar`. Sets `--page-w`, `--page-margin`, `--title-inset`.
+  `<Page width="columns"><NavBar title="Settings" large /><Columns>…</Columns></Page>`
+- `Columns {children}`: each child element is a column; two side by side from 860 px of page.
+  `<Columns><div><Section>…</Section></div><div><Section>…</Section></div></Columns>`
+- `InputRow {label, value (bindable), onchange?, invalid?, error?, …input attributes}`: a typed
+  row of a Section. `onchange(text)` on leaving the field or Return, trimmed, only when changed.
+  `<InputRow label="Scene" bind:value={scene} onchange={save} error={problem} />`
+- `Notice {text, action?, onaction?}`: what was just done, with one action. A pill at the foot of
+  the page, in the middle, clear of both thumbs. The shell shows the last edit in one.
+- Row classes (app.css): `class="tint"` for a row that does something, `class="quiet"` for a row
+  that only says something.
+- Changed for the above: Sheet and ActionSheet dim the whole window and keep their panel to a
+  column (`--sheet-half`); Section and NavBar read `--page-margin`; NavBar keeps its bar to
+  `--page-w`.
+- Gone: `ios/appearance.ts` and its rune (System, Light, Dark by `data-theme` alone). The
+  settings are `lib/app/settings.ts`.
+
 ## Shared
 
 - `layer.svelte.ts`: Screen context, `portal`, the overlay stack (Escape and Tab go to the top one;
@@ -91,6 +143,7 @@ One line each: props, then an example.
   `titleProgress`, `ios/direction.ts` `navDirection` (View Transitions in `+layout.svelte`).
 - Pure, tested: `ios/keys.ts` `trapStep` (Sheet's focus trap) and `radioStep` (Segmented's
   arrows), from holosession's `builder/keys.ts`.
-- `ios/direction.ts` still holds holosession's tab roots (`/`, `/sessions`, `/settings`) and its
-  `/run` cover: set sg-onset's once it has routes.
+- `ios/direction.ts` holds sg-onset's tab roots: `/` and the five destinations. A page under one
+  pushes and pops; the shell's navigation stays put meanwhile (`view-transition-name`). The
+  `/run` cover is still holosession's.
 - A Toggle or Stepper in a Row overhangs its padding: rows stay 44 tall.

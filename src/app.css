@@ -5,11 +5,11 @@
 /* The iOS kit's theme, from holosession's app.css (#57 there): tokens, type ramp, base, the
    push and pop motion. Its purpose and level colours and the desktop phone frame are left out. */
 
-/* <html data-theme> is the appearance (Settings: System, Light, Dark; set before the first paint
-   by app.html, then lib/ios/appearance.svelte.ts). `.ios-dark` forces dark on a subtree,
-   `.ios-light` light. */
+/* The theme is a set of classes on <html> (Settings: Day, Dark, Night; set before the first paint
+   by app.html, then lib/app/settings.svelte.ts; the classes are lib/ios/theme.ts). With none, dark.
+   `.ios-dark` forces dark on a subtree, `.ios-light` light. */
 @custom-variant dark {
-	&:where([data-theme='dark'], [data-theme='dark'] *):not(:where(.ios-light, .ios-light *)) {
+	&:where(:root:not(.ios-light), :root:not(.ios-light) *):not(:where(.ios-light, .ios-light *)) {
 		@slot;
 	}
 	&:where(.ios-dark, .ios-dark *) {
@@ -18,7 +18,7 @@
 }
 
 /* ------------------------------------------------------------------ iOS tokens (#57, plan §2)
-   Dark is the default and designed first; light on data-theme="light". Values: Apple's system
+   Dark is the default and designed first; light on `.ios-light`. Values: Apple's system
    colours as Konsta UI and the HIG give them. */
 
 :root,
@@ -45,9 +45,8 @@
 	--scrim: rgb(0 0 0 / 0.4);
 }
 
-/* Light: the appearance (data-theme, see the top), or `.ios-light`. */
+/* Light: `.ios-light`. */
 @media all {
-	:root[data-theme='light']:not(.ios-dark),
 	.ios-light {
 		color-scheme: light;
 		--bg: #f2f2f7;
@@ -66,7 +65,9 @@
 		--on-tint: #fff;
 		--destructive: #ff3b30;
 		--mat-bar: rgb(249 249 249 / 0.92);
+		--thumb: #fff;
 		--segment-thumb: #fff;
+		--scrim: rgb(0 0 0 / 0.4);
 	}
 }
 
@@ -78,9 +79,9 @@
 	--changed: #ff9f0a;
 }
 @media all {
-	:root[data-theme='light']:not(.ios-dark),
 	.ios-light {
 		--record: #ff3b30;
+		--on-record: #fff;
 		--changed: #c25e00;
 	}
 }
@@ -303,6 +304,14 @@
 		text-transform: uppercase;
 		color: var(--label-2);
 	}
+	/* A Row that does something rather than opens or picks (`class="tint"`): tinted, as in iOS
+	   lists. A Row that only says something (`class="quiet"`): secondary. */
+	.ios-row.tint .title {
+		color: var(--tint);
+	}
+	.ios-row.quiet .title {
+		color: var(--label-2);
+	}
 	/* Classic iOS 17 bar material: near-opaque, a subtle blur. No Liquid Glass (Kevin). */
 	.material-bar {
 		background: var(--mat-bar);
@@ -406,13 +415,22 @@ html[data-nav='uncover']::view-transition-new(screen) {
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	html[data-nav]::view-transition-new(screen) {
-		animation: nav-fade-in 150ms ease both;
-	}
-	html[data-nav]::view-transition-old(screen) {
-		animation: nav-fade-out 150ms ease both;
-	}
+/* Motion (Settings: System, Full, Reduced) is `data-motion="full|reduced"` on <html>, resolved:
+   System follows the device. Reduced: a page change fades, and nothing else eases or slides.
+   Style against the attribute, not against the media query, so the setting wins either way. */
+html[data-motion='reduced'][data-nav]::view-transition-new(screen) {
+	animation: nav-fade-in 150ms ease both;
+}
+html[data-motion='reduced'][data-nav]::view-transition-old(screen) {
+	animation: nav-fade-out 150ms ease both;
+}
+html[data-motion='reduced'] *,
+html[data-motion='reduced'] *::before,
+html[data-motion='reduced'] *::after {
+	transition-duration: 0.01ms !important;
+	animation-duration: 0.01ms !important;
+	animation-iteration-count: 1 !important;
+	scroll-behavior: auto !important;
 }
 
 /* Safe areas as variables, so a preview frame can fake a device's. */

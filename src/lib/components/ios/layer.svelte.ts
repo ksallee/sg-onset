@@ -89,4 +89,12 @@ export function holdFocus(el: HTMLElement): () => void {
 
 // ---------------------------------------------------------------- motion
 
-export const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/**
+ * Whether motion is reduced: `data-motion` on <html> (the Motion setting, resolved; app.html sets
+ * it before the first paint), else what the device asks.
+ */
+export function reducedMotion(): boolean {
+	const set = typeof document === 'undefined' ? undefined : document.documentElement.dataset.motion;
+	if (set === 'reduced' || set === 'full') return set === 'reduced';
+	return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}

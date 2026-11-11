@@ -1,25 +1,13 @@
 <script lang="ts">
-	// Placeholder: one kit Screen and NavBar, to prove the kit and the PWA shell, and the way
-	// into the prototypes.
-	import Screen from '$lib/components/ios/Screen.svelte';
-	import NavBar from '$lib/components/ios/NavBar.svelte';
-	import Section from '$lib/components/ios/Section.svelte';
-	import Row from '$lib/components/ios/Row.svelte';
+	// The way in: to the first run when the device holds no project, else to Shoot.
+	import { goto } from '$app/navigation';
+	import { liveList } from '$lib/app/live.svelte';
 	import { t } from '$lib/i18n/messages';
-	import { readStandalone } from '$lib/pwa/platform';
 
-	const installed = readStandalone();
+	const projects = liveList('project');
+	$effect(() => {
+		if (projects.ready) void goto(projects.value.length ? '/shoot' : '/welcome', { replaceState: true });
+	});
 </script>
 
 <svelte:head><title>{t('app.name')}</title></svelte:head>
-
-<Screen>
-	<NavBar title={t('app.name')} large />
-	<Section header={t('home.prototypes')}>
-		<Row title={t('home.proto.take')} detail={t('home.proto.take.detail')} href="/proto/take" />
-	</Section>
-	<Section header={t('home.status')} footer={t('home.footer')}>
-		<Row title={t('home.build')} detail={t('home.build.value')} />
-		<Row title={t('home.installed')} detail={installed ? t('home.installed.yes') : t('home.installed.no')} />
-	</Section>
-</Screen>

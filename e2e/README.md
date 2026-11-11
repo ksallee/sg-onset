@@ -29,6 +29,8 @@ network beyond localhost: every test fails if a request leaves 127.0.0.1.
 - Import `test`, `expect` and `open` from `./fixtures`, not from `@playwright/test`. A test then
   fails on a console error, an uncaught exception, or a request off localhost.
   `test.use({ allowConsoleErrors: true })` or `{ ignoreConsole: [/.../] }` opts out.
+- A page in the shell needs a project: `openApp(page, path)` loads the sample project first.
+  `open(page, path)` is for pages that stand alone (`/welcome`, `/proto/take`).
 - Find things by role and accessible name, never by class: the markup moves.
 - `auditLayout(page, testInfo)` (`audit.ts`) on any page: fails on sideways overflow and elements
   wider than the viewport; reports buttons and links with no name or under 44×44 px.

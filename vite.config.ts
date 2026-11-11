@@ -19,6 +19,8 @@ export default defineConfig({
 			version: { pollInterval: 5 * 60_000 }
 		})
 	],
+	// Agent worktrees and QA output live inside the repo folder; watching them reloads the page.
+	server: { watch: { ignored: ['**/.claude/**', '**/.qa/**'] } },
 	test: {
 		expect: { requireAssertions: true },
 		projects: [

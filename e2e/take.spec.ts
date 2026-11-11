@@ -175,6 +175,43 @@ test.describe('take screen', () => {
 		await expect(circled).toHaveAttribute('aria-pressed', 'false');
 	});
 
+	test('in the list of takes, Circled sits in the same place with or without photos', async ({ page }) => {
+		await openShoot(page);
+		const list = page.getByRole('navigation', { name: 'Takes' });
+		// The rows are on the side on the iPad only; the phone strip shows no icons.
+		test.skip(!(await list.getByRole('img', { name: 'Circled' }).count()), 'no icons in the list on this screen');
+		// A photo record on take 1 of 42A, put in the store as the app keeps it. No file: WebKit's
+		// test session refuses Blobs, and the list counts records.
+		await page.evaluate(
+			() =>
+				new Promise<void>((done, fail) => {
+					const req = indexedDB.open('sg-onset');
+					req.onerror = () => fail(req.error);
+					req.onsuccess = () => {
+						const db = req.result;
+						const tx = db.transaction(['slate', 'take', 'still'], 'readwrite');
+						const slates = tx.objectStore('slate').getAll();
+						const takes = tx.objectStore('take').getAll();
+						takes.onsuccess = () => {
+							const slate = slates.result.find((s: { slateUID: string }) => s.slateUID === '42A');
+							const take = takes.result.find((t: { slateId: string; take: string }) => t.slateId === slate.id && t.take === '1');
+							tx.objectStore('still').add({ id: 'e2e-still', takeId: take.id, capturedAt: new Date().toISOString() });
+						};
+						tx.oncomplete = () => done();
+						tx.onerror = () => fail(tx.error);
+					};
+				})
+		);
+		await page.reload();
+		await list.getByRole('button', { name: 'Slate 42A, take 1' }).tap();
+		await page.getByRole('button', { name: 'Circled' }).tap();
+		const mark = (take: number) => list.getByRole('button', { name: `Slate 42A, take ${take}` }).getByRole('img', { name: 'Circled' });
+		await expect(mark(1)).toBeVisible();
+		const withPhoto = (await mark(1).boundingBox())!;
+		const without = (await mark(2).boundingBox())!;
+		expect(Math.abs(withPhoto.x - without.x), 'Circled x, take 1 with a photo, take 2 without').toBeLessThan(1);
+	});
+
 	test('a camera not on the take can be added to it', async ({ page }) => {
 		await openShoot(page);
 		await page.getByRole('button', { name: 'Add cam B to take 3' }).tap();

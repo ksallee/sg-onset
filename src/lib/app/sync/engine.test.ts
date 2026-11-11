@@ -10,6 +10,8 @@ import type { DrainReport } from '$lib/outbox/runner';
 import { openStore } from '$lib/store/dexieStore';
 import { createEditor } from '../editor';
 import { createSyncEngine, type SyncEngine } from './engine';
+import { setupView } from './report';
+import { nextStep, setupReview, type ReviewAction, type ReviewStep } from './review';
 import { syncStatus } from './status';
 
 const TAKE = 'CustomEntity09';
@@ -142,6 +144,47 @@ describe('the setup check gates the runner', () => {
 		expect(report?.ready).toBe(true);
 		expect(creates()).toBeGreaterThan(0);
 		expect(s.engine.state).toMatchObject({ ready: true, running: true });
+	});
+
+	// A write is anything but a read: GET, and the POST of a search.
+	const writes = (s: S) => s.fpt.count((r) => r.method !== 'GET' && r.method !== 'HEAD' && !r.path.endsWith('/_search'));
+
+	it('writes nothing on Flow PT when linking a project', async () => {
+		const s = setup({ fields: 'bare' });
+		await s.engine.setProject('p1');
+		await s.engine.listProjects();
+		await s.engine.link({ id: s.fptProject, name: 'Show' });
+		expect(s.fpt.requests.length).toBeGreaterThan(0);
+		expect(writes(s)).toBe(0);
+	});
+
+	it('creates nothing until the review is confirmed: Not Now leaves the site alone, Set Up Fields goes on', async () => {
+		const s = setup({ fields: 'bare' });
+		await s.engine.setProject('p1');
+		await s.engine.link({ id: s.fptProject, name: 'Show' });
+		const link = s.engine.state.link!;
+		const review = setupReview(setupView(s.engine.state.report!), { site: link.site, project: link.name });
+		expect(review.show).toBe(true);
+		expect(review.groups.map((g) => g.entity)).toEqual(expect.arrayContaining(['Slate', 'Take']));
+
+		// The sheet does what `nextStep` says, as SetupSections does.
+		const tap = async (step: ReviewStep, action: ReviewAction): Promise<ReviewStep> => {
+			const next = nextStep(step, action, review);
+			if (next.run) await s.engine.check(true);
+			return next.step;
+		};
+		let step = await tap('closed', 'request');
+		expect(step).toBe('reviewing');
+		step = await tap(step, 'notNow');
+		expect(step).toBe('closed');
+		expect(writes(s)).toBe(0);
+		expect(s.engine.state.ready).toBe(false);
+
+		step = await tap(await tap(step, 'request'), 'confirm');
+		expect(step).toBe('closed');
+		const created = s.fpt.count((r) => r.method === 'POST' && /\/schema\/\w+\/fields$/.test(r.path));
+		expect(created).toBe(review.total);
+		expect(s.engine.state.ready).toBe(true);
 	});
 });
 

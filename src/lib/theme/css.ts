@@ -117,3 +117,25 @@ export function renderCss(): string {
 	return `${parts.join('\n\n')}\n`;
 }
 
+/**
+ * compat.css: the old kit theme classes on a subtree (`ios-light`, `ios-dark`, `ios-dark ios-night`,
+ * from `ios/theme.ts` `themeClass`) carry the same tokens as the attributes. Only the take
+ * prototype still sets them; delete this and compat.css when it moves to the attributes.
+ */
+export function renderCompatCss(): string {
+	const sels = ['.ios-light', '.ios-dark', '.ios-night'];
+	const parts = [
+		`/* The old kit theme classes, onto the tokens. GENERATED from palette.ts by css.ts: do not edit.
+   Temporary: only the take prototype still sets them (themeClass). Delete with renderCompatCss. */`,
+		block(where('.ios-light'), full('light')),
+		block(where('.ios-dark'), full('dark')),
+		block(where('.ios-night'), full('night')),
+		block(
+			where(...sels),
+			STATUS.map((s) => `\t--${s}-fill: color-mix(in srgb, var(--${s}) var(--status-fill), transparent);`).join('\n')
+		),
+		media('(prefers-reduced-transparency: reduce)', block(where(...sels), '\t--mat-bar: var(--mat-bar-solid);\n\t--mat-sheet: var(--mat-sheet-solid);'))
+	];
+	return `${parts.join('\n\n')}\n`;
+}
+

@@ -203,7 +203,7 @@
 	.ring {
 		inset: 0;
 		border-radius: 50%;
-		border: 4px solid var(--label);
+		border: 4px solid var(--record-ring);
 	}
 	.disc {
 		inset: 19%;
@@ -212,7 +212,7 @@
 	}
 	/* The press shows on the first frame, under and around the finger: the ring fills. */
 	[data-pressed] .ring {
-		background: var(--label);
+		background: var(--record-ring);
 	}
 
 	/* Running: a filled plate, square where the ring was round, a square in it, a second outline. */
@@ -278,7 +278,7 @@
 		border-radius: 50%;
 		background: var(--label);
 		color: var(--bg);
-		box-shadow: 0 0 0 3px var(--bg-elevated);
+		box-shadow: 0 0 0 3px var(--rail);
 		opacity: 0;
 		transform: scale(var(--s-away));
 	}
@@ -291,7 +291,7 @@
 		outline: none;
 	}
 	.ios-record:focus-visible .face {
-		outline: 3px solid var(--tint);
+		outline: 3px solid var(--focus);
 		outline-offset: 10px;
 		border-radius: 28%;
 	}
@@ -317,5 +317,6 @@
 	[data-phase='rolling'] .detail {
 		font-size: 17px;
 		font-weight: 700;
+		color: var(--rolling);
 	}
 </style>

@@ -322,9 +322,11 @@
 		bottom: 0;
 		display: flex;
 		flex-direction: column;
-		background: var(--bg-elevated);
+		background: var(--mat-sheet);
+		-webkit-backdrop-filter: var(--mat-blur);
+		backdrop-filter: var(--mat-blur);
 		border-radius: 32px 32px 0 0;
-		box-shadow: 0 -1px 0 rgb(255 255 255 / 0.04), 0 -10px 40px rgb(0 0 0 / 0.25);
+		box-shadow: var(--shadow-3);
 		pointer-events: auto;
 		overflow: hidden;
 		transform-origin: 50% 0;
@@ -346,7 +348,7 @@
 			height: var(--sheet-h) !important;
 			bottom: var(--sheet-lift);
 			border-radius: 32px;
-			box-shadow: 0 0 0 var(--hairline) var(--separator), 0 24px 64px rgb(0 0 0 / 0.35);
+			box-shadow: var(--shadow-3);
 		}
 	}
 	.panel.reduced {

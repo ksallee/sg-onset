@@ -1,7 +1,7 @@
 # iOS primitives
 
 From holosession (#57 there). Classic iOS 17 look: bar material (`--mat-bar`, `.material-bar`)
-and hairlines, no Liquid Glass (Kevin, 2026-10-29). Tokens and type utilities in `src/app.css`.
+and hairlines, no Liquid Glass (Kevin, 2026-10-29). Colour tokens in `src/lib/theme/tokens.css`, type utilities in `src/app.css`.
 The phone parts are from holosession; the iPad parts (Workspace, Rail, RailButton, RecordButton,
 Keypad, Chip, #1; NavShell, Page, Columns, InputRow, Notice, #9) are sg-onset's own.
 
@@ -14,8 +14,8 @@ Keypad, Chip, #1; NavShell, Page, Columns, InputRow, Notice, #9) are sg-onset's 
   long press repeats by); Slider `format`; SearchField `onsubmit`, `label`; Menu `open`, `align`,
   item `disabled`, `section`; NavBar `back.onclick` (href optional), `ontitle` (the inline title as a button, WP4); ProgressRing `stroke`,
   `label`, `children`; Screen `scroller` (bindable); new `Tile`.
-- `class="ios-dark"` (or `ios-light`) on a Screen forces that theme on it (tokens and aliases are
-  redeclared there). Run follows the appearance; its dim cover is black in both.
+- `data-theme="dark"` (or `light`, or `data-night="true"`) on a Screen forces that theme on it
+  (tokens and aliases are redeclared there). Run follows the appearance; its dim cover is black in both.
 
 ## Primitives
 
@@ -69,7 +69,8 @@ One line each: props, then an example.
   dock and rail side by side; the rail on the holding hand's edge, the left hand mirrors every
   column. Under 1000 px wide the list is a strip on top; under 700 px one stack, the rail along
   the foot. Snippets get where they sit: `list(at, form)`, `main(form)`, `dock(form)`,
-  `rail(edge)`. `class="ios-light ios-day"`, `ios-dark`, `ios-dark ios-night` picks the theme.
+  `rail(edge)`. `data-theme` and `data-night` on an ancestor pick the theme (the old `ios-*`
+  classes work for now).
   `target` and `gap` (px, from `ios/target.ts`) become `--target` and `--gap`. The dock is three
   targets wide, 304 px at least: 352 px at the large button size, so a key is 20 mm both ways.
   It never scrolls (`overflow: clip`). Its width is its own room, not the window's: beside the
@@ -122,8 +123,10 @@ The app is built for an iPad. A page is never a centred phone column there.
   every transition and animation off (app.css). On the capture path nothing waits on an
   animation: the state lands on the first frame, motion follows as feedback. Elsewhere motion
   is transform and opacity only, and interruptible.
-- Theme: `data-theme="light|dark"` and `data-night="true"` on `<html>`, with the kit classes
-  (`ios/theme.ts`) that carry the tokens. Use the tokens, never a colour of your own.
+- Theme: `data-theme="light|dark"` and `data-night="true"` on `<html>`; `lib/theme/tokens.css`
+  keys on them (`docs/design/colour.md`). Use the tokens, never a colour of your own: a `#fff`
+  would light the set in red night mode. A control that is on or pressed adds `--state-ring`.
+  Increase Contrast and Reduce Transparency come through the tokens.
 
 - `NavShell {items: {id, href, label, icon}[], active?, hand, strip?, focus?, label, title?, ontoggle?, toggleLabel?, status?, children}`:
   the app's frame. Wide: a sidebar on the side edge away from the holding hand, 248 px with

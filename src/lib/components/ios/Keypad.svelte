@@ -291,7 +291,7 @@
 	.ios-keypad {
 		/* The space between two caps. Each key takes half of it on every side. */
 		--key-gap: 8px;
-		--ink: var(--label);
+		--ink: var(--key-pressed);
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 		margin: calc(var(--key-gap) / -2);
@@ -300,16 +300,11 @@
 		user-select: none;
 		-webkit-touch-callout: none;
 	}
-	/* Night: the brightest red there is for the press. Still no white. */
-	:global(.ios-night) .ios-keypad {
-		--ink: var(--tint);
-	}
-
 	.key {
 		display: block;
 		height: calc(var(--key-h, 60px) + var(--key-gap));
 		padding: calc(var(--key-gap) / 2);
-		color: var(--label);
+		color: var(--key-label);
 		font-family: var(--font-rounded);
 		font-size: clamp(28px, calc(var(--key-h, 60px) * 0.4), 40px);
 		font-weight: 500;
@@ -338,12 +333,12 @@
 		width: 100%;
 		height: 100%;
 		border-radius: 14px;
-		background: var(--cell-elevated);
-		box-shadow: inset 0 0 0 1px var(--separator);
+		background: var(--key);
+		box-shadow: var(--shadow-1);
 		transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
 	}
 	.alt .cap {
-		background: var(--fill-3);
+		background: var(--key-alt);
 		box-shadow: none;
 	}
 	.step .cap {
@@ -362,13 +357,14 @@
 		background: currentColor;
 	}
 
-	/* Pressed: the cap in ink, the glyph in the ground's colour. On at once, off with an ease. */
+	/* Pressed: the key inverts (--key-pressed). Night fills nothing brightly: a ring says it too. On at once, off with an ease. */
 	.ink {
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
 		background: var(--ink);
-		color: var(--bg);
+		color: var(--key-pressed-label);
+		box-shadow: inset 0 0 0 var(--state-ring) var(--key-pressed-label);
 		opacity: 0;
 		transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1);
 	}
@@ -387,7 +383,7 @@
 		position: absolute;
 		inset: 5px;
 		border-radius: 9px;
-		box-shadow: inset 0 0 0 3px var(--bg);
+		box-shadow: inset 0 0 0 3px var(--key-pressed-label);
 		opacity: 0;
 		transform: scale(0.92);
 		transition:
@@ -405,12 +401,13 @@
 		box-shadow: inset 0 0 0 1px var(--separator);
 		color: var(--label-3);
 	}
+	:global([data-night='true']) .key[aria-disabled='true'] .cap,
 	:global(.ios-night) .key[aria-disabled='true'] .cap {
 		color: var(--label-2);
 	}
 
 	.key:focus-visible .cap {
-		outline: 3px solid var(--tint);
+		outline: 3px solid var(--focus);
 		outline-offset: 1px;
 	}
 

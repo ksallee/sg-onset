@@ -141,7 +141,7 @@
 		display: flex;
 		min-width: 0;
 		min-height: 0;
-		background: var(--bg-elevated);
+		background: var(--sidebar);
 		/* It stays put while a page pushes or pops (app.css slides the rest). */
 		view-transition-name: shell-nav;
 	}
@@ -166,7 +166,7 @@
 		height: 24px;
 	}
 	.item.on {
-		background: var(--fill-2);
+		background: var(--selection);
 		color: var(--tint);
 		font-weight: 600;
 	}
@@ -176,7 +176,7 @@
 	}
 	.item:focus-visible,
 	.toggle:focus-visible {
-		outline: 2px solid var(--tint);
+		outline: 2px solid var(--focus);
 		outline-offset: -2px;
 	}
 	.word {

@@ -42,10 +42,10 @@
 		max-width: min(300px, calc(100vw - 16px));
 		border-radius: 13px;
 		overflow: hidden;
-		background: var(--mat-bar);
+		background: var(--mat-sheet);
 		-webkit-backdrop-filter: blur(40px) saturate(180%);
 		backdrop-filter: blur(40px) saturate(180%);
-		box-shadow: 0 10px 40px rgb(0 0 0 / 0.35), 0 0 0 var(--hairline) var(--separator);
+		box-shadow: var(--shadow-2);
 		transform-origin: var(--bits-dropdown-menu-content-transform-origin);
 		animation: ios-menu-in 250ms var(--ease-ios);
 		outline: none;
@@ -86,7 +86,7 @@
 	}
 	:global(.ios-menu-gap) {
 		height: 8px;
-		background: rgb(0 0 0 / 0.16);
+		background: var(--fill-3);
 	}
 	@keyframes -global-ios-menu-in {
 		from {

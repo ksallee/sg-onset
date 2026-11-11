@@ -73,7 +73,10 @@
 		width: calc((100% - 4px) / var(--n));
 		border-radius: 7px;
 		background: var(--segment-thumb);
-		box-shadow: 0 3px 8px rgb(0 0 0 / 0.12), 0 3px 1px rgb(0 0 0 / 0.04), 0 0 0 var(--hairline) rgb(0 0 0 / 0.04);
+		box-shadow: var(--shadow-1);
+		/* Night: no shadow to lift it, so a ring. */
+		outline: var(--state-ring) solid var(--label-2);
+		outline-offset: -2px;
 		transition: transform var(--dur-control) var(--ease-ios);
 	}
 	.ghost .thumb {
@@ -135,7 +138,7 @@
 		opacity: 0.5;
 	}
 	button:focus-visible {
-		outline: 2px solid var(--tint);
+		outline: 2px solid var(--focus);
 		outline-offset: -1px;
 		border-radius: 7px;
 	}

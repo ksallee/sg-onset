@@ -64,7 +64,7 @@
 		opacity: 0.35;
 	}
 	.ios-btn:focus-visible {
-		outline: 2px solid var(--tint);
+		outline: 2px solid var(--focus);
 		outline-offset: 2px;
 	}
 	.full {
@@ -93,14 +93,21 @@
 		font-weight: 600;
 	}
 	.filled {
-		background: var(--c);
-		color: var(--on-tint);
+		background: var(--tint-solid);
+		color: var(--on-tint-solid);
+		/* Night fills nothing brightly: a ring edges the dim slab. */
+		box-shadow: inset 0 0 0 var(--state-ring) var(--on-tint-solid);
 	}
 	.filled.red {
-		color: #fff;
+		background: var(--destructive-solid);
+		color: var(--on-destructive);
+		box-shadow: inset 0 0 0 var(--state-ring) var(--on-destructive);
 	}
 	.tinted {
-		background: color-mix(in srgb, var(--c) 18%, transparent);
+		background: var(--tint-fill);
+	}
+	.tinted.red {
+		background: var(--rolling-fill);
 	}
 	.gray {
 		background: var(--fill-2);

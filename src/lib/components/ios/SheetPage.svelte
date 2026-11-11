@@ -99,7 +99,7 @@
 		transform: translateX(100%);
 		transition: transform var(--dur-push) var(--ease-ios);
 		outline: none;
-		box-shadow: -8px 0 24px rgb(0 0 0 / 0.2);
+		box-shadow: var(--shadow-3);
 	}
 	.ios-sheet-page.shown {
 		transform: none;

@@ -2,10 +2,8 @@
 	// The colour specimen (#14): every token with its contrast figures, and the kit's parts drawn
 	// with them, in light, dark and red night, normal or increased contrast. The controls set the
 	// data attributes on this page's own wrapper, so it works before the app shell sets them on
-	// <html>. `?mode=dark|night&contrast=more` opens a given scheme. The :global rules at the foot
-	// preview the follow-up switch-over (docs/design/colour.md): kit parts moved onto the new
-	// tokens. A prototype page: its strings are not in the message catalogue.
-	import '$lib/theme/tokens.css';
+	// <html>. `?mode=dark|night&contrast=more` opens a given scheme. The kit parts read the
+	// tokens themselves (docs/design/colour.md). A prototype page: its strings are not in the message catalogue.
 	import { page } from '$app/state';
 	import { Camera, CircleCheck, CloudUpload, Ellipsis, Film, Flag, Image, Settings, TriangleAlert, Undo2 } from '@lucide/svelte';
 	import Button from '$lib/components/ios/Button.svelte';
@@ -27,7 +25,9 @@
 
 	type ModeChoice = 'light' | 'dark' | 'night';
 	const q = page.url.searchParams;
-	let mode = $state<ModeChoice>(q.get('mode') === 'dark' ? 'dark' : q.get('mode') === 'night' ? 'night' : 'light');
+	// With no `?mode`, the app's: the attributes on <html>.
+	const rootMode = (): ModeChoice => (typeof document === 'undefined' ? 'light' : document.documentElement.dataset.night === 'true' ? 'night' : document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+	let mode = $state<ModeChoice>(q.get('mode') === 'dark' ? 'dark' : q.get('mode') === 'night' ? 'night' : q.get('mode') === 'light' ? 'light' : rootMode());
 	let contrast = $state<'normal' | 'more'>(q.get('contrast') === 'more' ? 'more' : 'normal');
 	const scheme = $derived<Scheme>(contrast === 'more' ? `${mode}-more` : mode);
 	const results = $derived(report(scheme));
@@ -64,7 +64,7 @@
 		unsynced: { token: 'unsynced', word: 'Unsynced' },
 		synced: { token: 'synced', word: 'Synced' },
 		conflict: { token: 'conflict', word: 'Conflict' },
-		rolling: { token: 'rolling', word: 'Rolling' }
+		rolling: { token: 'rolling', word: 'Running' }
 	};
 	const takes: { n: string; time: string; cam: string; lens: string; focal: string; stop: string; status: Status[] }[] = [
 		{ n: '1', time: '09:41:12', cam: 'A', lens: 'Signature Prime', focal: '35', stop: 'T2.8', status: ['ng', 'synced'] },
@@ -97,7 +97,7 @@
 	const failing = $derived(results.filter((r) => !r.pass).length);
 </script>
 
-<svelte:head><title>Colour · sg-onset</title></svelte:head>
+<svelte:head><title>Colour · SG OnSet</title></svelte:head>
 
 <div
 	class="spec"
@@ -142,7 +142,7 @@
 							<span class="take-n num">5</span>
 							<span class="take-meta">
 								<span class="num" class:roll={rolling}>{rolling ? '00:00:48' : 'Next'}</span>
-								<span class="sub">{rolling ? 'Rolling' : 'Copy of take 4'}</span>
+								<span class="sub">{rolling ? 'Running' : 'Copy of take 4'}</span>
 							</span>
 						</button>
 					</div>
@@ -153,7 +153,7 @@
 					</NavBar>
 					<div class="main-body">
 						<div class="phase" class:rolling>
-							{#if rolling}<span class="sq"></span> Rolling · <span class="num">00:00:48</span>{:else}<span class="dot"></span> Ready · take {take}{/if}
+							{#if rolling}<span class="sq"></span> Running · <span class="num">00:00:48</span>{:else}<span class="dot"></span> Ready · take {take}{/if}
 						</div>
 						<Section header="Camera">
 							<div class="seg-row"><Segmented options={CAMERAS} value={camera} onchange={(v) => (camera = v)} label="Camera" /></div>
@@ -161,7 +161,7 @@
 								{#snippet leading()}<Tile icon={Camera} color="var(--tint)" />{/snippet}
 							</Row>
 							<Row title="Focal length" subtitle="From the lens: a prime" detail="50 mm" />
-							<Row title="Stop">
+							<Row title="T-stop">
 								{#snippet trailing()}<span class="num changed-val">T2 <span class="changed-dot" aria-label="Changed since take 3"></span></span>{/snippet}
 							</Row>
 							<Row title="Focal length from the lens">
@@ -170,8 +170,8 @@
 						</Section>
 						<Section header="Take" footer="Undo, not confirm: every change can be taken back.">
 							<Row title="Circled" checked={true} onclick={() => {}} />
-							<Row title="Gloves" subtitle="Bigger capture targets">
-								{#snippet trailing()}<Toggle checked={gloves} onchange={(v) => (gloves = v)} label="Gloves" />{/snippet}
+							<Row title="Button size: Large" subtitle="Bigger capture buttons">
+								{#snippet trailing()}<Toggle checked={gloves} onchange={(v) => (gloves = v)} label="Button size: Large" />{/snippet}
 							</Row>
 							<Row title="Delete take" destructive onclick={() => {}} />
 						</Section>
@@ -206,7 +206,7 @@
 					<Rail {edge} label="Capture" {rolling}>
 						{#snippet top()}<RailButton label="Settings" onclick={() => {}}><Settings class="size-6" /></RailButton>{/snippet}
 						{#snippet capture()}
-							<RecordButton {rolling} label={rolling ? 'Cut' : 'Record'} caption={rolling ? 'Cut' : 'Rec'} detail={rolling ? '00:00:48' : 'Take 5'} onclick={() => (rolling = !rolling)} />
+							<RecordButton {rolling} label={rolling ? 'End' : 'Start'} caption={rolling ? 'End' : 'Start'} detail={rolling ? '00:00:48' : 'Take 5'} onclick={() => (rolling = !rolling)} />
 							<RailButton label="Photo" capture badge={3} onclick={() => {}}><Image class="size-8" /></RailButton>
 						{/snippet}
 						{#snippet more()}
@@ -227,22 +227,22 @@
 	</section>
 
 	<div class="pair">
-		<!-- Record, idle and rolling, side by side. -->
+		<!-- Start and End: ready and running, side by side. -->
 		<section class="block">
-			<h2 class="section-header">Record</h2>
+			<h2 class="section-header">Start and End</h2>
 			<div class="frame rails">
 				{#each [false, true] as r (r)}
 					<div class="rail-demo">
 						<Rail edge="right" label="Capture" rolling={r}>
 							{#snippet capture()}
-								<RecordButton rolling={r} label={r ? 'Cut' : 'Record'} caption={r ? 'Cut' : 'Rec'} detail={r ? '01:12' : 'Take 5'} onclick={() => {}} />
+								<RecordButton rolling={r} label={r ? 'End' : 'Start'} caption={r ? 'End' : 'Start'} detail={r ? '01:12' : 'Take 5'} onclick={() => {}} />
 								<RailButton label="Photo" capture onclick={() => {}}><Image class="size-8" /></RailButton>
 							{/snippet}
 							{#snippet more()}
 								<RailButton label="More" onclick={() => {}}><Ellipsis class="size-6" /></RailButton>
 							{/snippet}
 						</Rail>
-						<span class="rail-cap">{r ? 'Rolling' : 'Idle'}</span>
+						<span class="rail-cap">{r ? 'Running' : 'Ready'}</span>
 					</div>
 				{/each}
 			</div>
@@ -254,7 +254,7 @@
 			<div class="frame table-frame">
 				<table class="takes-table">
 					<thead>
-						<tr><th>Take</th><th>Time</th><th>Cam</th><th>Lens</th><th class="r">mm</th><th>Stop</th><th>Status</th></tr>
+						<tr><th>Take</th><th>Time</th><th>Cam</th><th>Lens</th><th class="r">mm</th><th>T-stop</th><th>Status</th></tr>
 					</thead>
 					<tbody>
 						{#each takes as t (t.n)}
@@ -282,7 +282,7 @@
 							<td class="dim">Signature Prime</td>
 							<td class="num r">50</td>
 							<td class="num">T2</td>
-							<td class="chips-cell"><span class="status" style:--c="var(--rolling)"><span class="sq small"></span>Rolling</span></td>
+							<td class="chips-cell"><span class="status" style:--c="var(--rolling)"><span class="sq small"></span>Running</span></td>
 						</tr>
 					</tbody>
 				</table>
@@ -851,85 +851,6 @@
 		}
 	}
 
-	/* ---------------------------------------------------------------- the switch-over, previewed
-	   The kit parts moved onto the new tokens, as docs/design/colour.md lists. Scoped to this page;
-	   the follow-up makes the same edits in the components. */
-	.spec :global(.ios-workspace .list[data-at='side']) {
-		background: var(--sidebar);
-	}
-	.spec :global(.ios-rail.ios-rail) {
-		background: var(--rail);
-	}
-	.spec :global(.ios-rail-btn .face.face) {
-		background: var(--rail-button);
-	}
-	.spec :global(.ios-rail-btn.capture .face.face) {
-		background: var(--fill);
-	}
-	.spec :global(.ios-rail-btn[aria-pressed='true'] .face.face),
-	.spec :global(.ios-rail-btn:active:not(:disabled) .face.face) {
-		background: var(--rail-pressed);
-		color: var(--rail-pressed-label);
-	}
-	.spec :global(.ios-rail-btn .badge.badge) {
-		background: var(--tint-solid);
-		color: var(--on-tint-solid);
-		box-shadow: inset 0 0 0 calc(var(--state-ring) / 2) var(--on-tint-solid);
-	}
-	.spec :global(.ios-record .ring.ring) {
-		border-color: var(--record-ring);
-	}
-	.spec :global(.ios-record.rolling .ring.ring) {
-		border-color: var(--record);
-	}
-	.spec :global(.ios-record.rolling .detail.detail) {
-		color: var(--rolling);
-	}
-	.spec :global(.ios-keypad button.num) {
-		background: var(--key);
-		color: var(--key-label);
-		box-shadow: var(--shadow-1);
-	}
-	.spec :global(.ios-keypad button.alt.alt) {
-		background: var(--key-alt);
-		color: var(--key-label);
-		box-shadow: none;
-	}
-	.spec :global(.ios-keypad button:active:not(:disabled).num),
-	.spec :global(.ios-keypad button:active:not(:disabled).alt) {
-		background: var(--key-pressed);
-		color: var(--key-pressed-label);
-	}
-	.spec :global(.ios-keypad button:active:not(:disabled).num),
-	.spec :global(.ios-keypad button:active:not(:disabled).alt) {
-		box-shadow: inset 0 0 0 var(--state-ring) var(--key-pressed-label);
-	}
-	.spec :global(.ios-toggle input::before) {
-		background: var(--thumb);
-		box-shadow: var(--shadow-1);
-	}
-	.spec :global(.ios-seg .thumb.thumb) {
-		box-shadow: var(--shadow-1);
-	}
-	.spec :global(.ios-btn.filled.filled:not(.red)) {
-		background: var(--tint-solid);
-		color: var(--on-tint-solid);
-		box-shadow: inset 0 0 0 var(--state-ring) var(--on-tint-solid);
-	}
-	.spec :global(.ios-toggle input:checked) {
-		background: var(--tint-solid);
-		box-shadow: inset 0 0 0 var(--state-ring) var(--on-tint-solid);
-	}
-	.spec :global(.ios-toggle input:checked::before) {
-		background: var(--on-tint-solid);
-	}
-	.spec :global(.ios-rail-btn[aria-pressed='true'] .face.face) {
-		box-shadow: inset 0 0 0 var(--state-ring) var(--rail-pressed-label);
-	}
-	.spec :global(.ios-seg .thumb.thumb) {
-		outline: var(--state-ring) solid var(--label-2);
-		outline-offset: -2px;
-	}
 	/* The kit's sheet is phone-sized; on the iPad a form sheet sits in the middle. */
 	.spec :global(.ios-sheet-layer) {
 		left: 0;
@@ -938,25 +859,5 @@
 	.spec :global(.ios-sheet-layer .panel.panel) {
 		left: calc(50% - 280px);
 		right: calc(50% - 280px);
-	}
-	.spec :global(.ios-btn.filled.red) {
-		background: var(--destructive-solid);
-		color: var(--on-destructive);
-	}
-	.spec :global(.ios-sheet-layer .panel.panel) {
-		background: var(--mat-sheet);
-		-webkit-backdrop-filter: var(--mat-blur);
-		backdrop-filter: var(--mat-blur);
-		box-shadow: var(--shadow-3);
-	}
-	.spec :global(.ios-chip.on.on) {
-		background: var(--tint-fill);
-		color: var(--tint);
-	}
-	.spec :global(.ios-section .group) {
-		box-shadow: inset 0 0 0 var(--cell-ring) var(--separator-opaque);
-	}
-	.spec :global(.ios-tile.ios-tile) {
-		color: var(--on-tint);
 	}
 </style>

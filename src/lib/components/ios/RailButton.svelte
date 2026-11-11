@@ -131,7 +131,7 @@
 		width: var(--side);
 		height: var(--side);
 		border-radius: 16px;
-		background: var(--fill-2);
+		background: var(--rail-button);
 		/* An edge of its own: the fill alone is 1.2 to 1.6 to 1 on the rail. */
 		box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--label) 34%, transparent);
 		transition: transform var(--t-release) var(--ease-out);
@@ -143,9 +143,10 @@
 	/* The press, on the first frame: the face inverts. The scale follows. */
 	.ios-rail-btn[data-held]:not(:disabled) .face,
 	.ios-rail-btn[aria-pressed='true'] .face {
-		background: var(--label);
-		color: var(--bg);
-		box-shadow: none;
+		background: var(--rail-pressed);
+		color: var(--rail-pressed-label);
+		/* Night fills nothing brightly: a ring says it too. */
+		box-shadow: inset 0 0 0 var(--state-ring) var(--rail-pressed-label);
 	}
 	.ios-rail-btn[data-held]:not(:disabled) .face {
 		transform: scale(var(--s-press));
@@ -156,7 +157,7 @@
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
-		background: var(--label);
+		background: var(--rail-pressed);
 		opacity: 0;
 		pointer-events: none;
 	}
@@ -194,7 +195,7 @@
 		outline: none;
 	}
 	.ios-rail-btn:focus-visible .face {
-		outline: 3px solid var(--tint);
+		outline: 3px solid var(--focus);
 		outline-offset: 3px;
 	}
 	.caption {
@@ -215,9 +216,9 @@
 		height: 26px;
 		padding: 0 7px;
 		border-radius: 13px;
-		background: var(--label);
-		color: var(--bg);
-		box-shadow: 0 0 0 3px var(--bg-elevated);
+		background: var(--tint-solid);
+		color: var(--on-tint-solid);
+		box-shadow: 0 0 0 3px var(--rail), inset 0 0 0 calc(var(--state-ring) / 2) var(--on-tint-solid);
 		font-size: 14px;
 		line-height: 26px;
 		font-weight: 700;

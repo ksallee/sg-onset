@@ -1,10 +1,10 @@
 // The settings in the browser: kept in localStorage, applied to <html> and to the theme-color
 // meta. On <html>: `data-theme="light|dark"` (resolved), `data-night="true"` in red night mode,
-// the kit's theme classes, `data-hand="left|right"`, `data-motion="full|reduced"` (resolved),
-// `data-button-size="standard|large"`, `--target`, `--gap`, `--touch`.
-// app.html's inline script does the theme, the hand and the motion before the first paint; `start()` (root
-// layout) does the rest and follows another tab. Read `settings.value` anywhere; it is a rune.
-import { THEME_CLASSES } from '$lib/ios/theme';
+// (the two are the theme: lib/theme/tokens.css keys on them), `data-hand="left|right"`,
+// `data-motion="full|reduced"` (resolved), `data-button-size="standard|large"`, `--target`,
+// `--gap`, `--touch`. app.html's inline script does the theme, the hand and the motion before the
+// first paint; `start()` (root layout) does the rest and follows another tab. Read
+// `settings.value` anywhere; it is a rune.
 import { DEFAULT_SETTINGS, SETTINGS_KEY, documentLook, parseSettings, serializeSettings, withLast, type DocumentLook, type Last, type Settings } from './settings';
 
 const query = (q: string) => (typeof matchMedia === 'function' ? matchMedia(q) : null);
@@ -74,8 +74,6 @@ class AppSettings {
 		if (typeof document === 'undefined') return;
 		const look = this.look();
 		const root = document.documentElement;
-		root.classList.remove(...THEME_CLASSES);
-		root.classList.add(...look.classes);
 		root.dataset.theme = look.theme;
 		if (look.night) root.dataset.night = 'true';
 		else delete root.dataset.night;

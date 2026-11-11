@@ -110,7 +110,7 @@
 	.list[data-at='side'] {
 		overflow-y: auto;
 		overscroll-behavior-y: contain;
-		background: var(--bg-elevated);
+		background: var(--sidebar);
 	}
 	/* Hairlines between the columns: on the side that faces the main view. */
 	[data-rail='right'] .list[data-at='side'] {

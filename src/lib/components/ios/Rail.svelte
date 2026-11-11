@@ -88,7 +88,7 @@
 		height: 100%;
 		width: calc(var(--target) + 2 * var(--pad));
 		box-sizing: content-box;
-		background: var(--bg-elevated);
+		background: var(--rail);
 		touch-action: none;
 		overscroll-behavior: none;
 		user-select: none;

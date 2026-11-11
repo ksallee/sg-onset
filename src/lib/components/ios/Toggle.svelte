@@ -37,14 +37,17 @@
 		width: 27px;
 		height: 27px;
 		border-radius: 50%;
-		background: #fff;
-		box-shadow: 0 3px 8px rgb(0 0 0 / 0.15), 0 3px 1px rgb(0 0 0 / 0.06);
+		background: var(--thumb);
+		box-shadow: var(--shadow-1);
 		transition: transform var(--dur-control) var(--ease-ios), width var(--dur-control) var(--ease-ios);
 	}
 	input:checked {
-		background: var(--tint);
+		background: var(--tint-solid);
+		/* Night fills nothing brightly: a ring says it is on. */
+		box-shadow: inset 0 0 0 var(--state-ring) var(--on-tint-solid);
 	}
 	input:checked::before {
+		background: var(--on-tint-solid);
 		transform: translateX(20px);
 	}
 	/* Pressed, the knob stretches toward where it will go. */
@@ -55,7 +58,7 @@
 		transform: translateX(14px);
 	}
 	input:focus-visible {
-		outline: 2px solid var(--tint);
+		outline: 2px solid var(--focus);
 		outline-offset: 2px;
 	}
 	.disabled {

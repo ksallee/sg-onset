@@ -3,6 +3,8 @@
 	// picked option. `ghost` draws the thumb quietly (the value is inherited, not set here; tapping
 	// any option sets it). A radio group: one Tab stop (the checked option); arrows, Home and End
 	// move and pick (ios/keys.ts radioStep).
+	// Motion (docs/design/motion.md): the thumb slides on the snappy spring, as a transition, so
+	// a second pick turns it from where it is; pressed on the picked option, it gives a little.
 	import type { Option } from '$lib/ios/option';
 	import { radioStep } from '$lib/ios/keys';
 
@@ -77,7 +79,11 @@
 		/* Night: no shadow to lift it, so a ring. */
 		outline: var(--state-ring) solid var(--label-2);
 		outline-offset: -2px;
-		transition: transform var(--dur-control) var(--ease-ios);
+		transition: transform var(--dur-snappy) var(--spring-snappy), scale var(--dur-press) var(--ease-out);
+	}
+	.ios-seg:has(button.on:active) .thumb {
+		scale: 0.96;
+		transition: transform var(--dur-snappy) var(--spring-snappy), scale 0s;
 	}
 	.ghost .thumb {
 		background: transparent;
@@ -119,7 +125,7 @@
 		bottom: 7px;
 		width: 1px;
 		background: var(--separator);
-		transition: opacity var(--dur-control);
+		transition: opacity var(--dur-fade);
 	}
 	button.on::before,
 	button.after-on::before {
@@ -141,10 +147,5 @@
 		outline: 2px solid var(--focus);
 		outline-offset: -1px;
 		border-radius: 7px;
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.thumb {
-			transition: none;
-		}
 	}
 </style>

@@ -186,7 +186,7 @@
 
 <div class="screen" class:wide class:selecting={ids.length > 0} bind:clientWidth={width}>
 	{#if wide}
-		<div class="list-pane">{@render list()}</div>
+		<div class="list-pane" data-page-pin>{@render list()}</div>
 		<div class="detail-pane">{@render detail(false)}</div>
 	{:else if id}
 		{@render detail(true)}
@@ -228,7 +228,6 @@
 		flex: none;
 		width: clamp(320px, 36%, 400px);
 		box-shadow: var(--hairline) 0 0 var(--separator);
-		view-transition-name: slates-list;
 		z-index: 1;
 	}
 	.detail-pane {

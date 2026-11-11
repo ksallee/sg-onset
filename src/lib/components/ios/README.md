@@ -120,7 +120,7 @@ The app is built for an iPad. A page is never a centred phone column there.
   at the large button size.
 - Motion: `data-motion="full|reduced"` on `<html>` is the setting, resolved. Style against it,
   not against the media query; `reducedMotion()` in `layer.svelte.ts` reads it. Reduced turns
-  every transition and animation off (app.css). On the capture path nothing waits on an
+  every transition and animation off (`theme/motion.css`). On the capture path nothing waits on an
   animation: the state lands on the first frame, motion follows as feedback. Elsewhere motion
   is transform and opacity only, and interruptible.
 - Theme: `data-theme="light|dark"` and `data-night="true"` on `<html>`; `lib/theme/tokens.css`
@@ -160,12 +160,43 @@ The app is built for an iPad. A page is never a centred phone column there.
   a sheet under another scales to .94 and dims), focus trap and return, `reducedMotion()`. A
   panel that is not a Sheet joins the stack with `use:layer={onclose}`: Escape closes it alone.
 - Pure, tested: `ios/detent.ts` `snapDetent`, `ios/swipe.ts` `swipeState`, `ios/largeTitle.ts`
-  `titleProgress`, `ios/direction.ts` `navDirection` (View Transitions in `+layout.svelte`).
+  `titleProgress`, `ios/direction.ts` `navDirection` and `pageMotion` (moved by `pageStage.ts`).
 - Pure, tested: `ios/keys.ts` `trapStep` (Sheet's focus trap) and `radioStep` (Segmented's
   arrows), from holosession's `builder/keys.ts`.
 - `ios/direction.ts` holds sg-onset's tab roots: `/` and the five destinations. A page under one
-  pushes and pops; the shell's navigation stays put meanwhile (`view-transition-name`). The
-  `/run` cover is still holosession's.
+  pushes and pops; a change of destination fades; the shell's navigation stays put meanwhile
+  (outside NavShell's `data-page-stage`). The `/run` cover is still holosession's.
 - A Toggle or Stepper in a Row overhangs its padding: rows stay 44 tall.
 - No English in the kit: a default word (Search, Cancel, Back, Close…) is a `t()` key of
   `i18n/en/common.ts` (`common.*`, `kit.*`); a prop still overrides it.
+
+## Motion
+
+The rules, tokens and what each part does: `docs/design/motion.md`. Transform and opacity only,
+interruptible, never blocking a tap, nothing on the capture path. What a feature area uses:
+
+- **Tokens.** CSS: `var(--spring-snappy|smooth|page)` with `var(--dur-snappy|smooth|page)` as a
+  transition or animation easing and duration; `--ease-out`; `--dur-press|fade|exit`. Code:
+  `SPRINGS`, `EASINGS`, `DURATIONS`, `springCss(name)` from `$lib/theme/motion`.
+- **Reduced motion.** Style against `html[data-motion='reduced']`, never the media query; in code,
+  `reducedMotion()` from `layer.svelte.ts`. Every helper below already does nothing (or fades)
+  when it is reduced.
+- **A list whose entries come, go and change place** (Gear, Slates): `listMotion()` from
+  `components/ios/motion.ts` on the element whose children are a keyed `{#each}`:
+  `<div {@attach listMotion()}>`. A new entry fades in, a removed one fades out where it was while
+  the others close the gap, a moved one glides to its place. `listMotion({ disabled: () => busy })`
+  turns it off for a moment. Pure part: `ios/flip.ts` (`flipDelta`, `listDiff`).
+- **One thing from where it was to where it is**: `boxOf(node)` before the change, `flipFrom(node,
+  box, { spring, scale })` after it (`flushSync()` between, in Svelte).
+- **A tap-driven move**: `animateSpring(node, keyframes, 'smooth')`: a Web Animation on a spring
+  that replaces the one it ran before on the node; `settle(node)` stops it.
+- **Something that comes and goes**: `in:rise={{ y: 12 }} out:rise={{ y: 8, exit: true }}`. It
+  leaves sooner than it came and takes no touch while it does.
+- **A finger-driven move**: `springDriver('sheet', (y) => (el.style.transform = …), onrest)`:
+  `jump(x)` while the finger drags, `to(target, velocity)` on release. Gesture maths in
+  `ios/gesture.ts`: `rubberband`, `releaseVelocity`, `project`, `dimProgress`; the spring in
+  `ios/spring.ts`.
+- **A part that stays while its page pushes** (a list beside a detail): `data-page-pin` on it, in
+  both pages.
+- **Never** animate width, height, top or left; never put motion in `Rail`, `RailButton`,
+  `RecordButton`, `Keypad` or `Chip`.

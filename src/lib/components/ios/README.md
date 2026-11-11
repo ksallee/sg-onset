@@ -12,7 +12,7 @@ Keypad, Chip, #1; NavShell, Page, Columns, InputRow, Notice, #9) are sg-onset's 
 - Additions, all optional: Sheet `dismissible`, `onclose`; Row `class`; Button `full`, `class`, any
   button attribute; Segmented `small` (kept from builder/Segmented); Stepper `bigStep` (what a
   long press repeats by); Slider `format`; SearchField `onsubmit`, `label`; Menu `open`, `align`,
-  item `disabled`, `section`; NavBar `back.onclick` (href optional), `ontitle` (the inline title as a button, WP4); ProgressRing `stroke`,
+  item `disabled`, `section`; NavBar `back.onclick` (href optional), `ontitle` (the inline title as a button, WP4), an empty `title` renders no heading; ProgressRing `stroke`,
   `label`, `children`; Screen `scroller` (bindable); new `Tile`.
 - `data-theme="dark"` (or `light`, or `data-night="true"`) on a Screen forces that theme on it
   (tokens and aliases are redeclared there). Run follows the appearance; its dim cover is black in both.

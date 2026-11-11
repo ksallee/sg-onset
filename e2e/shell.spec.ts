@@ -41,9 +41,9 @@ test.describe('first run', () => {
 });
 
 test.describe('navigation', () => {
-	test('reaches the five destinations', async ({ page }) => {
+	test('reaches the six destinations', async ({ page }) => {
 		await openApp(page, '/shoot');
-		for (const [name, heading] of [['Slates', 'Slates'], ['Gear', 'Gear'], ['Templates', 'Templates'], ['Settings', 'Settings'], ['Shoot', 'Shoot']]) {
+		for (const [name, heading] of [['Slates', 'Slates'], ['Gear', 'Gear'], ['Templates', 'Templates'], ['Wrap', 'Wrap'], ['Settings', 'Settings'], ['Shoot', 'Shoot']]) {
 			await nav(page).getByRole('link', { name, exact: true }).tap();
 			await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
 			await expect(nav(page).getByRole('link', { name, exact: true })).toHaveAttribute('aria-current', 'page');

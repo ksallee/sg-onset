@@ -50,7 +50,8 @@
 	const slate = $derived(record.value);
 	const daySlates = liveList('slate', () => slate?.shootDayId);
 	const day = $derived(current.shootDays.find((d) => d.id === slate?.shootDayId));
-	const name = $derived(slate ? t('slates.slate', { slate: slate.slateUID ?? '' }) : t('slates.title'));
+	// No title while the slate loads: beside the list, a fallback "Slates" would be a second one.
+	const name = $derived(slate ? t('slates.slate', { slate: slate.slateUID ?? '' }) : record.ready ? t('slates.title') : '');
 	const lines = $derived(slateTakeLines(takes, refs.setups, refs.lenses));
 	const summary = $derived(slate ? summarise([slate], takes, new Set())[0] : undefined);
 	const template = $derived(refs.template(slate?.templateId));

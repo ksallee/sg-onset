@@ -25,6 +25,15 @@ Open the URL Vite prints. The rest:
 The service worker caches nothing under `pnpm dev`. Try offline and Add to Home Screen on
 `pnpm build && pnpm preview`.
 
+## Sign in
+
+`/sign-in`. You type your Flow PT site and approve sg-onset on it. This app never sees your password.
+Capture works signed in or not; only sync needs a session.
+
+The app's server forwards the two sign-in calls to Autodesk-hosted sites only
+(`*.shotgrid.autodesk.com`, `*.shotgunstudio.com`). A self-hosted deploy allows its own site with
+`FPT_EXTRA_HOSTS`. See `.env.example`.
+
 ## License
 
 MIT. See `LICENSE`.

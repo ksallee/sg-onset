@@ -20,7 +20,7 @@ export const take = {
 	'phase.filed': 'Filed',
 	'timing.title': 'Timing',
 	'timing.start': 'Start',
-	'timing.end': 'End',
+	'timing.end': 'Stop',
 
 	'field.focalLength': 'Focal length',
 	'field.focusDistance': 'Focus',
@@ -30,7 +30,7 @@ export const take = {
 
 	'rail.label': 'Capture',
 	'rail.record': 'Record',
-	'rail.cut': 'Cut',
+	'rail.cut': 'Stop',
 	'rail.photo': 'Photo',
 	'rail.newTake': 'New take',
 	'rail.undo': 'Undo',

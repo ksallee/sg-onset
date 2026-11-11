@@ -5,7 +5,7 @@ import { expect, open, test } from './fixtures';
 const PATH = '/proto/take';
 
 const rail = (page: Page) => page.getByRole('toolbar', { name: 'Capture' });
-const recordButton = (page: Page) => rail(page).getByRole('button', { name: /^(Record|Cut)\b/ });
+const recordButton = (page: Page) => rail(page).getByRole('button', { name: /^(Record|Stop)\b/ });
 /** The take's phase: the status line that starts with the phase word. */
 const phase = (page: Page, word: string) => page.getByRole('status').filter({ hasText: new RegExp(`^\\s*${word}`) });
 
@@ -48,7 +48,7 @@ test.describe('take screen', () => {
 		await open(page, PATH);
 		await recordButton(page).tap();
 		await expect(phase(page, 'Rolling')).toBeVisible();
-		await expect(rail(page).getByRole('button', { name: /^Cut\b/ })).toBeVisible();
+		await expect(rail(page).getByRole('button', { name: /^Stop\b/ })).toBeVisible();
 		await recordButton(page).tap();
 		await expect(phase(page, 'Filed')).toBeVisible();
 	});

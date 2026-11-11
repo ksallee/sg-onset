@@ -64,8 +64,8 @@ export const fields = {
 	'field.slate.notes': 'Notes',
 
 	'field.take.take': 'Take',
-	'field.take.startedAt': 'Started',
-	'field.take.endedAt': 'Ended',
+	'field.take.startedAt': 'Start',
+	'field.take.endedAt': 'Stop',
 	'field.take.circleTake': 'Circled',
 	'field.take.noGood': 'No good',
 	'field.take.notes': 'Notes',

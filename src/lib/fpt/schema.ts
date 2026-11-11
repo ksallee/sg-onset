@@ -8,15 +8,18 @@ import { ENTITY_SCOPES, ENTITY_TYPES, wantedColumns, type Column, type EntitySco
 import { codeName } from './names';
 
 /** `GET /schema`, its `data`: one entry per enabled type, keyed by schema name. */
-export type SchemaTypes = Record<string, { name: { value: string } }>;
+export type SchemaTypes = Record<string, { name: Property<string> }>;
+
+/** A property as the schema wraps it. The outer `editable` is about the property, not the field. */
+type Property<T> = { value: T; editable?: boolean };
 
 /** One field of `GET /schema/<Type>/fields`, the parts we read. */
 export type RawField = {
-	name: { value: string };
-	data_type: { value: string };
-	editable?: { value: boolean };
-	unique?: { value: boolean };
-	properties?: { valid_types?: { value: unknown } } & Record<string, unknown>;
+	name: Property<string>;
+	data_type: Property<string>;
+	editable?: Property<boolean>;
+	unique?: Property<boolean>;
+	properties?: { valid_types?: Property<unknown> } & Record<string, unknown>;
 };
 export type RawFields = Record<string, RawField>;
 

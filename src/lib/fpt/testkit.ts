@@ -41,7 +41,7 @@ export function rawField(dataType: string, display: string, extra: { unique?: bo
 		editable: { value: extra.editable ?? true, editable: false },
 		unique: { value: extra.unique ?? false, editable: false },
 		properties: extra.validTypes ? { valid_types: { value: extra.validTypes, editable: true } } : {}
-	} as RawField;
+	};
 }
 
 /** The fields every entity type has (corpus findings/122_onset_entity_types.md, the common set). */

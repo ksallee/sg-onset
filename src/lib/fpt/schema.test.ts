@@ -8,10 +8,10 @@ import {
 	resolveEntities,
 	serializeResolution,
 	toResolution,
-	type RawField,
 	type RawFields,
 	type SchemaTypes
 } from './schema';
+import { completeFields as complete, rawField as raw, TYPES } from './testkit';
 
 // Shapes: corpus endpoints/get_schema.md and endpoints/get_schema_type_fields.md. Slot numbers
 // differ per site (findings/008_custom_entities.md); these are the probed site's, read 2026-11-11.
@@ -28,39 +28,6 @@ const SITE: SchemaTypes = {
 	CustomEntity29: type('Location'),
 	CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection')
 };
-const TYPES: Record<EntityScope, string> = {
-	shootDay: 'ShootDay',
-	slate: 'Slate',
-	camera: 'Camera',
-	take: 'CustomEntity09',
-	cameraSetup: 'CustomEntity10',
-	lightingSetup: 'CustomEntity11',
-	lens: 'CustomEntity19'
-};
-
-function raw(dataType: string, display: string, extra: { unique?: boolean; validTypes?: string[]; editable?: boolean } = {}): RawField {
-	return {
-		name: { value: display, editable: true },
-		data_type: { value: dataType, editable: false },
-		editable: { value: extra.editable ?? true, editable: false },
-		unique: { value: extra.unique ?? false, editable: false },
-		properties: extra.validTypes ? { valid_types: { value: extra.validTypes, editable: true } } : {}
-	};
-}
-
-/** A site where every field we want is already there. */
-function complete(): Record<EntityScope, RawFields> {
-	const out = {} as Record<EntityScope, RawFields>;
-	for (const scope of ENTITY_SCOPES) {
-		out[scope] = { code: raw('text', 'Name'), project: raw('entity', 'Project', { validTypes: ['Project'] }), description: raw('text', 'Description') };
-		for (const c of wantedColumns(scope)) {
-			const target = c.target === 'attachment' ? 'Attachment' : c.target && c.target !== 'project' ? TYPES[c.target] : undefined;
-			out[scope][c.name] = raw(c.dataType, c.display, { unique: c.unique, validTypes: target ? [target] : undefined });
-		}
-	}
-	return out;
-}
-
 const status = (scope: EntityScope) => resolveEntities(SITE).find((e) => e.scope === scope);
 
 describe('resolveEntities', () => {
@@ -72,7 +39,7 @@ describe('resolveEntities', () => {
 
 	it('never goes by slot number', () => {
 		const moved: SchemaTypes = { ...SITE, CustomEntity09: type('Sound Roll'), CustomEntity42: type('Take') };
-		expect(entityTypesOf(resolveEntities(moved)).take).toBe('CustomEntity42');
+		expect(entityTypesOf(resolveEntities(moved))?.take).toBe('CustomEntity42');
 	});
 
 	// findings/008: display names are free text and may hold a trailing space.

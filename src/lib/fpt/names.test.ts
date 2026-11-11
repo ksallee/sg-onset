@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { codeName, displayOf } from './names';
+import { codeName, displayOf, slugOf } from './names';
 
 describe('displayOf', () => {
 	it('splits a camelCase key into capitalised words', () => {
@@ -23,5 +23,18 @@ describe('codeName', () => {
 		expect(codeName('zzprobe 117 a--b..c!!d  e_f')).toBe('sg_zzprobe_117_a__b__c__d__e_f');
 		expect(codeName('117 zzprobe digit')).toBe('sg_117_zzprobe_digit');
 		expect(codeName('Focus Distance m')).toBe('sg_focus_distance_m');
+	});
+});
+
+describe('slugOf', () => {
+	// corpus findings/122_onset_entity_types.md: shoot_days resolves, shootdays does not. The probe
+	// of findings/123_photos_per_record.md addressed a custom entity as custom_entity19s.
+	it('is the lowercased, underscored plural the REST paths take', () => {
+		expect(slugOf('Slate')).toBe('slates');
+		expect(slugOf('Camera')).toBe('cameras');
+		expect(slugOf('ShootDay')).toBe('shoot_days');
+		expect(slugOf('CustomEntity19')).toBe('custom_entity19s');
+		expect(slugOf('Attachment')).toBe('attachments');
+		expect(slugOf('Project')).toBe('projects');
 	});
 });

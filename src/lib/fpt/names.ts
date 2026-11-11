@@ -19,3 +19,15 @@ export function displayOf(key: string): string {
 export function codeName(display: string): string {
 	return 'sg_' + display.toLowerCase().replace(/[^a-z0-9_]/g, '_');
 }
+
+/**
+ * How a type is spelled in a REST path: ShootDay is `shoot_days`, CustomEntity19 is
+ * `custom_entity19s` (corpus findings/122_onset_entity_types.md; the probe of findings/123
+ * addressed a custom entity so). The same rule sg-widgets-core applies, which does not export it.
+ */
+export function slugOf(entityType: string): string {
+	const snake = entityType.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+	if (snake.endsWith('s')) return `${snake}es`;
+	if (snake.endsWith('y') && !/[aeiou]y$/.test(snake)) return `${snake.slice(0, -1)}ies`;
+	return `${snake}s`;
+}

@@ -19,7 +19,7 @@
 				if (night) root.dataset.night = 'true';
 				root.dataset.hand = s.hand === 'left' ? 'left' : 'right';
 				root.dataset.motion = s.motion === 'full' || s.motion === 'reduced' ? s.motion : matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduced' : 'full';
-				document.querySelector('meta[name="theme-color"]').content = night ? '#000000' : dark ? '#0A0A0B' : '#ECEDF2';
+				document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.removeAttribute('media'); m.content = night ? '#000000' : dark ? '#0A0A0B' : '#ECEDF2'; });
 			} catch (e) {
 				root.dataset.theme = 'dark';
 				root.dataset.motion = 'full';

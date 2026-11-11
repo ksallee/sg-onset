@@ -46,5 +46,5 @@ tested; the rest are thin wrappers over browser APIs, safe to import on the serv
   cached copy offline; `/api/**` never. Does nothing in `pnpm dev`. holosession's audio cache
   (`media` rule, range requests) is left out: `cache.ts` still names `/sounds/**` and `/music/**`,
   and the worker treats a `media` answer as network first.
-- `static/manifest.webmanifest`, `static/icons/*` (placeholders: a red dot on black), the meta in
+- `static/manifest.webmanifest`, `static/icons/*`, the meta in
   `src/app.html`. `manifest.test.ts` checks them.

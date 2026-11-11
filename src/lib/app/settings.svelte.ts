@@ -83,7 +83,10 @@ class AppSettings {
 		root.style.setProperty('--target', `${look.target}px`);
 		root.style.setProperty('--gap', `${look.gap}px`);
 		root.style.setProperty('--touch', `${look.touch}px`);
-		document.querySelector('meta[name="theme-color"]')?.setAttribute('content', look.themeColor);
+		for (const m of document.querySelectorAll('meta[name="theme-color"]')) {
+			m.removeAttribute('media');
+			m.setAttribute('content', look.themeColor);
+		}
 	}
 }
 

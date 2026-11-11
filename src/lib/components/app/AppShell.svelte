@@ -13,6 +13,7 @@
 	import { NAV, activeNav, type NavId } from '$lib/app/nav';
 	import { settings } from '$lib/app/settings.svelte';
 	import { provideShell } from '$lib/app/shell.svelte';
+	import { sidebarStrip, sidebarToggle } from '$lib/app/sidebar';
 	import { syncSummary } from '$lib/app/sync';
 	import { t, tk } from '$lib/i18n/messages';
 	import ContextSheet from './ContextSheet.svelte';
@@ -34,7 +35,7 @@
 	const unsynced = liveUnsynced();
 	const summary = $derived(syncSummary(unsynced.value, auth.status));
 	const active = $derived(activeNav(page.url.pathname));
-	const strip = $derived(settings.value.sidebar === 'strip');
+	const strip = $derived(sidebarStrip(settings.value, !!active?.focus));
 
 	let contextOpen = $state(false);
 	let syncOpen = $state(false);
@@ -77,7 +78,7 @@
 	focus={!!active?.focus}
 	label={t('nav.label')}
 	title={t('app.name')}
-	ontoggle={() => settings.update({ sidebar: strip ? 'open' : 'strip' })}
+	ontoggle={() => settings.update(sidebarToggle(settings.value, !!active?.focus))}
 	toggleLabel={strip ? t('nav.expand') : t('nav.collapse')}
 >
 	{#snippet status(placement)}

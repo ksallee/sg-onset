@@ -3,7 +3,8 @@
 	// Put it in Screen's `accessory`. Items are plain tinted buttons (Button variant plain), the
 	// main action may be filled.
 	import type { Snippet } from 'svelte';
-	let { children, label = 'Toolbar' }: { children: Snippet; label?: string } = $props();
+	import { t } from '$lib/i18n/messages';
+	let { children, label = t('kit.toolbar') }: { children: Snippet; label?: string } = $props();
 </script>
 
 <div class="ios-toolbar material-bar" role="toolbar" aria-label={label}>

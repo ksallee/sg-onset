@@ -3,12 +3,20 @@
 import type { FieldDef, Unit } from '$lib/model/catalogue';
 import type { ImportIssue } from '$lib/model/gearImport';
 import type { Issue } from '$lib/model/validate';
-import { tk, t, type Params } from './messages';
+import { hasMessage, tk, t, type Params } from './messages';
 
 /** The label of a catalogue field; of its end value with `end`. */
 export function fieldLabel(def: Pick<FieldDef, 'labelKey'>, end = false): string {
 	const label = tk(def.labelKey);
 	return end ? t('field.end', { field: label }) : label;
+}
+
+/** The short label of a field, for the dense take table; the long one where it has none. */
+export function fieldShortLabel(def: Pick<FieldDef, 'labelKey'>, end = false): string {
+	const key = `${def.labelKey}.short`;
+	if (!hasMessage(key)) return fieldLabel(def, end);
+	const label = t(key);
+	return end ? t('field.end.short', { field: label }) : label;
 }
 
 /** The label of one option of an enum field. */

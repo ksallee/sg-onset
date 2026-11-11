@@ -48,6 +48,30 @@ class Stack {
 }
 export const overlays = new Stack();
 
+/**
+ * A panel that is not a Sheet takes its place on the stack: `use:layer={onclose}`. Escape closes
+ * it only while it is the top one, and goes no further.
+ */
+export function layer(node: HTMLElement, onclose: () => void) {
+	const id = overlays.open();
+	let close = onclose;
+	const key = (e: KeyboardEvent) => {
+		if (e.key !== 'Escape' || e.defaultPrevented || !overlays.top(id)) return;
+		e.preventDefault();
+		close();
+	};
+	window.addEventListener('keydown', key);
+	return {
+		update(next: () => void) {
+			close = next;
+		},
+		destroy() {
+			window.removeEventListener('keydown', key);
+			overlays.close(id);
+		}
+	};
+}
+
 // ---------------------------------------------------------------- sheet pages
 
 export interface SheetContext {

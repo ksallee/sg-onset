@@ -15,6 +15,16 @@ export const common = {
 	'common.yes': 'Yes',
 	'common.no': 'No',
 	'common.loading': 'Loading',
+	'common.search': 'Search',
+	'common.clear': 'Clear',
+
+	'kit.sheet.resize': 'Resize sheet',
+	'kit.actions': 'Actions',
+	'kit.tabs': 'Tabs',
+	'kit.toolbar': 'Toolbar',
+	'kit.progress': 'Progress',
+
+	'sample.name': 'Sample project',
 
 	'nav.label': 'Sections',
 	'nav.shoot': 'Shoot',

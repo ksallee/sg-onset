@@ -1,10 +1,11 @@
 <script lang="ts">
 	// The frame of the app on an iPad: the navigation and, beside or under it, the page. Wide (an
 	// iPad in landscape): a sidebar on the side edge away from the holding hand, with names or as
-	// a strip of icons (`strip`; `focus` forces the strip, for a page that needs the room). In
+	// a strip of icons (`strip`). `focus`: a page on the capture path, where the width never eases. In
 	// portrait and in a phone-width window: a bar across the top, its tabs starting from the far
 	// corner. Never along the foot and never on the holding hand's edge: that is where a
-	// Workspace puts its action rail (ios/shell.ts). The left hand mirrors it all.
+	// Workspace puts its action rail (ios/shell.ts). The left hand mirrors it all. The width eases
+	// only after the collapse button, never on a change of page.
 	// The page gets what is left as `--app-height`, so a Workspace, a Page or a Screen fills it.
 	// Sheets opened anywhere inside land on the shell and cover the navigation.
 	import type { Component, Snippet } from 'svelte';
@@ -39,7 +40,7 @@
 		label: string;
 		/** The name at the head of the sidebar. */
 		title?: string;
-		/** The sidebar's collapse button: shown when given, and not on a `focus` page. */
+		/** The sidebar's collapse button: shown when given. */
 		ontoggle?: () => void;
 		toggleLabel?: string;
 		/** A quiet status at the end of the navigation. It is told where it sits. */
@@ -50,7 +51,19 @@
 
 	let el = $state<HTMLElement | null>(null);
 	let width = $state(typeof window === 'undefined' ? 1180 : window.innerWidth);
-	const layout = $derived(shellLayout(hand, width, { strip, focus }));
+	const layout = $derived(shellLayout(hand, width, { strip }));
+	/** The button was pressed off the capture path: the width eases for a moment. */
+	let resizing = $state(false);
+	let settle: ReturnType<typeof setTimeout> | undefined;
+	function toggle() {
+		if (!focus) {
+			resizing = true;
+			clearTimeout(settle);
+			settle = setTimeout(() => (resizing = false), 400);
+		}
+		ontoggle?.();
+	}
+	$effect(() => () => clearTimeout(settle));
 	const Toggle = $derived(layout.edge === 'left' ? PanelLeft : PanelRight);
 
 	setScreen({
@@ -68,6 +81,7 @@
 	data-edge={layout.edge}
 	data-strip={layout.strip ? '' : undefined}
 	data-focus={focus ? '' : undefined}
+	data-resizing={resizing ? '' : undefined}
 	style:--sidebar-w="{SIDEBAR_W}px"
 	style:--strip-w="{STRIP_W}px"
 	bind:this={el}
@@ -76,8 +90,8 @@
 	<nav class="nav" aria-label={label}>
 		{#if layout.nav === 'side'}
 			<div class="head">
-				{#if ontoggle && !focus}
-					<button type="button" class="toggle" aria-label={toggleLabel} aria-expanded={!layout.strip} onclick={ontoggle}>
+				{#if ontoggle}
+					<button type="button" class="toggle" aria-label={toggleLabel} aria-expanded={!layout.strip} onclick={toggle}>
 						<Toggle class="size-[22px]" strokeWidth={1.9} />
 					</button>
 				{/if}
@@ -187,6 +201,8 @@
 		flex-direction: column;
 		width: var(--sidebar-w);
 		padding: var(--safe-top) 12px calc(12px + var(--safe-bottom));
+	}
+	[data-nav='side'][data-resizing] .nav {
 		transition: width 260ms var(--ease-ios);
 	}
 	[data-nav='side'][data-edge='left'] .nav {

@@ -9,10 +9,12 @@
 	// Delete and the stepper repeat while held, faster with time, and stop on pointer up, cancel
 	// or leave, when the page hides, and at the end of the range. Two fingers down at once both
 	// type, in order. A palm does not (ios/target.ts). A hardware keyboard types too: digits, the
-	// point, minus, Backspace, the arrows for the stepper, Enter for `onnext`, Escape for `ondone`.
+	// point, minus, Backspace, the arrows for the stepper, Enter for `onnext`, Escape for `ondone`,
+	// but not while a layer opened after it is on top (layer.svelte.ts): the keys are that layer's.
 	import { Delete, Minus, Plus } from '@lucide/svelte';
 	import { hardwareKey, repeatDelay, type Key } from '$lib/ios/keypad';
 	import { isPalm } from '$lib/ios/target';
+	import { overlays } from './layer.svelte';
 
 	type Id = Key | 'less' | 'more';
 
@@ -69,6 +71,8 @@
 	let rep: { id: Id; pointer: number; done: number; timer: ReturnType<typeof setTimeout> } | null = null;
 	/** The focus was last moved by Tab, not by a pointer. */
 	let tabbed = false;
+	/** The layers open when the keypad came: one more is over it. */
+	const depth = overlays.ids.length;
 
 	function enabled(id: Id): boolean {
 		if (id === '.') return point;
@@ -179,7 +183,7 @@
 	}
 
 	function keydown(e: KeyboardEvent) {
-		if (e.defaultPrevented || e.isComposing) return;
+		if (e.defaultPrevented || e.isComposing || overlays.ids.length > depth) return;
 		const at = e.target instanceof Element ? e.target : null;
 		if (at?.closest('input, textarea, select, [contenteditable]')) return;
 		if (e.key === 'Tab') tabbed = true;

@@ -3,6 +3,7 @@
 	// a top hairline, safe-area padding. Screen's scroll leaves room for it (`--tabbar-space`).
 	// Stays put through push and pop (its own View Transition name).
 	import type { Component } from 'svelte';
+	import { t } from '$lib/i18n/messages';
 
 	let { items, active }: { items: { href: string; label: string; icon: Component<{ class?: string; strokeWidth?: number }> }[]; active: string } = $props();
 
@@ -13,7 +14,7 @@
 	});
 </script>
 
-<nav class="ios-tabbar material-bar" aria-label="Tabs">
+<nav class="ios-tabbar material-bar" aria-label={t('kit.tabs')}>
 	{#each items as item (item.href)}
 		{@const on = item.href === active}
 		<a href={item.href} class="tab" class:on aria-current={on ? 'page' : undefined}>

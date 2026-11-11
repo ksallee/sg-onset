@@ -69,7 +69,7 @@ Never call `store.apply`, `store.create` or `store.remove` from a feature.
 ### Settings
 
 - `settings.value` (`settings.svelte.ts`) is a rune: `hand`, `appearance`, `night`, `buttonSize`,
-  `units`, `motion`, `sidebar`, `last`. Change with `settings.update({ … })`.
+  `units`, `motion`, `sidebar`, `captureSidebar`, `last`. Change with `settings.update({ … })`.
 - They are on `<html>` for CSS: `data-theme="light|dark"`, `data-night="true"`,
   `data-hand="left|right"`, `data-motion="full|reduced"`, `data-button-size="standard|large"`,
   `--target`, `--gap` (capture targets), `--touch` (every other target).
@@ -92,7 +92,7 @@ Never call `store.apply`, `store.create` or `store.remove` from a feature.
 ### Navigation
 
 - The destinations are data: `NAV` in `nav.ts`. `focus: true` gives a destination the room and
-  the calm of the capture path: the sidebar is a strip there and the shell shows no notice.
+  the calm of the capture path: the sidebar keeps its own width there, a strip at first, and the shell shows no notice.
 - A page under a destination (`/slates/<id>`) pushes and pops by itself (`ios/direction.ts`).
 - The sync detail lists what needs a look from the outbox alone. A new table shows up there with
   its `scope.<table>` name and its naming field (`titles.ts`): nothing to register.

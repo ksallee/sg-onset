@@ -11,7 +11,8 @@ export interface NavEntry {
 	labelKey: MessageKey;
 	/**
 	 * The destination needs the room and the calm of the capture path: in landscape the sidebar
-	 * shows as a strip there, and the shell shows no notice of its own (the page shows its own).
+	 * keeps its own width there, a strip at first (sidebar.ts), and the shell shows no notice of
+	 * its own (the page shows its own).
 	 */
 	focus?: true;
 	/** Other paths that belong to this destination. */

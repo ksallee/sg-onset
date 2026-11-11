@@ -20,13 +20,10 @@ export interface ShellLayout {
 	taken: number;
 }
 
-/**
- * `strip`: the person collapsed the sidebar. `focus`: the page needs the room (the take screen),
- * so the sidebar is a strip whatever the person chose.
- */
-export function shellLayout(hand: Hand, width: number, options: { strip?: boolean; focus?: boolean } = {}): ShellLayout {
+/** `strip`: the person collapsed the sidebar. */
+export function shellLayout(hand: Hand, width: number, options: { strip?: boolean } = {}): ShellLayout {
 	const edge = hand === 'right' ? 'left' : 'right';
 	if (width < WIDE_FROM) return { nav: 'top', edge, strip: false, taken: 0 };
-	const strip = !!options.strip || !!options.focus;
+	const strip = !!options.strip;
 	return { nav: 'side', edge, strip, taken: strip ? STRIP_W : SIDEBAR_W };
 }

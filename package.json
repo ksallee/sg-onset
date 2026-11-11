@@ -6,7 +6,7 @@
 	"description": "On-set VFX data capture for Flow Production Tracking: an offline PWA, iPad first, built on sg-widgets.",
 	"license": "MIT",
 	"engines": {
-		"node": ">=22"
+		"node": ">=22 <25"
 	},
 	"scripts": {
 		"dev": "vite dev",

@@ -186,11 +186,11 @@ test.describe('edits', () => {
 test.describe('sync status', () => {
 	test('counts what waits and opens the detail, with the backup', async ({ page }) => {
 		await openApp(page, '/slates');
-		const status = nav(page).getByRole('button', { name: /^Sync: 25 on this device/ });
+		const status = nav(page).getByRole('button', { name: /^Sync: Not signed in\. 25 waiting/ });
 		await expect(status).toBeVisible();
 		await status.tap();
 		const detail = page.getByRole('dialog', { name: 'Sync' });
-		await expect(detail.getByText('Waiting on this device')).toBeVisible();
+		await expect(detail.getByText('Waiting, by kind')).toBeVisible();
 		await expect(detail.getByRole('link', { name: /Sign In/ })).toBeVisible();
 		await detail.getByRole('button', { name: 'Export Backup' }).tap();
 		await expect(detail.getByRole('button', { name: /Share or Save/ })).toBeVisible();

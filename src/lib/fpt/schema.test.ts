@@ -111,7 +111,7 @@ describe('planFields', () => {
 		expect(one(plans, 'take', 'sg_focal_length')).toMatchObject({ status: 'create', name: 'sg_focal_length', displayName: 'Focal Length', dataType: 'float', entityType: 'CustomEntity09' });
 		expect(one(plans, 'take', 'sg_onset_uuid')).toMatchObject({ status: 'create', unique: true });
 		expect(one(plans, 'take', 'sg_slate')).toMatchObject({ status: 'create', dataType: 'entity', validTypes: ['Slate'] });
-		expect(one(plans, 'take', 'sg_stills')).toMatchObject({ status: 'create', dataType: 'multi_entity', validTypes: ['Attachment'] });
+		expect(one(plans, 'take', 'sg_photos')).toMatchObject({ status: 'create', dataType: 'multi_entity', validTypes: ['Attachment'] });
 		expect(one(plans, 'slate', 'sg_shoot_day')).toMatchObject({ status: 'present' });
 	});
 
@@ -209,12 +209,12 @@ describe('createInput', () => {
 
 	it('sends valid_types for an entity field, exactly one for a multi-entity', () => {
 		expect(input('sg_slate')).toMatchObject({ dataType: 'entity', properties: { valid_types: ['Slate'] } });
-		expect(input('sg_stills')).toMatchObject({ dataType: 'multi_entity', properties: { valid_types: ['Attachment'] } });
+		expect(input('sg_photos')).toMatchObject({ dataType: 'multi_entity', properties: { valid_types: ['Attachment'] } });
 	});
 
 	// A bare checkbox create is a 500 (endpoints/post_schema_type_fields.md).
 	it('sends a default for a checkbox', () => {
-		expect(input('sg_circle_take')).toMatchObject({ dataType: 'checkbox', properties: { default_value: false } });
+		expect(input('sg_circled')).toMatchObject({ dataType: 'checkbox', properties: { default_value: false } });
 	});
 
 	it('says the unit in the description', () => {

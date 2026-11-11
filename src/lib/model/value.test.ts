@@ -7,7 +7,28 @@ describe('sameValue', () => {
 		expect(sameValue('A', 'B')).toBe(false);
 		expect(sameValue(32, 32)).toBe(true);
 		expect(sameValue(32, '32')).toBe(false);
-		expect(sameValue(false, undefined)).toBe(false);
+		expect(sameValue(true, false)).toBe(false);
+	});
+
+	// FPT stores an unticked checkbox as no value (lib/fpt README, "Where FPT did not fit"). Only a
+	// boolean field holds false, so false and missing are one value: a stored false never reads
+	// as a conflict against an unticked box.
+	it('treats false and a missing value as one', () => {
+		expect(sameValue(false, undefined)).toBe(true);
+		expect(sameValue(null, false)).toBe(true);
+		expect(sameValue(false, false)).toBe(true);
+		expect(sameValue(true, undefined)).toBe(false);
+		expect(sameValue(0, undefined)).toBe(false);
+		expect(sameValue('', false)).toBe(false);
+	});
+
+	// FPT keeps a date-time to the second and answers it as YYYY-MM-DDTHH:MM:SSZ (corpus
+	// findings/field_types/date_time.md). A time stamped here as .000Z is the same moment.
+	it('compares two timestamps by the moment they name', () => {
+		expect(sameValue('2026-11-11T09:01:02.000Z', '2026-11-11T09:01:02Z')).toBe(true);
+		expect(sameValue('2026-11-11T09:01:02.500Z', '2026-11-11T09:01:02Z')).toBe(false);
+		expect(sameValue('2026-11-11T09:01:03Z', '2026-11-11T09:01:02Z')).toBe(false);
+		expect(sameValue('2026-11-11', '2026-11-11T00:00:00Z')).toBe(false);
 	});
 
 	it('treats undefined and null as the same absence', () => {

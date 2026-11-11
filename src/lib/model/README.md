@@ -138,3 +138,12 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
 35. **Validation returns at most one issue per value.**
 36. **Nothing is required beyond a name:** project name, shoot date, setup labels, slate, take
     number, camera model, lens model.
+
+### Sync (Kevin, 2026-11-11)
+
+37. **`false` and a missing value are one value** in `sameValue`. FPT keeps an unticked checkbox as
+    no value, so a stored `false` must not read as a conflict against it. Only a boolean field
+    holds `false`, so no other value is touched.
+38. **Two timestamps are one value when they name the same moment.** FPT answers
+    `09:01:02Z` for `09:01:02.000Z`. The app stamps times to the second (`app.now()`), so a
+    time read back equals the one sent.

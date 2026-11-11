@@ -2,18 +2,29 @@
 	// The sync status in the navigation: quiet, always there, a tap opens the detail. A shape and
 	// words say the state, never the colour alone. `placement`: a row at the foot of the sidebar,
 	// an icon over a word in the strip, a pill in the top bar (icon and count in a narrow one).
-	import { CloudAlert, CloudCheck, CloudOff, CloudUpload, Cloud } from '@lucide/svelte';
+	import { CloudAlert, CloudCheck, CloudUpload, LogIn, Unlink, WifiOff, Wrench } from '@lucide/svelte';
 	import { t } from '$lib/i18n/messages';
-	import type { SyncState, SyncSummary } from '$lib/app/sync';
+	import type { SyncState, SyncStatus } from '$lib/app/sync/status';
 
-	let { summary, placement, onclick }: { summary: SyncSummary; placement: 'side' | 'strip' | 'top'; onclick: () => void } = $props();
+	let { summary, placement, onclick }: { summary: SyncStatus; placement: 'side' | 'strip' | 'top'; onclick: () => void } = $props();
 
-	const ICONS: Record<SyncState, typeof Cloud> = { attention: CloudAlert, pending: CloudUpload, local: CloudOff, synced: CloudCheck, empty: Cloud };
+	// Each state has its own shape, so none is told by colour alone.
+	const ICONS: Record<SyncState, typeof CloudCheck> = {
+		attention: CloudAlert,
+		signedOut: LogIn,
+		expired: LogIn,
+		unlinked: Unlink,
+		setup: Wrench,
+		offline: WifiOff,
+		syncing: CloudUpload,
+		synced: CloudCheck
+	};
 	const Icon = $derived(ICONS[summary.state]);
 	const text = $derived(t(summary.key, { n: summary.count }));
+	const label = $derived(summary.count > 0 && summary.state !== 'attention' && summary.state !== 'syncing' ? t('sync.state.open', { status: text, n: summary.count }) : t('sync.open', { status: text }));
 </script>
 
-<button type="button" class="sync-status" data-placement={placement} data-state={summary.state} aria-label={t('sync.open', { status: text })} {onclick}>
+<button type="button" class="sync-status" data-placement={placement} data-state={summary.state} aria-label={label} {onclick}>
 	<span class="glyph">
 		<Icon class="size-[22px]" strokeWidth={1.8} />
 		{#if summary.count > 0}<span class="count num">{summary.count > 999 ? '999+' : summary.count}</span>{/if}

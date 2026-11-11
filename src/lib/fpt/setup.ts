@@ -163,7 +163,7 @@ export async function loadResolution(api: Api, options: FptOptions, signal?: Abo
 	if (cached) return cached;
 	const { entities, plans } = await inspect(api, signal);
 	const resolution = toResolution(site, entities, plans);
-	if (!resolution) throw new TransportError('failed', `Flow Production Tracking is not set up for sg-onset. Missing: ${missing(entities, plans)}.`);
+	if (!resolution) throw new TransportError('failed', `Flow Production Tracking is not set up for SG OnSet. Missing: ${missing(entities, plans)}.`);
 	await options.schemaCache.set(resolutionKey(site), serializeResolution(resolution));
 	return resolution;
 }

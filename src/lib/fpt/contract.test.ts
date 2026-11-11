@@ -76,7 +76,7 @@ const batchesOf = (fpt: FakeFpt) =>
 		.filter((r) => r.path === '/api/v1/entity/_batch')
 		.map((r) => (r.body as { requests: { request_type: string; entity: string }[] }).requests.map((q) => `${q.request_type} ${q.entity}`));
 const takeRow = (s: S) => s.fpt.byUuid(TAKE, 't1')!;
-const stillsOf = (s: S) => (takeRow(s).values.sg_stills as { id: number }[] | undefined) ?? [];
+const stillsOf = (s: S) => (takeRow(s).values.sg_photos as { id: number }[] | undefined) ?? [];
 
 describe('the runner over the FPT transport', () => {
 	it('sends parents before children, one dependency level per batch, then the file, and verifies it', async () => {
@@ -203,7 +203,7 @@ describe('conflict, through the mapping', () => {
 		const s = await edited();
 		await s.add(update('take', 't1', { tStop: [2.8, 4], lensHeight: [undefined, { m: 1.8288, entered: { text: "6'", system: 'imperial' } }], circleTake: [undefined, true] }));
 		expect(await s.settle()).toEqual(DONE);
-		expect(takeRow(s).values).toMatchObject({ sg_t_stop: 4, sg_lens_height_m: 1.8288, sg_circle_take: true });
+		expect(takeRow(s).values).toMatchObject({ sg_t_stop: 4, sg_lens_height_m: 1.8288, sg_circled: true });
 	});
 
 	it('is surfaced when the server changed under us: nothing is overwritten, nothing is dropped', async () => {
@@ -236,7 +236,7 @@ describe('conflict, through the mapping', () => {
 		const before = batchesOf(s.fpt).length;
 		expect(await s.settle()).toEqual(DONE);
 		expect(batchesOf(s.fpt).length).toBe(before + 1);
-		expect(takeRow(s).values).toMatchObject({ sg_focus_distance_m: 1_000_000_000, sg_capture_frame_rate: '24000/1001' });
+		expect(takeRow(s).values).toMatchObject({ sg_focus_distance_m: 1_000_000_000, sg_frame_rate: '24000/1001' });
 	});
 
 	it('relinks a take to another lens and sees it on the server', async () => {

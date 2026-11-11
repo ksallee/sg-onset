@@ -61,7 +61,7 @@ export function stillFilename(stillId: string, blobId: string, type: string): st
 	return `${stillPrefix(stillId)}${blobId}.${extensionOf(type)}`;
 }
 
-const SHOWN = 'Still';
+const SHOWN = 'Photo';
 
 /** What a person sees for the file: the capture time. `filename` keeps the ids. */
 export function stillDisplayName(capturedAt: string | undefined): string {

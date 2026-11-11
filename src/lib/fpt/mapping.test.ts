@@ -30,8 +30,8 @@ describe('fieldMaps', () => {
 			expect.objectContaining({ name: 'sg_focal_length', display: 'Focal Length', dataType: 'float' })
 		]);
 		expect(fieldMap('take', 'isoSpeed')!.columns[0]).toMatchObject({ name: 'sg_iso', dataType: 'number' });
-		expect(fieldMap('take', 'circleTake')!.columns[0]).toMatchObject({ name: 'sg_circle_take', dataType: 'checkbox' });
-		expect(fieldMap('take', 'startedAt')!.columns[0]).toMatchObject({ name: 'sg_started_at', dataType: 'date_time' });
+		expect(fieldMap('take', 'circleTake')!.columns[0]).toMatchObject({ name: 'sg_circled', dataType: 'checkbox' });
+		expect(fieldMap('take', 'startedAt')!.columns[0]).toMatchObject({ name: 'sg_start_time', dataType: 'date_time' });
 		expect(fieldMap('shootDay', 'shootDate')!.columns[0]).toMatchObject({ name: 'sg_shoot_date', dataType: 'date' });
 		expect(fieldMap('take', 'timecodeStart')!.columns[0]).toMatchObject({ dataType: 'text' });
 		expect(fieldMap('slate', 'scriptTime')!.columns[0]).toMatchObject({ dataType: 'text' });
@@ -126,9 +126,9 @@ describe('wantedColumns', () => {
 	});
 
 	it('asks for the stills field on the take only', () => {
-		expect(STILLS).toMatchObject({ name: 'sg_stills', dataType: 'multi_entity', target: 'attachment' });
-		expect(names('take')).toContain('sg_stills');
-		expect(names('slate')).not.toContain('sg_stills');
+		expect(STILLS).toMatchObject({ name: 'sg_photos', dataType: 'multi_entity', target: 'attachment' });
+		expect(names('take')).toContain('sg_photos');
+		expect(names('slate')).not.toContain('sg_photos');
 	});
 
 	it('leaves out the stock fields', () => {

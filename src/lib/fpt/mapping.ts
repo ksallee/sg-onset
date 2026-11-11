@@ -77,7 +77,7 @@ export const ENTITY_TYPES: Record<
 export const UUID: Column = { name: 'sg_onset_uuid', display: 'Onset UUID', dataType: 'text', unique: true, note: 'The record id on the device. Unique: a create sent twice is refused.' };
 
 /** The photos of a take: Attachments at full resolution (corpus findings/123_photos_per_record.md). */
-export const STILLS: Column = { name: 'sg_stills', display: 'Stills', dataType: 'multi_entity', target: 'attachment', note: 'Reference photos, as shot.' };
+export const STILLS: Column = { name: 'sg_photos', display: 'Photos', dataType: 'multi_entity', target: 'attachment', note: 'Reference photos, as shot.' };
 
 /** The key whose value a new record takes as `created_at` (corpus findings/070_authored_timestamps.md). */
 export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt' };
@@ -121,6 +121,19 @@ const OVERRIDES: Record<string, Override> = {
 	'slate.vfxShots': { display: 'VFX Shots' },
 	'slate.lidar': { display: 'LiDAR' },
 	'take.isoSpeed': { display: 'ISO' },
+	// The words of docs/vocabulary.md, as Flow PT shows them. Dutch Angle keeps Roll for the camera roll.
+	'take.roll': { display: 'Dutch Angle' },
+	'take.startedAt': { display: 'Start Time' },
+	'take.endedAt': { display: 'End Time' },
+	'take.circleTake': { display: 'Circled' },
+	'take.tStop': { display: 'T-Stop' },
+	'take.distanceToSubject': { display: 'Subject Distance' },
+	'take.captureFrameRate': { display: 'Frame Rate' },
+	'take.timecodeStart': { display: 'Timecode In' },
+	'take.timecodeEnd': { display: 'Timecode Out' },
+	'shootDay.cameraUnit': { display: 'Unit' },
+	'lightingSetup.referenceBalls': { display: 'Grey and Chrome Balls' },
+	'lens.focalLengthMax': { display: 'Focal Length Long End' },
 	'camera.activeSensorPhysicalDimensions': { displays: ['Sensor Width mm', 'Sensor Height mm'] },
 	'camera.activeSensorResolution': { displays: ['Sensor Resolution Width', 'Sensor Resolution Height'] }
 };

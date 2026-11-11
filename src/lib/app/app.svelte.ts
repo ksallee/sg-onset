@@ -5,6 +5,7 @@
 import { getContext, setContext } from 'svelte';
 import { openStore, type DexieStore } from '$lib/store/dexieStore';
 import { createEditor, type EditEvent, type Editor } from './editor';
+import { toSecond } from './sync/clock';
 import { EMPTY_UNDO, type UndoState } from './undo';
 
 export interface App {
@@ -19,7 +20,7 @@ export interface App {
 	dismissEdit(): void;
 	/** A client UUID for a new record. */
 	newId(): string;
-	/** The clock, ms. */
+	/** The clock, ms, to the second: FPT keeps times to the second (sync/clock.ts). */
 	now(): number;
 }
 
@@ -50,7 +51,7 @@ function open(): App {
 			last = null;
 		},
 		newId: () => crypto.randomUUID(),
-		now: () => Date.now()
+		now: () => toSecond(Date.now())
 	};
 }
 

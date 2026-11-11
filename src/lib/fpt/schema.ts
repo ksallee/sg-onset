@@ -177,7 +177,7 @@ export function createInput(plan: FieldPlan): CreateInput {
 	if (plan.unique) properties.unique = true;
 	if (plan.validTypes) properties.valid_types = plan.validTypes;
 	if (plan.dataType === 'checkbox') properties.default_value = false;
-	properties.description = [plan.column.note, 'Written by sg-onset.'].filter(Boolean).join('. ').replace('..', '.');
+	properties.description = [plan.column.note, 'Written by SG OnSet.'].filter(Boolean).join('. ').replace('..', '.');
 	return { dataType: plan.dataType, displayName: plan.displayName, properties };
 }
 

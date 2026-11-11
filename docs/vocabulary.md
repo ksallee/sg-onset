@@ -41,7 +41,7 @@ enforces the parts a test can check.
 | Lens | | One lens, by serial number. | `lens` | CRIF Tk Lens ID | Lens |
 | Slate | | The number on the clapperboard and the takes shot under it. | `slate` | CRIF Slate; OMC Slate.slateUID | Slate |
 | Take | | One camera setup's run of one slate, from Start to End. | `take` | CRIF Tk Take; VES scope Take | Take |
-| Photo | | A reference photo taken from the take screen, kept on the take. | `still` | VES 1.1 reference | Photos † |
+| Photo | | A reference photo taken from the take screen, kept on the take. | `still` | VES 1.1 reference | Photos |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
 | Change | | One edit waiting to sync. | outbox entry | | |
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
@@ -52,8 +52,8 @@ edit is **Change**; **Entry** is a stored record.
 
 ## Fields
 
-Long label for forms, short label for the take table. † marks an FPT name that `src/lib/fpt/mapping.ts`
-does not give yet.
+Long label for forms, short label for the take table. The FPT column is what `src/lib/fpt/mapping.ts`
+gives.
 
 ### Shoot day
 
@@ -61,7 +61,7 @@ does not give yet.
 |---|---|---|---|---|
 | Date | The calendar date of the shoot day. | `shootDate` | OMC Slate.shootDate; ALE Shoot Date | Shoot Date |
 | Day number | The shoot day's number for its unit. | `shootDay` | CRIF Shoot Day; OMC Slate.shootDay | Day Number |
-| Unit | The shooting unit: Main, 2nd, Splinter. | `cameraUnit` | CRIF Unit; OMC Slate.cameraUnit | Unit † |
+| Unit | The shooting unit: Main, 2nd, Splinter. | `cameraUnit` | CRIF Unit; OMC Slate.cameraUnit | Unit |
 | Location | Where the day shoots. | `location` | CRIF Set Location | Location |
 | Wrangler | Who logs the data. | `wrangler` | CRIF Wrangler | Wrangler |
 
@@ -72,7 +72,7 @@ does not give yet.
 | Name | The lighting setup's name. | `label` | | Name (code) |
 | HDRI | An HDRI was shot for this lighting. | `hdri` | CRIF Set Media "HDRI"; VES 4.2 | HDRI |
 | HDRI filename | The file name of the HDRI. | `hdriFilename` | CRIF HDRI Filename | HDRI Filename |
-| Grey and chrome balls | The balls were shot. | `referenceBalls` | CRIF Set Media "Balls"; VES 4.3 | Grey and Chrome Balls † |
+| Grey and chrome balls | The balls were shot. | `referenceBalls` | CRIF Set Media "Balls"; VES 4.3 | Grey and Chrome Balls |
 | Colour chart | A colour chart was shot. | `colourChart` | VES 4.1 | Colour Chart |
 | Notes | Free text. | `notes` | | Set Notes |
 
@@ -107,30 +107,30 @@ does not give yet.
 | Label | Short | Definition | Key | Standards | FPT |
 |---|---|---|---|---|---|
 | Take | Take | The take as called: 1, 2, 3, PU. | `take` | CRIF Tk Take; OMC SlateUID.hasTake; ALE Take | Name (code) |
-| Start time | Start | When Start was pressed. | `startedAt` | CRIF Tk Start Time Of Take | Start Time † |
-| End time | End | When End was pressed. | `endedAt` | | End Time † |
-| Circled | Circled | The take is circled: a keeper. | `circleTake` | OMC circleTake; ALE Circled Take | Circled † |
+| Start time | Start | When Start was pressed. | `startedAt` | CRIF Tk Start Time Of Take | Start Time |
+| End time | End | When End was pressed. | `endedAt` | | End Time |
+| Circled | Circled | The take is circled: a keeper. | `circleTake` | OMC circleTake; ALE Circled Take | Circled |
 | No good | NG | The take is no good. | `noGood` | | No Good |
 | Notes | | Free text. | `notes` | CRIF Tk Notes | Set Notes |
 | Camera setup | Cam | The camera setup this take belongs to. | `cameraSetupId` | | Camera Setup |
 | Camera | | The body used on this take. A new take gets it from the camera setup. | `cameraId` | | Camera |
 | Lens | | The lens used on this take. A new take gets it from the camera setup. | `lensId` | | Lens |
 | Focal length | Focal | Focal length in mm. | `focalLength` | CRIF Tk Focal Length; OMC focalLength; OpenTrackIO static.lens.nominalFocalLength | Focal Length |
-| T-stop | T-stop | The lens stop, in T. | `tStop` | CRIF Tk Stop; OMC tStop; OpenTrackIO lens.tStop; ALE F-Stop | T-Stop † |
+| T-stop | T-stop | The lens stop, in T. | `tStop` | CRIF Tk Stop; OMC tStop; OpenTrackIO lens.tStop; ALE F-Stop | T-Stop |
 | Focus distance | Focus | Where the lens is focused, in m or ft in, or ∞. | `focusDistance` | CRIF Tk Lens Focus; OMC focusPosition; OpenTrackIO lens.focusDistance | Focus Distance m |
 | Lens height | Height | Height of the lens above the ground. | `lensHeight` | CRIF Tk Lens Height; VES 1.1 camera height | Lens Height m |
 | Tilt | Tilt | Camera angle up or down in degrees. Up is plus. | `tilt` | CRIF Tk Camera Tilt; OMC tilt; OpenTrackIO rotation.tilt | Tilt |
-| Dutch angle | Dutch | Camera roll about the lens axis in degrees. Clockwise is plus. | `roll` | CRIF Tk Camera Dutch; OMC roll; OpenTrackIO rotation.roll | Dutch Angle † |
-| Subject distance | Subject | Distance from the camera to the subject. | `distanceToSubject` | VES 1.1 start and end distances | Subject Distance m † |
-| Frame rate | FPS | Capture frame rate, in fps. | `captureFrameRate` | CRIF Tk FPS; OMC captureRate; OpenTrackIO static.camera.captureFrameRate; ALE Sensor_fps | Frame Rate † |
+| Dutch angle | Dutch | Camera roll about the lens axis in degrees. Clockwise is plus. | `roll` | CRIF Tk Camera Dutch; OMC roll; OpenTrackIO rotation.roll | Dutch Angle |
+| Subject distance | Subject | Distance from the camera to the subject. | `distanceToSubject` | VES 1.1 start and end distances | Subject Distance m |
+| Frame rate | FPS | Capture frame rate, in fps. | `captureFrameRate` | CRIF Tk FPS; OMC captureRate; OpenTrackIO static.camera.captureFrameRate; ALE Sensor_fps | Frame Rate |
 | Shutter angle | Shutter | Shutter angle in degrees. | `shutterAngle` | CRIF Tk Shutter Angle; OMC shutterAngle; OpenTrackIO static.camera.shutterAngle | Shutter Angle |
 | ISO | ISO | The sensitivity set on the camera. | `isoSpeed` | CRIF ASA; OMC isoSpeed; OpenTrackIO static.camera.isoSpeed; ALE Exposure_index, ASA | ISO |
 | White balance | WB | The white balance set on the camera, in K. | `whiteBalance` | CRIF White Balance; OMC whiteBalance; ALE White_balance | White Balance |
 | Filter | Filter | Filters in front of the lens, ND included: "ND.6 Pola". | `filter` | CRIF Tk Filter; VES 1.1 ND, filter; ALE Nd_filterdensity | Filter |
 | Camera roll | Roll | The camera roll or card the take is on: A001. | `cameraRoll` | CRIF Tk Roll; OMC Slate.cameraRoll; ALE Camroll, Reel_name | Camera Roll |
 | Clip name | Clip | The clip name the camera wrote: A001C003. | `clipName` | ALE Name; CRIF Tk Clip Num | Clip Name |
-| Timecode in | TC in | Timecode at the first frame. | `timecodeStart` | CRIF Tk Timecode; OMC timecodeStart; ALE Start | Timecode In † |
-| Timecode out | TC out | Timecode at the last frame. | `timecodeEnd` | OMC timecodeEnd; ALE End | Timecode Out † |
+| Timecode in | TC in | Timecode at the first frame. | `timecodeStart` | CRIF Tk Timecode; OMC timecodeStart; ALE Start | Timecode In |
+| Timecode out | TC out | Timecode at the last frame. | `timecodeEnd` | OMC timecodeEnd; ALE End | Timecode Out |
 
 ### Camera
 
@@ -150,7 +150,7 @@ does not give yet.
 | Model | The lens series and focal length as marked. | `lensModel` | CRIF Tk Lens ID; OMC lensModel | Name (code) |
 | Serial number | The lens's serial number. | `lensSerialNumber` | CRIF Tk Lens Serial Num | Lens Serial Number |
 | Focal length | A prime's focal length, or a zoom's shortest. | `focalLength` | OMC focalLength | Focal Length |
-| Long end | A zoom's longest focal length. | `focalLengthMax` | | Focal Length Long End † |
+| Long end | A zoom's longest focal length. | `focalLengthMax` | | Focal Length Long End |
 | Anamorphic squeeze | 1, 1.5, 2. | `anamorphicSqueeze` | OMC anamorphicSqueeze; OpenTrackIO static.camera.anamorphicSqueeze | Anamorphic Squeeze |
 
 ## Actions, states and settings

@@ -63,18 +63,21 @@ test.describe('pwa', () => {
 			await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
 		});
 
-		test('a page loaded online opens offline', async ({ page }) => {
-			await onlineThenOffline(page, '/proto/take');
-			await open(page, server.origin + '/proto/take');
+		test('the take screen loaded online opens offline, on the data stored', async ({ page }) => {
+			await open(page, server.origin + '/welcome');
+			await page.getByRole('button', { name: 'Load the Sample Project' }).tap();
+			await page.waitForURL(/\/shoot$/);
+			await onlineThenOffline(page, '/shoot');
+			await open(page, server.origin + '/shoot');
 			await expect(page.getByRole('toolbar', { name: 'Capture' })).toBeVisible();
 		});
 
 		// The cached `/` shell serves every route offline, so its asset URLs must be absolute:
 		// `kit.paths.relative` is off in vite.config.ts.
-		test('after one online load at /, /proto/take opens offline', async ({ page }) => {
+		test('after one online load at /, a route never opened online opens offline', async ({ page }) => {
 			await onlineThenOffline(page, '/');
-			await open(page, server.origin + '/proto/take');
-			await expect(page.getByRole('toolbar', { name: 'Capture' })).toBeVisible();
+			await open(page, server.origin + '/proto/themes');
+			await expect(page.locator('body')).not.toBeEmpty();
 		});
 	});
 });

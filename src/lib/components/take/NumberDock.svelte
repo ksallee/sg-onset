@@ -1,69 +1,97 @@
 <script lang="ts">
-	// Number entry, in the dock beside the rail, under the same thumb: the field and what is typed,
-	// recent values as chips (one tap sets), our keypad with its stepper (hold to repeat), then
-	// Next and Done. Next is on the rail's side. The rows keep their height from field to field
-	// and the stepper always has its three keys, so no key ever moves. Nothing waits on motion: a
-	// press types and shows at once, what moves after it is only feedback. The digits, the stepper
-	// and delete do not mirror with the hand: a keypad is read by position.
+	// Number entry, in the dock beside the rail, under the same thumb: the field, whose camera it
+	// is and what is typed; start or end for a value that changes over a take; recent values of the
+	// slate as chips (one tap stores); our keypad with its stepper (hold to repeat), then Next and
+	// Done. Feet and inches get their two marks; focus gets infinity. Next is on the rail's side.
+	// The rows keep their height from field to field, so no key moves. Nothing waits on motion.
 	import { untrack } from 'svelte';
 	import Chip from '$lib/components/ios/Chip.svelte';
 	import Keypad from '$lib/components/ios/Keypad.svelte';
+	import Segmented from '$lib/components/ios/Segmented.svelte';
+	import { settings } from '$lib/app/settings.svelte';
 	import { t } from '$lib/i18n/messages';
+	import { fieldLabel } from '$lib/i18n/modelText';
 	import type { Form, Hand } from '$lib/ios/handedness';
-	import { canStep, entryValue, maxChars } from '$lib/ios/keypad';
-	import { formatField, nextField } from '$lib/take/fields';
-	import type { TakeScreen } from '$lib/take/screen.svelte';
+	import { formatNumber, maxChars } from '$lib/ios/keypad';
+	import type { Shoot } from '$lib/take/shoot.svelte';
+	import { unitText } from './labels';
 
-	let { screen, form, hand, gloves }: { screen: TakeScreen; form: Form; hand: Hand; gloves: boolean } = $props();
+	let { shoot, form, hand, gloves }: { shoot: Shoot; form: Form; hand: Hand; gloves: boolean } = $props();
 
-	const spec = $derived(screen.spec);
-	// The chips as they were when the field opened: a pick puts its value first in the session's
-	// list, and a chip must not move under the finger while the keypad is open.
+	const field = $derived(shoot.field);
+	const es = $derived(shoot.spec);
+	const units = $derived(settings.value.units);
+	const unit = $derived(field ? unitText(field.def, units) : '');
+	const camera = $derived(field ? shoot.columns.find((c) => c.id === field.setupId)?.label : undefined);
+	// The chips as they were when the field opened: a chip must not move under the finger.
 	const recents = $derived.by(() => {
-		const s = screen.spec;
-		return s ? untrack(() => screen.session.recents[s.key].filter((v) => v >= s.min && v <= s.max)) : [];
+		void shoot.field;
+		return untrack(() => shoot.recents);
 	});
-	const typed = $derived(spec ? entryValue(screen.entry, spec) : null);
-	const last = $derived(!screen.field || nextField(screen.field, screen.lens) === null);
+	const text = $derived(shoot.entry.text === 'inf' ? '∞' : shoot.entry.text);
+	const chars = $derived(es ? (es.mode === 'feetInches' ? 9 : maxChars(es.spec)) : 6);
+	const range = $derived(es && es.mode === 'number' ? t('keypad.range', { min: formatNumber(es.spec.min, es.spec.decimals), max: formatNumber(es.spec.max, es.spec.decimals) }) : '');
 </script>
 
-{#if spec}
-	<section class="number-dock" data-form={form} data-hand={hand} class:gloves aria-label={t(spec.label)}>
-		<header>
-			<h2>{t(spec.label)}</h2>
-			<!-- Each character is its own box, so only the one that changed comes in. Sized for the longest text the field can hold. -->
-			<p class="value num" class:first={spec.unitFirst} style:--chars={maxChars(spec)} aria-hidden="true">
-				<span class="n" class:empty={!screen.entry.text}>
-					{#each [...(screen.entry.text || '–')] as ch, i (`${i}${ch}`)}<span class="ch">{ch}</span>{/each}
+{#if field && es}
+	<section class="number-dock" data-form={form} data-hand={hand} class:gloves aria-label={fieldLabel(field.def, field.end)}>
+		<header class:issue={!!shoot.issue}>
+			<h2><span>{fieldLabel(field.def)}</span>{#if camera}<span class="cam">{t('take.setup', { id: camera })}</span>{/if}</h2>
+			<p class="value num" style:--chars={chars} aria-hidden="true">
+				<span class="n" class:empty={!text}>
+					{#each [...(text || '–')] as ch, i (`${i}${ch}`)}<span class="ch">{ch}</span>{/each}
 				</span>
-				<span class="unit">{t(spec.unit)}</span>
+				<span class="unit">{unit}</span>
 			</p>
-			<p class="sr-only" role="status">{screen.entry.text || t('take.empty')} {t(spec.unit)}</p>
-			<p class="range num">{t('keypad.range', { min: formatField(spec.min, spec), max: formatField(spec.max, spec) })}</p>
+			<p class="sr-only" role="status">{text || t('take.empty')} {unit}</p>
+			<p class="range num" class:issue={!!shoot.issue} role={shoot.issue ? 'alert' : undefined}>{shoot.issue ?? range}</p>
 		</header>
 
 		<div class="chips" role="group" aria-label={t('keypad.recent')}>
-			{#each recents as v (v)}
-				<Chip on={v === typed} onclick={() => screen.pickRecent(v)}>{formatField(v, spec)}</Chip>
+			{#each recents as r (r.text)}
+				<Chip on={r.text === shoot.entry.text} onclick={() => shoot.pickRecent(r.value, r.text)}>{r.text === 'inf' ? '∞' : r.text}</Chip>
 			{/each}
 		</div>
 
+		<!-- Always there, so the keys below never move: start or end, then the length marks. -->
+		<div class="tools">
+			{#if field.def.end}
+				<div class="slot">
+					<Segmented
+						small
+						label={t('keypad.slot')}
+						value={field.end ? 'end' : 'start'}
+						options={[
+							{ value: 'start', label: t('keypad.slot.start') },
+							{ value: 'end', label: t('keypad.slot.end') }
+						]}
+						onchange={(v) => shoot.setEnd(v === 'end')}
+					/>
+				</div>
+			{/if}
+			{#if es.mode === 'feetInches'}
+				<button type="button" aria-label={t('keypad.feet')} onclick={() => shoot.key('feet')}>′</button>
+				<button type="button" aria-label={t('keypad.inches')} onclick={() => shoot.key('inches')}>″</button>
+			{/if}
+			{#if es.infinity}<button type="button" aria-label={t('keypad.infinity')} onclick={() => shoot.key('inf')}>∞</button>{/if}
+		</div>
+
 		<Keypad
-			onkey={(k) => screen.press(k)}
-			point={spec.decimals > 0}
-			sign={spec.min < 0}
-			canBack={screen.entry.text !== ''}
-			onstep={(dir) => screen.step(dir)}
-			canLess={canStep(typed, -1, spec)}
-			canMore={canStep(typed, 1, spec)}
-			onnext={() => screen.nextField()}
-			ondone={() => screen.closeField()}
+			onkey={(k) => shoot.key(k)}
+			point={es.spec.decimals > 0}
+			sign={es.spec.min < 0}
+			canBack={shoot.entry.text !== ''}
+			onstep={(dir) => shoot.step(dir)}
+			canLess={shoot.canStep(-1)}
+			canMore={shoot.canStep(1)}
+			onnext={() => shoot.next()}
+			ondone={() => shoot.close()}
 			labels={{ keypad: t('keypad.label'), point: t('keypad.point'), back: t('keypad.back'), sign: t('keypad.sign'), less: t('keypad.less'), more: t('keypad.more') }}
 		/>
 
 		<div class="foot">
-			<button type="button" class="done" onclick={() => screen.closeField()}>{t('keypad.done')}</button>
-			<button type="button" class="next" disabled={last} onclick={() => screen.nextField()}>{t('keypad.next')}</button>
+			<button type="button" class="done" onclick={() => shoot.close()}>{t('keypad.done')}</button>
+			<button type="button" class="next" disabled={!shoot.hasNext()} onclick={() => shoot.next()}>{t('keypad.next')}</button>
 		</div>
 	</section>
 {/if}
@@ -75,28 +103,24 @@
 		--foot-h: 52px;
 		--chip-h: 44px;
 		/* What the field being typed sits on. */
-		--on-bg: color-mix(in srgb, var(--tint) 16%, var(--cell));
+		--on-bg: var(--tint-fill);
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
 		/* The middle of the keys (stepper and digits) at 45 % of the dock's height, where the thumb
 		   rests. Above it: the padding, the header and the gaps (150 px), the chips, half the
 		   stepper row and two rows of digits. Top of the dock when it is short. */
-		margin-top: max(0px, calc(45cqh - 150px - var(--chip-h) - var(--step-h) / 2 - 2 * var(--key-h)));
+		margin-top: max(0px, calc(45cqh - 160px - 2 * var(--chip-h) - var(--step-h) / 2 - 2 * var(--key-h)));
 		padding: 12px;
 	}
 	/* Gloves: 20 mm keys (104 px on an iPad) where the dock is tall enough, never under 72 px. The
-	   dock is 304 px wide, so a key is 88 px across: 17 mm. The rows around the digits grow too. */
+	   dock is 352 px wide at Large, so a key is about 104 px across. The rows around the digits grow too. */
 	.number-dock.gloves {
 		--key-h: clamp(72px, calc((100cqh - 372px) / 4), 104px);
 		--step-h: 64px;
 		--foot-h: 64px;
 		--chip-h: 52px;
 		--chip-font: 21px;
-	}
-	/* Night: red on the dark cell, never on a red ground. */
-	:global(.ios-night) .number-dock {
-		--on-bg: var(--cell);
 	}
 	header {
 		padding: 10px 14px 8px;
@@ -105,6 +129,9 @@
 		box-shadow: inset 0 0 0 2.5px var(--tint);
 	}
 	h2 {
+		display: flex;
+		justify-content: space-between;
+		gap: 8px;
 		font-size: 13px;
 		line-height: 18px;
 		font-weight: 600;
@@ -119,10 +146,6 @@
 		height: 50px;
 		font-family: var(--font-rounded);
 		white-space: nowrap;
-	}
-	.value.first {
-		flex-direction: row-reverse;
-		justify-content: flex-end;
 	}
 	.n {
 		/* 44 px, or what lets the longest text fit beside the unit: the line never wraps or clips. */
@@ -151,13 +174,63 @@
 		color: var(--label-2);
 	}
 	.range {
+		height: 16px;
+		overflow: hidden;
 		font-size: 12px;
 		line-height: 16px;
 		color: var(--label-2);
+		white-space: nowrap;
+		text-overflow: ellipsis;
 	}
-	:global(.ios-night) .unit,
-	:global(.ios-night) .range,
-	:global(.ios-night) h2 {
+	.range.issue {
+		color: var(--record);
+		font-weight: 700;
+	}
+	.cam {
+		color: var(--label);
+	}
+	.tools {
+		display: flex;
+		gap: 6px;
+		height: var(--chip-h);
+	}
+	.slot {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		align-items: center;
+	}
+	.slot > :global(*) {
+		width: 100%;
+	}
+	.tools button {
+		flex: 0 0 52px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-left: auto;
+		border-radius: 12px;
+		background: var(--fill-3);
+		color: var(--label);
+		font-family: var(--font-rounded);
+		font-size: 26px;
+		font-weight: 600;
+		touch-action: manipulation;
+	}
+	.tools button + button {
+		margin-left: 0;
+	}
+	.tools button:active {
+		background: var(--key-pressed);
+		color: var(--key-pressed-label);
+	}
+	.tools button:focus-visible {
+		outline: 3px solid var(--focus);
+		outline-offset: 2px;
+	}
+	:global([data-night='true']) .unit,
+	:global([data-night='true']) .range,
+	:global([data-night='true']) h2 {
 		color: var(--label);
 	}
 	.chips {
@@ -204,32 +277,24 @@
 	}
 	.foot .next {
 		flex: 2;
-		background: var(--tint);
-		color: var(--on-tint);
-	}
-	/* Night: no bright slab. */
-	:global(.ios-night) .foot .next {
-		background: transparent;
-		box-shadow: inset 0 0 0 2.5px var(--tint);
-		color: var(--tint);
+		background: var(--tint-solid);
+		color: var(--on-tint-solid);
+		box-shadow: inset 0 0 0 var(--state-ring) var(--on-tint-solid);
 	}
 	/* Next on the rail's side. */
 	[data-hand='left'] .foot {
 		flex-direction: row-reverse;
 	}
 	.foot button:active:not(:disabled) {
-		background: var(--label);
-		color: var(--bg);
+		background: var(--key-pressed);
+		color: var(--key-pressed-label);
 		box-shadow: none;
-	}
-	:global(.ios-night) .foot button:active:not(:disabled) {
-		background: var(--tint);
 	}
 	.foot button:disabled {
 		opacity: 0.35;
 	}
 	.foot button:focus-visible {
-		outline: 3px solid var(--tint);
+		outline: 3px solid var(--focus);
 		outline-offset: 2px;
 	}
 
@@ -244,7 +309,10 @@
 		margin: 0;
 		padding: 8px 12px;
 	}
-	[data-form='compact'] header {
+	[data-form='compact'] header:not(.issue) {
+		display: none;
+	}
+	[data-form='compact'] header.issue :is(h2, .value) {
 		display: none;
 	}
 

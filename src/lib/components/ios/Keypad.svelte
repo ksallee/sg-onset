@@ -401,8 +401,7 @@
 		box-shadow: inset 0 0 0 1px var(--separator);
 		color: var(--label-3);
 	}
-	:global([data-night='true']) .key[aria-disabled='true'] .cap,
-	:global(.ios-night) .key[aria-disabled='true'] .cap {
+	:global([data-night='true']) .key[aria-disabled='true'] .cap {
 		color: var(--label-2);
 	}
 

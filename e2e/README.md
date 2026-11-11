@@ -30,7 +30,7 @@ network beyond localhost: every test fails if a request leaves 127.0.0.1.
   fails on a console error, an uncaught exception, or a request off localhost.
   `test.use({ allowConsoleErrors: true })` or `{ ignoreConsole: [/.../] }` opts out.
 - A page in the shell needs a project: `openApp(page, path)` loads the sample project first.
-  `open(page, path)` is for pages that stand alone (`/welcome`, `/proto/take`).
+  `open(page, path)` is for pages that stand alone (`/welcome`, `/proto/themes`).
 - Find things by role and accessible name, never by class: the markup moves.
 - `auditLayout(page, testInfo)` (`audit.ts`) on any page: fails on sideways overflow and elements
   wider than the viewport; reports buttons and links with no name or under 44×44 px.
@@ -41,7 +41,7 @@ network beyond localhost: every test fails if a request leaves 127.0.0.1.
 ## Screenshots
 
     pnpm shots -- --out /tmp/shots
-    pnpm shots -- --routes /proto/take --viewports ipad-landscape,phone --themes day,night --hands right,left --out /tmp/shots
+    pnpm shots -- --routes /shoot --viewports ipad-landscape,phone --themes day,night --hands right,left --out /tmp/shots
 
 Routes × viewports × themes × hands, one PNG each, named `<route>_<viewport>_<theme>_<hand>.png`;
 prints the paths. Starts `vite dev` on a free port, so it shows the code as it is now. `--url`

@@ -2,7 +2,7 @@
 // Screenshots of routes × viewports × themes × hands, for looking at a change. See e2e/README.md.
 //
 //   pnpm shots -- --out /tmp/shots
-//   pnpm shots -- --routes /proto/take --viewports ipad-landscape,820x1180 --themes dark,night --hands right,left --out /tmp/shots
+//   pnpm shots -- --routes /shoot --viewports ipad-landscape,820x1180 --themes dark,night --hands right,left --out /tmp/shots
 //   pnpm shots -- --url http://127.0.0.1:5173 --out /tmp/shots     (a server already running)
 //   pnpm shots -- --preview --out /tmp/shots                        (build, then the real build)
 //
@@ -22,7 +22,7 @@ import { contextFor, targetFor } from '../e2e/targets.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 function args(argv) {
-	const a = { routes: ['/welcome', '/shoot', '/slates', '/settings', '/sign-in', '/proto/take'], viewports: ['ipad-landscape', 'ipad-portrait', 'phone'], themes: ['dark'], hands: ['right'], settle: 600 };
+	const a = { routes: ['/welcome', '/shoot', '/slates', '/settings', '/sign-in'], viewports: ['ipad-landscape', 'ipad-portrait', 'phone'], themes: ['dark'], hands: ['right'], settle: 600 };
 	const list = (v) => v.split(',').map((s) => s.trim()).filter(Boolean);
 	for (let i = 0; i < argv.length; i++) {
 		const k = argv[i];

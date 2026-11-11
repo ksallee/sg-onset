@@ -4,7 +4,7 @@
 	// the left hand mirrors every column (ios/handedness.ts). Tall (an iPad in portrait): the list
 	// becomes a strip on top. Compact (a phone-width window): one stack, the rail along the foot.
 	// Each snippet is told where it sits. Nothing here moves: the columns are fixed, so opening the
-	// keypad in the dock shifts no field. `class` forces a theme (`ios-dark ios-night`), `target`
+	// keypad in the dock shifts no field. `class` is passed on (a theme is forced with `data-theme`), `target`
 	// and `gap` are the capture target and its spacing in px (ios/target.ts).
 	import type { Snippet } from 'svelte';
 	import { formFor, gridAreas, workspaceLayout, type Form, type Hand, type WorkspaceLayout } from '$lib/ios/handedness';

@@ -33,10 +33,12 @@ describe('checkSetup', () => {
 	});
 
 	// corpus endpoints/get_schema.md: /schema is cheap and /fields is not. One read per type.
-	it('reads the type list once and the fields of each of the seven types once', async () => {
+	it('reads the type list once and the fields of each of the seven types and Attachment once', async () => {
 		const { fpt, check } = world();
 		await check();
-		expect(fpt.requests.map((r) => r.path).sort()).toEqual(['/api/v1/schema', ...Object.values(TYPES).map((t) => `/api/v1/schema/${t}/fields`)].sort());
+		expect(fpt.requests.map((r) => r.path).sort()).toEqual(
+			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
+		);
 	});
 
 	it('creates its fields on a bare site, each with what only a create can set', async () => {
@@ -108,17 +110,70 @@ describe('checkSetup', () => {
 		expect(field(report, 'cameraSetup', 'sg_camera').status).toBe('created');
 	});
 
-	it('without the right to create fields, lists every field an admin must create', async () => {
+	// corpus findings/132_field_create_rights.md: an Artist gets 500 code 105, an Admin 201.
+	it('without the right to create fields, stops at the first refusal and says an Admin must do it', async () => {
 		const { fpt, check } = world('bare');
 		fpt.canCreateFields = false;
 		const report = await check();
 		expect(report.ready).toBe(false);
 		expect(report.canCreateFields).toBe(false);
 		expect(report.fields.every((f) => f.status === 'needsAdmin')).toBe(true);
-		expect(field(report, 'take', 'sg_onset_uuid')).toMatchObject({ entityType: 'CustomEntity09', displayName: 'Onset UUID', dataType: 'text', unique: true });
-		expect(field(report, 'take', 'sg_slate')).toMatchObject({ displayName: 'Slate', dataType: 'entity', validTypes: ['Slate'] });
+		expect(report.fields.some((f) => f.reason)).toBe(false);
 		// It stops at the first refusal rather than asking for each field.
 		expect(creates(fpt).length).toBe(1);
+	});
+
+	it('takes another 500 on a field create as a failure of that field, and goes on', async () => {
+		const { fpt, check } = world('bare');
+		fpt.failNext((r) => r.method === 'POST' && r.path === '/api/v1/schema/Camera/fields', { status: 500 });
+		const report = await check();
+		expect(report.canCreateFields).toBe(true);
+		expect(field(report, 'camera', 'sg_onset_uuid')).toMatchObject({ status: 'failed' });
+		expect(report.fields.filter((f) => f.status === 'created').length).toBe(WANTED - 1);
+	});
+
+	// corpus findings/142_reverse_field.md: every link field adds a field on the type it links.
+	it('lists the fields Flow PT will add for each link, before creating anything', async () => {
+		const { fpt, check } = world('bare');
+		const report = await check({ createFields: false });
+		expect(report.reverseFields).toContainEqual({ entityType: 'Slate', name: 'sg_takes', displayName: 'Take <-> Slate', source: 'CustomEntity09.sg_slate', status: 'willAppear' });
+		expect(report.reverseFields).toContainEqual(
+			expect.objectContaining({ entityType: 'Attachment', name: 'custom_entity09_sg_photos_custom_entity09s', source: 'CustomEntity09.sg_photos' })
+		);
+		// One per link field we create: none for `project`, a stock field.
+		const links = report.fields.filter((f) => f.dataType === 'entity' || f.dataType === 'multi_entity');
+		expect(report.reverseFields.length).toBe(links.length);
+		expect(creates(fpt)).toEqual([]);
+	});
+
+	it('creates, then finds the link fields and the fields they added present: a second run changes nothing', async () => {
+		const { fpt, check } = world('bare');
+		const first = await check();
+		expect(first.ready).toBe(true);
+		expect(fpt.fields.Slate.sg_takes?.properties?.valid_types?.value).toEqual(['CustomEntity09']);
+		const before = fpt.requests.length;
+		const again = await check();
+		expect(again.ready).toBe(true);
+		expect(again.reverseFields.every((r) => r.status === 'present')).toBe(true);
+		expect(fpt.requests.slice(before).every((r) => r.method === 'GET')).toBe(true);
+	});
+
+	it('does not create a link whose added field would collide, and says which', async () => {
+		const { fpt, check } = world('bare');
+		fpt.fields.Slate.sg_takes = rawField('number', 'Takes');
+		const report = await check();
+		expect(report.ready).toBe(false);
+		expect(field(report, 'take', 'sg_slate')).toMatchObject({ status: 'blocked', reason: expect.stringContaining('Slate.sg_takes') });
+		expect(creates(fpt).some((r) => r.path === '/api/v1/schema/CustomEntity09/fields' && JSON.stringify(r.body).includes('"Slate"'))).toBe(false);
+		expect(fpt.fields.Slate.sg_takes.data_type.value).toBe('number');
+	});
+
+	// findings/142: deleting a reverse field deletes the link too. Setup never deletes a field.
+	it('never deletes or changes a field', async () => {
+		const { fpt, check } = world('bare');
+		await check();
+		await check();
+		expect(fpt.requests.filter((r) => r.path.includes('/schema/') && (r.method === 'DELETE' || r.method === 'PUT'))).toEqual([]);
 	});
 
 	it('uses a site field of the same name and type, and steps aside from one that differs', async () => {

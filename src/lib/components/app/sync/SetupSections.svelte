@@ -1,7 +1,8 @@
 <script lang="ts">
 	// The setup check's report in words: entities found or what an admin must do, with the exact
 	// name to give them; fields there, created, to create or waiting for an admin; permission
-	// trouble. Fields are made only on Set Up Fields, a tap of the person.
+	// trouble; the fields Flow PT adds for our links. Fields are made only on Set Up Fields, a tap
+	// of the person.
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import { useSync } from '$lib/app/sync/controller.svelte';
@@ -49,10 +50,22 @@
 		{#each LISTED as status (status)}
 			{#if view.counts[status] > 0}
 				<Row title={t(`sync.setup.field.${status}`)} detail={String(view.counts[status])} />
-				{#each view.fields[status] as f (f.entity + f.name)}
-					<Row title={t('sync.setup.field.line', { entity: f.entity, field: f.displayName })} subtitle={fieldSub(f)} />
-				{/each}
+				<!-- Refused field creation: an Admin runs Set Up Fields; the fields are not listed one by one. -->
+				{#if status !== 'needsAdmin'}
+					{#each view.fields[status] as f (f.entity + f.name)}
+						<Row title={t('sync.setup.field.line', { entity: f.entity, field: f.displayName })} subtitle={fieldSub(f)} />
+					{/each}
+				{/if}
 			{/if}
 		{/each}
 	</Section>
+
+	{#if view.reverse.length}
+		<!-- corpus findings/142: each link field adds one on the entity it links; deleting it deletes the link. -->
+		<Section header={t('sync.setup.reverse')} footer={t('sync.setup.reverse.footer')}>
+			{#each view.reverse as r (r.entity + r.name)}
+				<Row title={t('sync.setup.field.line', { entity: r.entity, field: r.displayName })} subtitle={r.name} detail={t(`sync.setup.reverse.${r.status}`)} />
+			{/each}
+		</Section>
+	{/if}
 {/if}

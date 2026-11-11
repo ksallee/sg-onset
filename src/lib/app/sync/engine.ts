@@ -27,7 +27,8 @@ export interface SyncDeps {
 	site(): string | null;
 	/** A live session (`auth.canSync`). */
 	canSync(): boolean;
-	bearer(): Promise<string>;
+	/** `{ renew: true }`: a new bearer, not the one held (lib/fpt/api.ts, corpus findings/133). */
+	bearer(request?: { renew?: boolean }): Promise<string>;
 	fetch?: typeof fetch;
 	/** The site's resolved schema (lib/fpt/cache.ts). */
 	schemaCache: KeyValue;

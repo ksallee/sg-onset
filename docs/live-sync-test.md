@@ -7,7 +7,8 @@ Use a test project on the site, never a show.
 
 - The site has the four custom entities enabled for projects, named exactly **Take**, **Lens**,
   **Camera Setup** and **Lighting Setup**. ShootDay, Slate and Camera are switched on.
-- You can create fields on the site (admin), or an admin is at hand.
+- You can create fields on the site (Admin), or an Admin is at hand.
+- The site's field Trash is empty: a retired field still holds its name until then.
 
 ## Steps
 
@@ -22,9 +23,22 @@ Use a test project on the site, never a show.
      what the app looks for.
    - **Fields**: on a fresh site most are **To create**. Nothing has been created yet: check the
      site's fields of Take, nothing new.
-5. Tap **Set Up Fields**. The report says **Created** for each. **Need an admin** means your
-   account may not create fields: note the title Flow PT gave (the line's last part) and send it
-   to the corpus as an answer to fpt README gap 1.
+   - **Fields Flow PT Adds**: one line per link field, each **Will appear**. Flow PT adds a field
+     on the linked entity for every link field (corpus findings/142). Expect, on a site that calls
+     the entities as above: `sg_takes` on Slate, Camera, Lens and Camera Setup; `sg_camera_setups`
+     on Camera and Lens; `sg_slates` on Shoot Day and Lighting Setup; and on Attachment (File)
+     `custom_entityNN_sg_photos_custom_entityNNs`, with the Take's slot number. A link that would
+     add a name an entity already has is under **Cannot be made yet**, naming that field: nothing
+     was created for it.
+5. Tap **Set Up Fields**. The report says **Created** for each, and every **Fields Flow PT Adds**
+   line says **There**. Open Slate's fields in Flow PT: **Take <-> Slate** (`sg_takes`) is there.
+   Do not delete any of these: deleting one deletes our link field too. Tap **Check Setup** again:
+   nothing changes, nothing is created.
+   - Signed in as an Artist (or any account that may not create fields), **Set Up Fields** stops
+     at the first field. The footer says "This Flow PT account cannot create fields. An Admin must
+     run Set Up Fields." and **Need an admin** counts the fields. Only one field create was tried.
+     If you can, try it with a Manager and a Vendor account and note what happens: those two are
+     not measured (README gaps).
 6. The status says **Syncing n**, then **All synced**. **Last sync** says now.
 7. On Shoot: make a shoot day, a slate, a take with Start and End, and a photo. Watch the status
    count go up and back to **All synced**.
@@ -48,6 +62,15 @@ Use a test project on the site, never a show.
 - Sign out: the status says **Not signed in**, capture goes on, nothing is sent.
 - Leave the app signed in for a day: the session ends; the status says **Sign in to sync**.
 - A second project on the device: its changes stay on the device until it is linked and current.
+- **Permission report.** With the fields set up, sign in as an Artist and capture a take. The
+  take needs attention with "This Flow PT account can't create Takes. Ask an Admin for the
+  permission." (an Artist may not create custom-entity rows, findings/143). The next take waits
+  with the same words and is not sent again this session. Delete a photo as an Artist: "can't
+  delete Photos". Shoot days, slates and cameras follow the account's own rights.
+- Leave the sync sheet open past ten minutes of syncing: no **Sign in to sync**. The bearer is
+  renewed a minute before it ends.
+- A photo: in Flow PT, open the file's link in a new tab. It shows as an image, not a download
+  of `binary/octet-stream`. Two photos on one take: **Photos** holds both.
 
 ## What to send back
 

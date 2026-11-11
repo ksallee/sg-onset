@@ -193,6 +193,56 @@ describe('planFields', () => {
 	});
 });
 
+// corpus findings/142_reverse_field.md: every link field makes a field on the type it links.
+describe('planFields: reverse fields', () => {
+	const NAMES = { CustomEntity09: 'Take', CustomEntity10: 'Camera Setup', Slate: 'Slate', ShootDay: 'Shoot Day' };
+	const one = (plans: ReturnType<typeof planFields>, scope: EntityScope, column: string) => plans.find((p) => p.scope === scope && p.column.name === column)!;
+	const withoutTakeLinks = () => {
+		const fields = complete();
+		delete fields.take.sg_slate;
+		delete fields.take.sg_photos;
+		return fields;
+	};
+
+	it('says which field each link create will add, and where', () => {
+		const plans = planFields(TYPES, withoutTakeLinks(), { names: NAMES, others: { Attachment: {} } });
+		expect(one(plans, 'take', 'sg_slate').reverse).toEqual({ entityType: 'Slate', name: 'sg_takes', displayName: 'Take <-> Slate' });
+		expect(one(plans, 'take', 'sg_photos').reverse).toEqual({ entityType: 'Attachment', name: 'custom_entity09_sg_photos_custom_entity09s', displayName: 'Takes <-> Photos' });
+		expect(one(plans, 'take', 'sg_focal_length').reverse).toBeUndefined();
+	});
+
+	it('names it after what the site calls the source entity', () => {
+		const plans = planFields(TYPES, withoutTakeLinks(), { names: { ...NAMES, CustomEntity09: 'Shot Take' } });
+		expect(one(plans, 'take', 'sg_slate').reverse?.name).toBe('sg_shot_takes');
+	});
+
+	it('does not create a link whose added field would take a name the linked type already has', () => {
+		const fields = withoutTakeLinks();
+		fields.slate.sg_takes = raw('number', 'Takes');
+		const plans = planFields(TYPES, fields, { names: NAMES, others: { Attachment: { custom_entity09_sg_photos_custom_entity09s: raw('text', 'x') } } });
+		expect(one(plans, 'take', 'sg_slate')).toMatchObject({ status: 'blocked', reason: expect.stringContaining('Slate.sg_takes') });
+		expect(one(plans, 'take', 'sg_photos')).toMatchObject({ status: 'blocked', reason: expect.stringContaining('Attachment.custom_entity09_sg_photos_custom_entity09s') });
+	});
+
+	it('does not let two creates of ours add the same name to one type', () => {
+		const fields = withoutTakeLinks();
+		delete fields.cameraSetup.sg_camera;
+		// The site calls both entities "Take": each link to Camera would add `sg_takes` there.
+		const plans = planFields(TYPES, fields, { names: { ...NAMES, CustomEntity10: 'Take' } });
+		delete fields.take.sg_camera;
+		const again = planFields(TYPES, fields, { names: { ...NAMES, CustomEntity10: 'Take' } });
+		expect(one(plans, 'cameraSetup', 'sg_camera').status).toBe('create');
+		expect([one(again, 'cameraSetup', 'sg_camera').status, one(again, 'take', 'sg_camera').status].sort()).toEqual(['blocked', 'create']);
+	});
+
+	it('finds a field of ours present with its reverse, and plans nothing', () => {
+		const fields = complete();
+		fields.slate.sg_takes = raw('multi_entity', 'Take <-> Slate', { validTypes: ['CustomEntity09'] });
+		const plans = planFields(TYPES, fields, { names: NAMES });
+		expect(one(plans, 'take', 'sg_slate')).toMatchObject({ status: 'present', reverse: { entityType: 'Slate', name: 'sg_takes' } });
+	});
+});
+
 describe('createInput', () => {
 	const bare = { take: { code: raw('text', 'Take Name') } };
 	const plans = planFields(TYPES, bare);

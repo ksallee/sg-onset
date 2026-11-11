@@ -5,7 +5,7 @@
 import { TransportError } from '$lib/outbox/transport';
 import { ApiRefusal, createApi, type Api, type FptOptions } from './api';
 import { resolutionKey } from './cache';
-import { isPermissionRefusal } from './errors';
+import { isFieldCreateRefusal, isPermissionRefusal } from './errors';
 import { ENTITY_SCOPES, type EntityScope, type FptDataType } from './mapping';
 import {
 	createInput,
@@ -32,8 +32,8 @@ export type FieldReport = {
 	 * - `present`: it was there.
 	 * - `created`: this check made it.
 	 * - `missing`: not there, and the check was told not to create.
-	 * - `needsAdmin`: the person signed in may not create fields. An admin creates it, with the
-	 *   display name, the data type, `unique` and `validTypes` given here.
+	 * - `needsAdmin`: the person signed in may not create fields (findings/132). An Admin runs Set
+	 *   Up Fields.
 	 * - `blocked`: it cannot be made as the site is. `reason` says why.
 	 * - `failed`: the site refused the create, or made another field than asked. `reason` says what.
 	 */
@@ -57,23 +57,53 @@ export type SetupReport = {
 	entities: EntityResolution[];
 	/** One per field we want, on the entities that were found. */
 	fields: FieldReport[];
+	/**
+	 * The fields Flow PT adds on the linked types for our link fields: one per link field (corpus
+	 * findings/142_reverse_field.md). Shown so an admin is not surprised by them, and told not to
+	 * delete them: deleting one deletes our link field too.
+	 */
+	reverseFields: ReverseReport[];
 	/** Whether a field create went through. Absent when none was tried. */
 	canCreateFields?: boolean;
 };
 
+export type ReverseReport = {
+	/** The linked type the field is on. */
+	entityType: string;
+	name: string;
+	displayName: string;
+	/** Our link field that makes it: `CustomEntity09.sg_slate`. */
+	source: string;
+	/** `present`: there. `willAppear`: Set Up Fields will make it, by creating the link. */
+	status: 'present' | 'willAppear';
+};
+
 const siteOf = (options: FptOptions) => options.site.replace(/\/+$/, '');
 
+const ATTACHMENT = 'Attachment';
+
 async function inspect(api: Api, signal?: AbortSignal): Promise<{ entities: EntityResolution[]; plans: FieldPlan[] }> {
-	const entities = resolveEntities(await api.types(signal));
+	const listed = await api.types(signal);
+	const entities = resolveEntities(listed);
 	const types = foundTypes(entities);
 	const fields: Partial<Record<EntityScope, RawFields>> = {};
+	const others: Record<string, RawFields> = {};
 	// The fields of a type that is not in /schema are a 404 (corpus findings/008): only the found ones are read.
-	await Promise.all(
-		ENTITY_SCOPES.filter((scope) => types[scope]).map(async (scope) => {
+	// Attachment's too: the photos field adds one there, checked for a clash (findings/134, 142).
+	await Promise.all([
+		...ENTITY_SCOPES.filter((scope) => types[scope]).map(async (scope) => {
 			fields[scope] = await api.fields(types[scope]!, signal);
-		})
-	);
-	return { entities, plans: planFields(types, fields) };
+		}),
+		...(listed[ATTACHMENT]
+			? [
+					api.fields(ATTACHMENT, signal).then((f) => {
+						others[ATTACHMENT] = f;
+					})
+				]
+			: [])
+	]);
+	const names = Object.fromEntries(Object.entries(listed).map(([type, t]) => [type, t.name.value]));
+	return { entities, plans: planFields(types, fields, { names, others }) };
 }
 
 const reportOf = (plan: FieldPlan, status: FieldReport['status'], reason = plan.reason): FieldReport => ({
@@ -91,7 +121,9 @@ const reportOf = (plan: FieldPlan, status: FieldReport['status'], reason = plan.
 /**
  * Reads the site's schema, creates the fields that are missing unless `createFields` is false,
  * and says what is left for a person to do. Field creation needs admin rights: at the first
- * refusal it stops creating and lists every field left as `needsAdmin`.
+ * refusal it stops creating and marks every field left `needsAdmin`. A link field whose added
+ * field would clash with one already there is `blocked`, never created. No field is ever
+ * deleted or changed: deleting a field a link added deletes the link too (findings/142).
  *
  * Throws a `TransportError` when the site cannot be asked: `unreachable`, `unauthorized`, `failed`.
  */
@@ -111,7 +143,7 @@ export async function checkSetup(options: FptOptions & { createFields?: boolean;
 			continue;
 		}
 		if (options.createFields === false) fields.push(reportOf(plan, 'missing'));
-		else if (allowed === false) fields.push(reportOf(plan, 'needsAdmin'));
+		else if (allowed === false) fields.push(reportOf(plan, 'needsAdmin', ''));
 		else {
 			try {
 				const name = await api.createField(plan.entityType, createInput(plan), signal);
@@ -126,10 +158,13 @@ export async function checkSetup(options: FptOptions & { createFields?: boolean;
 				fields.push(reportOf(plan, 'failed', `the site created ${plan.entityType}.${name} instead of ${plan.name}: an admin deletes it and empties the field trash`));
 			} catch (error) {
 				if (!(error instanceof ApiRefusal)) throw error;
-				// What the site answers a person who may not create fields is not in the corpus.
-				if (isPermissionRefusal(error.failure)) {
+				// An Artist gets 500 code 105 "User doesn't have permission to create a Field"
+				// (findings/132). Matched exactly, with the looser words as a fallback for the
+				// groups not measured (Manager, Vendor). Then nothing more is tried: an Admin runs
+				// Set Up Fields, and the report says no more than that.
+				if (isFieldCreateRefusal(error.failure) || isPermissionRefusal(error.failure)) {
 					allowed = false;
-					fields.push(reportOf(plan, 'needsAdmin', error.failure.title));
+					fields.push(reportOf(plan, 'needsAdmin', ''));
 				} else fields.push(reportOf(plan, 'failed', error.failure.title));
 			}
 		}
@@ -139,7 +174,27 @@ export async function checkSetup(options: FptOptions & { createFields?: boolean;
 	const resolution = toResolution(site, entities, settled);
 	if (resolution) await options.schemaCache.set(resolutionKey(site), serializeResolution(resolution));
 	else await options.schemaCache.delete(resolutionKey(site));
-	return { ready: resolution !== undefined, site, entities, fields, ...(allowed !== undefined ? { canCreateFields: allowed } : {}) };
+	return {
+		ready: resolution !== undefined,
+		site,
+		entities,
+		fields,
+		reverseFields: reversesOf(settled, fields),
+		...(allowed !== undefined ? { canCreateFields: allowed } : {})
+	};
+}
+
+/** The added fields: those there, and those the links still to create will add. */
+function reversesOf(plans: readonly FieldPlan[], fields: readonly FieldReport[]): ReverseReport[] {
+	const out: ReverseReport[] = [];
+	for (const plan of plans) {
+		if (!plan.reverse) continue;
+		const made = fields.find((f) => f.entityType === plan.entityType && f.name === plan.name)?.status;
+		if (made === 'failed' || made === 'blocked') continue;
+		const status = plan.status === 'present' && made !== 'needsAdmin' && made !== 'missing' ? 'present' : 'willAppear';
+		out.push({ ...plan.reverse, source: `${plan.entityType}.${plan.name}`, status });
+	}
+	return out;
 }
 
 /** What stands between the site and a sync, in a line. */

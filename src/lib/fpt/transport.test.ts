@@ -4,6 +4,7 @@ import type { Op, RemoteId } from '$lib/outbox/types';
 import { memoryKeyValue, resolutionKey } from './cache';
 import { BEARER, fakeFpt, STORAGE } from './fakeFpt';
 import { encodeStillRemote } from './stills';
+import { jwtWith } from './testkit';
 import { createFptTransport } from './transport';
 
 type World = ReturnType<typeof world>;
@@ -12,11 +13,11 @@ function world(options: { fields?: 'complete' | 'bare'; upload?: { singlePutMax:
 	const fpt = fakeFpt({ fields: options.fields });
 	const projectId = fpt.seed('Project', { name: 'Show' });
 	const cache = memoryKeyValue();
-	const auth = { bearer: async (): Promise<string> => BEARER };
+	const auth = { bearer: async (_request?: { renew?: boolean }): Promise<string> => BEARER };
 	const make = () =>
 		createFptTransport({
 			site: fpt.site,
-			bearer: () => auth.bearer(),
+			bearer: (request) => auth.bearer(request),
 			fetch: fpt.fetch,
 			schemaCache: cache,
 			projectId,
@@ -155,13 +156,14 @@ describe('push', () => {
 		const w = world();
 		await applied(w, [create('camera', 'c1', { projectId: 'p1', cameraModel: 'A' }, { p1: w.projectId })]);
 		const reads = () => w.fpt.count((r) => r.path.startsWith('/api/v1/schema'));
-		expect(reads()).toBe(8);
+		// /schema, the seven types, and Attachment, where the photos field adds one (findings/142).
+		expect(reads()).toBe(9);
 		await applied(w, [create('camera', 'c2', { projectId: 'p1', cameraModel: 'B' }, { p1: w.projectId })]);
-		expect(reads()).toBe(8);
+		expect(reads()).toBe(9);
 		expect(await w.cache.get(resolutionKey(w.fpt.site))).toBeDefined();
 		// Another session on the same device starts from the cache.
 		await w.make().push([create('camera', 'c3', { projectId: 'p1', cameraModel: 'C' }, { p1: w.projectId })]);
-		expect(reads()).toBe(8);
+		expect(reads()).toBe(9);
 	});
 
 	it('does not send to a site that is not set up, and says what is missing', async () => {
@@ -224,6 +226,46 @@ describe('push, refused', () => {
 		expect(w.fpt.byUuid('Slate', 's1')!.values.sg_set_notes).toBeUndefined();
 		const gone = del('take', 't1', ids.t1);
 		expect(await w.transport.push([gone])).toEqual({ outcome: 'refused', refusals: [{ entryId: gone.entryId, reason: 'gone' }] });
+	});
+
+	// corpus findings/143_nonadmin_rows.md: an Artist may not create, edit or delete custom-entity
+	// rows; each refusal is 400 code 104 naming the type or the field.
+	it('says plainly what this account may not do, and pauses that kind of change', async () => {
+		const w = world();
+		const ids = await shoot(w);
+		w.fpt.forbidden.add('create:CustomEntity09');
+		const first = create('take', 't2', { slateId: 's1', take: '2' }, { s1: ids.s1 });
+		const message = "This Flow PT account can't create Takes. Ask an Admin for the permission.";
+		expect(await w.transport.push([first])).toEqual({ outcome: 'refused', refusals: [{ entryId: first.entryId, reason: 'invalid', message }] });
+		// The next take is not sent: the answer would be the same.
+		const sentBefore = batches(w).length;
+		const second = create('take', 't3', { slateId: 's1', take: '3' }, { s1: ids.s1 });
+		expect(await w.transport.push([second])).toEqual({ outcome: 'refused', refusals: [{ entryId: second.entryId, reason: 'invalid', message }] });
+		expect(batches(w).length).toBe(sentBefore);
+		// Other kinds still go.
+		expect((await w.transport.push([update('slate', 's1', ids.s1, { notes: [undefined, 'x'] })])).outcome).toBe('applied');
+	});
+
+	it('words an update and a delete it may not make', async () => {
+		const w = world();
+		const ids = await shoot(w);
+		w.fpt.forbidden.add('update:CustomEntity09');
+		w.fpt.forbidden.add('delete:Slate');
+		const edit = update('take', 't1', ids.t1, { tStop: [2.8, 4] });
+		expect(await w.transport.push([edit])).toMatchObject({ outcome: 'refused', refusals: [{ reason: 'invalid', message: "This Flow PT account can't change Takes. Ask an Admin for the permission." }] });
+		const gone = del('slate', 's1', ids.s1);
+		expect(await w.transport.push([gone])).toMatchObject({ outcome: 'refused', refusals: [{ reason: 'invalid', message: "This Flow PT account can't delete Slates. Ask an Admin for the permission." }] });
+	});
+
+	// corpus findings/136_unique_scope_retired.md: a deleted row frees its client UUID; a revive
+	// of it can fail. A record created again is a new row, never a revived one.
+	it('creates a record again after its delete as a new row, and never revives one', async () => {
+		const w = world();
+		const ids = await shoot(w);
+		await applied(w, [del('take', 't1', ids.t1)]);
+		const again = await applied(w, [create('take', 't1', { slateId: 's1', take: '1' }, { s1: ids.s1 })]);
+		expect(Object.values(again)[0]).not.toBe(ids.t1);
+		expect(w.fpt.requests.some((r) => r.query.has('revive') || JSON.stringify(r.body ?? '').includes('revive'))).toBe(false);
 	});
 
 	it('refuses what it can see is wrong without sending anything', async () => {
@@ -301,6 +343,56 @@ describe('push, no answer', () => {
 		w.fpt.bearerValid = false;
 		expect(await kindOf(w.transport.push([camera(w)]))).toBe('unauthorized');
 		expect(await kindOf(w.transport.read([{ table: 'camera', id: 'c1', remoteId: 1, keys: ['cameraModel'] }]))).toBe('unauthorized');
+	});
+
+	// corpus findings/133_bearer_expiry.md: a bearer past its exp is 401 code 102 `Token Expired`.
+	it('mints a new bearer once when the site says the old one expired, and sends again', async () => {
+		const w = world();
+		await w.transport.lookup([{ table: 'camera', id: 'warm' }]);
+		w.fpt.expired.add('spent');
+		const asked: unknown[] = [];
+		let held = 'spent';
+		w.auth.bearer = async (request?: { renew?: boolean }) => {
+			asked.push(request);
+			if (request?.renew) held = BEARER;
+			return held;
+		};
+		const result = await w.transport.push([camera(w)]);
+		expect(result.outcome).toBe('applied');
+		expect(w.fpt.live('Camera').length).toBe(1);
+		expect(asked).toContainEqual({ renew: true });
+		expect(batches(w).map((r) => r.headers.get('authorization'))).toEqual(['Bearer spent', `Bearer ${BEARER}`]);
+	});
+
+	it('retries an expired bearer once only', async () => {
+		const w = world();
+		await w.transport.lookup([{ table: 'camera', id: 'warm' }]);
+		w.fpt.expired.add('spent');
+		w.auth.bearer = async () => 'spent';
+		expect(await kindOf(w.transport.push([camera(w)]))).toBe('unauthorized');
+		expect(batches(w).length).toBe(2);
+	});
+
+	it('takes a forged bearer as unauthorized, without minting', async () => {
+		const w = world();
+		await w.transport.lookup([{ table: 'camera', id: 'warm' }]);
+		const asked: unknown[] = [];
+		w.auth.bearer = async (request?: { renew?: boolean }) => {
+			asked.push(request);
+			return 'forged';
+		};
+		expect(await kindOf(w.transport.push([camera(w)]))).toBe('unauthorized');
+		expect(batches(w).length).toBe(1);
+		expect(asked).not.toContainEqual({ renew: true });
+	});
+
+	// findings/133: the bearer still worked 20 s before its exp. Renewed a minute before.
+	it('renews a bearer close to its exp before sending it', async () => {
+		const w = world();
+		const late = jwtWith({ exp: Math.floor(w.fpt.clock.t / 1000) + 30 });
+		w.auth.bearer = async (request?: { renew?: boolean }) => (request?.renew ? BEARER : late);
+		expect((await w.transport.push([camera(w)])).outcome).toBe('applied');
+		expect(w.fpt.requests.some((r) => r.headers.get('authorization') === `Bearer ${late}`)).toBe(false);
 	});
 
 	// corpus findings/126_session_idle.md: the token endpoint refuses a session with 400 code 102.
@@ -644,19 +736,49 @@ describe('upload', () => {
 		expect(stills(w, s.take)).toEqual([{ type: 'Attachment', id: sent.remoteId }]);
 	});
 
-	// Unmeasured: whether a second upload to a multi-entity field adds or replaces (findings/123 sent one).
-	it('keeps the earlier photos of a take even if an upload to the field replaces them', async () => {
+	// corpus findings/134: a second upload to the multi-entity field adds. Nothing is put back.
+	it('finishes an upload without reading or writing the stills field', async () => {
 		const w = world();
-		w.fpt.fieldUploadReplaces = true;
 		const a = await still(w, 'ph1');
 		const first = await send(w, a.ref(300));
 		const b = await still(w, 'ph2');
-		const second = await send(w, b.ref(400));
-		expect(
-			stills(w, a.take)
-				.map((x) => x.id)
-				.sort()
-		).toEqual([first.remoteId, second.remoteId].sort());
+		const session = await w.transport.beginUpload(b.ref(400));
+		const part = await w.transport.uploadPart(session, { index: 0, data: photo(400) });
+		w.fpt.requests.length = 0;
+		const done = await w.transport.finishUpload(session, [part]);
+		expect(stills(w, a.take).map((x) => x.id)).toEqual([first.remoteId, done.remoteId]);
+		expect(w.fpt.requests.filter((r) => r.path.includes('custom_entity09s')).map((r) => r.method + ' ' + r.path)).toEqual([`POST /api/v1/entity/custom_entity09s/${a.take}/sg_photos/_upload`]);
+	});
+
+	// corpus findings/141: the stored type is what the PUT sent, else `binary/octet-stream`.
+	it("sends the photo's own type, even for bytes that carry none", async () => {
+		const w = world();
+		const s = await still(w);
+		const ref = s.ref(300);
+		const session = await w.transport.beginUpload(ref);
+		const part = await w.transport.uploadPart(session, { index: 0, data: new Blob([new Uint8Array(300)]) });
+		await w.transport.finishUpload(session, [part]);
+		const put = w.fpt.requests.find((r) => r.host === 'storage' && r.method === 'PUT')!;
+		expect(put.headers.get('content-type')).toBe('image/jpeg');
+		expect([...w.fpt.storedTypes.values()]).toEqual(['image/jpeg']);
+	});
+
+	// corpus findings/140: one PUT took 1000 MB. Parts only above 32 MiB, for resuming on set Wi-Fi.
+	it('sends up to 32 MiB in one PUT, and more in parts', async () => {
+		const w = world();
+		const s = await still(w);
+		const MiB = 1024 * 1024;
+		expect((await w.transport.beginUpload(s.ref(32 * MiB))).partSize).toBeUndefined();
+		expect((await w.transport.beginUpload(s.ref(32 * MiB + 1))).partSize).toBe(8 * MiB);
+	});
+
+	// corpus findings/141: HEAD on the stored file is 403. The check reads the size from a GET.
+	it('checks an upload with a GET, never a HEAD', async () => {
+		const w = world();
+		const s = await still(w);
+		const sent = await send(w, s.ref(300));
+		expect(await w.transport.verifyUpload(s.ref(300), sent.remoteId)).toMatchObject({ verified: true });
+		expect(w.fpt.requests.filter((r) => r.host === 'storage').map((r) => r.method)).toEqual(['PUT', 'GET']);
 	});
 
 	it('several photos of one take are each their own Attachment', async () => {
@@ -702,9 +824,12 @@ describe('a still, after its upload', () => {
 		const s = await still(w);
 		expect(await w.transport.lookup([{ table: 'still', id: 'ph1' }])).toEqual([]);
 		await send(w, s.ref(300));
+		w.fpt.requests.length = 0;
 		expect(await w.transport.lookup([{ table: 'still', id: 'ph1' }])).toEqual([
 			{ table: 'still', id: 'ph1', remoteId: encodeStillRemote({ take: s.take, capturedAt: '2026-11-11T09:01:02.000Z' }) }
 		]);
+		// corpus findings/134: the Attachment names its take in `attachment_links`. One search.
+		expect(w.fpt.requests.map((r) => r.path)).toEqual(['/api/v1/entity/attachments/_search']);
 	});
 
 	it('takes a caption, gives it back, and is deleted with its Attachment', async () => {

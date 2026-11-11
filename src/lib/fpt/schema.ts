@@ -5,7 +5,7 @@
 // Shapes are the corpus's: endpoints/get_schema.md, endpoints/get_schema_type_fields.md.
 
 import { ENTITY_SCOPES, ENTITY_TYPES, wantedColumns, type Column, type EntityScope, type FptDataType, type Target } from './mapping';
-import { codeName } from './names';
+import { codeName, reverseField } from './names';
 
 /** `GET /schema`, its `data`: one entry per enabled type, keyed by schema name. */
 export type SchemaTypes = Record<string, { name: Property<string> }>;
@@ -97,6 +97,22 @@ export type FieldPlan = {
 	unique?: true;
 	/** For `entity` and `multi_entity`: the type to link. */
 	validTypes?: string[];
+	/**
+	 * For a link field: the field the server adds on the linked type when it is created, or the
+	 * one it added when it is present (corpus findings/142_reverse_field.md).
+	 */
+	reverse?: ReversePlan;
+};
+
+/** A field the server adds on a linked type. Visible, editable, and deleting it deletes the link too. */
+export type ReversePlan = { entityType: string; name: string; displayName: string };
+
+/** What else of the site the plan needs: what it calls each type, and the fields of the types outside our scopes. */
+export type SiteContext = {
+	/** Display name by entity type, from `GET /schema`. */
+	names?: Record<string, string>;
+	/** Fields of other linked types, by type: `Attachment`. A type left out is not checked for collisions. */
+	others?: Record<string, RawFields>;
 };
 
 function targetType(target: Target, types: Partial<Record<EntityScope, string>>): string | undefined {
@@ -125,7 +141,61 @@ function mismatch(column: Column, field: RawField, valid: string | undefined): s
  * name already shown by another field is avoided too: the server would answer 201 for a silent
  * `<name>_1` (corpus endpoints/post_schema_type_fields.md).
  */
-export function planFields(types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>): FieldPlan[] {
+export function planFields(types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>, site: SiteContext = {}): FieldPlan[] {
+	return planReverses(planOwn(types, fields), types, fields, site);
+}
+
+/**
+ * The field each link create will add on the type it links, checked against what that type
+ * holds and against what our other creates will add (corpus findings/142_reverse_field.md). A
+ * link whose added field would take a name already there is not created: the server's choice
+ * then is unmeasured, and a wrong guess cannot be undone by deleting, since deleting the added
+ * field deletes the link too. A link already there is matched with the field it added.
+ */
+function planReverses(plans: FieldPlan[], types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>, site: SiteContext): FieldPlan[] {
+	const scopeOf = new Map(ENTITY_SCOPES.filter((s) => types[s]).map((s) => [types[s]!, s]));
+	const fieldsOf = (type: string): RawFields | undefined => {
+		const scope = scopeOf.get(type);
+		return scope ? fields[scope] : site.others?.[type];
+	};
+	const taken = new Map<string, Set<string>>();
+	const takenOn = (type: string): Set<string> => {
+		if (!taken.has(type)) {
+			const ours = plans.filter((p) => p.entityType === type && p.status !== 'blocked').map((p) => p.name);
+			taken.set(type, new Set([...Object.keys(fieldsOf(type) ?? {}), ...ours]));
+		}
+		return taken.get(type)!;
+	};
+	return plans.map((plan) => {
+		const target = plan.validTypes?.[0];
+		if (!target || plan.column.stock || (plan.dataType !== 'entity' && plan.dataType !== 'multi_entity') || plan.status === 'blocked') return plan;
+		const source = site.names?.[plan.entityType]?.trim() || ENTITY_TYPES[plan.scope].displayName;
+		const predicted = { entityType: target, ...reverseField(plan.entityType, source, plan.name, plan.displayName, plan.dataType) };
+		const have = fieldsOf(target);
+		if (plan.status === 'present') {
+			if (have?.[predicted.name]) return { ...plan, reverse: { ...predicted, displayName: have[predicted.name].name.value } };
+			const found = Object.entries(have ?? {}).find(
+				([, f]) => f.data_type.value === 'multi_entity' && linksType(f, plan.entityType) && f.name.value.endsWith(` <-> ${plan.displayName}`)
+			);
+			return found ? { ...plan, reverse: { entityType: target, name: found[0], displayName: found[1].name.value } } : plan;
+		}
+		if (have === undefined) return { ...plan, reverse: predicted };
+		const names = takenOn(target);
+		if (names.has(predicted.name)) {
+			const whose = have[predicted.name] ? 'which the site already has' : 'which another field of SG OnSet would add';
+			return { ...plan, status: 'blocked', reason: `creating it would add ${target}.${predicted.name}, ${whose}. An admin renames that field, then runs Set Up Fields again` };
+		}
+		names.add(predicted.name);
+		return { ...plan, reverse: predicted };
+	});
+}
+
+const linksType = (field: RawField, type: string): boolean => {
+	const valid = field.properties?.valid_types?.value;
+	return Array.isArray(valid) && valid.includes(type);
+};
+
+function planOwn(types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>): FieldPlan[] {
 	const plans: FieldPlan[] = [];
 	for (const scope of ENTITY_SCOPES) {
 		const entityType = types[scope];

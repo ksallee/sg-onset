@@ -2,7 +2,7 @@
 // what an admin must do and with which exact name, which fields are there, made, or wait for an
 // admin. Pure.
 
-import type { FieldReport, SetupReport } from '$lib/fpt';
+import type { FieldReport, ReverseReport, SetupReport } from '$lib/fpt';
 import type { EntityScope } from '$lib/fpt';
 
 /**
@@ -47,6 +47,18 @@ export interface SetupView {
 	permission: boolean;
 	/** "Set Up Fields" would do something. */
 	canSetUpFields: boolean;
+	/** The fields Flow PT adds for our links: those still to come first. */
+	reverse: ReverseLine[];
+	/** How many will appear when Set Up Fields runs. */
+	reverseToCome: number;
+}
+
+export interface ReverseLine {
+	/** The linked entity's name as the site shows it. */
+	entity: string;
+	name: string;
+	displayName: string;
+	status: ReverseReport['status'];
 }
 
 function actionOf(e: SetupReport['entities'][number]): EntityAction {
@@ -77,6 +89,10 @@ export function setupView(report: SetupReport): SetupView {
 		});
 	}
 	const counts = Object.fromEntries(STATUSES.map((s) => [s, fields[s].length])) as Record<FieldStatus, number>;
+	const typeName = new Map(report.entities.filter((e) => e.entityType).map((e) => [e.entityType!, e.displayName]));
+	const reverse: ReverseLine[] = [...(report.reverseFields ?? [])]
+		.sort((a, b) => Number(a.status === 'present') - Number(b.status === 'present'))
+		.map((r) => ({ entity: typeName.get(r.entityType) ?? r.entityType, name: r.name, displayName: r.displayName, status: r.status }));
 	return {
 		ready: report.ready,
 		entities,
@@ -84,6 +100,8 @@ export function setupView(report: SetupReport): SetupView {
 		counts,
 		fields,
 		permission: report.canCreateFields === false || counts.needsAdmin > 0,
-		canSetUpFields: counts.missing > 0 && report.canCreateFields !== false
+		canSetUpFields: counts.missing > 0 && report.canCreateFields !== false,
+		reverse,
+		reverseToCome: reverse.filter((r) => r.status === 'willAppear').length
 	};
 }

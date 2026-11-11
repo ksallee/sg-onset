@@ -48,5 +48,12 @@ Made by Claude. Kevin can overrule any of them.
 
 ## Not tested without a real site
 
-What a non-admin gets back when creating a field, a real browser upload, the real session expiry,
-and `navigator.onLine` on iPadOS. `docs/live-sync-test.md` is the checklist.
+The answers are measured now (corpus findings/132–145, `$lib/fpt` README), but only against a
+process, not this app: a real browser upload, the bearer renewal in a long session, what a
+Manager or Vendor account gets, the fields Flow PT adds for our links, and `navigator.onLine` on
+iPadOS. `docs/live-sync-test.md` is the checklist.
+
+A push refused for want of rights (an Artist creating a take, findings/143) needs attention with
+"This Flow PT account can't create Takes. Ask an Admin for the permission." and that kind of
+change waits until the transport is made again (sign-in, link, project). There is no permission
+check before sync: Kevin's call for v1.

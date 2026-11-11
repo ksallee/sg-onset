@@ -67,9 +67,11 @@
 						{@render status(g)}
 					</span>
 					<span class="icons">
-						{#if groupMark(g, 'circleTake')}<CircleCheck class="size-5" strokeWidth={2.4} aria-label={t('marks.circle')} />{/if}
-						{#if groupMark(g, 'noGood')}<Ban class="size-5" strokeWidth={2.4} aria-label={t('marks.noGood')} />{/if}
 						{#if n}<span class="photos num"><Images class="size-4" strokeWidth={2} />{n}</span>{/if}
+						<span class="mark">
+							{#if groupMark(g, 'circleTake')}<CircleCheck class="size-5" strokeWidth={2.4} aria-label={t('marks.circle')} />{/if}
+							{#if groupMark(g, 'noGood')}<Ban class="size-5" strokeWidth={2.4} aria-label={t('marks.noGood')} />{/if}
+						</span>
 					</span>
 				{:else if groupPhase(g) === 'rolling'}
 					<span class="sq" aria-hidden="true"></span>
@@ -211,10 +213,19 @@
 		gap: 6px;
 		color: var(--label-2);
 	}
+	.mark {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 6px;
+		min-width: 20px;
+	}
+	/* Wide enough for a count of two digits: the photo icons line up too. */
 	.photos {
 		display: flex;
 		align-items: center;
 		gap: 3px;
+		min-width: calc(19px + 2ch);
 		font-size: 13px;
 		font-weight: 600;
 	}

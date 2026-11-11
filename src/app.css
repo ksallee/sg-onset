@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn-svelte/tailwind.css";
 @import './lib/theme/tokens.css';
+@import './lib/theme/motion.css';
 
 /* The iOS kit's theme, from holosession's app.css (#57 there): tokens, type ramp, base, the
    push and pop motion. Its purpose and level colours and the desktop phone frame are left out. */
@@ -29,14 +30,6 @@
 [data-night] {
 	--mat-blur: blur(20px) saturate(180%);
 	--hairline: 0.5px;
-	--ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
-	--dur-press: 200ms;
-	--dur-push: 400ms;
-	--dur-sheet-in: 450ms;
-	--dur-sheet-out: 300ms;
-	--dur-snap: 350ms;
-	--dur-control: 250ms;
-	--dur-reveal: 200ms;
 
 	/* shadcn-svelte's names, onto the iOS tokens. */
 	--radius: 0.625rem;
@@ -245,119 +238,6 @@
 		-webkit-backdrop-filter: var(--mat-blur);
 		backdrop-filter: var(--mat-blur);
 	}
-}
-
-/* ------------------------------------------------------------------ push, pop, cover
-   +layout.svelte sets html[data-nav] and runs a View Transition (ios/direction.ts picks it).
-   The moving snapshot is "screen": the page on a phone, the phone frame on a desktop. */
-
-:root {
-	view-transition-name: screen;
-}
-
-::view-transition-old(screen),
-::view-transition-new(screen) {
-	animation-duration: var(--dur-push);
-	animation-timing-function: var(--ease-ios);
-	animation-fill-mode: both;
-	mix-blend-mode: normal;
-}
-html[data-nav='push']::view-transition-new(screen) {
-	animation-name: nav-in-right;
-}
-html[data-nav='push']::view-transition-old(screen) {
-	animation-name: nav-out-left;
-}
-html[data-nav='pop']::view-transition-old(screen) {
-	animation-name: nav-out-right;
-	z-index: 1;
-}
-html[data-nav='pop']::view-transition-new(screen) {
-	animation-name: nav-in-left;
-}
-html[data-nav='cover']::view-transition-new(screen) {
-	animation-name: nav-cover-in;
-	animation-duration: var(--dur-sheet-in);
-}
-html[data-nav='cover']::view-transition-old(screen) {
-	animation-name: nav-hold;
-	animation-duration: var(--dur-sheet-in);
-}
-html[data-nav='uncover']::view-transition-old(screen) {
-	animation-name: nav-cover-out;
-	animation-duration: var(--dur-sheet-out);
-	z-index: 1;
-}
-html[data-nav='uncover']::view-transition-new(screen) {
-	animation-name: nav-hold;
-	animation-duration: var(--dur-sheet-out);
-}
-
-@keyframes nav-in-right {
-	from {
-		transform: translateX(100%);
-	}
-}
-@keyframes nav-out-left {
-	to {
-		transform: translateX(-30%);
-		filter: brightness(0.7);
-	}
-}
-@keyframes nav-out-right {
-	to {
-		transform: translateX(100%);
-	}
-}
-@keyframes nav-in-left {
-	from {
-		transform: translateX(-30%);
-		filter: brightness(0.7);
-	}
-}
-@keyframes nav-cover-in {
-	from {
-		transform: translateY(100%);
-	}
-}
-@keyframes nav-cover-out {
-	to {
-		transform: translateY(100%);
-	}
-}
-@keyframes nav-hold {
-	from,
-	to {
-		transform: none;
-	}
-}
-@keyframes nav-fade-in {
-	from {
-		opacity: 0;
-	}
-}
-@keyframes nav-fade-out {
-	to {
-		opacity: 0;
-	}
-}
-
-/* Motion (Settings: System, Full, Reduced) is `data-motion="full|reduced"` on <html>, resolved:
-   System follows the device. Reduced: a page change fades, and nothing else eases or slides.
-   Style against the attribute, not against the media query, so the setting wins either way. */
-html[data-motion='reduced'][data-nav]::view-transition-new(screen) {
-	animation: nav-fade-in 150ms ease both;
-}
-html[data-motion='reduced'][data-nav]::view-transition-old(screen) {
-	animation: nav-fade-out 150ms ease both;
-}
-html[data-motion='reduced'] *,
-html[data-motion='reduced'] *::before,
-html[data-motion='reduced'] *::after {
-	transition-duration: 0.01ms !important;
-	animation-duration: 0.01ms !important;
-	animation-iteration-count: 1 !important;
-	scroll-behavior: auto !important;
 }
 
 /* Safe areas as variables, so a preview frame can fake a device's. */

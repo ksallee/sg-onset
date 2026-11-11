@@ -8,7 +8,8 @@
 	import NavShell from '$lib/components/ios/NavShell.svelte';
 	import Notice from '$lib/components/ios/Notice.svelte';
 	import { useApp } from '$lib/app/app.svelte';
-	import { liveUnsynced } from '$lib/app/live.svelte';
+	import { live, liveUnsynced } from '$lib/app/live.svelte';
+	import { safety as safetyOf, showLine } from '$lib/app/safety';
 	import { NAV, activeNav, type NavId } from '$lib/app/nav';
 	import { settings } from '$lib/app/settings.svelte';
 	import { provideShell } from '$lib/app/shell.svelte';
@@ -16,7 +17,9 @@
 	import { useCurrent } from '$lib/app/current.svelte';
 	import { provideSync } from '$lib/app/sync/controller.svelte';
 	import { t, tk } from '$lib/i18n/messages';
+	import { backupSignals } from '$lib/store/snapshots';
 	import ContextSheet from './ContextSheet.svelte';
+	import SafetyLine from './SafetyLine.svelte';
 	import SyncSheet from './SyncSheet.svelte';
 	import SyncStatus from './SyncStatus.svelte';
 
@@ -56,6 +59,7 @@
 		if (edit.kind === 'tooLate') return { text: t('notice.tooLate') };
 		if (!what) return null;
 		if (edit.kind === 'undone') return { text: t('notice.undone', { what }), action: t('notice.redo'), run: () => app.edit.redo() };
+		if (edit.noSnapshot) return { text: t('notice.noSnapshot', { what }), action: t('notice.undo'), run: () => app.edit.undo() };
 		if (edit.kind === 'redone') return { text: t('notice.redone', { what }), action: t('notice.undo'), run: () => app.edit.undo() };
 		return { text: what, action: t('notice.undo'), run: () => app.edit.undo() };
 	});
@@ -64,6 +68,18 @@
 		const timer = setTimeout(() => app.dismissEdit(), Math.max(0, edit.at + NOTICE_MS - Date.now()));
 		return () => clearTimeout(timer);
 	});
+
+	// The one line about data only on this device (app/safety.ts): read again on a change of the
+	// queue, the snapshots or the off-device marks, and once a minute. Over the page but never on a
+	// focus page; there, a mark on the sync status and the line in the sync detail.
+	const signals = live(['outbox', 'snapshots', 'meta'], async (store) => ({ input: await store.snapshots.status(), at: Date.now() }), undefined);
+	let minute = $state(Date.now());
+	$effect(() => {
+		const timer = setInterval(() => (minute = Date.now()), 60_000);
+		return () => clearInterval(timer);
+	});
+	const safety = $derived(safetyOf(signals.value && backupSignals(signals.value.input, Math.max(signals.value.at, minute))));
+	let safetyDismissed = $state(false);
 
 	// Undo and redo from a keyboard, when no field is being typed in (a field has its own undo).
 	function key(event: KeyboardEvent) {
@@ -88,14 +104,16 @@
 	toggleLabel={strip ? t('nav.expand') : t('nav.collapse')}
 >
 	{#snippet status(placement)}
-		<SyncStatus summary={sync.status} {placement} onclick={() => (syncOpen = true)} />
+		<SyncStatus summary={sync.status} {placement} {safety} onclick={() => (syncOpen = true)} />
 	{/snippet}
 	{@render children()}
 	{#if notice}
 		{#key edit?.at}
 			<Notice text={notice.text} action={notice.action} onaction={notice.run} />
 		{/key}
+	{:else if showLine(safety, { focus: !!active?.focus, dismissed: safetyDismissed })}
+		<SafetyLine {safety} variant="float" ondismiss={() => (safetyDismissed = true)} />
 	{/if}
 	<ContextSheet bind:open={contextOpen} />
-	<SyncSheet bind:open={syncOpen} />
+	<SyncSheet bind:open={syncOpen} {safety} />
 </NavShell>

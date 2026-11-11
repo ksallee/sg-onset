@@ -16,6 +16,7 @@ export class Backup {
 	restored = $state<{ records: number; files: number } | null>(null);
 	#file: Blob | null = null;
 	#name = '';
+	#at = 0;
 
 	constructor(
 		private store: DexieStore,
@@ -28,6 +29,7 @@ export class Backup {
 		try {
 			const now = this.now();
 			this.#file = await backupToFile(this.store, { now });
+			this.#at = now;
 			this.#name = backupName(new Date(now));
 			this.phase = 'ready';
 		} catch {
@@ -41,6 +43,8 @@ export class Backup {
 		if (!this.#file) return;
 		const handed = await shareOrDownload(this.#file, this.#name);
 		if (handed === 'cancelled') return;
+		// Handed over: a copy off the device, as of when it was made (store/snapshots, signals).
+		void this.store.snapshots.markOffDevice('export', this.#at).catch(() => false);
 		this.#file = null;
 		this.phase = 'idle';
 		// The copy on disk has done its work once the file is handed over. A download may still be

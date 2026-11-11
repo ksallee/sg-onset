@@ -27,7 +27,7 @@ beside them; read the test for the exact behaviour.
 
 ### The store
 
-- `useApp()` (`app.svelte.ts`): `{ store, edit, canUndo, canRedo, lastEdit, dismissEdit, newId, now }`.
+- `useApp()` (`app.svelte.ts`): `{ store, edit, snapshotter, canUndo, canRedo, lastEdit, dismissEdit, newId, now }`.
   The store is opened once, in the browser, by the root layout. Call `useApp()` while a component
   initialises. Never call `openStore()` yourself.
 - Read with the live helpers (`live.svelte.ts`), never with a one-off `store.get` in a component:
@@ -47,6 +47,9 @@ Never call `store.apply`, `store.create` or `store.remove` from a feature.
 - `edit.create(table, row, { attach?, label? })`, `edit.remove(table, id, label?)`,
   `edit.removeTree(table, id, label?)` (the record and everything under it).
 - `edit.group(label, async () => { … })`: every edit inside is one undo entry.
+- Before deleting a project or a shoot day, and before a patch of 20 entries or more, the editor
+  waits for a snapshot (`app.snapshotter`). If it fails the edit still happens and the notice says
+  so (`noSnapshot` on the event).
 - `edit.undo()`, `edit.redo()`. Undo is the inverse patch, queued like any edit.
 - `label` is `{ key, params }`, a message key. `edit.changed {field}`, `edit.created {what}`,
   `edit.removed {what}` exist; an area adds its own to its strings file.

@@ -10,13 +10,15 @@
 	import { useSync } from '$lib/app/sync/controller.svelte';
 	import { syncErrorText } from '$lib/app/sync/errors';
 	import { t } from '$lib/i18n/messages';
+	import type { Safety } from '$lib/app/safety';
 	import BackupRows from './BackupRows.svelte';
+	import SafetyLine from './SafetyLine.svelte';
 	import LinkSection from './sync/LinkSection.svelte';
 	import PrototypeNote from './sync/PrototypeNote.svelte';
 	import QueueSections from './sync/QueueSections.svelte';
 	import SetupSections from './sync/SetupSections.svelte';
 
-	let { open = $bindable(false) }: { open?: boolean } = $props();
+	let { open = $bindable(false), safety }: { open?: boolean; safety?: Safety } = $props();
 
 	const app = useApp();
 	const sync = useSync();
@@ -45,6 +47,8 @@
 			<Row title={busy ? t('sync.run.running') : t('sync.run.now')} onclick={busy ? undefined : () => void sync.syncNow()} chevron={false} />
 		{/if}
 	</Section>
+
+	{#if safety}<SafetyLine {safety} variant="inline" onnavigate={() => (open = false)} />{/if}
 
 	<QueueSections elsewhere={sync.elsewhere} />
 

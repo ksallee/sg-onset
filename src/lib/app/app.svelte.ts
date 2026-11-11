@@ -2,8 +2,12 @@
 // the editor every change goes through. `provideApp()` in the root layout, `useApp()` in any
 // component under it. On the server nothing opens: `provideApp()` gives undefined there and the
 // layout renders no page that would ask.
+//
+// The snapshotter starts with the store: it only listens until a change, and writes in an idle
+// callback, so neither the first paint nor the take screen waits on it.
 import { getContext, setContext } from 'svelte';
 import { openStore, type DexieStore } from '$lib/store/dexieStore';
+import { createSnapshotter, type Snapshotter } from '$lib/store/snapshots';
 import { createEditor, type EditEvent, type Editor } from './editor';
 import { toSecond } from './sync/clock';
 import { EMPTY_UNDO, type UndoState } from './undo';
@@ -13,6 +17,8 @@ export interface App {
 	readonly store: DexieStore;
 	/** Every change the UI makes: saved, queued for sync, and undoable. */
 	readonly edit: Editor;
+	/** Automatic snapshots of the store (store/README.md, Snapshots). The editor calls it before risky edits. */
+	readonly snapshotter: Snapshotter;
 	readonly canUndo: boolean;
 	readonly canRedo: boolean;
 	/** The last thing the editor did, until dismissed: what a notice shows. */
@@ -27,17 +33,36 @@ export interface App {
 const KEY = Symbol('sg-onset-app');
 let opened: App | undefined;
 
+// A module reload in development lets go of the old snapshotter. A page that closes needs nothing:
+// the snapshotter takes its last one as the page hides.
+import.meta.hot?.dispose(() => {
+	opened?.snapshotter.stop();
+	opened = undefined;
+});
+
 function open(): App {
 	const store = openStore();
 	let undo = $state.raw<UndoState>(EMPTY_UNDO);
 	let last = $state.raw<App['lastEdit']>(null);
-	const edit = createEditor(store, (state, event) => {
-		undo = state;
-		last = { ...event, at: Date.now() };
-	});
+	const snapshotter = createSnapshotter({ snapshots: store.snapshots, subscribe: store.subscribe });
+	const edit = createEditor(
+		store,
+		(state, event) => {
+			undo = state;
+			last = { ...event, at: Date.now() };
+		},
+		{
+			async snapshotBefore(reason) {
+				const taken = (await snapshotter.snapshotBefore(reason)) !== undefined;
+				if (!taken) console.warn('No snapshot before the edit:', snapshotter.lastError);
+				return taken;
+			}
+		}
+	);
 	return {
 		store,
 		edit,
+		snapshotter,
 		get canUndo() {
 			return undo.past.length > 0;
 		},

@@ -50,8 +50,8 @@ enforces the parts a test can check.
 | Wrap package | | One zip of a day's (or several days') files and photos, made on Wrap, for the people after set. | | | |
 | Camera report | | The VES camera report CSV (CRIF), one row per take. | | VES CRIF | |
 | Day report | | The printable page of one shoot day, for the VFX supervisor. | | | |
-| Backup | | One zip of everything on the device, made in Settings, to restore from. | | | |
-| Snapshot | | A copy of the device's data the app keeps by itself, on the device. | | | |
+| Backup | | One zip of everything on the device, every entry and photo, made in Settings, to restore from. Kept off the device. | | | |
+| Snapshot | | An automatic copy of every entry, kept on this device, to take back a mistake. It does not leave the device. | `snapshot` | | |
 
 Note for code: the outbox calls a change an "entry" (`counts.entries`). The UI word for a queued
 edit is **Change**; **Entry** is a stored record.

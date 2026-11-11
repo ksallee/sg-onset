@@ -9,13 +9,13 @@ test.describe('first run', () => {
 	test('a device with no project lands on the first run', async ({ page }) => {
 		await open(page, '/');
 		await expect(page).toHaveURL(/\/welcome$/);
-		await expect(page.getByRole('button', { name: 'Start' })).toBeDisabled();
+		await expect(page.getByRole('button', { name: 'Create Project', exact: true })).toBeVisible();
 	});
 
 	test('a project and a shoot day lead to its slates, and a blank slate can be made and shot', async ({ page }) => {
 		await open(page, '/welcome');
 		await page.getByRole('textbox', { name: 'Name' }).fill('The Long Night');
-		await page.getByRole('button', { name: 'Start' }).tap();
+		await page.getByRole('button', { name: 'Create Project', exact: true }).tap();
 		await expect(page).toHaveURL(/\/slates$/);
 		await expect(page.getByRole('heading', { name: 'No Slates' })).toBeVisible();
 

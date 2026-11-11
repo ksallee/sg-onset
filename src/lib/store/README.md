@@ -8,7 +8,7 @@ interface. The implementation here is IndexedDB through Dexie. A Capacitor store
 | module | pure | what it does |
 |---|---|---|
 | `types.ts` | types | `Store`, `BlobMeta`, `StorageStatus`, `BackupSource`, `BackupTarget`. |
-| `tables.ts` | yes | The tables, from the model: one per scope, and `still`. Parent keys, link keys, `dependsOn`. |
+| `tables.ts` | yes | The tables, from the model: one per scope, `still` and `template`. Parent keys, link keys, `dependsOn`, `LOCAL_TABLES`. |
 | `schema.ts` | yes | The IndexedDB schema by version. How to add a version. |
 | `storage.ts` | yes | `storageStatus`, `prunable`, `BLOB_KEEP_MS`. |
 | `dexieStore.ts` | no | `openStore`: the `Store` on Dexie. |
@@ -71,7 +71,9 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
 ## Tables
 
 - One per scope (`project`, `shootDay`, `lightingSetup`, `cameraSetup`, `slate`, `take`,
-  `camera`, `lens`) and `still`. Key `id`, index on the parent key.
+  `camera`, `lens`), `still` and `template`. Key `id`, index on the parent key.
+- `template`: a live template, under its project (schema version 2). Kept on the device: it is in
+  the backup and on the undo stack, and nothing is queued for it (`LOCAL_TABLES`).
 - `blobs`: one row per file, without the bytes. `blobData`: the bytes.
 - `outbox`: the queue. `remotes`: client UUID to server id. `trash`: removed records.
   `meta`: the queue counter.
@@ -131,6 +133,9 @@ Made by Claude. Kevin can overrule any of them.
     backup rows comes with the second.
 14. **A re-zipped backup must keep the files at the top level.** Extra files are ignored.
 15. **Server ids live in `remotes`, not on the records.** The model stays free of sync fields.
+16. **Templates stay on the device.** Flow PT has no place for them; a slate or take keeps its
+    template's id as text. The store skips the outbox for a table in `LOCAL_TABLES`. A backup
+    made under schema version 1 is refused by version 2 (decision 13).
 
 ## What a real iPad must still prove
 

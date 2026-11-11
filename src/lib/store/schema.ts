@@ -7,7 +7,7 @@
 // with no change of index still needs a new version, for its `upgrade`.
 
 import type { Transaction } from 'dexie';
-import { PARENTS, TABLES } from './tables';
+import { PARENTS, TABLES, type TableName } from './tables';
 
 export type SchemaVersion = {
 	version: number;
@@ -27,15 +27,19 @@ export type SchemaVersion = {
  */
 export const INTERNAL_TABLES = ['blobs', 'blobData', 'outbox', 'remotes', 'trash', 'meta'] as const;
 
-function recordStores(): Record<string, string> {
-	return Object.fromEntries(TABLES.map((table) => [table, PARENTS[table] ? `id, ${PARENTS[table].key}` : 'id']));
+/** A record table's spec: keyed by id, indexed by its parent key. */
+function recordStores(tables: readonly TableName[]): Record<string, string> {
+	return Object.fromEntries(tables.map((table) => [table, PARENTS[table] ? `id, ${PARENTS[table].key}` : 'id']));
 }
+
+/** The record tables of version 1, fixed: a table added later comes in its own version. */
+const V1_TABLES = TABLES.filter((t) => t !== 'template');
 
 export const VERSIONS: readonly SchemaVersion[] = [
 	{
 		version: 1,
 		stores: {
-			...recordStores(),
+			...recordStores(V1_TABLES),
 			blobs: 'id, recordId',
 			blobData: 'id',
 			outbox: 'id, seq, op.recordId',
@@ -43,7 +47,9 @@ export const VERSIONS: readonly SchemaVersion[] = [
 			trash: 'id',
 			meta: 'key'
 		}
-	}
+	},
+	// Templates, kept on the device (tables.ts LOCAL_TABLES).
+	{ version: 2, stores: recordStores(['template']) }
 ];
 
 export const SCHEMA_VERSION = VERSIONS[VERSIONS.length - 1].version;

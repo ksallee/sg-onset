@@ -68,10 +68,9 @@ test.describe('pwa', () => {
 			await expect(page.getByRole('toolbar', { name: 'Capture' })).toBeVisible();
 		});
 
-		// Bug: offline, a page never loaded gets the cached `/` shell, whose asset URLs are relative
-		// (`./_app/...`, SvelteKit's `paths.relative` default). At /proto/take they resolve to
-		// /proto/_app/..., which is not cached: blank page. `kit.paths.relative = false` fixes it.
-		test.fixme('after one online load at /, /proto/take opens offline', async ({ page }) => {
+		// The cached `/` shell serves every route offline, so its asset URLs must be absolute:
+		// `kit.paths.relative` is off in vite.config.ts.
+		test('after one online load at /, /proto/take opens offline', async ({ page }) => {
 			await onlineThenOffline(page, '/');
 			await open(page, server.origin + '/proto/take');
 			await expect(page.getByRole('toolbar', { name: 'Capture' })).toBeVisible();

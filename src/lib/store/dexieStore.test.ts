@@ -571,7 +571,7 @@ describe('the database', () => {
 		s.store.close();
 
 		const v2 = {
-			version: 2,
+			version: VERSIONS.length + 1,
 			stores: { take: 'id, slateId, cameraId' },
 			upgrade: async (tx: { table(name: string): { toCollection(): { modify(fn: (row: Take) => void): Promise<unknown> } } }) => {
 				await tx.table('take').toCollection().modify((row) => {
@@ -581,7 +581,7 @@ describe('the database', () => {
 		};
 		const again = setup({ indexedDB: s.idb, versions: [...VERSIONS, v2] });
 		expect(await again.store.get('take', 't1')).toMatchObject({ take: '1', notes: 'migrated' });
-		expect(again.store.schemaVersion).toBe(2);
+		expect(again.store.schemaVersion).toBe(VERSIONS.length + 1);
 		expect(await again.store.outbox.entries()).toHaveLength(5);
 	});
 });

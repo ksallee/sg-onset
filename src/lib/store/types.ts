@@ -5,6 +5,7 @@ import type { Patch } from '$lib/model/patch';
 import type { FieldConflict, RemoteId } from '$lib/outbox/types';
 import type { OutboxPort } from '$lib/outbox/port';
 import type { Unsynced } from '$lib/outbox/select';
+import type { Snapshots } from './snapshots/snapshots';
 import type { RowOf, TableName } from './tables';
 
 /** A stored file, without its bytes. */
@@ -39,7 +40,7 @@ export type StorageStatus = {
 	usedFraction?: number;
 };
 
-/** What changed. Table names, plus `outbox`, `blobs`, `trash`. */
+/** What changed. Table names, plus `outbox`, `blobs`, `trash`, `snapshots`, `meta`. */
 export type StoreEvent = { tables: readonly string[] };
 
 export type NewBlob = { blob: Blob; id?: string; name?: string };
@@ -83,6 +84,9 @@ export interface Store {
 	/** Sends an entry that needed attention again. */
 	retry(entryId: string): Promise<void>;
 	remoteId(id: string): Promise<RemoteId | undefined>;
+
+	/** Rolling snapshots of the whole store but the photo bytes: `snapshots/`. */
+	snapshots: Snapshots;
 
 	/** Calls `listener` after every committed change. Returns the unsubscribe. */
 	subscribe(listener: (event: StoreEvent) => void): () => void;

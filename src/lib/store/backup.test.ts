@@ -5,6 +5,7 @@ import { markApplied, markInFlight } from '$lib/outbox/machine';
 import { MANIFEST_PATH, tablePath } from './archive';
 import { BackupError, exportBackup, importBackup, memorySink, saveBackup } from './backup';
 import { openStore, type DexieStore } from './dexieStore';
+import { SCHEMA_VERSION } from './schema';
 import { entryBlob, readZip } from './zipRead';
 
 let n = 0;
@@ -62,7 +63,7 @@ describe('exportBackup', () => {
 		expect(manifest).toMatchObject({
 			format: 'sg-onset-backup',
 			formatVersion: 1,
-			schemaVersion: 1,
+			schemaVersion: SCHEMA_VERSION,
 			exportedAt: '1970-01-01T00:00:05.000Z',
 			blobs: 2
 		});
@@ -155,7 +156,7 @@ describe('importBackup', () => {
 
 	it('refuses a backup from a newer schema', async () => {
 		const { store } = await filled();
-		const zip = await saveBackup(exportBackup({ ...store, schemaVersion: 2 }, { now: 0 }), memorySink());
+		const zip = await saveBackup(exportBackup({ ...store, schemaVersion: SCHEMA_VERSION + 1 }, { now: 0 }), memorySink());
 		await expect(importBackup(open('b').store, zip)).rejects.toMatchObject({ reason: 'newerSchema' });
 	});
 

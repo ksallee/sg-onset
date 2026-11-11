@@ -2,11 +2,20 @@
 	// The one line about the safety of the data (app/safety.ts). `float`: a quiet pill at the foot of
 	// the page, clear of the side edges where the action rail is; the shell hides it on a focus page.
 	// `inline`: in the sync detail. A warning has its own shape and weight, not only a colour.
+	// Motion as the notice's (docs/design/motion.md): it comes up from the foot and leaves the way it
+	// came, sooner, taking no touch as it goes; `instant` on the capture path.
 	import { Info, TriangleAlert } from '@lucide/svelte';
+	import { rise } from '$lib/components/ios/motion';
 	import { deviceOf, lineMessage, type Safety } from '$lib/app/safety';
 	import { t, tk } from '$lib/i18n/messages';
 
-	let { safety, variant, ondismiss, onnavigate }: { safety: Safety; variant: 'float' | 'inline'; ondismiss?: () => void; onnavigate?: () => void } = $props();
+	let {
+		safety,
+		variant,
+		ondismiss,
+		onnavigate,
+		instant
+	}: { safety: Safety; variant: 'float' | 'inline'; ondismiss?: () => void; onnavigate?: () => void; instant?: () => boolean } = $props();
 
 	const device = deviceOf(navigator);
 	const message = $derived(lineMessage(safety, device));
@@ -14,7 +23,7 @@
 	const warn = $derived(safety.level === 'warn');
 </script>
 
-{#if text}
+{#snippet line()}
 	<div class="safety-line" data-variant={variant} data-level={safety.level} role={variant === 'float' ? 'status' : undefined}>
 		{#if safety.level !== 'ok'}
 			{#if warn}<TriangleAlert class="icon size-[20px]" strokeWidth={2.2} aria-hidden="true" />{:else}<Info class="icon size-[20px]" strokeWidth={1.8} aria-hidden="true" />{/if}
@@ -26,6 +35,14 @@
 			<button type="button" onclick={ondismiss}>{t('safety.dismiss')}</button>
 		{/if}
 	</div>
+{/snippet}
+
+{#if text}
+	{#if variant === 'float'}
+		<div class="float" in:rise|global={{ y: 14, instant: instant?.() }} out:rise|global={{ y: 10, exit: true, instant: instant?.() }}>{@render line()}</div>
+	{:else}
+		{@render line()}
+	{/if}
 {/if}
 
 <style>
@@ -63,10 +80,12 @@
 		border-radius: 22px;
 		color: var(--tint);
 		font-weight: 600;
+		transition: opacity var(--dur-press);
 	}
 	a:active,
 	button:active {
 		opacity: 0.6;
+		transition: none;
 	}
 	a:focus-visible,
 	button:focus-visible {
@@ -74,14 +93,21 @@
 		outline-offset: 2px;
 	}
 
-	[data-variant='float'] {
+	.float {
 		position: absolute;
 		z-index: 34;
-		left: 50%;
+		left: 0;
+		right: 0;
 		bottom: calc(16px + var(--safe-bottom));
-		transform: translateX(-50%);
+		display: flex;
+		justify-content: center;
+		padding: 0 16px;
+		pointer-events: none;
+	}
+	[data-variant='float'] {
+		pointer-events: auto;
 		width: max-content;
-		max-width: min(560px, calc(100% - 32px));
+		max-width: min(560px, 100%);
 		min-height: 48px;
 		padding: 2px 4px 2px 14px;
 		border-radius: 24px;

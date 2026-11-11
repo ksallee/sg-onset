@@ -29,7 +29,8 @@ function snapshots(page: Page): Promise<Row[]> {
 test('deleting the sample project leaves a checked snapshot of it to restore', async ({ page }) => {
 	await openApp(page, '/settings');
 	await page.getByRole('button', { name: 'Delete the Sample Project' }).tap();
-	await page.getByRole('button', { name: 'Delete', exact: true }).tap();
+	// The only project: the action sheet asks, with the same words.
+	await page.getByRole('button', { name: 'Delete the Sample Project' }).last().tap();
 	await page.waitForURL(/\/welcome$/);
 	await expect.poll(async () => (await snapshots(page)).find((s) => s.reason === 'deleteProject')).toBeTruthy();
 	const snap = (await snapshots(page)).find((s) => s.reason === 'deleteProject')!;
@@ -68,5 +69,14 @@ test('the safety line: nothing at first, a quiet line after four hours, a warnin
 	await page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Shoot' }).tap();
 	await page.waitForURL(/\/shoot$/);
 	await expect(line).toHaveCount(0);
-	await expect(page.getByRole('button', { name: new RegExp(`only on this ${device}, for 1\\sd`) })).toBeVisible();
+	const status = page.getByRole('button', { name: new RegExp(`only on this ${device}, for 1\\sd`) });
+	await expect(status).toBeVisible();
+
+	// The sync detail has the line, and its link lands on Settings' Backup section.
+	await status.tap();
+	const detail = page.getByRole('dialog');
+	await expect(detail.getByText(new RegExp(`only on this ${device}, for 1\\sd`))).toBeVisible();
+	await detail.getByRole('link', { name: 'Go to Backup' }).tap();
+	await page.waitForURL(/\/settings#backup$/);
+	await expect(page.locator('#backup')).toBeVisible();
 });

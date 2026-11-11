@@ -44,16 +44,14 @@ enforces the parts a test can check.
 | Photo | | A reference photo taken from the take screen, kept on the take. | `still` | VES 1.1 reference | Photos |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
 | Change | | One edit waiting to sync. | outbox entry | | |
-| Snapshot | | An automatic copy of every entry and change, kept on this device. Undoes a mistake; lost with the device. | `snapshots` table | | |
-| Backup | | A zip of every entry, photo and change, exported by a person to keep off the device. | | | |
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
 | Gear | | The cameras, lenses and camera setups of a project. | | | |
 | Wrap | | The destination for the end of the day: the day's summary, what is left to fix, the export and the hand-over. | | | |
 | Wrap package | | One zip of a day's (or several days') files and photos, made on Wrap, for the people after set. | | | |
 | Camera report | | The VES camera report CSV (CRIF), one row per take. | | VES CRIF | |
 | Day report | | The printable page of one shoot day, for the VFX supervisor. | | | |
-| Backup | | One zip of everything on the device, made in Settings, to restore from. | | | |
-| Snapshot | | A copy of the device's data the app keeps by itself, on the device. | | | |
+| Backup | | One zip of everything on the device, every entry and photo, made in Settings, to restore from. Kept off the device. | | | |
+| Snapshot | | An automatic copy of every entry, kept on this device, to take back a mistake. It does not leave the device. | `snapshot` | | |
 
 Note for code: the outbox calls a change an "entry" (`counts.entries`). The UI word for a queued
 edit is **Change**; **Entry** is a stored record.

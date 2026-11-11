@@ -2,11 +2,14 @@
 	// A drill-in inside the nearest Sheet: slides in from the right over the sheet's content, with a
 	// back button naming where it came from. Put it anywhere inside the Sheet; it portals into the
 	// panel. Escape or back closes it. Nests: a SheetPage inside one drills in again.
+	// Motion (docs/design/motion.md): a push, on the page spring, as a transition: back mid-way
+	// turns it around from where it is. Leaving, it takes no touch. Reduced motion: it fades.
 	import { onDestroy, type Snippet } from 'svelte';
 	import { ChevronLeft } from '@lucide/svelte';
 	import { backLabel } from '$lib/ios/back';
 	import { getSheet, portal, reducedMotion, setSheet } from './layer.svelte';
 	import { t } from '$lib/i18n/messages';
+	import { DURATIONS, springCss } from '$lib/theme/motion';
 
 	let {
 		open = $bindable(false),
@@ -43,13 +46,16 @@
 	let phase = $state<'closed' | 'entering' | 'open' | 'leaving'>('closed');
 	let el = $state<HTMLElement | null>(null);
 	let timer: ReturnType<typeof setTimeout> | undefined;
-	const reduced = reducedMotion();
+	let reduced = $state(false);
 	const pop = () => (open = false);
 
 	$effect(() => {
 		if (open && (phase === 'closed' || phase === 'leaving')) {
 			clearTimeout(timer);
-			if (phase === 'closed') sheet?.pages.push(pop);
+			if (phase === 'closed') {
+				sheet?.pages.push(pop);
+				reduced = reducedMotion();
+			}
 			phase = 'entering';
 			requestAnimationFrame(() =>
 				requestAnimationFrame(() => {
@@ -65,7 +71,7 @@
 					phase = 'closed';
 					if (sheet) sheet.pages = sheet.pages.filter((p) => p !== pop);
 				},
-				reduced ? 150 : 400
+				reduced ? DURATIONS.fade : springCss('page').duration
 			);
 		}
 	});
@@ -76,7 +82,7 @@
 </script>
 
 {#if phase !== 'closed'}
-	<div class="ios-sheet-page" class:shown={phase === 'open'} class:reduced role="group" aria-label={title} tabindex="-1" bind:this={el} {@attach portal(() => sheet?.panel)}>
+	<div class="ios-sheet-page" class:shown={phase === 'open'} class:leaving={phase === 'leaving'} class:reduced role="group" aria-label={title} tabindex="-1" bind:this={el} {@attach portal(() => sheet?.panel)}>
 		<header class="head" data-sheet-grab>
 			<button type="button" class="back" onclick={pop}><ChevronLeft class="size-[26px] shrink-0" strokeWidth={2.4} /><span>{back}</span></button>
 			<h2>{title}</h2>
@@ -97,17 +103,20 @@
 		padding-top: 16px;
 		background: var(--bg-elevated);
 		transform: translateX(100%);
-		transition: transform var(--dur-push) var(--ease-ios);
+		transition: transform var(--dur-page) var(--spring-page);
 		outline: none;
 		box-shadow: var(--shadow-3);
 	}
 	.ios-sheet-page.shown {
 		transform: none;
 	}
+	.ios-sheet-page.leaving {
+		pointer-events: none;
+	}
 	.ios-sheet-page.reduced {
 		transform: none;
 		opacity: 0;
-		transition: opacity 150ms;
+		transition: opacity var(--dur-fade) linear !important;
 	}
 	.ios-sheet-page.reduced.shown {
 		opacity: 1;

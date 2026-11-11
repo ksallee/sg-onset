@@ -9,13 +9,13 @@ test.describe('first run', () => {
 	test('a device with no project lands on the first run', async ({ page }) => {
 		await open(page, '/');
 		await expect(page).toHaveURL(/\/welcome$/);
-		await expect(page.getByRole('button', { name: 'Start' })).toBeDisabled();
+		await expect(page.getByRole('button', { name: 'Create Project', exact: true })).toBeVisible();
 	});
 
 	test('a project and a shoot day lead to its slates, and a blank slate can be made and shot', async ({ page }) => {
 		await open(page, '/welcome');
 		await page.getByRole('textbox', { name: 'Name' }).fill('The Long Night');
-		await page.getByRole('button', { name: 'Start' }).tap();
+		await page.getByRole('button', { name: 'Create Project', exact: true }).tap();
 		await expect(page).toHaveURL(/\/slates$/);
 		await expect(page.getByRole('heading', { name: 'No Slates' })).toBeVisible();
 
@@ -194,5 +194,121 @@ test.describe('sync status', () => {
 		await expect(detail.getByRole('link', { name: /Sign In/ })).toBeVisible();
 		await detail.getByRole('button', { name: 'Export Backup' }).tap();
 		await expect(detail.getByRole('button', { name: /Share or Save/ })).toBeVisible();
+	});
+});
+
+// Motion (docs/design/motion.md): it never blocks a tap, lands where the last input says after
+// rapid input, and under reduced motion nothing slides or scales.
+test.describe('motion', () => {
+	type Page = import('@playwright/test').Page;
+	const stage = (page: Page) => page.locator('[data-page-stage]');
+	const ghosts = (page: Page) => page.locator('[data-page-ghost]');
+
+	/** Records, every frame until `stop`: animations of transform that last, the content's layout box. */
+	async function sample(page: Page) {
+		await page.evaluate(() => {
+			const w = window as unknown as { __motion: { moving: number; boxes: Set<string>; on: boolean } };
+			const state = (w.__motion = { moving: 0, boxes: new Set<string>(), on: true });
+			const tick = () => {
+				if (!state.on) return;
+				// A transition of 0.01 ms (the reduced rule in motion.css) is no motion.
+				const moving = document.getAnimations().filter((a) => {
+					const effect = a.effect as KeyframeEffect | null;
+					return a.playState === 'running' && Number(effect?.getTiming().duration ?? 0) > 1 && JSON.stringify(effect?.getKeyframes() ?? []).includes('transform');
+				});
+				if (moving.length) state.moving++;
+				const content = document.querySelector('[data-page-stage]')?.parentElement;
+				if (content) state.boxes.add(`${content.offsetLeft},${content.offsetWidth}`);
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		});
+		return () =>
+			page.evaluate(() => {
+				const state = (window as unknown as { __motion: { moving: number; boxes: Set<string>; on: boolean } }).__motion;
+				state.on = false;
+				return { moving: state.moving, boxes: state.boxes.size };
+			});
+	}
+	/** Nothing is moving any more: no animation running, no picture of an old page left. */
+	async function settled(page: Page) {
+		await expect(ghosts(page)).toHaveCount(0);
+		await expect.poll(() => page.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running').length)).toBe(0);
+		await expect.poll(() => stage(page).evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+	}
+
+	test('a tap during a push lands at once, and nothing is left over', async ({ page }) => {
+		await openApp(page, '/slates');
+		// All Takes pushes on every screen (a slate opens beside the list on a wide one).
+		await page.getByRole('link', { name: /All Takes/ }).tap();
+		await expect(page).toHaveURL(/\/slates\/takes$/);
+		await nav(page).getByRole('link', { name: 'Gear', exact: true }).tap();
+		await expect(page).toHaveURL(/\/gear$/);
+		await expect(page.getByRole('heading', { name: 'Gear', level: 1 })).toBeVisible();
+		await settled(page);
+	});
+
+	test('back during a push turns it around and ends on the list', async ({ page }) => {
+		await openApp(page, '/slates');
+		const list = page.url();
+		await page.getByRole('link', { name: /All Takes/ }).tap();
+		await expect(page).toHaveURL(/\/slates\/takes$/);
+		await page.goBack({ waitUntil: 'commit' });
+		await expect(page).toHaveURL(list);
+		await expect(page.getByRole('link', { name: /All Takes/ })).toBeVisible();
+		await settled(page);
+	});
+
+	test('rapid changes of destination end on the last one, with its item marked', async ({ page }) => {
+		await openApp(page, '/slates');
+		for (const name of ['Gear', 'Templates', 'Settings', 'Slates', 'Templates']) {
+			await nav(page).getByRole('link', { name, exact: true }).tap({ noWaitAfter: true });
+		}
+		await expect(page).toHaveURL(/\/templates$/);
+		await expect(page.getByRole('heading', { name: 'Templates', level: 1 })).toBeVisible();
+		await expect(nav(page).getByRole('link', { name: 'Templates', exact: true })).toHaveAttribute('aria-current', 'page');
+		await settled(page);
+		// The mark of the current item sits on it.
+		const item = (await nav(page).getByRole('link', { name: 'Templates', exact: true }).boundingBox())!;
+		const mark = (await nav(page).locator('li[aria-hidden="true"]').boundingBox())!;
+		expect(Math.abs(mark.x - item.x) + Math.abs(mark.y - item.y) + Math.abs(mark.width - item.width)).toBeLessThan(2);
+	});
+
+	test('the sidebar ends where the last tap says, its page laid out once per tap', async ({ page }) => {
+		test.skip(page.viewportSize()!.width < 1000, 'a sidebar only in landscape');
+		await openApp(page, '/gear');
+		const toggle = nav(page).getByRole('button', { name: /names$/ });
+		const open = await toggle.getAttribute('aria-expanded');
+		const stop = await sample(page);
+		// Five taps, faster than the motion: each one turns it from where it is drawn.
+		for (let i = 0; i < 5; i++) await toggle.tap({ noWaitAfter: true });
+		await settled(page);
+		const { boxes } = await stop();
+		await expect(toggle).toHaveAttribute('aria-expanded', open === 'true' ? 'false' : 'true');
+		// The page's box took two values (open, strip), never one per frame: no layout in flight.
+		expect(boxes).toBeLessThanOrEqual(2);
+		expect((await nav(page).boundingBox())!.width).toBeLessThan(120);
+	});
+
+	test('reduced motion: pages, sheets and the sidebar change with no transform in flight', async ({ page }) => {
+		await openApp(page, '/settings');
+		await page.getByRole('radio', { name: 'Reduced', exact: true }).tap();
+		await expect(root(page)).toHaveAttribute('data-motion', 'reduced');
+		const stop = await sample(page);
+		await nav(page).getByRole('link', { name: 'Slates', exact: true }).tap();
+		await expect(page.getByRole('link', { name: /All Takes/ })).toBeVisible();
+		const list = page.url();
+		await page.getByRole('link', { name: /All Takes/ }).tap();
+		await expect(page).toHaveURL(/\/slates\/takes$/);
+		await page.goBack();
+		await expect(page).toHaveURL(list);
+		await nav(page).getByRole('button', { name: /^Sync/ }).tap();
+		await expect(page.getByRole('dialog', { name: 'Sync' })).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('dialog', { name: 'Sync' })).toHaveCount(0);
+		const toggle = nav(page).getByRole('button', { name: /names$/ });
+		if (await toggle.count()) await toggle.tap();
+		await settled(page);
+		expect((await stop()).moving).toBe(0);
 	});
 });

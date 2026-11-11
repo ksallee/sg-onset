@@ -1,6 +1,8 @@
 <script lang="ts">
 	// The iOS switch, 51 × 31: an `<input type=checkbox switch>` (Safari 17.4+ gives it haptics),
 	// drawn the same everywhere. A 44 px target. `label` names it for assistive tech.
+	// Motion (docs/design/motion.md): the knob slides on the snappy spring, as a transition, so a
+	// second tap turns it around from where it is; pressed, it gives a little. Transform only.
 	let { checked, onchange, disabled = false, label }: { checked: boolean; onchange: (checked: boolean) => void; disabled?: boolean; label: string } = $props();
 	const attrs = { switch: true };
 </script>
@@ -27,7 +29,7 @@
 		border-radius: 16px;
 		background: var(--fill);
 		cursor: pointer;
-		transition: background-color var(--dur-control) var(--ease-ios);
+		transition: background-color var(--dur-snappy) var(--ease-out);
 	}
 	input::before {
 		content: '';
@@ -39,7 +41,7 @@
 		border-radius: 50%;
 		background: var(--thumb);
 		box-shadow: var(--shadow-1);
-		transition: transform var(--dur-control) var(--ease-ios), width var(--dur-control) var(--ease-ios);
+		transition: transform var(--dur-snappy) var(--spring-snappy);
 	}
 	input:checked {
 		background: var(--tint-solid);
@@ -50,12 +52,12 @@
 		background: var(--on-tint-solid);
 		transform: translateX(20px);
 	}
-	/* Pressed, the knob stretches toward where it will go. */
+	/* Pressed, the knob gives a little; it lands where it goes at full size. */
 	input:active:not(:disabled)::before {
-		width: 33px;
+		transform: scale(0.92);
 	}
 	input:checked:active:not(:disabled)::before {
-		transform: translateX(14px);
+		transform: translateX(20px) scale(0.92);
 	}
 	input:focus-visible {
 		outline: 2px solid var(--focus);
@@ -63,11 +65,5 @@
 	}
 	.disabled {
 		opacity: 0.4;
-	}
-	@media (prefers-reduced-motion: reduce) {
-		input,
-		input::before {
-			transition-duration: 0ms;
-		}
 	}
 </style>

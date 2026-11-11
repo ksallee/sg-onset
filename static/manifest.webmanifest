@@ -1,7 +1,7 @@
 {
 	"id": "/",
-	"name": "sg-onset",
-	"short_name": "sg-onset",
+	"name": "SG OnSet",
+	"short_name": "SG OnSet",
 	"description": "On-set VFX data capture for Flow Production Tracking.",
 	"lang": "en",
 	"start_url": "/",

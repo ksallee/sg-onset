@@ -17,7 +17,9 @@
  */
 
 /** The name the person sees on the approval page. Fixed here, never taken from the caller. */
-export const APP_NAME = 'sg-onset';
+export const APP_NAME = 'SG OnSet';
+/** Identifies this client to the site. Not shown to the person. */
+export const MACHINE_ID = 'sg-onset';
 export const LAUNCHER_PATH = '/internal_api/app_session_request';
 /** A request id goes in a path segment, so it may not carry one of its own. */
 const REQUEST_ID = /^[A-Za-z0-9_-]{1,128}$/;
@@ -31,7 +33,7 @@ export interface Forward {
 }
 
 export function sessionRequestCall(): Forward {
-	return { method: 'POST', path: LAUNCHER_PATH, form: { appName: APP_NAME, machineId: APP_NAME } };
+	return { method: 'POST', path: LAUNCHER_PATH, form: { appName: APP_NAME, machineId: MACHINE_ID } };
 }
 
 export function sessionPollCall(id: unknown): Forward | null {

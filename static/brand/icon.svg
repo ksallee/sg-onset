@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+	<title>SG OnSet</title>
+	<!-- The one source. scripts/icons.mjs writes every icon, launch image and lockup from it. -->
+	<defs>
+		<linearGradient id="field" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" stop-color="#232427" />
+			<stop offset="1" stop-color="#0a0a0b" />
+		</linearGradient>
+	</defs>
+	<style>
+		.ink { fill: #eff0f2; }
+		.accent { fill: #568ef9; }
+	</style>
+	<rect width="1024" height="1024" fill="url(#field)" />
+	<g id="mark">
+		<mask id="sgo-gap" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+			<rect width="1024" height="1024" fill="#fff" />
+			<rect x="98" y="438" width="828" height="148" rx="48" transform="rotate(-23.4 512 512)" fill="#000" />
+		</mask>
+		<g class="ink" mask="url(#sgo-gap)">
+			<rect x="252" y="268" width="88" height="488" rx="18" />
+			<rect x="396" y="268" width="88" height="488" rx="18" />
+			<rect x="540" y="268" width="88" height="488" rx="18" />
+			<rect x="684" y="268" width="88" height="488" rx="18" />
+		</g>
+		<rect class="accent" x="128" y="468" width="768" height="88" rx="18" transform="rotate(-23.4 512 512)" />
+	</g>
+</svg>

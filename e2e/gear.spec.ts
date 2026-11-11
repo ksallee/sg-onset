@@ -1,0 +1,105 @@
+// Gear: cameras, lenses, camera setups and CSV import, on the sample project. Every target: on
+// a phone width an entry opens on its own page, with Back to the list.
+import type { Page } from '@playwright/test';
+import { expect, openApp, test } from './fixtures';
+
+/** Back to the list where the entry has a page of its own; nothing to do beside it. */
+async function toList(page: Page) {
+	const back = page.getByRole('button', { name: 'Gear', exact: true });
+	if (await back.isVisible()) await back.tap();
+	await expect(page.getByRole('button', { name: 'Add Lens' })).toBeVisible();
+}
+
+const detail = (page: Page, name: string) => page.getByRole('heading', { name, level: 2, exact: true });
+
+test('adds a camera and a lens, edits them, and they survive a reload', async ({ page }) => {
+	await openApp(page, '/gear');
+
+	await page.getByRole('button', { name: 'Add Camera', exact: true }).tap();
+	const cam = page.getByRole('dialog', { name: 'New Camera' });
+	await cam.getByRole('textbox', { name: 'Model' }).fill('Venice 2');
+	await cam.getByRole('textbox', { name: 'Serial number' }).fill('V2-77');
+	await cam.getByRole('textbox', { name: 'Sensor size' }).fill('35.9 x 24');
+	await page.getByRole('button', { name: 'Create' }).tap();
+	await expect(detail(page, 'Venice 2')).toBeVisible();
+	await expect(page.getByText('35.9 × 24 mm · SN V2-77').first()).toBeVisible();
+
+	await toList(page);
+	await page.getByRole('button', { name: 'Add Lens' }).tap();
+	const lens = page.getByRole('dialog', { name: 'New Lens' });
+	await lens.getByRole('textbox', { name: 'Make' }).fill('Zeiss');
+	await lens.getByRole('textbox', { name: 'Model' }).fill('Supreme 29');
+	await lens.getByRole('textbox', { name: 'Focal length' }).fill('29');
+	await page.getByRole('button', { name: 'Create' }).tap();
+	await expect(detail(page, 'Zeiss Supreme 29')).toBeVisible();
+	await expect(page.getByText('A prime. Takes on this lens get 29 mm from it.')).toBeVisible();
+
+	// A long end makes it a zoom; a long end under the short end is refused and not saved.
+	const longEnd = page.getByRole('textbox', { name: 'Long end' });
+	await longEnd.fill('80');
+	await longEnd.press('Enter');
+	await expect(page.getByText('A zoom, 29–80 mm. The focal length is typed on each take.')).toBeVisible();
+	await longEnd.fill('12');
+	await longEnd.press('Enter');
+	await expect(page.getByRole('alert')).toHaveText(/^The long end/);
+
+	await page.reload();
+	await expect(detail(page, 'Zeiss Supreme 29')).toBeVisible();
+	await expect(page.getByRole('textbox', { name: 'Long end' })).toHaveValue('80');
+	await toList(page);
+	await expect(page.getByRole('button', { name: /^Sony|^Venice 2/ })).toBeVisible();
+});
+
+test('makes a camera setup and swaps its lens in two taps', async ({ page }) => {
+	await openApp(page, '/gear');
+	await page.getByRole('button', { name: 'Add Camera Setup' }).tap();
+	const sheet = page.getByRole('dialog', { name: 'New Camera Setup' });
+	await expect(sheet.getByRole('textbox', { name: 'Camera letter' })).toHaveValue('C');
+	await page.getByRole('button', { name: 'Create' }).tap();
+	await expect(detail(page, 'C')).toBeVisible();
+	await expect(page.getByText('Takes already shot keep the camera and lens they were shot with.').first()).toBeVisible();
+	await toList(page);
+
+	// Two taps: the lens button, the lens.
+	await page.getByRole('button', { name: 'Change the lens of A' }).tap();
+	const picker = page.getByRole('dialog', { name: 'Lens for A' });
+	await picker.getByRole('button', { name: /^Cooke S4\/i 50 mm T2/ }).tap();
+	await expect(picker).toBeHidden();
+	await expect(page.getByRole('button', { name: 'Change the lens of A' })).toHaveText('50 mm');
+	await expect(page.getByRole('status').filter({ hasText: 'A: Cooke S4/i 50 mm T2' })).toBeVisible();
+
+	await page.reload();
+	await expect(page.getByRole('button', { name: 'Change the lens of A' })).toHaveText('50 mm');
+});
+
+const CSV = ['Make,Model,Serial,Focal,Colour', 'Zeiss,Supreme 25,Z25-1,25,red', ',,X2,50,', 'Zeiss,Supreme 35,Z35-1,wide,', 'Cooke,S4/i 32 mm T2,,32,'].join('\n');
+
+test('imports lenses from CSV: a preview first, one undo for all', async ({ page }) => {
+	await openApp(page, '/gear/import?kind=lens');
+	await page.getByRole('textbox', { name: 'Or paste the text' }).fill(CSV);
+
+	await expect(page.getByText('Row 3: no model. The row was left out.')).toBeVisible();
+	await expect(page.getByText('Row 4, Focal: “wide” could not be read. The value was left out.')).toBeVisible();
+	await expect(page.getByText(/^Already in this project · Skipped/)).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Colour' })).toHaveCount(0);
+	await expect(page.getByText('Not read: Colour')).toBeVisible();
+
+	await page.getByRole('button', { name: 'Import 2 Lenses' }).tap();
+	await expect(page).toHaveURL(/\/gear$/);
+	await expect(page.getByRole('button', { name: /^Zeiss Supreme 25/ })).toBeVisible();
+	await expect(page.getByRole('button', { name: /^Zeiss Supreme 35/ })).toBeVisible();
+
+	await page.getByRole('status').getByRole('button', { name: 'Undo' }).tap();
+	await expect(page.getByRole('button', { name: /^Zeiss Supreme 25/ })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: /^Zeiss Supreme 35/ })).toHaveCount(0);
+	await page.reload();
+	await expect(page.getByRole('button', { name: 'Add Lens' })).toBeVisible();
+	await expect(page.getByRole('button', { name: /^Zeiss Supreme/ })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: /^Cooke S4\/i 32 mm T2/ })).toHaveCount(1);
+});
+
+test('offers a sample CSV that imports cleanly', async ({ page }) => {
+	await openApp(page, '/gear/import?kind=camera');
+	const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download a Sample CSV' }).tap()]);
+	expect(download.suggestedFilename()).toBe('sg-onset-cameras-sample.csv');
+});

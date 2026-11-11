@@ -190,6 +190,21 @@ describe('restore', () => {
 		expect(await (await s.store.blob('b1'))!.size).toBe(200_000);
 	});
 
+	it('holds the templates, and a restore brings them back with nothing queued for them', async () => {
+		const s = setup();
+		await shoot(s);
+		const template = { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take' as const, values: { tStop: 2.8 } };
+		await s.store.create('template', template);
+		const snap = await s.store.snapshots.take('manual');
+		expect(snap!.counts.template).toBe(1);
+		await s.store.apply('template', [{ id: 'tp1', key: 'values', from: template.values, to: { tStop: 8 } }]);
+		const queued = (await s.store.outbox.entries()).length;
+		await s.store.snapshots.restore(snap!.id);
+		expect(await s.store.get('template', 'tp1')).toEqual(template);
+		expect((await s.store.outbox.entries()).filter((e) => e.op.table === 'template')).toEqual([]);
+		expect((await s.store.outbox.entries()).length).toBeLessThanOrEqual(queued);
+	});
+
 	it('is undoable: restoring the before-restore snapshot gives back what was there', async () => {
 		const s = setup();
 		await shoot(s);

@@ -4,7 +4,7 @@ import { childTables, collectTree } from './tree';
 
 describe('childTables', () => {
 	it('follows the parent keys of the store', () => {
-		expect(childTables('project').sort()).toEqual(['camera', 'cameraSetup', 'lens', 'lightingSetup', 'shootDay']);
+		expect(childTables('project').sort()).toEqual(['camera', 'cameraSetup', 'lens', 'lightingSetup', 'shootDay', 'template']);
 		expect(childTables('shootDay')).toEqual(['slate']);
 		expect(childTables('slate')).toEqual(['take']);
 		expect(childTables('take')).toEqual(['still']);

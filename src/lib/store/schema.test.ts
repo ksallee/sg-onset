@@ -9,7 +9,7 @@ describe('VERSIONS', () => {
 	});
 
 	it('has a table per record table, keyed by id and indexed by parent', () => {
-		const stores = VERSIONS[0].stores;
+		const stores = Object.assign({}, ...VERSIONS.map((v) => v.stores));
 		for (const table of TABLES) {
 			const parent = PARENTS[table];
 			expect(stores[table]).toBe(parent ? `id, ${parent.key}` : 'id');
@@ -22,7 +22,11 @@ describe('VERSIONS', () => {
 			expect(stores[name]).toBeTypeOf('string');
 			expect((TABLES as readonly string[]).includes(name)).toBe(false);
 		}
-		expect(Object.keys(stores).sort()).toEqual([...TABLES, ...INTERNAL_TABLES].sort());
+		expect(Object.keys(stores).sort()).toEqual([...TABLES.filter((t) => t !== 'template'), ...INTERNAL_TABLES].sort());
+	});
+
+	it('adds the template table in version 3, and nothing else', () => {
+		expect(VERSIONS[2]).toEqual({ version: 3, stores: { template: 'id, projectId' } });
 	});
 
 	it('adds the snapshot tables in their own version, and nothing else', () => {

@@ -16,6 +16,7 @@ export const fields = {
 	'scope.camera': 'Camera',
 	'scope.lens': 'Lens',
 	'scope.still': 'Photo',
+	'scope.template': 'Template',
 
 	'unit.mm': 'mm',
 	'unit.m': 'm',

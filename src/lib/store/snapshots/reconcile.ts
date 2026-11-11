@@ -20,7 +20,7 @@
 
 import { sameValue } from '$lib/model/value';
 import { isOpen, type Entry, type Op } from '$lib/outbox/types';
-import { dependsOn, PARENTS, TABLES, type TableName } from '../tables';
+import { dependsOn, isLocal, PARENTS, TABLES, type TableName } from '../tables';
 import type { BlobMeta } from '../types';
 
 export type Row = { id: string } & Record<string, unknown>;
@@ -167,7 +167,8 @@ export function planRestore(snapshot: Side, now: Now, at = 0): RestorePlan {
 		trash: [...trash.values()],
 		blobs,
 		queue: kept,
-		ops: [...planned.map(({ op, dependsOn }) => ({ op, dependsOn })), ...uploads]
+		// A table kept on the device (templates) comes back with the rest and queues nothing.
+		ops: [...planned.map(({ op, dependsOn }) => ({ op, dependsOn })), ...uploads].filter((o) => !isLocal(o.op.table))
 	};
 }
 

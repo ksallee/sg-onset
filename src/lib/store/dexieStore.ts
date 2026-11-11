@@ -17,7 +17,7 @@ import { persistStorage } from '$lib/pwa/persist';
 import { INTERNAL_TABLES, SNAPSHOTS_SINCE, VERSIONS, type SchemaVersion } from './schema';
 import { createSnapshots, migrationSnapshot } from './snapshots/snapshots';
 import { BLOB_KEEP_MS, prunable, storageStatus } from './storage';
-import { dependsOn, isTable, PARENTS, TABLES, type TableName } from './tables';
+import { dependsOn, isLocal, isTable, PARENTS, TABLES, type TableName } from './tables';
 import type { BackupSource, BackupTarget, BlobMeta, NewBlob, Store, StoreEvent } from './types';
 
 export type StoreOptions = {
@@ -153,8 +153,9 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 		return { queue: settled.queue.sort((a, b) => a.seq - b.seq), changed: puts.length > 0 || gone.length > 0 };
 	}
 
-	/** Adds operations to the queue through the reducer. */
-	async function queue(ops: readonly QueueOp[]): Promise<boolean> {
+	/** Adds operations to the queue through the reducer. A table kept on the device queues nothing. */
+	async function queue(all: readonly QueueOp[]): Promise<boolean> {
+		const ops = all.filter((o) => !isLocal(o.op.table));
 		if (!ops.length) return false;
 		const stamps = await fresh(ops.length);
 		const ids = [...new Set(ops.map((o) => o.op.recordId))];
@@ -224,7 +225,7 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 				await queue([{ op: { kind: 'create', table: name, recordId: id, fields }, dependsOn: dependsOn(name, fields) }]);
 				if (attach) await addBlob(name, id, attach);
 			});
-			emit([name, ...(attach ? ['blobs'] : []), 'outbox']);
+			emit([name, ...(attach ? ['blobs'] : []), ...(isLocal(name) ? [] : ['outbox'])]);
 		},
 
 		async apply(name, patch) {
@@ -272,7 +273,7 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 				await queue([{ op: { kind: 'delete', table: name, recordId: id }, dependsOn: [] }]);
 				return true;
 			});
-			if (removed) emit([name, 'trash', 'outbox']);
+			if (removed) emit([name, 'trash', ...(isLocal(name) ? [] : ['outbox'])]);
 		},
 
 		async restore(name, id) {
@@ -298,7 +299,7 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 				await queue(ops);
 				return true;
 			});
-			if (restored) emit([name, 'trash', 'outbox']);
+			if (restored) emit([name, 'trash', ...(isLocal(name) ? [] : ['outbox'])]);
 			return restored;
 		},
 

@@ -135,6 +135,13 @@ describe('planRestore', () => {
 		expect(plan.ops.map((o) => o.op)).toEqual([{ kind: 'create', table: 'take', recordId: 't1', fields: { slateId: 's1', take: '1', tStop: 2.8 } }]);
 	});
 
+	it('brings templates back with the snapshot and queues nothing for them: they stay on the device', () => {
+		const template: Row = { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } };
+		const plan = planRestore(side({ ...all, template: [template] }), current(all, { remotes: synced }));
+		expect(plan.tables.template).toEqual([template]);
+		expect(plan.ops).toEqual([]);
+	});
+
 	it('queues parents before children', () => {
 		const plan = planRestore(side(all), current({}, {}));
 		expect(ops(plan)).toEqual(['create p1', 'create d1', 'create s1', 'create t1']);

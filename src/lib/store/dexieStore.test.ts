@@ -354,6 +354,33 @@ describe('remove and restore', () => {
 	});
 });
 
+describe('a table kept on the device', () => {
+	const template = { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take' as const, values: { tStop: 2.8 } };
+
+	it('stores, edits, removes and restores a template, and queues nothing for it', async () => {
+		const s = setup();
+		await s.store.create('project', { id: 'p1', name: 'Show' });
+		const before = await s.store.outbox.entries();
+		const events: StoreEvent[] = [];
+		s.store.subscribe((e) => events.push(e));
+
+		await s.store.create('template', template);
+		expect(await s.store.list('template', 'p1')).toEqual([template]);
+		const applied = await s.store.apply('template', [{ id: 'tp1', key: 'values', from: template.values, to: { tStop: 4 } }]);
+		expect(applied).toEqual([{ id: 'tp1', key: 'values', from: { tStop: 2.8 }, to: { tStop: 4 } }]);
+		await s.store.apply('template', invertPatch(applied));
+		expect((await s.store.get('template', 'tp1'))!.values).toEqual({ tStop: 2.8 });
+		await s.store.remove('template', 'tp1');
+		expect(await s.store.get('template', 'tp1')).toBeUndefined();
+		expect(await s.store.restore('template', 'tp1')).toBe(true);
+		expect(await s.store.get('template', 'tp1')).toEqual(template);
+
+		expect(await s.store.outbox.entries()).toEqual(before);
+		expect(events.flatMap((e) => e.tables)).not.toContain('outbox');
+		expect(events.every((e) => e.tables.includes('template'))).toBe(true);
+	});
+});
+
 describe('files', () => {
 	async function withPhoto(s: S) {
 		await shoot(s);

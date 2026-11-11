@@ -1,12 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { FIELDS, SCOPES } from '$lib/model/catalogue';
-import { dependsOn, isTable, linkKeys, PARENTS, TABLES } from './tables';
+import { dependsOn, isLocal, isTable, linkKeys, LOCAL_TABLES, PARENTS, TABLES } from './tables';
 
 describe('TABLES', () => {
-	it('has one table per scope, and one for stills', () => {
-		expect(TABLES).toEqual([...SCOPES, 'still']);
+	it('has one table per scope, one for stills and one for templates', () => {
+		expect(TABLES).toEqual([...SCOPES, 'still', 'template']);
 		expect(isTable('take')).toBe(true);
+		expect(isTable('template')).toBe(true);
 		expect(isTable('outbox')).toBe(false);
+	});
+});
+
+describe('LOCAL_TABLES', () => {
+	it('are the tables kept on the device and never synced: templates', () => {
+		expect(LOCAL_TABLES).toEqual(['template']);
+		expect(isLocal('template')).toBe(true);
+		expect(isLocal('take')).toBe(false);
+	});
+
+	it('keeps templates under the project', () => {
+		expect(PARENTS.template).toEqual({ key: 'projectId', table: 'project' });
+		expect(linkKeys('template')).toEqual([{ key: 'projectId', table: 'project' }]);
 	});
 });
 

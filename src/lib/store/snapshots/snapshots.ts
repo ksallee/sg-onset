@@ -132,7 +132,17 @@ export async function migrationSnapshot(tx: Transaction, at: { id: string; now: 
 	try {
 		const names = SNAPSHOT_SOURCE.filter((n) => tx.storeNames.includes(n));
 		const rows: Record<string, unknown[]> = {};
-		for (const name of names) rows[name] = await tx.table(name).toArray();
+		for (const name of names) {
+			// A table a later version adds is not part of an earlier version's upgrade (1 to 3:
+			// the template table during the step to 2). Dexie says so at once, before any request.
+			let source;
+			try {
+				source = tx.table(name);
+			} catch {
+				continue;
+			}
+			rows[name] = await source.toArray();
+		}
 		const zip = encodeRows(rows, { schemaVersion: at.fromVersion, at: at.now });
 		const meta: SnapshotMeta = {
 			id: at.id,

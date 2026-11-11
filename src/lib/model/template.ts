@@ -15,6 +15,9 @@ export type Template<S extends TemplateScope = TemplateScope> = {
 	values: FieldsOf<S>;
 };
 
+/** A template as the store keeps it: under a project, on the device only. */
+export type TemplateRecord = Template & { projectId: string };
+
 /**
  * How far a template edit reaches.
  * - `untouched`: only fields still holding the old template value. A hand-typed value stays.

@@ -8,7 +8,7 @@ interface. The implementation here is IndexedDB through Dexie. A Capacitor store
 | module | pure | what it does |
 |---|---|---|
 | `types.ts` | types | `Store`, `BlobMeta`, `StorageStatus`, `BackupSource`, `BackupTarget`. |
-| `tables.ts` | yes | The tables, from the model: one per scope, and `still`. Parent keys, link keys, `dependsOn`. |
+| `tables.ts` | yes | The tables, from the model: one per scope, `still` and `template`. Parent keys, link keys, `dependsOn`, `LOCAL_TABLES`. |
 | `schema.ts` | yes | The IndexedDB schema by version. How to add a version. |
 | `storage.ts` | yes | `storageStatus`, `prunable`, `BLOB_KEEP_MS`. |
 | `dexieStore.ts` | no | `openStore`: the `Store` on Dexie. |
@@ -80,7 +80,9 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
 ## Tables
 
 - One per scope (`project`, `shootDay`, `lightingSetup`, `cameraSetup`, `slate`, `take`,
-  `camera`, `lens`) and `still`. Key `id`, index on the parent key.
+  `camera`, `lens`), `still` and `template`. Key `id`, index on the parent key.
+- `template`: a live template, under its project (schema version 3). Kept on the device: it is in
+  the backup and on the undo stack, and nothing is queued for it (`LOCAL_TABLES`).
 - `blobs`: one row per file, without the bytes. `blobData`: the bytes.
 - `outbox`: the queue. `remotes`: client UUID to server id. `trash`: removed records.
   `meta`: the queue counter (`seq`, also the change counter of the snapshots) and the times of the
@@ -257,6 +259,9 @@ Made by Claude. Kevin can overrule any of them.
     and the restore, the restore starts again, three times, then refuses as `busy`.
 24. **Every write transaction reads `snapshots`** to know which photo bytes to keep. A snapshot's
     own short write can then delay an edit by a few milliseconds.
+25. **Templates stay on the device.** Flow PT has no place for them; a slate or take keeps its
+    template's id as text. The store skips the outbox for a table in `LOCAL_TABLES`. A backup
+    made under schema an older version is refused (decision 13).
 
 ## What a real iPad must still prove
 

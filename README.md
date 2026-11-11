@@ -8,8 +8,8 @@ no network and syncs to the studio's Flow PT site when a connection returns. Bui
 ## Status
 
 The app shell. Five destinations (Shoot, Slates, Gear, Templates, Settings) on real data kept on
-the device: a first run, slates by shoot day, settings, backup. The take screen is a prototype at
-`/proto/take`. Nothing is sent to Flow PT yet. `docs/areas.md` says who builds what next.
+the device: a first run, slates by shoot day, settings, backup. The take screen is Shoot.
+Nothing is sent to Flow PT yet. `docs/areas.md` says who builds what next.
 
 ## Run it
 

@@ -46,6 +46,8 @@ enforces the parts a test can check.
 | Change | | One edit waiting to sync. | outbox entry | | |
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
 | Gear | | The cameras, lenses and camera setups of a project. | | | |
+| Snapshot | | An automatic copy of every entry, kept on this device, to take back a mistake. It does not leave the device. | `snapshot` | | |
+| Backup | | The zip a person exports, with every entry and photo. Kept off the device. | | | |
 
 Note for code: the outbox calls a change an "entry" (`counts.entries`). The UI word for a queued
 edit is **Change**; **Entry** is a stored record.

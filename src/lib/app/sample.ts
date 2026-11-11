@@ -35,7 +35,7 @@ export function sampleProject(options: { newId: () => string; now: Date }): Samp
 		id: newId(),
 		projectId,
 		cameraMake: 'ARRI',
-		cameraModel: 'Alexa 35',
+		cameraModel: 'ALEXA 35',
 		activeSensorPhysicalDimensions: { width: 27.99, height: 19.22 },
 		activeSensorResolution: { width: 4608, height: 3164 }
 	};
@@ -43,7 +43,7 @@ export function sampleProject(options: { newId: () => string; now: Date }): Samp
 		id: newId(),
 		projectId,
 		cameraMake: 'ARRI',
-		cameraModel: 'Alexa Mini LF',
+		cameraModel: 'ALEXA Mini LF',
 		activeSensorPhysicalDimensions: { width: 36.7, height: 25.54 },
 		activeSensorResolution: { width: 4448, height: 3096 }
 	};

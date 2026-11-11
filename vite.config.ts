@@ -12,6 +12,9 @@ export default defineConfig({
 				runes: ({ filename }) => filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter(),
+			// The service worker serves the cached `/` shell for every route when offline, so asset
+			// URLs must be absolute: a relative `./_app/...` breaks on `/proto/take`.
+			paths: { relative: false },
 			// Check for a new deploy every 5 min; the root layout reloads on the next navigation.
 			version: { pollInterval: 5 * 60_000 }
 		})

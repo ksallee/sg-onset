@@ -12,6 +12,7 @@
 	import { t } from '$lib/i18n/messages';
 	import BackupRows from './BackupRows.svelte';
 	import LinkSection from './sync/LinkSection.svelte';
+	import PrototypeNote from './sync/PrototypeNote.svelte';
 	import QueueSections from './sync/QueueSections.svelte';
 	import SetupSections from './sync/SetupSections.svelte';
 
@@ -35,6 +36,8 @@
 </script>
 
 <Sheet bind:open title={t('sync.detail.title')} done={t('common.done')}>
+	<PrototypeNote />
+
 	<Section header={t('sync.run.header')} {footer}>
 		<Row title={status} />
 		<Row title={t('sync.run.last')} detail={last ? t(last.key, last.params) : t('sync.run.never')} />

@@ -1,18 +1,11 @@
 // Settings: every setting applies at once, shows on <html>, and is there after a reload; the
 // project, storage in plain words, the backup and its restore; every control at least 44 px.
-import type { Page, TestInfo } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { auditLayout } from './audit';
 import { expect, openApp, test } from './fixtures';
 
 const root = (page: Page) => page.locator('html');
 const radio = (page: Page, group: string, name: string) => page.getByRole('radiogroup', { name: group }).getByRole('radio', { name, exact: true });
-/**
- * Playwright's WebKit runs like a private window: it refuses a Blob in IndexedDB ("Error preparing
- * Blob/File data to be stored in object store"), and a snapshot's bytes are one. So snapshots are
- * taken on the Chromium target only; on the WebKit targets the app's answer to that refusal is
- * what is tested. On a real iPad outside Private Browsing a snapshot is taken.
- */
-const canSnapshot = (testInfo: TestInfo) => !testInfo.project.name.startsWith('ipad');
 const stored = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('sg-onset.settings') ?? '{}'));
 
 test.describe('settings', () => {
@@ -225,16 +218,17 @@ test.describe('settings: storage', () => {
 	});
 });
 
+async function exportTo(page: Page, path: string) {
+	await page.getByRole('button', { name: 'Export Backup' }).dblclick();
+	const share = page.getByRole('button', { name: /Share or Save/ });
+	await expect(share).toBeVisible();
+	const download = page.waitForEvent('download');
+	await share.tap();
+	await (await download).saveAs(path);
+}
+const pick = (page: Page, file: string | { name: string; mimeType: string; buffer: Buffer }) => page.locator('input[type="file"]').setInputFiles(file);
+
 test.describe('settings: backup', () => {
-	async function exportTo(page: Page, path: string) {
-		await page.getByRole('button', { name: 'Export Backup' }).dblclick();
-		const share = page.getByRole('button', { name: /Share or Save/ });
-		await expect(share).toBeVisible();
-		const download = page.waitForEvent('download');
-		await share.tap();
-		await (await download).saveAs(path);
-	}
-	const pick = (page: Page, file: string | { name: string; mimeType: string; buffer: Buffer }) => page.locator('input[type="file"]').setInputFiles(file);
 
 	test('says when the last backup left, exports a zip, and restores it after a plain warning', async ({ page }, testInfo) => {
 		// The download has no share sheet to go through here.
@@ -263,18 +257,10 @@ test.describe('settings: backup', () => {
 
 		await pick(page, file);
 		await page.getByRole('button', { name: 'Replace Everything' }).tap();
-		if (!canSnapshot(testInfo)) {
-			// No snapshot could be taken first: said, asked once more, and nothing replaced until then.
-			await expect(page.getByText('No snapshot could be taken')).toBeVisible();
-			await expect(page.getByText(/replacing it cannot be undone\. Nothing has been replaced yet\./)).toBeVisible();
-			await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Changed after the backup');
-			await page.getByRole('button', { name: 'Replace Without a Snapshot' }).tap();
-		}
 		await expect(page.getByText(/^Restored \d+ entries and 0 files\.$/)).toBeVisible({ timeout: 15_000 });
 		await expect(page).toHaveURL(/\/settings$/);
 		await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Sample project');
 
-		if (!canSnapshot(testInfo)) return;
 		// A snapshot was taken before the replace: restoring it undoes the restore.
 		const before = page.getByRole('button', { name: /Before a backup restore/ }).first();
 		await expect(before).toBeVisible();
@@ -329,8 +315,7 @@ test.describe('settings: data safety and snapshots', () => {
 		).toHaveCount(1);
 	});
 
-	test('take a snapshot, change data, restore it after a preview, see the old data, undo the restore', async ({ page }, testInfo) => {
-		test.skip(!canSnapshot(testInfo), 'Playwright WebKit cannot store a snapshot (a Blob in IndexedDB)');
+	test('take a snapshot, change data, restore it after a preview, see the old data, undo the restore', async ({ page }) => {
 		await openApp(page, '/settings');
 		await page.getByRole('button', { name: 'Take a Snapshot Now' }).dblclick();
 		const taken = page.getByRole('button', { name: /Taken by hand/ });
@@ -370,16 +355,38 @@ test.describe('settings: data safety and snapshots', () => {
 		await expect(name(page)).toHaveValue('Changed after the snapshot', { timeout: 15_000 });
 	});
 
-	test('a snapshot that cannot be taken is said, not hidden', async ({ page }, testInfo) => {
-		test.skip(canSnapshot(testInfo), 'only where the browser refuses a Blob in IndexedDB');
+	test('a snapshot that cannot be taken is said, not hidden, and a restore asks once more', async ({ page }, testInfo) => {
+		// A browser that cannot make one: gzip refuses, as a store that refuses the bytes would.
+		await page.addInitScript(() => {
+			(globalThis as { CompressionStream?: unknown }).CompressionStream = class {
+				constructor() {
+					throw new Error('no room');
+				}
+			};
+			Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+		});
 		await openApp(page, '/settings');
 		await page.getByRole('button', { name: 'Take a Snapshot Now' }).tap();
 		await expect(page.getByRole('alert')).toHaveText('The snapshot could not be taken. Try again.');
 		await expect(page.getByText('No snapshot yet. One is taken a few minutes after a change.')).toBeVisible();
+
+		const file = testInfo.outputPath('backup.zip');
+		await exportTo(page, file);
+		const name = page.getByRole('textbox', { name: 'Name' });
+		await name.fill('Changed after the backup');
+		await name.blur();
+		await pick(page, file);
+		await page.getByRole('button', { name: 'Replace Everything' }).tap();
+		// No snapshot could be taken first: said, asked once more, and nothing replaced until then.
+		await expect(page.getByText('No snapshot could be taken')).toBeVisible();
+		await expect(page.getByText(/replacing it cannot be undone\. Nothing has been replaced yet\./)).toBeVisible();
+		await expect(name).toHaveValue('Changed after the backup');
+		await page.getByRole('button', { name: 'Replace Without a Snapshot' }).tap();
+		await expect(page.getByText(/^Restored \d+ entries and 0 files\.$/)).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Sample project');
 	});
 
-	test('a snapshot that holds what is here says there is nothing to restore', async ({ page }, testInfo) => {
-		test.skip(!canSnapshot(testInfo), 'Playwright WebKit cannot store a snapshot (a Blob in IndexedDB)');
+	test('a snapshot that holds what is here says there is nothing to restore', async ({ page }) => {
 		await openApp(page, '/settings');
 		await page.getByRole('button', { name: 'Take a Snapshot Now' }).tap();
 		await page.getByRole('button', { name: /Taken by hand/ }).tap();

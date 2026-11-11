@@ -26,11 +26,7 @@ function snapshots(page: Page): Promise<Row[]> {
 	);
 }
 
-test('deleting the sample project leaves a checked snapshot of it to restore', async ({ page, browserName }) => {
-	// Playwright's WebKit contexts are private: its IndexedDB refuses Blobs ("Error preparing
-	// Blob/File data to be stored in object store"), so no snapshot can be written there. A
-	// persistent WebKit profile writes them. The delete still happens; the notice says no snapshot.
-	test.skip(browserName === 'webkit', 'WebKit private contexts store no Blobs in IndexedDB');
+test('deleting the sample project leaves a checked snapshot of it to restore', async ({ page }) => {
 	await openApp(page, '/settings');
 	await page.getByRole('button', { name: 'Delete the Sample Project' }).tap();
 	await page.getByRole('button', { name: 'Delete', exact: true }).tap();

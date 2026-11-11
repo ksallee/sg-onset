@@ -352,11 +352,34 @@ describe('integrity', () => {
 	async function bend(s: S, id: string) {
 		const db = raw(s);
 		const row = await db.table('snapshotData').get(id);
-		const bytes = new Uint8Array(await row.data.arrayBuffer());
+		const bytes = new Uint8Array(row.data instanceof Blob ? await row.data.arrayBuffer() : row.data);
 		bytes[bytes.length >> 1] ^= 0xff;
-		await db.table('snapshotData').put({ id, data: new Blob([bytes]) });
+		await db.table('snapshotData').put({ id, data: bytes });
 		db.close();
 	}
+
+	it('keeps the bytes as plain bytes: a private WebKit context refuses Blobs in IndexedDB', async () => {
+		const s = setup();
+		await shoot(s, 1, 1);
+		const snap = await s.store.snapshots.take('manual');
+		const db = raw(s);
+		const row = await db.table('snapshotData').get(snap!.id);
+		db.close();
+		expect(row.data).toBeInstanceOf(Uint8Array);
+		expect(row.data.buffer.byteLength).toBe(snap!.size);
+	});
+
+	it('still reads a snapshot kept as a Blob', async () => {
+		const s = setup();
+		await shoot(s, 1, 1);
+		const snap = await s.store.snapshots.take('manual');
+		const db = raw(s);
+		const row = await db.table('snapshotData').get(snap!.id);
+		await db.table('snapshotData').put({ id: snap!.id, data: new Blob([row.data]) });
+		db.close();
+		expect(await s.store.snapshots.verify(snap!.id)).toBe(true);
+		expect((await s.store.snapshots.zip(snap!.id)).size).toBeGreaterThan(0);
+	});
 
 	it('a snapshot that fails its check is marked bad, skipped, never restored', async () => {
 		const s = setup();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { elapsedMs, formatClock, formatElapsed, phaseOf, pressRecord, undoRecord } from './record';
+import { elapsedMs, formatClock, formatElapsed, nextSecondIn, phaseOf, pressRecord, undoRecord } from './record';
 
 const idle = { start: null, end: null };
 
@@ -59,6 +59,29 @@ describe('formatElapsed', () => {
 	});
 	it('adds hours past an hour', () => {
 		expect(formatElapsed(3_723_000)).toBe('1:02:03');
+	});
+});
+
+describe('nextSecondIn', () => {
+	it('is the time to the next whole second of the take, not of the clock', () => {
+		expect(nextSecondIn(1000, 1000)).toBe(1000);
+		expect(nextSecondIn(1000, 1250)).toBe(750);
+		expect(nextSecondIn(1000, 1999)).toBe(1);
+		expect(nextSecondIn(1300, 61_700)).toBe(600);
+	});
+	it('waits for the start when the clock is behind it', () => {
+		expect(nextSecondIn(5000, 4400)).toBe(600);
+	});
+	it('does not drift: the display follows the start stamp however late a tick lands', () => {
+		const start = 10_000;
+		let now = start;
+		const shown: string[] = [];
+		// Every tick lands 180 ms late; one lands 90 s late (the tab was in the background).
+		for (const late of [180, 180, 90_000, 180]) {
+			now += nextSecondIn(start, now) + late;
+			shown.push(formatElapsed(elapsedMs({ start, end: null }, now)));
+		}
+		expect(shown).toEqual(['0:01', '0:02', '1:33', '1:34']);
 	});
 });
 

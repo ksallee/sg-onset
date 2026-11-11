@@ -31,7 +31,17 @@ export function elapsedMs(t: Timing, now: number): number {
 	return Math.max(0, (t.end ?? now) - t.start);
 }
 
-const two = (n: number) => String(n).padStart(2, '0');
+/**
+ * How long until the elapsed time of a take that started at `start` shows its next second. The
+ * display is always `now - start`, so a late or missed tick (a tab in the background) cannot
+ * make it drift; this only says when to look again.
+ */
+export function nextSecondIn(start: number, now: number): number {
+	if (now < start) return start - now;
+	return 1000 - ((now - start) % 1000);
+}
+
+const two =(n: number) => String(n).padStart(2, '0');
 
 /** `m:ss`, or `h:mm:ss` past an hour. Whole seconds, rounded down. */
 export function formatElapsed(ms: number): string {

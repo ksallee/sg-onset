@@ -1,11 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="142 268 740 488"><title>SG OnSet</title><style>.ink{fill:#eff0f2}.accent{fill:#568ef9}</style><mask id="sgo-gap" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
-		<rect width="1024" height="1024" fill="#fff" />
-		<rect x="98" y="438" width="828" height="148" rx="48" transform="rotate(-23.4 512 512)" fill="#000" />
-	</mask>
-	<g class="ink" mask="url(#sgo-gap)">
-		<rect x="252" y="268" width="88" height="488" rx="18" />
-		<rect x="396" y="268" width="88" height="488" rx="18" />
-		<rect x="540" y="268" width="88" height="488" rx="18" />
-		<rect x="684" y="268" width="88" height="488" rx="18" />
-	</g>
-	<rect class="accent" x="128" y="468" width="768" height="88" rx="18" transform="rotate(-23.4 512 512)" /></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="240 240 544 544"><title>SG OnSet</title><style>.gold{fill:#eab53b}.deep{fill:#59481c}</style><rect class="deep" x="240" y="240" width="544" height="544" rx="60" />
+	<path class="gold" d="M300 240H512V512H240V300A60 60 0 0 1 300 240Z" />
+	<path class="gold" d="M512 512H784V724A60 60 0 0 1 724 784H512Z" /></svg>

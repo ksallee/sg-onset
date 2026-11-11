@@ -1,5 +1,5 @@
 <script lang="ts">
-	// The icon specimen (#38): the concepts explored, the one chosen and the two runners-up, at
+	// The icon specimen (#38, #53): the concepts explored, the one chosen and the two runners-up, at
 	// every size, on light and dark wallpapers, in a Home Screen row and in the iOS 26 icon styles;
 	// then the files scripts/icons.mjs writes. The chosen mark is read from static/brand/icon.svg,
 	// the one source. `?mode=light|dark` sets the page's scheme. A prototype page: its strings are
@@ -40,20 +40,20 @@
 
 	const CONCEPTS: Concept[] = [
 		{
-			id: 'tally',
-			name: 'Take marks',
-			from: 'The take count, kept by hand',
-			mark: chosenMark,
-			verdict: 'chosen',
-			why: 'Four takes and the strike that closes the group. It says counting takes, which is the job. Five straight strokes snap to pixels for the tab icon, and it stays itself in one colour.'
-		},
-		{
 			id: 'marker',
 			name: 'Tracking marker',
 			from: 'The marker VFX tapes to the set',
-			mark: `<path class="ink" d="M320 264H500V500H264V320A56 56 0 0 1 320 264Z"/><path class="accent" d="M524 524H760V704A56 56 0 0 1 704 760H524Z"/><path class="ink dim" d="M524 264H704A56 56 0 0 1 760 320V500H524Z"/><path class="ink dim" d="M264 524H500V760H320A56 56 0 0 1 264 704Z"/>`,
+			mark: chosenMark,
+			verdict: 'chosen',
+			why: 'Kevin’s pick, in gold. It is the thing this crew tapes to the set, and the sharpest drawing of the eight at 16 px. Two golds and no gaps keep it one object.'
+		},
+		{
+			id: 'tally',
+			name: 'Take marks',
+			from: 'The take count, kept by hand',
+			mark: `<mask id="sgo-gap" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024"><rect width="1024" height="1024" fill="#fff"/><rect x="98" y="438" width="828" height="148" rx="48" transform="rotate(-23.4 512 512)" fill="#000"/></mask><g class="ink" mask="url(#sgo-gap)"><rect x="252" y="268" width="88" height="488" rx="18"/><rect x="396" y="268" width="88" height="488" rx="18"/><rect x="540" y="268" width="88" height="488" rx="18"/><rect x="684" y="268" width="88" height="488" rx="18"/></g><rect class="accent" x="128" y="468" width="768" height="88" rx="18" transform="rotate(-23.4 512 512)"/>`,
 			verdict: 'runner-up',
-			why: 'The sharpest of all at 16 px, and only VFX would pick it. To anyone else it is a checker: it names the department, not the work.'
+			why: 'The first icon: four takes and the strike that closes the group. It says counting takes. Kevin preferred the marker when he saw both on the Home Screen, so it stepped down.'
 		},
 		{
 			id: 'mark',
@@ -105,9 +105,39 @@
 		}
 	];
 
+	// The tracking marker, as four paths. `a` to `b` is the square, `g` the gap between quarters,
+	// `r` the outer corner radius; `cls` is the class of each quarter (top left, top right, bottom
+	// right, bottom left), or null to leave the field showing.
+	function marker(a: number, b: number, g: number, r: number, cls: (string | null)[], extra = ''): string {
+		const [lo, hi] = [512 - g / 2, 512 + g / 2];
+		const d = [
+			`M${a + r} ${a}H${lo}V${lo}H${a}V${a + r}A${r} ${r} 0 0 1 ${a + r} ${a}Z`,
+			`M${hi} ${a}H${b - r}A${r} ${r} 0 0 1 ${b} ${a + r}V${lo}H${hi}Z`,
+			`M${hi} ${hi}H${b}V${b - r}A${r} ${r} 0 0 1 ${b - r} ${b}H${hi}Z`,
+			`M${a} ${hi}H${lo}V${b}H${a + r}A${r} ${r} 0 0 1 ${a} ${b - r}Z`
+		];
+		return d.map((q, i) => (cls[i] ? `<path class="${cls[i]}" d="${q}"/>` : '')).join('') + extra;
+	}
+
+	const variant = (id: string, name: string, why: string, mark: string, verdict: Concept['verdict'] = 'set aside'): Concept => ({ id, name, from: '', mark, verdict, why });
+	const VARIANTS: Concept[] = [
+		variant('v-seen', 'As first seen', 'The tint mock Kevin picked from. Gaps and four soft panes: a window logo.', marker(264, 760, 24, 56, ['seen', 'seen dim', 'seen-2', 'seen dim'])),
+		variant('v-pair', 'Pair', 'Two gold quarters, two left out. It turns into steps: the square is gone.', marker(240, 784, 0, 60, ['gold', null, 'gold', null])),
+		variant(
+			'v-frame',
+			'Framed pair',
+			'A frame brings the square back. The frame is a hair at 32 px and gone at 16.',
+			marker(240, 784, 0, 60, ['gold', null, 'gold', null], `<rect class="deep-stroke" x="250" y="250" width="524" height="524" rx="50" fill="none" stroke-width="20"/>`)
+		),
+		variant('v-one', 'One gold', 'Off-white, charcoal and one gold quarter. Three colours fight, and the gold is a quarter of it.', marker(240, 784, 0, 60, ['ink', 'coal', 'gold', 'coal'])),
+		variant('v-gap', 'Bronze, with gaps', 'Gold and bronze, split by a cross. The bronze reads brown and the cross reads as a window.', marker(240, 784, 20, 60, ['gold', 'bronze', 'gold', 'bronze'])),
+		variant('v-chosen', 'Gold and deep gold', 'One square, no gaps. The deep quarters are gold in shadow: there at 16 px, and still gold.', chosenMark, 'chosen')
+	];
+
 	const chosen = CONCEPTS[0];
 	const shortlist = CONCEPTS.slice(0, 3);
 	const SIZES = [180, 120, 60, 32, 16];
+	const VARIANT_SIZES = [180, 60, 32, 16];
 	const STYLES = [
 		{ id: 'default', label: 'Default' },
 		{ id: 'dark', label: 'Dark' },
@@ -189,10 +219,10 @@
 	<section class="hero" aria-labelledby="h-chosen">
 		<div class="hero-icon">{@render tile(chosen, 320)}</div>
 		<div class="hero-text">
-			<h2 id="h-chosen">Take marks</h2>
+			<h2 id="h-chosen">Tracking marker</h2>
 			<p>
-				Four bars and a strike: the way a take count is kept on paper. The bars are the takes behind you. The strike, in
-				the app’s one blue, is the take you are logging.
+				The quartered square VFX tapes to a set so a shot can be tracked. Two quarters in gold, two in deep gold, meeting
+				at one point. The gold is the icon’s own colour. The app’s blue stays in the app.
 			</p>
 			<div class="sizes">
 				<div class="size-row wall-day">
@@ -218,7 +248,8 @@
 		<h2 id="h-styles">The iOS 26 icon styles</h2>
 		<p class="lede">
 			A Home Screen web app gives iPadOS one image, so the system makes the dark, tinted and clear versions itself. A light
-			glyph on a dark field survives that; these are the three finalists drawn the way the system would.
+			glyph on a dark field survives that. These are the three finalists drawn the way the system would. The tint here is
+			blue, to show the marker in a colour that is not its own.
 		</p>
 		<div class="styles">
 			{#each shortlist as c (c.id)}
@@ -229,6 +260,28 @@
 					</div>
 					<div class="style-row wall-dusk">
 						{#each STYLES as s (s.id)}<span class="size">{@render tile(c, 76, s.id)}<small>{s.label}</small></span>{/each}
+					</div>
+				</div>
+			{/each}
+		</div>
+	</section>
+
+	<section aria-labelledby="h-gold" id="gold">
+		<h2 id="h-gold">The gold, six ways</h2>
+		<p class="lede">
+			Kevin picked the marker from its tint mock. These are the six drawings tried from there, each at 180, 60, 32 and 16
+			px on both wallpapers. The last one is the icon.
+		</p>
+		<div class="variants">
+			{#each VARIANTS as v (v.id)}
+				<div class="variant" data-verdict={v.verdict}>
+					<h3>{v.name} {#if v.verdict === 'chosen'}<span class="verdict">chosen</span>{/if}</h3>
+					<p>{v.why}</p>
+					<div class="variant-row wall-day">
+						{#each VARIANT_SIZES as s (s)}{@render tile(v, s)}{/each}
+					</div>
+					<div class="variant-row wall-dusk">
+						{#each VARIANT_SIZES as s (s)}{@render tile(v, s)}{/each}
 					</div>
 				</div>
 			{/each}
@@ -273,18 +326,19 @@
 				{@render tile(chosen, 400)}
 				<svg class="guides" viewBox="0 0 1024 1024" width="400" height="400" aria-hidden="true">
 					<path d="M0 512h1024M512 0v1024" />
-					<rect x="142" y="268" width="740" height="488" />
+					<rect x="240" y="240" width="544" height="544" />
 					<circle cx="512" cy="512" r="410" />
-					<path class="unit" d="M252 228h88M252 212v32M340 212v32M340 796h56M340 780v32M396 780v32" />
+					<path class="unit" d="M240 200h272M240 184v32M512 184v32" />
 				</svg>
 			</div>
 			<dl class="spec">
 				<div><dt>Canvas</dt><dd>1024 square, full bleed. The system cuts the corners.</dd></div>
-				<div><dt>Bars</dt><dd>Four, 88 wide, 488 tall, 56 apart, corner radius 18. Centred.</dd></div>
-				<div><dt>Strike</dt><dd>88 thick, 768 long, 23.4° up to the right, through the centre. It clears each bar by 30.</dd></div>
-				<div><dt>Mark</dt><dd>740 wide by 488 tall: 72 % of the canvas, inside the 80 % circle. The maskable icon draws it at 84 %.</dd></div>
-				<div><dt>Clear space</dt><dd>One bar and one gap (144) on every side of the mark, at any size.</dd></div>
-				<div><dt>Colours</dt><dd>Field #232427 to #0a0a0b. Bars #eff0f2. Strike #568ef9, hue 262. On a light ground: bars #0d0e12, strike #3d70d1.</dd></div>
+				<div><dt>Marker</dt><dd>A square of 544, centred: 53 % of the canvas, 240 to 784. Outer corners of radius 60.</dd></div>
+				<div><dt>Quarters</dt><dd>Four of 272, no gap. They meet at the centre (512, 512), the point a tracker locks to.</dd></div>
+				<div><dt>Gold</dt><dd>Top left and bottom right. The other two are deep gold.</dd></div>
+				<div><dt>Maskable</dt><dd>The marker’s corner is 385 from the centre, inside the safe circle (410). The maskable icon draws it at 84 %.</dd></div>
+				<div><dt>Clear space</dt><dd>Half a quarter (136) on every side of the marker, at any size.</dd></div>
+				<div><dt>Colours</dt><dd>Field #232427 to #0a0a0b. Gold #eab53b, OKLCH 0.80 0.145 84. Deep gold #59481c, OKLCH 0.41 0.065 88. On a light ground: #cf9b0f and #272114.</dd></div>
 			</dl>
 		</div>
 	</section>
@@ -334,7 +388,7 @@
 
 	<section aria-labelledby="h-word">
 		<h2 id="h-word">Wordmark</h2>
-		<p class="lede">The mark, then the name in the system face. For the README and the welcome screen.</p>
+		<p class="lede">The marker, then the name in the system face. For the README and the welcome screen.</p>
 		<div class="words">
 			<div class="word word-light"><img src="/brand/lockup-light.svg" alt="SG OnSet" height="56" /></div>
 			<div class="word word-dark"><img src="/brand/lockup-dark.svg" alt="SG OnSet" height="56" /></div>
@@ -419,6 +473,9 @@
 		--ink: #eff0f2;
 		--accent: #568ef9;
 		--rec: #fb4241;
+		--gold: #eab53b;
+		--deep: #59481c;
+		--deep-alpha: 1;
 		position: relative;
 		display: inline-block;
 		flex: none;
@@ -442,6 +499,29 @@
 	.tile :global(.ink-stroke) {
 		stroke: var(--ink);
 	}
+	.tile :global(.gold) {
+		fill: var(--gold);
+	}
+	.tile :global(.deep) {
+		fill: var(--deep);
+		fill-opacity: var(--deep-alpha);
+	}
+	/* Only the gold variants use these: drawn in the default style alone. */
+	.tile :global(.deep-stroke) {
+		stroke: #59481c;
+	}
+	.tile :global(.bronze) {
+		fill: #845a0f;
+	}
+	.tile :global(.coal) {
+		fill: #3a3c42;
+	}
+	.tile :global(.seen) {
+		fill: #ffd27a;
+	}
+	.tile :global(.seen-2) {
+		fill: #b08a45;
+	}
 	.tile :global(.dim) {
 		opacity: 0.3;
 	}
@@ -450,15 +530,20 @@
 	}
 	.st-tinted {
 		--field: linear-gradient(#1e1e20, #0b0b0c);
-		--ink: #ffd27a;
-		--accent: #b08a45;
-		--rec: #b08a45;
+		--ink: #a9cdff;
+		--accent: #5d7fae;
+		--rec: #5d7fae;
+		--gold: #a9cdff;
+		--deep: #2f435c;
 	}
 	.st-clear {
 		--field: linear-gradient(rgb(255 255 255 / 0.26), rgb(255 255 255 / 0.1));
 		--ink: rgb(255 255 255 / 0.96);
 		--accent: rgb(255 255 255 / 0.62);
 		--rec: rgb(255 255 255 / 0.62);
+		--gold: rgb(255 255 255 / 0.96);
+		--deep: #fff;
+		--deep-alpha: 0.3;
 		backdrop-filter: blur(10px) saturate(160%);
 		-webkit-backdrop-filter: blur(10px) saturate(160%);
 		box-shadow:
@@ -514,6 +599,32 @@
 		display: grid;
 		justify-items: center;
 		gap: 10px;
+	}
+
+	.variants {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 24px 16px;
+	}
+	.variant {
+		display: grid;
+		gap: 8px;
+		align-content: start;
+	}
+	.variant p {
+		font-size: 14.5px;
+		line-height: 1.45;
+		min-height: 4.35em;
+	}
+	.variant[data-verdict='chosen'] .verdict {
+		color: var(--blue);
+	}
+	.variant-row {
+		display: flex;
+		align-items: flex-end;
+		gap: 14px;
+		padding: 16px;
+		border-radius: 20px;
 	}
 
 	.homes {
@@ -801,6 +912,7 @@
 		.build,
 		.homes,
 		.styles,
+		.variants,
 		.concepts,
 		.words {
 			grid-template-columns: 1fr;

@@ -12,20 +12,24 @@ const source = readFileSync(at('static/brand/icon.svg'), 'utf8');
 // The parts of the source: the mark, and the colours it is drawn in.
 const MARK = source.match(/<g id="mark">([\s\S]*?)<\/g>\s*<\/svg>/)[1].replace(/\n\t/g, '\n').trim();
 const [FIELD_TOP, FIELD_BOTTOM] = [...source.matchAll(/stop-color="(#[0-9a-f]{6})"/g)].map((m) => m[1]);
-const INK = source.match(/\.ink \{ fill: (#[0-9a-f]{6})/)[1];
-const ACCENT = source.match(/\.accent \{ fill: (#[0-9a-f]{6})/)[1];
+const GOLD = source.match(/\.gold \{ fill: (#[0-9a-f]{6})/)[1];
+const DEEP = source.match(/\.deep \{ fill: (#[0-9a-f]{6})/)[1];
 
-// The mark on a ground that is not the icon's own field. From src/lib/theme/palette.ts: the
-// canvas and the label of each scheme; the strike in the filled blue where the ground is light.
+// The mark on a ground that is not the icon's own field. The canvas and the label of each scheme
+// are from src/lib/theme/palette.ts. The golds are the icon's own (docs/design/icon.md): on a
+// light ground the deep quarters go near black and carry the shape (13.7:1 on the canvas); the
+// gold beside them is a shade darker than on the field.
 const GROUND = {
-	light: { bg: '#ecedf2', ink: '#0d0e12', accent: '#3d70d1' },
-	dark: { bg: FIELD_BOTTOM, ink: INK, accent: ACCENT }
+	light: { bg: '#ecedf2', ink: '#0d0e12', gold: '#cf9b0f', deep: '#272114' },
+	dark: { bg: FIELD_BOTTOM, ink: '#eff0f2', gold: GOLD, deep: DEEP }
 };
 
-// The mark's own box in the 1024 canvas (bars 252 to 772 by 268 to 756; the strike's corners
-// reach 142 to 882), and the scale that keeps it inside a maskable icon's safe circle with room.
-const BOX = { x: 142, y: 268, w: 740, h: 488 };
+// The mark's own box in the 1024 canvas, and the scale that keeps it inside a maskable icon's
+// safe circle with room.
+const BOX = { x: 240, y: 240, w: 544, h: 544 };
 const MASKABLE_SCALE = 0.84;
+/** Where there is one colour only, the deep quarters are that colour at this strength. */
+const DEEP_ALPHA = 0.35;
 /** The corner radius iOS draws, as a share of the side: for the icons nothing else rounds. */
 const CORNER = 0.224;
 
@@ -42,61 +46,51 @@ const IPADS = [
 	[768, 1024] // iPad mini (5th)
 ];
 
-const style = (ink, accent) => `<style>.ink{fill:${ink}}.accent{fill:${accent}}</style>`;
+const fills = (gold, deep) => `.gold{fill:${gold}}.deep{fill:${deep}}`;
+const style = (gold, deep) => `<style>${fills(gold, deep)}</style>`;
 const field = `<defs><linearGradient id="field" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${FIELD_TOP}"/><stop offset="1" stop-color="${FIELD_BOTTOM}"/></linearGradient></defs>`;
 const scaled = (k) => `<g transform="translate(512 512) scale(${k}) translate(-512 -512)">${MARK}</g>`;
 const svg = (body, box = '0 0 1024 1024', attrs = '') => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}"${attrs}>${body}</svg>`;
 
 /** The icon as iOS wants it: square, full bleed, opaque. The system cuts the corners. */
-const full = () => svg(`${field}${style(INK, ACCENT)}<rect width="1024" height="1024" fill="url(#field)"/>${MARK}`);
+const full = () => svg(`${field}${style(GOLD, DEEP)}<rect width="1024" height="1024" fill="url(#field)"/>${MARK}`);
 /** The icon with its own corners, for places that show the image as it is. */
 const rounded = () =>
-	svg(`${field}${style(INK, ACCENT)}<rect width="1024" height="1024" rx="${1024 * CORNER}" fill="url(#field)"/>${MARK}`);
+	svg(`${field}${style(GOLD, DEEP)}<rect width="1024" height="1024" rx="${1024 * CORNER}" fill="url(#field)"/>${MARK}`);
 /** Full bleed with the mark drawn smaller, inside the safe circle (40 % of the side). */
-const maskable = () => svg(`${field}${style(INK, ACCENT)}<rect width="1024" height="1024" fill="url(#field)"/>${scaled(MASKABLE_SCALE)}`);
-/** The mark alone, white on nothing: only its alpha is used. */
-const monochrome = () => svg(`${style('#fff', '#fff')}${scaled(MASKABLE_SCALE)}`);
+const maskable = () => svg(`${field}${style(GOLD, DEEP)}<rect width="1024" height="1024" fill="url(#field)"/>${scaled(MASKABLE_SCALE)}`);
+/** The mark alone, white on nothing: only its alpha is used, so the deep quarters are faint. */
+const monochrome = () => svg(`<style>.gold{fill:#fff}.deep{fill:#fff;fill-opacity:${DEEP_ALPHA}}</style>${scaled(MASKABLE_SCALE)}`);
 /** The mark alone on a ground, cropped to its box. */
-const mark = (g) => svg(`<title>SG OnSet</title>${style(g.ink, g.accent)}${MARK}`, `${BOX.x} ${BOX.y} ${BOX.w} ${BOX.h}`);
+const mark = (g) => svg(`<title>SG OnSet</title>${style(g.gold, g.deep)}${MARK}`, `${BOX.x} ${BOX.y} ${BOX.w} ${BOX.h}`);
 
 /**
- * The mark drawn again for a pixel grid, where the 1024 drawing would blur: the same four bars
- * and strike, whole pixels wide. `n` is the grid: 16 with no field, 32 inside the field.
+ * The mark drawn again on a pixel grid, where the 1024 drawing would blur: the same square, from
+ * `a` to `b` in whole pixels with the centre on a pixel edge, outer corners of radius `r`.
  */
-function fitted(n, { bar, gap, top, strike, clear, id }) {
-	const x0 = (n - (4 * bar + 3 * gap)) / 2;
-	const h = n - 2 * top;
-	const rise = h * 0.52;
-	const reach = n / 2 - (n === 16 ? 0.4 : 3.4);
-	const len = 2 * Math.hypot(reach, rise / 2);
-	const deg = (Math.atan2(rise, 2 * reach) * 180) / Math.PI;
-	const band = (t, r) =>
-		`x="${(n / 2 - len / 2).toFixed(2)}" y="${(n / 2 - t / 2).toFixed(2)}" width="${len.toFixed(2)}" height="${t}" rx="${r}" transform="rotate(${(-deg).toFixed(2)} ${n / 2} ${n / 2})"`;
-	const bars = [0, 1, 2, 3].map((i) => `<rect x="${x0 + i * (bar + gap)}" y="${top}" width="${bar}" height="${h}" rx="${bar / 5}"/>`).join('');
+function fitted(a, b, r) {
+	const c = (a + b) / 2;
 	return (
-		`<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${n}" height="${n}"><rect width="${n}" height="${n}" fill="#fff"/><rect ${band(strike + 2 * clear, 0)} fill="#000"/></mask>` +
-		`<g class="ink" mask="url(#${id})">${bars}</g><rect class="accent" ${band(strike, strike / 5)}/>`
+		`<rect class="deep" x="${a}" y="${a}" width="${b - a}" height="${b - a}" rx="${r}"/>` +
+		`<path class="gold" d="M${a + r} ${a}H${c}V${c}H${a}V${a + r}A${r} ${r} 0 0 1 ${a + r} ${a}Z"/>` +
+		`<path class="gold" d="M${c} ${c}H${b}V${b - r}A${r} ${r} 0 0 1 ${b - r} ${b}H${c}Z"/>`
 	);
 }
 
-/** The tab icon: the 16 px drawing with no field, dark on light tabs and light on dark ones. */
+/** The tab icon: the 16 px drawing with no field, in the golds of a light tab or of a dark one. */
 const favicon = () =>
 	svg(
-		`<title>SG OnSet</title><style>.ink{fill:${GROUND.light.ink}}.accent{fill:${GROUND.light.accent}}@media (prefers-color-scheme:dark){.ink{fill:${GROUND.dark.ink}}.accent{fill:${GROUND.dark.accent}}}</style>` +
-			fitted(16, { bar: 2, gap: 2, top: 2, strike: 2, clear: 0.9, id: 'gap' }),
+		`<title>SG OnSet</title><style>${fills(GROUND.light.gold, GROUND.light.deep)}@media (prefers-color-scheme:dark){${fills(GROUND.dark.gold, GROUND.dark.deep)}}</style>` +
+			fitted(1, 15, 2),
 		'0 0 16 16'
 	);
 /** The 32 px fallback: the field with its corners, and the 32 px drawing. */
 const favicon32 = () =>
-	svg(
-		`${field}${style(INK, ACCENT)}<rect width="32" height="32" rx="7.2" fill="url(#field)"/>` +
-			fitted(32, { bar: 3, gap: 2, top: 8, strike: 3, clear: 1.2, id: 'gap' }),
-		'0 0 32 32'
-	);
+	svg(`${field}${style(GOLD, DEEP)}<rect width="32" height="32" rx="7.2" fill="url(#field)"/>` + fitted(7, 25, 2), '0 0 32 32');
 
 // The name beside the mark, in the system face. `width` is measured in Chromium below.
 const FONT = `ui-sans-serif, system-ui, -apple-system, 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', Roboto, Arial, sans-serif`;
-const WORD = { size: 60, weight: 650, tracking: -1.5, markH: 60, gap: 26, h: 96 };
+const WORD = { size: 60, weight: 650, tracking: -1.5, markH: 64, gap: 22, h: 96 };
 const wordText = (g, x) =>
 	`<text x="${x}" y="${WORD.h / 2 + WORD.size * 0.355}" font-family="${FONT}" font-size="${WORD.size}" font-weight="${WORD.weight}" letter-spacing="${WORD.tracking}" fill="${g.ink}">SG OnSet</text>`;
 function lockup(g, textWidth) {
@@ -105,7 +99,7 @@ function lockup(g, textWidth) {
 	const x = Math.round(markW + WORD.gap);
 	const w = Math.ceil(x + textWidth + 2);
 	return svg(
-		`<title>SG OnSet</title>${style(g.ink, g.accent)}` +
+		`<title>SG OnSet</title>${style(g.gold, g.deep)}` +
 			`<g transform="translate(0 ${(WORD.h - WORD.markH) / 2}) scale(${k.toFixed(5)}) translate(${-BOX.x} ${-BOX.y})">${MARK}</g>${wordText(g, x)}`,
 		`0 0 ${w} ${WORD.h}`,
 		` width="${w}" height="${WORD.h}" role="img"`
@@ -155,14 +149,14 @@ for (const [name, g] of Object.entries(GROUND)) {
 	writeFileSync(at(`static/brand/lockup-${name}.svg`), lockup(g, textWidth) + '\n');
 }
 
-// Launch images: the mark, 144 pt wide, centred on the scheme's canvas, for each iPad both ways up.
+// Launch images: the mark, 112 pt wide, centred on the scheme's canvas, for each iPad both ways up.
 const links = [];
 for (const [w, h] of IPADS) {
 	for (const orientation of ['portrait', 'landscape']) {
 		const [vw, vh] = orientation === 'portrait' ? [w, h] : [h, w];
 		for (const [name, g] of Object.entries(GROUND)) {
 			const file = `splash/ipad-${w}x${h}-${orientation}-${name}.png`;
-			await png(`static/${file}`, mark(g), vw, vh, { scale: 2, background: g.bg, inner: 'width:144px;height:auto' });
+			await png(`static/${file}`, mark(g), vw, vh, { scale: 2, background: g.bg, inner: 'width:112px;height:auto' });
 			links.push(
 				`\t\t<link rel="apple-touch-startup-image" media="screen and (device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: 2) and (orientation: ${orientation}) and (prefers-color-scheme: ${name})" href="%sveltekit.assets%/${file}" />`
 			);

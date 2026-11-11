@@ -2,7 +2,7 @@
 // Owned by the shell. An area adds its strings to its own file, never here.
 
 export const common = {
-	'app.name': 'sg-onset',
+	'app.name': 'SG OnSet',
 	'app.tagline': 'On-set VFX data capture for Flow Production Tracking.',
 
 	'common.cancel': 'Cancel',
@@ -114,7 +114,7 @@ export const common = {
 	'backup.refused.notEmpty': 'This device already holds data.',
 	'backup.refused.other': 'The restore failed. Nothing was replaced.',
 
-	'welcome.title': 'sg-onset',
+	'welcome.title': 'SG OnSet',
 	'welcome.lead': 'Log slates and takes on set. Everything is kept on this device and works with no network.',
 	'welcome.project': 'First project',
 	'welcome.project.new': 'New project',

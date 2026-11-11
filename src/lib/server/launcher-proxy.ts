@@ -38,7 +38,28 @@ export interface ProxyOptions {
 }
 
 const MAX_BODY = 2048;
+/** The launcher answers a few hundred bytes; past this the answer is refused unread. */
+const MAX_ANSWER = 64 * 1024;
 const TIMEOUT_MS = 10_000;
+
+/** The body as text, or null once it passes `max` bytes. */
+async function readCapped(res: Response, max: number): Promise<string | null> {
+	if (!res.body) return '';
+	const reader = res.body.getReader();
+	const decoder = new TextDecoder();
+	let text = '';
+	let size = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) return text + decoder.decode();
+		size += value.byteLength;
+		if (size > max) {
+			await reader.cancel().catch(() => {});
+			return null;
+		}
+		text += decoder.decode(value, { stream: true });
+	}
+}
 
 function respond({ status, body }: ProxyAnswer): Response {
 	return new Response(JSON.stringify(body), {
@@ -108,12 +129,13 @@ async function forward(
 	}
 	// `manual` hands back the 3xx itself (Node) or an opaque redirect (browsers): never followed.
 	if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) return proxyError('redirect');
-	let text: string;
+	let text: string | null;
 	try {
-		text = await res.text();
+		text = await readCapped(res, MAX_ANSWER);
 	} catch {
 		return proxyError('unreachable');
 	}
+	if (text === null) return proxyError('bad-answer');
 	return read(res.status, text);
 }
 

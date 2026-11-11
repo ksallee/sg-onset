@@ -152,6 +152,22 @@ describe('session request', () => {
 		const timedOut = await proxySessionRequest(ask({ site }), opts({ timeoutMs: 5 }));
 		expect((await read(timedOut)).body).toEqual({ error: 'unreachable' });
 	});
+
+	it('stops reading an answer that is far too large', async () => {
+		let sent = 0;
+		const chunk = new TextEncoder().encode('x'.repeat(64 * 1024));
+		const huge = new ReadableStream<Uint8Array>({
+			pull(c) {
+				if (sent >= 20 * 1024 * 1024) return c.close();
+				sent += chunk.length;
+				c.enqueue(chunk);
+			}
+		});
+		fetchMock.mockResolvedValue(new Response(huge, { status: 200 }));
+		const res = await proxySessionRequest(ask({ site: 'studio.shotgrid.autodesk.com' }), opts());
+		expect(await read(res)).toEqual({ status: 502, body: { error: 'bad-answer' } });
+		expect(sent).toBeLessThan(1024 * 1024);
+	});
 });
 
 describe('session poll', () => {

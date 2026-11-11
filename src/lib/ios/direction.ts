@@ -1,8 +1,8 @@
-// Which way a navigation moves, pure: the root layout runs the View Transition, this picks it.
+// Which way a navigation moves, pure: the root layout asks, components/ios/pageStage.ts moves.
 
-export type NavDirection = 'push' | 'pop' | 'cover' | 'uncover' | 'none';
+export type NavDirection = 'push' | 'pop' | 'cover' | 'uncover' | 'fade' | 'none';
 
-/** The tab roots: moving between them does not slide. */
+/** The tab roots: moving between them fades, never slides. */
 export const TAB_ROOTS = ['/', '/shoot', '/slates', '/gear', '/templates', '/settings'];
 
 const trim = (path: string) => (path.length > 1 ? path.replace(/\/+$/, '') : path);
@@ -30,8 +30,9 @@ export function depth(path: string): number {
 
 /**
  * The move from page `from` to page `to` (pathnames; null: none). The run screen comes up as a
- * cover and goes down as one; deeper pushes, shallower pops; a sibling detail pushes; tabs and
- * the same page do not move, nor does a move from one tab's pages to another's. `history` (browser back or forward) wins over depth: back always pops.
+ * cover and goes down as one; deeper pushes, shallower pops; a sibling detail pushes; a change of
+ * tab fades, from any page of one to any page of another; the same page does not move.
+ * `history` (browser back or forward) wins over depth: back always pops.
  */
 export function navDirection(
 	from: string | null,
@@ -45,15 +46,28 @@ export function navDirection(
 	if (isCover(b)) return 'cover';
 	if (isCover(a)) return 'uncover';
 	// From one tab to a page of another (a slate's "shoot this" button): a change of tab, not a
-	// push or a pop. Nothing slides, and the navigation does not move under the page.
+	// push or a pop. Nothing slides: the sidebar may change width under the page.
 	const ta = tabOf(a);
 	const tb = tabOf(b);
-	if (ta && tb && ta !== tb) return 'none';
+	if (ta && tb && ta !== tb) return 'fade';
 	const da = depth(a);
 	const db = depth(b);
-	if (da === 0 && db === 0) return 'none';
+	if (da === 0 && db === 0) return 'fade';
 	if (history) return history === 'back' ? 'pop' : 'push';
 	if (db > da) return 'push';
 	if (db < da) return 'pop';
-	return da === 0 ? 'none' : 'push';
+	return 'push';
+}
+
+/**
+ * The motion a navigation gets, from its direction and what is going on. Reduced motion: every
+ * move is a fade. `focus` (to or from the capture path): no fade, the page is there on the first
+ * frame. `swiped`: the system's own back swipe just moved the page; moving it again would show
+ * it twice.
+ */
+export function pageMotion(direction: NavDirection, when: { reduced?: boolean; focus?: boolean; swiped?: boolean } = {}): NavDirection {
+	if (direction === 'none' || when.swiped) return 'none';
+	if (when.focus && direction === 'fade') return 'none';
+	if (when.reduced) return 'fade';
+	return direction;
 }

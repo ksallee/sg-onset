@@ -1,0 +1,60 @@
+/* Motion tokens: the springs, the curves and the durations every part of the app moves with.
+   What each is for and the rules: docs/design/motion.md. The same values for code are in
+   motion.ts; motion.test.ts fails when the two differ. Imported once, by app.css. */
+
+:root {
+	/* Springs, as `linear()` with the duration that goes with each (lib/ios/spring.ts makes
+	   them). For motion a tap starts: a transition or a Web Animation, retargeted from where it
+	   is. None bounces. A spring a finger drives runs in code (components/ios/motion.ts). */
+	--spring-snappy: linear(0, 0.039, 0.129, 0.238, 0.352, 0.459, 0.555, 0.638, 0.709, 0.767, 0.815, 0.854, 0.886, 0.911, 0.93, 0.946, 0.958, 0.968, 0.975, 0.981, 0.985, 0.989, 0.991, 0.993, 1);
+	--dur-snappy: 300ms;
+	--spring-smooth: linear(0, 0.039, 0.128, 0.238, 0.351, 0.458, 0.554, 0.637, 0.708, 0.767, 0.815, 0.854, 0.885, 0.91, 0.93, 0.946, 0.958, 0.968, 0.975, 0.981, 0.985, 0.989, 0.991, 0.993, 1);
+	--dur-smooth: 410ms;
+	--spring-page: linear(0, 0.039, 0.129, 0.239, 0.352, 0.459, 0.555, 0.638, 0.709, 0.768, 0.816, 0.855, 0.886, 0.911, 0.931, 0.946, 0.958, 0.968, 0.975, 0.981, 0.985, 0.989, 0.992, 0.994, 1);
+	--dur-page: 470ms;
+
+	/* Curves for what is not a spring. Never ease-in. */
+	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+	--ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+
+	/* A press lands at once and lets go over `press`. `fade`: one page over another, a label,
+	   every move under reduced motion. `exit`: something leaving, shorter than it took to come. */
+	--dur-press: 200ms;
+	--dur-fade: 150ms;
+	--dur-exit: 200ms;
+
+	/* The kit's first names, still read by Row, NavBar, SearchField and Gear. */
+	--dur-snap: 350ms;
+	--dur-control: 250ms;
+	--dur-reveal: 200ms;
+}
+
+/* A page that is leaving, drawn once more while the next one comes (components/ios/pageStage.ts):
+   a still picture, nothing in it moves or answers. */
+.page-ghost {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	-webkit-user-select: none;
+	user-select: none;
+}
+.page-ghost,
+.page-ghost * {
+	transition: none !important;
+	animation: none !important;
+}
+
+/* Motion (Settings: System, Full, Reduced) is `data-motion="full|reduced"` on <html>, resolved:
+   System follows the device. Style against the attribute, never the media query, so the setting
+   wins either way. Reduced: nothing slides, scales or springs. A part that still needs to say
+   something changed fades, and says so itself (`transition: opacity var(--dur-fade) !important`). */
+html[data-motion='reduced'] *,
+html[data-motion='reduced'] *::before,
+html[data-motion='reduced'] *::after {
+	transition-duration: 0.01ms !important;
+	transition-delay: 0s !important;
+	animation-duration: 0.01ms !important;
+	animation-delay: 0s !important;
+	animation-iteration-count: 1 !important;
+	scroll-behavior: auto !important;
+}

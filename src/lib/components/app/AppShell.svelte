@@ -90,11 +90,9 @@
 		<SyncStatus summary={sync.status} {placement} onclick={() => (syncOpen = true)} />
 	{/snippet}
 	{@render children()}
-	{#if notice}
-		{#key edit?.at}
-			<Notice text={notice.text} action={notice.action} onaction={notice.run} />
-		{/key}
-	{/if}
+	{#snippet overlay()}
+		{#if notice}<Notice text={notice.text} action={notice.action} onaction={notice.run} stamp={edit?.at} instant={() => !!active?.focus} />{/if}
+	{/snippet}
 	<ContextSheet bind:open={contextOpen} />
 	<SyncSheet bind:open={syncOpen} />
 </NavShell>

@@ -16,7 +16,9 @@ export function failureOf(status: number, body: unknown): ApiFailure {
 	const first: unknown = Array.isArray(errors) ? errors[0] : body;
 	if (first === null || typeof first !== 'object') return fallback;
 	const { code, title, detail, message } = first as Record<string, unknown>;
-	const said = [detail, title, message].find((t) => typeof t === 'string' && t !== '') as string | undefined;
+	// A schema write's 500 puts a traceback in `detail` and its meaning in `title` (findings/132).
+	const words = typeof detail === 'string' && detail.startsWith('{traceback') ? undefined : detail;
+	const said = [words, title, message].find((t) => typeof t === 'string' && t !== '') as string | undefined;
 	return { status, ...(typeof code === 'number' ? { code } : {}), title: said ?? fallback.title };
 }
 
@@ -48,11 +50,52 @@ export function isSessionRefusal(failure: ApiFailure): boolean {
 }
 
 /**
- * The caller may not do this. Measured: a 400 naming the entity or the field with "by this user"
- * or "for this user" (corpus findings/094_permission_preflight.md), and a 401 naming the level,
- * "Must sudo as Administrator" (findings/027_auth_permissions.md). What a schema write answers a
- * person who is not an admin is not in the corpus: 403 and the words below are a guard, not a
- * measurement.
+ * A bearer the site will not take. Every one is 401 code 102 `Unauthorized`, with no
+ * `WWW-Authenticate`; only `detail` differs: `Token Expired` from the second past `exp`,
+ * `Token invalid` for a forged one, null for garbage or none (corpus findings/133_bearer_expiry.md).
+ * `failureOf` lifts `detail` into the title.
+ * - `expired`: a new bearer fixes it.
+ * - `invalid`: the client sends the wrong thing; minting may not help.
+ */
+export function bearerRefusal(failure: ApiFailure): 'expired' | 'invalid' | undefined {
+	if (failure.status !== 401 || failure.code !== 102) return undefined;
+	return failure.title === 'Token Expired' ? 'expired' : 'invalid';
+}
+
+/**
+ * A field create refused for want of rights: 500 code 105, "API schema_field_create()
+ * RuntimeError: User doesn't have permission to create a Field", a traceback in `detail`
+ * (corpus findings/132_field_create_rights.md, an Artist; an Admin gets 201).
+ */
+export function isFieldCreateRefusal(failure: ApiFailure): boolean {
+	return failure.status === 500 && failure.code === 105 && failure.title.includes("User doesn't have permission to create a Field");
+}
+
+/**
+ * A row write refused for want of rights: 400 code 104 naming the type or the field (corpus
+ * findings/143_nonadmin_rows.md, an Artist on custom entities and Attachments; findings/094 on
+ * Task and Shot):
+ * - "Entity of type <T> cannot be created by this user."
+ * - "Entity of type <T> can not be deleted by this user."
+ * - "The field is not editable for this user: [<T>.<field>]."
+ */
+export function rowRefusal(failure: ApiFailure): { action: 'create' | 'update' | 'delete'; entityType: string; field?: string } | undefined {
+	if (failure.status !== 400 || failure.code !== 104) return undefined;
+	const created = /Entity of type (\w+) can ?not be created by this user/.exec(failure.title);
+	if (created) return { action: 'create', entityType: created[1] };
+	const deleted = /Entity of type (\w+) can ?not be deleted by this user/.exec(failure.title);
+	if (deleted) return { action: 'delete', entityType: deleted[1] };
+	const edited = /not editable for this user: \[(\w+)\.(\w+)\]/.exec(failure.title);
+	if (edited) return { action: 'update', entityType: edited[1], field: edited[2] };
+	return undefined;
+}
+
+/**
+ * The caller may not do this, in looser words: the fallback when the exact answers above do not
+ * match. Measured: a 400 naming the entity or the field with "by this user" or "for this user"
+ * (corpus findings/094_permission_preflight.md, 143), a 401 naming the level, "Must sudo as
+ * Administrator" (findings/027_auth_permissions.md), and "doesn't have permission" on a schema
+ * write (findings/132). A 403 is a guard, never seen.
  */
 export function isPermissionRefusal(failure: ApiFailure): boolean {
 	if (failure.status === 403) return true;
@@ -61,9 +104,10 @@ export function isPermissionRefusal(failure: ApiFailure): boolean {
 
 /**
  * A status that is not an answer about the request, as a transport error kind.
- * - 401: no valid bearer.
- * - 429, 5xx: a passing failure. Neither a rate limit nor its status was ever seen (corpus
- *   findings/128_rate_limit.md), so both are retried with backoff.
+ * - 401: no valid bearer. An expired one is renewed and sent again before this (api.ts).
+ * - 429, 5xx: a passing failure. A rate limit was never seen, not at 60 GETs in 1.9 s nor at 28
+ *   mixed requests a second for 10 s (corpus findings/128_rate_limit.md,
+ *   findings/144_rate_limit_burst.md), so both are retried with backoff.
  * - 502, 504 on a write: a gateway gave up, and the site may have committed all the same, as an
  *   abandoned batch does (findings/127). Checked, not resent.
  */

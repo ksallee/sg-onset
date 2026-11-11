@@ -6,9 +6,11 @@
 // - Search: endpoints/post_entity_type_search.md. Batch: endpoints/post_entity_batch.md, recipes/002_batch.md.
 // - Values: findings/field_types/*.md. Unique: findings/127_retry_and_client_uuid.md.
 // - Upload: endpoints/get_entity_type_id_field_upload.md, get_entity_type_id_field_upload_multipart.md,
-//   put_links_upload.md, post_entity_type_id_field_upload.md, findings/039, 044, 123, 125.
+//   put_links_upload.md, post_entity_type_id_field_upload.md, findings/039, 044, 123, 125, 134, 141.
+// - Bearer refusals: findings/133_bearer_expiry.md. Field-create refusal: findings/132.
+//   Row refusals: findings/143_nonadmin_rows.md. Reverse fields: findings/142_reverse_field.md.
 
-import { codeName, slugOf } from './names';
+import { codeName, reverseField, slugOf } from './names';
 import type { RawField, RawFields, SchemaTypes } from './schema';
 import { completeFields, siteTypes, SITE_URL, stockFields, TYPES } from './testkit';
 
@@ -56,6 +58,8 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 		display_name: { name: { value: 'File Display Name' }, data_type: { value: 'text' } },
 		description: { name: { value: 'Description' }, data_type: { value: 'text' } },
 		filename: { name: { value: 'File Name' }, data_type: { value: 'text' }, editable: { value: false } },
+		project: { name: { value: 'Project' }, data_type: { value: 'entity' }, properties: { valid_types: { value: ['Project'] } } },
+		attachment_links: { name: { value: 'Links' }, data_type: { value: 'multi_entity' }, editable: { value: false } },
 		this_file: { name: { value: 'File' }, data_type: { value: 'url' }, editable: { value: false } }
 	};
 	fields.Project = { name: { name: { value: 'Project Name' }, data_type: { value: 'text' } } };
@@ -64,6 +68,8 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 	/** Stored files, by key: the bytes each part holds. */
 	const objects = new Map<string, Map<number, number>>();
 	const uploads = new Map<string, Upload>();
+	/** The stored Content-Type of each object. */
+	const storedTypes = new Map<string, string>();
 	const faults: { match: (r: Request) => boolean; fault: Fault }[] = [];
 	let nextId = 1000;
 	let nextKey = 1;
@@ -75,16 +81,19 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 		fields,
 		rows,
 		objects,
+		storedTypes,
 		/** Every request, in order. */
 		requests: [] as Request[],
-		/** False: every site call answers 401. */
+		/** False: every site call answers 401, `detail` null, as for no token (findings/133). */
 		bearerValid: true,
+		/** Bearers past their `exp`: answered 401 code 102, `detail` `Token Expired` (findings/133). */
+		expired: new Set<string>(),
+		/** Rights the signed-in person lacks: `create:<Type>`, `update:<Type>`, `delete:<Type>` (findings/143). */
+		forbidden: new Set<string>(),
 		/** False: no request arrives anywhere. */
 		online: true,
-		/** False: a field create is refused, as for a person who is not an admin. */
+		/** False: a field create is refused, as for an Artist: 500 code 105 (findings/132). */
 		canCreateFields: true,
-		/** True: an upload to a multi-entity field replaces what the field held. Unmeasured on the real site. */
-		fieldUploadReplaces: false,
 		/** A presigned URL dies after this (findings/125). */
 		urlLifeMs: 900_000,
 		/** Every part but the last must be this large (findings/044). */
@@ -144,7 +153,7 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 	};
 
 	const refuseWith = (fault: { status: number; body?: unknown }) =>
-		fault.body !== undefined ? json(fault.status, fault.body) : refuse(fault.status, fault.status === 401 ? 'Unauthorized' : `HTTP ${fault.status}`);
+		fault.body !== undefined ? json(fault.status, fault.body) : fault.status === 401 ? refuse(401, 'Unauthorized', 102) : refuse(fault.status, `HTTP ${fault.status}`);
 
 	// ---------------------------------------------------------------- values
 
@@ -319,6 +328,7 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 	function apply(write: Write, staged: Map<string, FakeRow>, made: FakeRow[]) {
 		const type = write.entity;
 		if (!types[type]) throw new Refusal(400, `Invalid entity type: entity type [] does not exist.`);
+		rights(write.request_type, type, Object.keys(write.data ?? {}));
 		if (write.request_type === 'create') {
 			const values: Record<string, unknown> = {};
 			for (const [name, value] of Object.entries(write.data ?? {})) values[name] = stored(type, name, value, undefined, 'create');
@@ -340,6 +350,16 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 		return { data: shown(next, Object.keys(write.data ?? {})), links: {}, status: 200 };
 	}
 
+	/** The refusals of findings/143, as an Artist gets them: 400 code 104 naming the type or the field. */
+	function rights(action: string, type: string, names: string[]) {
+		if (action === 'create' && fpt.forbidden.has(`create:${type}`)) throw new Refusal(400, `Entity of type ${type} cannot be created by this user.`, 104);
+		if (action === 'delete' && fpt.forbidden.has(`delete:${type}`)) throw new Refusal(400, `Entity of type ${type} can not be deleted by this user.`, 104);
+		if (action === 'update' && fpt.forbidden.has(`update:${type}`)) {
+			const name = names.find((n) => n !== 'sg_status_list');
+			if (name) throw new Refusal(400, `The field is not editable for this user: [${type}.${name}].`, 104);
+		}
+	}
+
 	function commit(staged: Map<string, FakeRow>) {
 		rows.clear();
 		for (const [key, row] of staged) rows.set(key, row);
@@ -349,8 +369,12 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 
 	function site(r: Request): Response {
 		try {
-			// Any path under /api/v1 needs a bearer. What an expired one answers is not in the corpus.
-			if (!fpt.bearerValid || r.headers.get('authorization') !== `Bearer ${BEARER}`) return refuse(401, 'Unauthorized');
+			// Any path under /api/v1 needs a bearer. Every refusal is 401 code 102 `Unauthorized`; only
+			// `detail` differs (findings/133).
+			const sent = (r.headers.get('authorization') ?? '').replace(/^Bearer\s*/, '');
+			if (fpt.expired.has(sent)) return refuse(401, 'Unauthorized', 102, { detail: 'Token Expired' });
+			if (!fpt.bearerValid || !sent) return refuse(401, 'Unauthorized', 102);
+			if (sent !== BEARER) return refuse(401, 'Unauthorized', 102, { detail: 'Token invalid' });
 			const path = r.path.replace(/^\/api\/v1/, '');
 			if (path === r.path) return refuse(404, 'Not Found');
 			const parts = path.split('/').filter(Boolean);
@@ -392,6 +416,7 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 				const type = typeOfSlug(parts[1]);
 				const id = Number(parts[2]);
 				if (r.method === 'DELETE') {
+					rights('delete', type, []);
 					get(type, id).retired = true;
 					return new Response(null, { status: 204 });
 				}
@@ -411,9 +436,12 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 	}
 
 	function createField(type: string, r: Request): Response {
-		// What a person who is not an admin gets here is not in the corpus. A 400 in the words of
-		// findings/094 stands in.
-		if (!fpt.canCreateFields) return refuse(400, `Field of type ${type} cannot be created by this user.`);
+		// An Artist: 500 code 105, a RuntimeError title and a traceback in `detail` (findings/132).
+		if (!fpt.canCreateFields) {
+			return refuse(500, "API schema_field_create() RuntimeError: User doesn't have permission to create a Field", 105, {
+				detail: "{traceback: \"/var/rails/shotgun/current/app/models/display_column.rb:2764:in 'block in DisplayColumn.create_column'\"}"
+			});
+		}
 		const body = r.body as { data_type: string; properties: { property_name: string; value: unknown }[] };
 		const prop = (name: string) => body.properties.find((p) => p.property_name === name)?.value;
 		const display = String(prop('name'));
@@ -431,6 +459,20 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			unique: { value: prop('unique') === true },
 			properties: prop('valid_types') ? { valid_types: { value: prop('valid_types') } } : {}
 		};
+		// A link field makes a visible, editable multi_entity on each type it links (findings/142).
+		if (body.data_type === 'entity' || body.data_type === 'multi_entity') {
+			for (const target of prop('valid_types') as string[]) {
+				if (!fields[target]) continue;
+				const reverse = reverseField(type, types[type].name.value, name, display, body.data_type);
+				fields[target][reverse.name] = {
+					name: { value: reverse.displayName },
+					data_type: { value: 'multi_entity' },
+					editable: { value: true },
+					unique: { value: false },
+					properties: { valid_types: { value: [type] } }
+				};
+			}
+		}
 		return json(201, { data: fields[type][name], links: { self: `/api/v1/schema/${type}/fields/${name}` } });
 	}
 
@@ -503,17 +545,22 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 				fpt.loseNextUpload = false;
 				objects.delete(found.key);
 			}
+			const owner = get(found.type, found.id);
+			// Each space of a file name is stored as `_` (findings/135). The Attachment gets the row's
+			// project and lists the row in `attachment_links` (findings/134).
 			const attachment = fpt.seed('Attachment', {
-				filename: found.filename,
+				filename: found.filename.replace(/ /g, '_'),
+				project: owner.values.project ?? null,
+				attachment_links: [{ type: found.type, id: found.id }],
 				original_fname: found.filename,
 				display_name: body.upload_data.display_name ?? found.filename,
 				description: null,
 				__object: found.key
 			});
 			if (found.field) {
-				const row = get(found.type, found.id);
-				const held = fpt.fieldUploadReplaces ? [] : ((row.values[found.field] as Ref[] | undefined) ?? []);
-				row.values[found.field] = [...held, { type: 'Attachment', id: attachment }];
+				// A second upload to the field adds (findings/134).
+				const held = (owner.values[found.field] as Ref[] | undefined) ?? [];
+				owner.values[found.field] = [...held, { type: 'Attachment', id: attachment }];
 			}
 			// One space, declared as JSON, and it never names the row it made (findings/039).
 			return new Response(' ', { status: 201, headers: { 'content-type': 'application/json; charset=utf-8' } });
@@ -523,6 +570,8 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 
 	function storage(r: Request): Response {
 		const key = r.path.slice(1);
+		// The URL is signed for GET: HEAD is refused (findings/141).
+		if (r.method === 'HEAD') return new Response('<Error><Code>AccessDenied</Code></Error>', { status: 403 });
 		// No Authorization on the presigned host: the signature covers the request (put_links_upload).
 		if (r.headers.has('authorization')) return new Response('<Error><Code>InvalidRequest</Code></Error>', { status: 400 });
 		if (clock.t - Number(r.query.get('X-Amz-Date')) > fpt.urlLifeMs) {
@@ -533,6 +582,8 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			const size = r.raw instanceof Blob ? r.raw.size : 0;
 			if (!objects.has(key)) objects.set(key, new Map());
 			objects.get(key)!.set(part, size);
+			// The stored type is what a single PUT sent, or S3's `binary/octet-stream` (findings/141).
+			if (!r.query.get('partNumber')) storedTypes.set(key, r.headers.get('content-type') ?? 'binary/octet-stream');
 			// ETag is exposed to a page (findings/125).
 			return new Response(null, { status: 200, headers: { ETag: `"etag-${key}-${part}-${size}"` } });
 		}
@@ -540,7 +591,7 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			const held = objects.get(key);
 			if (!held) return new Response('<Error><Code>NoSuchKey</Code></Error>', { status: 404 });
 			const size = [...held.values()].reduce((sum, n) => sum + n, 0);
-			return new Response(new Uint8Array(size), { status: 200, headers: { 'content-length': String(size), 'content-type': 'binary/octet-stream' } });
+			return new Response(new Uint8Array(size), { status: 200, headers: { 'content-length': String(size), 'content-type': storedTypes.get(key) ?? 'binary/octet-stream' } });
 		}
 		return new Response(null, { status: 405 });
 	}

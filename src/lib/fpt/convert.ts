@@ -29,6 +29,11 @@ function floatOut(n: number): string {
 	return Number.isInteger(rounded) ? rounded.toFixed(1) : String(rounded);
 }
 
+/** A date_time as we send it: whole seconds, UTC, `YYYY-MM-DDTHH:MM:SSZ` (findings/145). */
+export function isWholeSecond(value: string): boolean {
+	return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(value);
+}
+
 function floatIn(raw: unknown): number | undefined {
 	if (raw === null || raw === undefined || raw === '') return undefined;
 	const n = typeof raw === 'number' ? raw : Number(raw);
@@ -56,8 +61,13 @@ export function writeValue(map: FieldMap, value: unknown): Written {
 		case 'timestamp': {
 			if (missing) return [null];
 			const time = typeof value === 'string' ? Date.parse(value) : NaN;
-			// Stored to the second, in UTC (field_types/date_time.md).
-			return Number.isNaN(time) ? bad() : [new Date(time).toISOString().slice(0, 19) + 'Z'];
+			if (Number.isNaN(time)) return bad();
+			// Stored to the second, in UTC (field_types/date_time.md). A fraction is never sent:
+			// POST and PUT round `.999` up and a `_batch` create truncates (findings/145), so a
+			// fraction would store different seconds by path. Cut here, as `app.now()` stamps.
+			const sent = new Date(Math.floor(time / 1000) * 1000).toISOString().slice(0, 19) + 'Z';
+			if (!isWholeSecond(sent)) return bad();
+			return [sent];
 		}
 		case 'integer':
 			// A number field refuses a Float (field_types/number.md).

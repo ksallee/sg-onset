@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sameValue } from '$lib/model/value';
-import { INFINITY_M, readValue, writeValue } from './convert';
+import { INFINITY_M, isWholeSecond, readValue, writeValue } from './convert';
 import { fieldMap, type EntityScope } from './mapping';
 
 const map = (scope: EntityScope, key: string) => fieldMap(scope, key)!;
@@ -56,6 +56,17 @@ describe('writeValue', () => {
 	it('sends a timestamp to the second, in UTC', () => {
 		expect(out('take', 'startedAt', '2026-11-11T10:22:33.456Z')).toEqual(['2026-11-11T10:22:33Z']);
 		expect(out('take', 'startedAt', '2026-11-11T12:22:33+02:00')).toEqual(['2026-11-11T10:22:33Z']);
+	});
+
+	// corpus findings/145_time_fields.md: POST and PUT round `.999` up, a `_batch` create truncates.
+	// Nothing finer than a second is sent, so every path stores the second the app stamped.
+	it('never sends a fraction of a second, so no path rounds it', () => {
+		expect(out('take', 'startedAt', '2026-11-11T14:22:05.999Z')).toEqual(['2026-11-11T14:22:05Z']);
+		expect(out('take', 'startedAt', '2026-11-11T14:22:05.5Z')).toEqual(['2026-11-11T14:22:05Z']);
+		expect(out('take', 'startedAt', '2026-11-11T09:22:05.999-05:00')).toEqual(['2026-11-11T14:22:05Z']);
+		expect(out('take', 'endedAt', '2026-11-11T14:22:05.123456Z')).toEqual(['2026-11-11T14:22:05Z']);
+		expect(isWholeSecond('2026-11-11T14:22:05Z')).toBe(true);
+		expect(isWholeSecond('2026-11-11T14:22:05.000Z')).toBe(false);
 	});
 
 	it('sends a date, an enum and a timecode as their strings', () => {

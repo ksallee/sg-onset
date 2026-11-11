@@ -118,7 +118,13 @@ export function updateData(
 	});
 }
 
-/** The path that reads the client UUID of a linked record through its link (field_types/entity.md). */
+/**
+ * The path that reads the client UUID of a linked record through its link, in the same search
+ * as the record: no second request (field_types/entity.md). A dotted path reaches an `sg_` field
+ * of a custom entity through an `sg_` entity field, written with the schema name
+ * (`sg_slate.Slate.sg_onset_uuid`, `sg_lens.CustomEntity19.sg_onset_uuid`), in projection and
+ * filter alike (corpus findings/138_dotted_custom_field.md).
+ */
 function uuidPath(resolution: Resolution, scope: EntityScope, column: Column): string | undefined {
 	const target = column.target;
 	if (!target || target === 'project' || target === 'attachment') return undefined;

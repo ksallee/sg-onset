@@ -23,6 +23,17 @@ describe('still file name', () => {
 		expect(stillFilename('ph1', 'b1', 'image/jpeg').startsWith(stillPrefix('ph1'))).toBe(true);
 	});
 
+	// corpus findings/135: a space is stored as `_`, and `is` and `starts_with` ignore case. A name
+	// of ours holds neither a space nor a capital, so what is stored is what was sent, and two
+	// photos never differ by case alone.
+	it('holds no space and no capital', () => {
+		expect(stillFilename('Ph 1', 'B1', 'image/jpeg')).toBe('onset_ph_1_b1.jpg');
+		expect(stillPrefix('Ph 1')).toBe('onset_ph_1_');
+		const uuid = '0f8e2a4c-6b1d-4e3f-9a7b-2c5d8e1f0a3b';
+		expect(stillFilename(uuid, uuid, 'image/heic')).toBe(`onset_${uuid}_${uuid}.heic`);
+		expect(stillFilename(uuid, uuid, 'image/heic').length).toBeLessThanOrEqual(200);
+	});
+
 	it('takes the extension from the type', () => {
 		expect(extensionOf('image/jpeg')).toBe('jpg');
 		expect(extensionOf('image/heic')).toBe('heic');

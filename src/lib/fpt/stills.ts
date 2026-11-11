@@ -47,18 +47,26 @@ export function extensionOf(type: string): string {
 	return EXTENSIONS[type.split(';')[0].trim().toLowerCase()] ?? 'bin';
 }
 
+/**
+ * An id as it goes in a file name. The server stores each space as `_`, and `is` and
+ * `starts_with` ignore case (corpus findings/135_attachment_custom_field_filename.md): a name
+ * of ours holds only lowercase letters, digits, `-` and `_`, so what is stored is what was sent
+ * and no two photos differ by case alone. Our ids are lowercase UUIDs, unchanged by this.
+ */
+const safe = (id: string) => id.toLowerCase().replace(/[^a-z0-9-]/g, '_');
+
 /** What every file name of a still starts with. A lookup by client UUID searches for it. */
 export function stillPrefix(stillId: string): string {
-	return `onset_${stillId}_`;
+	return `onset_${safe(stillId)}_`;
 }
 
 /**
  * The file name a still is uploaded under. `Attachment.filename` is set by the upload and is
  * read-only afterwards (entity_types/Attachment.md), so it is the one identity that is there
- * from the moment the row exists.
+ * from the moment the row exists. About 90 characters for two UUIDs; 200 are kept (findings/135).
  */
 export function stillFilename(stillId: string, blobId: string, type: string): string {
-	return `${stillPrefix(stillId)}${blobId}.${extensionOf(type)}`;
+	return `${stillPrefix(stillId)}${safe(blobId)}.${extensionOf(type)}`;
 }
 
 const SHOWN = 'Photo';

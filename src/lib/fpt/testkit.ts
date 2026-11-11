@@ -82,6 +82,12 @@ export function steppedAsideFields(): Record<EntityScope, RawFields> {
 	return out;
 }
 
+/** A bearer shaped as the site's: three base64url segments, the second the claims (findings/027). */
+export function jwtWith(claims: Record<string, unknown>): string {
+	const b64 = (value: unknown) => btoa(JSON.stringify(value)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+	return `${b64({ alg: 'HS256' })}.${b64(claims)}.c2lnbmF0dXJl`;
+}
+
 const resolve = (fields: Record<EntityScope, RawFields>): Resolution => toResolution(SITE_URL, resolveEntities(siteTypes()), planFields(TYPES, fields))!;
 
 export const RESOLUTION: Resolution = resolve(completeFields());

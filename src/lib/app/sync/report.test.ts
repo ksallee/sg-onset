@@ -25,6 +25,7 @@ const report = (over: Partial<SetupReport> = {}): SetupReport => ({
 		{ scope: 'cameraSetup', kind: 'custom', displayName: 'Camera Setup', status: 'ambiguous', candidates: ['CustomEntity10', 'CustomEntity12'] }
 	],
 	fields: [],
+	reverseFields: [],
 	...over
 });
 
@@ -75,6 +76,24 @@ describe('setupView: fields', () => {
 		expect(setupView(report({ fields: [field({ status: 'needsAdmin' })] })).permission).toBe(true);
 		expect(setupView(report({ canCreateFields: true })).permission).toBe(false);
 		expect(setupView(report()).permission).toBe(false);
+	});
+	// corpus findings/142_reverse_field.md: each link field adds one on the type it links.
+	it('lists the fields Flow PT adds for the links, by entity name, those to come first', () => {
+		const view = setupView(
+			report({
+				reverseFields: [
+					{ entityType: 'ShootDay', name: 'sg_slates', displayName: 'Slate <-> Shoot Day', source: 'Slate.sg_shoot_day', status: 'present' },
+					{ entityType: 'Slate', name: 'sg_takes', displayName: 'Take <-> Slate', source: 'CustomEntity09.sg_slate', status: 'willAppear' },
+					{ entityType: 'Attachment', name: 'custom_entity09_sg_photos_custom_entity09s', displayName: 'Takes <-> Photos', source: 'CustomEntity09.sg_photos', status: 'willAppear' }
+				]
+			})
+		);
+		expect(view.reverse).toEqual([
+			{ entity: 'Slate', name: 'sg_takes', displayName: 'Take <-> Slate', status: 'willAppear' },
+			{ entity: 'Attachment', name: 'custom_entity09_sg_photos_custom_entity09s', displayName: 'Takes <-> Photos', status: 'willAppear' },
+			{ entity: 'Shoot Day', name: 'sg_slates', displayName: 'Slate <-> Shoot Day', status: 'present' }
+		]);
+		expect(view.reverseToCome).toBe(2);
 	});
 	it('passes on ready', () => {
 		expect(setupView(report({ ready: true })).ready).toBe(true);

@@ -9,6 +9,16 @@
 //   rolls back (findings/127_retry_and_client_uuid.md). That is `refused: duplicate`.
 // - A batch with no answer may have committed (findings/127): `timeout`, never resent blind.
 // - An upload is three calls and the last one's 201 proves nothing (findings/039_upload_silent_failures.md).
+// - A `_batch` create on a custom entity takes a float as a numeric string and honours
+//   `created_at`, as a single POST does (findings/137_batch_create_coercion.md). It also takes
+//   what a single POST refuses, so payload.ts checks every value before it is sent.
+// - A deleted row frees its client UUID, and reviving it after the UUID was taken again fails
+//   with 400 code 104 (findings/136_unique_scope_retired.md). So nothing here revives a row: an
+//   undone delete is a create, a new row under the same client UUID. A lookup sees live rows only.
+// - No rate limit seen at 28 mixed requests a second for 10 s (findings/144_rate_limit_burst.md):
+//   429 and 5xx stay `failed`, and the runner's backoff is the answer.
+// - A refusal for want of rights is 400 code 104 naming the type (findings/143_nonadmin_rows.md):
+//   said once in plain words, and that kind of change waits for the session.
 
 import type { BatchRequest, EntityRow } from 'sg-widgets-core';
 import {
@@ -27,8 +37,9 @@ import {
 import type { RecordRef, RemoteId } from '$lib/outbox/types';
 import { ApiRefusal, createApi, type Filter, type FptOptions } from './api';
 import { resolutionKey } from './cache';
-import { blamedField, isUniqueRefusal, missingRecord, type ApiFailure } from './errors';
-import { isEntityScope, STILLS, type EntityScope } from './mapping';
+import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
+import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
+import { ENTITY_SCOPES, isEntityScope, STILLS, type EntityScope } from './mapping';
 import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, type Resolution } from './schema';
@@ -72,7 +83,9 @@ type Token = {
 type InitReply = { data: Record<string, unknown>; links: { upload: string; complete_upload: string; get_next_part?: string } };
 type PartReply = { links: { upload: string; get_next_part?: string } };
 
-const groupBy = <T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> => {
+type Denied = 'create' | 'update' | 'delete';
+
+const groupBy =<T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> => {
 	const out = new Map<string, T[]>();
 	for (const item of items) out.set(key(item), [...(out.get(key(item)) ?? []), item]);
 	return out;
@@ -92,6 +105,24 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 		return resolution;
 	}
 
+	/**
+	 * Kinds of change the site refused for want of rights, as `<table>:<create|update|delete>`.
+	 * Kept for the life of the transport: a new sign-in or a new link makes a new one.
+	 */
+	const forbidden = new Set<string>();
+
+	/** Our table of an entity type the site named. */
+	function tableOf(entityType: string): string | undefined {
+		if (entityType === ATTACHMENT) return STILL;
+		return resolution ? ENTITY_SCOPES.find((scope) => resolution!.entities[scope] === entityType) : undefined;
+	}
+
+	/** Why waiting changes are not sent: the account's rights. */
+	function deniedText(table: string, action: Denied): string {
+		const things = hasMessage(`sync.things.${table}`) ? message(`sync.things.${table}` as MessageKey) : table;
+		return message(`sync.refused.${action}`, { things });
+	}
+
 	/** A field the site no longer has: the schema on the device is stale. The next call reads it again. */
 	async function forget(): Promise<void> {
 		resolution = undefined;
@@ -108,7 +139,8 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 		const out = new Map<string, EntityRow[]>();
 		if (!stillIds.length) return out;
 		const conditions = stillIds.map((id): Filter => ['filename', 'starts_with', stillPrefix(id)]);
-		const rows = await api.search(ATTACHMENT, { logical_operator: 'or', conditions }, ['filename', 'display_name', 'description'], 500, signal);
+		// `attachment_links` names the take the photo was uploaded to (findings/134).
+		const rows = await api.search(ATTACHMENT, { logical_operator: 'or', conditions }, ['filename', 'display_name', 'description', 'attachment_links'], 500, signal);
 		for (const id of stillIds) {
 			const prefix = stillPrefix(id).toLowerCase();
 			const mine = rows.filter((row) => String(row.attributes.filename ?? '').toLowerCase().startsWith(prefix)).sort((a, b) => b.id - a.id);
@@ -155,6 +187,11 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 
 		for (const o of ops) {
 			const op = o.op;
+			// A kind of change the site refused for want of rights waits: the answer would be the same.
+			if (forbidden.has(`${op.table}:${op.kind}`)) {
+				refuse(o, 'invalid', deniedText(op.table, op.kind as Denied));
+				continue;
+			}
 			if (op.table === PROJECT) {
 				// The project is the one the transport was given. Nothing is sent for it.
 				if (op.kind === 'create') out.remoteIds[o.entryId] = projectId;
@@ -218,9 +255,22 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 			const found = new Set((await transport.lookup(creates.map((o) => ({ table: o.op.table, id: o.op.recordId })), signal)).map((f) => f.id));
 			const duplicates = creates.filter((o) => found.has(o.op.recordId));
 			if (duplicates.length) return duplicates.map((o) => ({ entryId: o.entryId, reason: 'duplicate' as const }));
-			// Refused as not unique, and no record holds the id. Whether a deleted record keeps its value
-			// is unmeasured (findings/127). One create can be named; several cannot be told apart.
+			// Refused as not unique, and no live record holds the id. A deleted one does not hold it
+			// (findings/136), so this is a site rule we do not know. One create can be named; several
+			// cannot be told apart.
 			return creates.length === 1 ? [{ entryId: creates[0].entryId, reason: 'invalid', message: failure.title }] : [];
+		}
+
+		// The account may not make this kind of change: 400 code 104 naming the type (findings/143).
+		// Said once in plain words, and that kind is paused for the session (see `plan`).
+		const denied = rowRefusal(failure);
+		if (denied) {
+			const table = tableOf(denied.entityType);
+			if (table) {
+				forbidden.add(`${table}:${denied.action}`);
+				const hit = named((r) => r.request_type === denied.action && r.entity === denied.entityType, 'invalid', deniedText(table, denied.action));
+				if (hit.length) return hit;
+			}
 		}
 
 		const gone = missingRecord(failure);
@@ -336,12 +386,11 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 					const res = await resolved(signal);
 					const attachments = await attachmentsOf(group.map((r) => r.id), signal);
 					const newest = [...attachments].map(([id, rows]) => ({ id, row: rows[0] }));
-					if (!newest.length) continue;
-					// The take each Attachment hangs on: the remote id of a still names its take.
-					const field = stillsField(res);
-					const takes = await api.search(res.entities.take, [field, 'in', newest.map((n) => ({ type: ATTACHMENT, id: n.row.id }))], [field], 500, signal);
+					// The take each Attachment hangs on: the remote id of a still names its take. The upload
+					// lists the take in the Attachment's `attachment_links` (findings/134): no second search.
 					for (const { id, row } of newest) {
-						const take = takes.find((t) => ((t.relationships[field]?.data ?? []) as { id: number }[]).some((a) => a.id === row.id));
+						const links = (row.relationships.attachment_links?.data ?? []) as { type?: string; id: number }[];
+						const take = Array.isArray(links) ? links.find((l) => l.type === res.entities.take) : undefined;
 						if (!take) continue;
 						const capturedAt = capturedAtOf(row.attributes.display_name);
 						const description = text(row.attributes.description);
@@ -438,7 +487,10 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 				}
 			}
 			if (!url) throw new TransportError('expired', 'the upload has no URL for this part');
-			const etag = await api.putBytes(url, part.data, signal);
+			// A single PUT sets the stored file's type: the photo's own, not `binary/octet-stream`
+			// (findings/141). Whether a part's header sets anything is unmeasured: a part sends none,
+			// as the runner's slices always did, and a multipart file may be served untyped.
+			const etag = await api.putBytes(url, part.data, signal, t.multipart ? '' : t.ref.type || part.data.type);
 			// The completion of a multipart upload needs the ETag of every part (findings/044).
 			if (t.multipart && !etag) throw new TransportError('failed', 'storage answered no ETag');
 			t.sent.add(n);
@@ -447,10 +499,6 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 
 		async finishUpload(session: UploadSession, parts: SentPart[], signal?: AbortSignal): Promise<{ remoteId?: RemoteId }> {
 			const t = tokenOf(session);
-			const res = await resolved(signal);
-			// What the field holds now. Whether an upload to a multi-entity field adds to it or replaces
-			// it is unmeasured (findings/123 sent one file), so the earlier photos are put back if needed.
-			const before = await stillIds(res, t.meta.take, signal).catch(() => [] as number[]);
 			let info: Record<string, unknown>;
 			try {
 				info = completionInfo(t.info, parts);
@@ -466,11 +514,12 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 				throw new TransportError('failed', error.failure.title);
 			}
 			// The completion landed. Its answer is one space and names no row (findings/039), so the row
-			// is found by its file name. What follows is best effort: `verifyUpload` does it again.
+			// is found by its file name. The upload to the field added the photo to it, beside the
+			// earlier ones, and gave it the take's project (findings/134): nothing to put back. What
+			// follows is best effort: `verifyUpload` does it again.
 			try {
 				const [row] = await uploaded(t.filename, signal);
 				if (!row) return {};
-				await link(res, t.meta.take, [...before, row.id], signal);
 				await caption(row, t.meta, signal);
 				return { remoteId: row.id };
 			} catch {

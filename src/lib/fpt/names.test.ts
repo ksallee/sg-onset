@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { codeName, displayOf, slugOf } from './names';
+import { codeName, displayOf, reverseField, slugOf } from './names';
+
+describe('reverseField', () => {
+	// corpus findings/142_reverse_field.md: an entity field makes `sg_<source display name, plural>`
+	// on the linked type, shown as `<source display name> <-> <field display name>`.
+	it('names the field an entity field makes on the type it links', () => {
+		expect(reverseField('CustomEntity09', 'Take', 'sg_slate', 'Slate', 'entity')).toEqual({ name: 'sg_takes', displayName: 'Take <-> Slate' });
+		expect(reverseField('CustomEntity10', 'Camera Setup', 'sg_lens', 'Lens', 'entity')).toEqual({ name: 'sg_camera_setups', displayName: 'Camera Setup <-> Lens' });
+		expect(reverseField('Slate', 'Slate', 'sg_shoot_day', 'Shoot Day', 'entity').name).toBe('sg_slates');
+		expect(reverseField('CustomEntity19', 'Lens', 'sg_x', 'X', 'entity').name).toBe('sg_lenses');
+		expect(reverseField('ShootDay', 'Shoot Day', 'sg_x', 'X', 'entity').name).toBe('sg_shoot_days');
+	});
+
+	// findings/142 and 134: a multi_entity field makes `<slug>_<field>_<slug>s`, the slug singular.
+	it('names the field a multi-entity field makes', () => {
+		expect(reverseField('CustomEntity09', 'Take', 'sg_photos', 'Photos', 'multi_entity')).toEqual({
+			name: 'custom_entity09_sg_photos_custom_entity09s',
+			displayName: 'Takes <-> Photos'
+		});
+	});
+});
 
 describe('displayOf', () => {
 	it('splits a camelCase key into capitalised words', () => {

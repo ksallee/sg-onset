@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { blamedField, failureOf, isPermissionRefusal, isSessionRefusal, isUniqueRefusal, missingRecord, networkKind, statusKind } from './errors';
+import {
+	bearerRefusal,
+	blamedField,
+	failureOf,
+	isFieldCreateRefusal,
+	isPermissionRefusal,
+	isSessionRefusal,
+	isUniqueRefusal,
+	missingRecord,
+	networkKind,
+	rowRefusal,
+	statusKind
+} from './errors';
 
 const envelope = (error: Record<string, unknown>) => ({ errors: [error] });
 
@@ -107,6 +119,60 @@ describe('isPermissionRefusal', () => {
 
 	it('does not take a plain bad request for one', () => {
 		expect(isPermissionRefusal(failureOf(400, envelope({ title: "'valid_types' value expected Array with one element" })))).toBe(false);
+	});
+});
+
+// corpus findings/133_bearer_expiry.md: every bearer refusal is 401 code 102 `Unauthorized`; `detail`
+// tells them apart.
+describe('bearerRefusal', () => {
+	const unauthorized = (detail: string | null) => failureOf(401, envelope({ id: 'x', status: 401, code: 102, title: 'Unauthorized', source: null, detail, meta: null }));
+
+	it('knows a spent bearer, which a new one fixes', () => {
+		expect(bearerRefusal(unauthorized('Token Expired'))).toBe('expired');
+	});
+
+	it('takes a forged token or none as unauthorized', () => {
+		expect(bearerRefusal(unauthorized('Token invalid'))).toBe('invalid');
+		expect(bearerRefusal(unauthorized(null))).toBe('invalid');
+	});
+
+	it('is nothing for an answer that is not a bearer refusal', () => {
+		expect(bearerRefusal(failureOf(400, envelope({ status: 400, code: 102, title: 'x' })))).toBeUndefined();
+		expect(bearerRefusal(failureOf(401, envelope({ status: 401, code: 110, title: 'Must sudo' })))).toBeUndefined();
+	});
+});
+
+// corpus findings/132_field_create_rights.md: an Artist creating a field.
+describe('isFieldCreateRefusal', () => {
+	const title = "API schema_field_create() RuntimeError: User doesn't have permission to create a Field";
+	const traceback = "{traceback: \"/var/rails/shotgun/current/app/models/display_column.rb:2764:in 'block in DisplayColumn.create_column'\"}";
+
+	it('matches the measured answer, and reads its title past the traceback', () => {
+		const failure = failureOf(500, envelope({ status: 500, code: 105, title, detail: traceback }));
+		expect(failure.title).toBe(title);
+		expect(isFieldCreateRefusal(failure)).toBe(true);
+	});
+
+	it('is not a passing 500, nor another create failure', () => {
+		expect(isFieldCreateRefusal(failureOf(500, envelope({ status: 500, code: 105, title: 'Only true or false allowed in checkbox' })))).toBe(false);
+		expect(isFieldCreateRefusal(failureOf(500, null))).toBe(false);
+		expect(isFieldCreateRefusal(failureOf(400, envelope({ status: 400, code: 105, title: 'API schema_field_create() failed, there is a retired field' })))).toBe(false);
+	});
+});
+
+// corpus findings/143_nonadmin_rows.md: an Artist on custom-entity rows and Attachments.
+describe('rowRefusal', () => {
+	const refused = (title: string) => failureOf(400, envelope({ status: 400, code: 104, title }));
+
+	it('reads what was refused, and on which type', () => {
+		expect(rowRefusal(refused('Entity of type CustomEntity09 cannot be created by this user.'))).toEqual({ action: 'create', entityType: 'CustomEntity09' });
+		expect(rowRefusal(refused('Entity of type Attachment can not be deleted by this user.'))).toEqual({ action: 'delete', entityType: 'Attachment' });
+		expect(rowRefusal(refused('The field is not editable for this user: [CustomEntity09.code].'))).toEqual({ action: 'update', entityType: 'CustomEntity09', field: 'code' });
+	});
+
+	it('is nothing for another refusal', () => {
+		expect(rowRefusal(refused('Create failed for [CustomEntity09]: The value for the Onset UUID field is required to be unique. <br> '))).toBeUndefined();
+		expect(rowRefusal(failureOf(500, envelope({ status: 500, code: 104, title: 'Entity of type X cannot be created by this user.' })))).toBeUndefined();
 	});
 });
 

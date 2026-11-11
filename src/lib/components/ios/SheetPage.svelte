@@ -6,6 +6,7 @@
 	import { ChevronLeft } from '@lucide/svelte';
 	import { backLabel } from '$lib/ios/back';
 	import { getSheet, portal, reducedMotion, setSheet } from './layer.svelte';
+	import { t } from '$lib/i18n/messages';
 
 	let {
 		open = $bindable(false),
@@ -23,7 +24,7 @@
 	} = $props();
 
 	const sheet = getSheet();
-	const back = backLabel(sheet?.backLabel ?? 'Back');
+	const back = backLabel(sheet?.backLabel ?? t('common.back'));
 	setSheet({
 		get panel() {
 			return sheet?.panel ?? null;

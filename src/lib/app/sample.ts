@@ -6,9 +6,10 @@ import { metres } from '$lib/model/length';
 import { rational } from '$lib/model/rational';
 import type { Camera, CameraSetup, Lens, LightingSetup, Project, ShootDay, Slate, Take } from '$lib/model/types';
 import type { RowOf, TableName } from '$lib/store/tables';
+import { t } from '$lib/i18n/messages';
 import { addDays, today } from './format';
 
-export const SAMPLE_NAME = 'Sample project';
+export const SAMPLE_NAME = t('sample.name');
 
 export interface Sample {
 	project: Project;

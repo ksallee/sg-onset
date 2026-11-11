@@ -4,12 +4,13 @@
 	// any action, the scrim or Escape. Focus moves in and stays (keys.ts trapStep).
 	import { onDestroy } from 'svelte';
 	import { getScreen, holdFocus, overlays, portal, reducedMotion, trapTab } from './layer.svelte';
+	import { t } from '$lib/i18n/messages';
 
 	type Action = { label: string; role?: 'destructive' | 'cancel'; run: () => void };
 	let { open = $bindable(false), title, message, actions }: { open?: boolean; title?: string; message?: string; actions: Action[] } = $props();
 
 	const screen = getScreen();
-	const cancel = $derived(actions.find((a) => a.role === 'cancel') ?? { label: 'Cancel', role: 'cancel' as const, run: () => {} });
+	const cancel = $derived(actions.find((a) => a.role === 'cancel') ?? { label: t('common.cancel'), role: 'cancel' as const, run: () => {} });
 	const main = $derived(actions.filter((a) => a.role !== 'cancel'));
 
 	let phase = $state<'closed' | 'entering' | 'open' | 'leaving'>('closed');
@@ -66,8 +67,8 @@
 
 {#if phase !== 'closed'}
 	<div class="ios-action-layer" class:shown={phase === 'open'} class:reduced {@attach portal(() => screen?.el)}>
-		<button class="scrim" aria-label="Cancel" tabindex="-1" onclick={() => pick(cancel)}></button>
-		<div class="sheet" role="dialog" aria-modal="true" aria-label={title ?? 'Actions'} tabindex="-1" bind:this={el}>
+		<button class="scrim" aria-label={t('common.cancel')} tabindex="-1" onclick={() => pick(cancel)}></button>
+		<div class="sheet" role="dialog" aria-modal="true" aria-label={title ?? t('kit.actions')} tabindex="-1" bind:this={el}>
 			<div class="group">
 				{#if title || message}
 					<div class="info">

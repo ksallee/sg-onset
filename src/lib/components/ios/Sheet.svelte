@@ -10,6 +10,7 @@
 	import { onDestroy, type Snippet } from 'svelte';
 	import { detentOffset, snapDetent, type Detent } from '$lib/ios/detent';
 	import { getScreen, holdFocus, overlays, portal, reducedMotion, setSheet, trapTab } from './layer.svelte';
+	import { t } from '$lib/i18n/messages';
 
 	let {
 		open = $bindable(false),
@@ -45,7 +46,7 @@
 			return panel;
 		},
 		get backLabel() {
-			return title ?? 'Back';
+			return title ?? t('common.back');
 		},
 		pages: []
 	});
@@ -246,7 +247,7 @@
 
 {#if phase !== 'closed'}
 	<div class="ios-sheet-layer" class:under {@attach portal(() => screen?.el)}>
-		<button class="scrim" class:shown={!hidden} aria-label="Close" tabindex="-1" onclick={() => dismissible && close()}></button>
+		<button class="scrim" class:shown={!hidden} aria-label={t('common.close')} tabindex="-1" onclick={() => dismissible && close()}></button>
 		<div
 			class="panel"
 			class:reduced
@@ -266,7 +267,7 @@
 		>
 			<div class="top" data-sheet-grab onpointerdown={pdown} onpointermove={pmove} onpointerup={pup} onpointercancel={pup} role="presentation">
 				{#if detents.length > 1}
-					<button type="button" class="grabber" aria-label="Resize sheet" onclick={cycle}><span></span></button>
+					<button type="button" class="grabber" aria-label={t('kit.sheet.resize')} onclick={cycle}><span></span></button>
 				{:else if dismissible}
 					<span class="grabber" aria-hidden="true"><span></span></span>
 				{/if}

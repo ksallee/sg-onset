@@ -7,7 +7,7 @@ import fieldTextSource from '$lib/model/fieldText.ts?raw';
 import gearImportSource from '$lib/model/gearImport.ts?raw';
 import validateSource from '$lib/model/validate.ts?raw';
 import { hasMessage } from './messages';
-import { fieldLabel, importIssueText, issueText, optionLabel, unitLabel } from './modelText';
+import { fieldLabel, fieldShortLabel, importIssueText, issueText, optionLabel, unitLabel } from './modelText';
 
 const missing = (keys: Iterable<string>) => [...new Set(keys)].filter((key) => !hasMessage(key));
 const defs = FIELDS as readonly FieldDef[];
@@ -36,6 +36,14 @@ describe('field labels', () => {
 		expect(optionLabel(defs.find((d) => d.key === 'scriptTime')!, 'magicHour')).toBe('Magic hour');
 		expect(unitLabel('deg')).toBe('°');
 		expect(unitLabel(undefined)).toBe('');
+	});
+	it('reads the short label of a take field, and the long one where there is none', () => {
+		const focus = { labelKey: 'field.take.focusDistance' };
+		expect(fieldShortLabel(focus)).toBe('Focus');
+		expect(fieldShortLabel(focus, true)).toBe('Focus end');
+		const name = { labelKey: 'field.project.name' };
+		expect(fieldShortLabel(name)).toBe('Name');
+		expect(fieldShortLabel(name, true)).toBe('Name, end');
 	});
 });
 

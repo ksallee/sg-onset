@@ -4,6 +4,7 @@
 	import Segmented from '$lib/components/ios/Segmented.svelte';
 	import { t } from '$lib/i18n/messages';
 	import { captureTarget } from '$lib/ios/target';
+	import { layer } from '$lib/components/ios/layer.svelte';
 	import { HANDS, THEMES, type Settings } from '$lib/take/settings';
 
 	let {
@@ -16,9 +17,8 @@
 	const target = $derived(captureTarget(settings.gloves));
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
 <button type="button" class="scrim" aria-label={t('settings.close')} onclick={onclose}></button>
-<section class="setup-panel" data-at={at} aria-label={t('settings.title')}>
+<section class="setup-panel" data-at={at} use:layer={onclose} aria-label={t('settings.title')}>
 	<h2>{t('settings.hand')}</h2>
 	<Segmented label={t('settings.hand')} options={HANDS.map((h) => ({ value: h, label: t(`settings.hand.${h}`) }))} value={settings.hand} onchange={(v) => onchange({ ...settings, hand: v as Settings['hand'] })} />
 	<h2>{t('settings.theme')}</h2>

@@ -2,12 +2,13 @@
 	// A progress ring, as Apple Fitness draws it: a faint full track, a round-capped arc from the
 	// top. `children` goes in the middle ("3 of 6").
 	import type { Snippet } from 'svelte';
+	import { t } from '$lib/i18n/messages';
 	let {
 		value,
 		size = 64,
 		stroke,
 		color = 'var(--tint)',
-		label = 'Progress',
+		label = t('kit.progress'),
 		children
 	}: { value: number; size?: number; stroke?: number; color?: string; label?: string; children?: Snippet } = $props();
 

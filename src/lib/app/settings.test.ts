@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS, SETTINGS_KEY, documentLook, parseSettings, resolveMot
 
 describe('parseSettings', () => {
 	it('defaults to right hand, the look and the motion of the device, no night mode, standard buttons, metric, an open sidebar, no place', () => {
-		expect(parseSettings(null)).toEqual({ hand: 'right', appearance: 'system', night: false, buttonSize: 'standard', units: 'metric', motion: 'system', sidebar: 'open', last: {} });
+		expect(parseSettings(null)).toEqual({ hand: 'right', appearance: 'system', night: false, buttonSize: 'standard', units: 'metric', motion: 'system', sidebar: 'open', captureSidebar: 'strip', last: {} });
 		expect(parseSettings('')).toEqual(DEFAULT_SETTINGS);
 	});
 	it('reads back what was stored', () => {
@@ -17,6 +17,7 @@ describe('parseSettings', () => {
 			units: 'imperial',
 			motion: 'reduced',
 			sidebar: 'strip',
+			captureSidebar: 'open',
 			last: { projectId: 'p1', shootDayId: 'd1', slateId: 's1' },
 			sampleProjectId: 'p1'
 		};
@@ -25,7 +26,7 @@ describe('parseSettings', () => {
 	it('replaces nonsense by the default, field by field', () => {
 		expect(parseSettings('not json')).toEqual(DEFAULT_SETTINGS);
 		expect(parseSettings('[1]')).toEqual(DEFAULT_SETTINGS);
-		expect(parseSettings('{"hand":"both","appearance":"sepia","night":"yes","buttonSize":"huge","units":"cubits","motion":"wild","sidebar":3,"last":{"projectId":7,"slateId":""}}')).toEqual(DEFAULT_SETTINGS);
+		expect(parseSettings('{"hand":"both","appearance":"sepia","night":"yes","buttonSize":"huge","units":"cubits","motion":"wild","sidebar":3,"captureSidebar":"wide","last":{"projectId":7,"slateId":""}}')).toEqual(DEFAULT_SETTINGS);
 		expect(parseSettings('{"appearance":"dark","last":null}')).toEqual({ ...DEFAULT_SETTINGS, appearance: 'dark' });
 	});
 });

@@ -72,6 +72,35 @@ test.describe('navigation', () => {
 		if (wide) expect(at).toMatchObject({ left: false, right: true });
 	});
 
+	test('the sidebar keeps its width on Shoot apart from the rest, and both last', async ({ page }) => {
+		test.skip(page.viewportSize()!.width < 1000, 'a sidebar only in landscape');
+		const expand = () => nav(page).getByRole('button', { name: 'Show the names' });
+		const collapse = () => nav(page).getByRole('button', { name: 'Hide the names' });
+		const width = async () => (await nav(page).boundingBox())!.width;
+
+		await openApp(page, '/slates');
+		await expect(collapse()).toBeVisible();
+		const open = await width();
+
+		// Shoot starts as a strip, with the button there.
+		await nav(page).getByRole('link', { name: 'Shoot', exact: true }).tap();
+		await expect(expand()).toBeVisible();
+		expect(await width()).toBeLessThan(open);
+
+		// Elsewhere stays open after a visit to Shoot.
+		await nav(page).getByRole('link', { name: 'Gear', exact: true }).tap();
+		await expect(collapse()).toBeVisible();
+		expect(await width()).toBe(open);
+
+		// Opened on Shoot, it stays open there, after a reload too.
+		await nav(page).getByRole('link', { name: 'Shoot', exact: true }).tap();
+		await expand().tap();
+		await expect(collapse()).toBeVisible();
+		await page.reload();
+		await expect(collapse()).toBeVisible();
+		expect(await width()).toBe(open);
+	});
+
 	test('a slate pushes over the list and the way back returns to it', async ({ page }) => {
 		await openApp(page, '/slates');
 		await page.getByRole('link', { name: /42A/ }).tap();

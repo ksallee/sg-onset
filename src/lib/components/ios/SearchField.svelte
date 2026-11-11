@@ -2,10 +2,11 @@
 	// The iOS search field: a magnifier, 17 px text (no zoom on focus), a clear button once there
 	// is text, Cancel beside it while focused or filled. Cancel clears, blurs and calls `oncancel`.
 	import { Search, CircleX } from '@lucide/svelte';
+	import { t } from '$lib/i18n/messages';
 
 	let {
 		value = $bindable(''),
-		placeholder = 'Search',
+		placeholder = t('common.search'),
 		oncancel,
 		onsubmit,
 		label
@@ -51,7 +52,7 @@
 			<button
 				type="button"
 				class="clear"
-				aria-label="Clear"
+				aria-label={t('common.clear')}
 				onpointerdown={(e) => e.preventDefault()}
 				onclick={() => {
 					value = '';
@@ -60,7 +61,7 @@
 			>
 		{/if}
 	</div>
-	<button type="button" class="cancel" class:shown={active} tabindex={active ? 0 : -1} aria-hidden={!active} onclick={cancel}>Cancel</button>
+	<button type="button" class="cancel" class:shown={active} tabindex={active ? 0 : -1} aria-hidden={!active} onclick={cancel}>{t('common.cancel')}</button>
 </form>
 
 <style>

@@ -64,7 +64,8 @@
 <style>
 	.ios-workspace {
 		--list-w: 248px;
-		--dock-w: 304px;
+		/* Three keys across at the capture target, so a 20 mm key is 20 mm wide too. */
+		--dock-w: max(304px, calc(var(--target) * 3 + 40px));
 		position: relative;
 		display: grid;
 		grid-template-rows: minmax(0, 1fr);
@@ -72,7 +73,8 @@
 		padding-top: var(--safe-top);
 		background: var(--bg);
 		color: var(--label);
-		overflow: hidden;
+		/* Clip, not hidden: nothing inside (the rail's file input) can scroll it by script. */
+		overflow: clip;
 	}
 	.ios-workspace[data-form='tall'] {
 		grid-template-rows: auto minmax(0, 1fr);

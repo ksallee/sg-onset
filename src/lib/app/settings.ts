@@ -37,6 +37,8 @@ export interface Settings {
 	motion: Motion;
 	/** The sidebar in landscape: with names, or a strip of icons. */
 	sidebar: 'open' | 'strip';
+	/** The same on the capture destination, kept apart: it starts as a strip, for the room. */
+	captureSidebar: 'open' | 'strip';
 	last: Last;
 	/** The sample project, if it was loaded: so Settings can delete it. */
 	sampleProjectId?: string;
@@ -45,7 +47,7 @@ export interface Settings {
 export type Motion = 'system' | 'full' | 'reduced';
 export const MOTIONS: readonly Motion[] = ['system', 'full', 'reduced'];
 
-export const DEFAULT_SETTINGS: Settings = { hand: 'right', appearance: 'system', night: false, buttonSize: 'standard', units: 'metric', motion: 'system', sidebar: 'open', last: {} };
+export const DEFAULT_SETTINGS: Settings = { hand: 'right', appearance: 'system', night: false, buttonSize: 'standard', units: 'metric', motion: 'system', sidebar: 'open', captureSidebar: 'strip', last: {} };
 
 /**
  * The look in force. `theme` is `data-theme` on <html>: the appearance, or with `system` what the
@@ -85,6 +87,7 @@ export function parseSettings(raw: string | null | undefined): Settings {
 		units: v.units === 'imperial' || v.units === 'metric' ? v.units : DEFAULT_SETTINGS.units,
 		motion: MOTIONS.includes(v.motion as Motion) ? (v.motion as Motion) : DEFAULT_SETTINGS.motion,
 		sidebar: v.sidebar === 'strip' ? 'strip' : 'open',
+		captureSidebar: v.captureSidebar === 'open' ? 'open' : 'strip',
 		last: compact({ projectId: id(last.projectId), shootDayId: id(last.shootDayId), slateId: id(last.slateId) }),
 		sampleProjectId: id(v.sampleProjectId)
 	});

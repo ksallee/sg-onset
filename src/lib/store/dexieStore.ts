@@ -14,7 +14,8 @@ import { enqueue } from '$lib/outbox/queue';
 import { unsynced } from '$lib/outbox/select';
 import { isActive, isOpen, type Entry, type FieldEdit, type Fresh, type Op, type Queue, type RemoteId } from '$lib/outbox/types';
 import { persistStorage } from '$lib/pwa/persist';
-import { INTERNAL_TABLES, VERSIONS, type SchemaVersion } from './schema';
+import { INTERNAL_TABLES, SNAPSHOTS_SINCE, VERSIONS, type SchemaVersion } from './schema';
+import { createSnapshots, migrationSnapshot } from './snapshots/snapshots';
 import { BLOB_KEEP_MS, prunable, storageStatus } from './storage';
 import { dependsOn, isTable, PARENTS, TABLES, type TableName } from './tables';
 import type { BackupSource, BackupTarget, BlobMeta, NewBlob, Store, StoreEvent } from './types';
@@ -41,7 +42,8 @@ type Row = { id: string } & Record<string, unknown>;
 type TrashRow = { id: string; table: TableName; record: Row; deletedAt: number };
 type QueueOp = { op: Op; dependsOn: readonly string[] };
 
-const QUEUE_TABLES = ['outbox', 'remotes', 'blobs', 'blobData', 'trash', 'meta'] as const;
+/** `snapshots` is read, never written, by these transactions: the photo bytes a snapshot names stay. */
+const QUEUE_TABLES = ['outbox', 'remotes', 'blobs', 'blobData', 'trash', 'meta', 'snapshots'] as const;
 /** Everything a backup holds as rows. The bytes of `blobData` travel as files. */
 const BACKUP_TABLES = [...TABLES, 'blobs', 'outbox', 'remotes', 'trash', 'meta'];
 
@@ -57,10 +59,23 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 		...(options.indexedDB ? { indexedDB: options.indexedDB } : {}),
 		...(options.IDBKeyRange ? { IDBKeyRange: options.IDBKeyRange } : {})
 	});
-	for (const v of versions) {
+	// Every upgrade from the snapshots' version on takes a snapshot first, once per open: a
+	// migration that goes wrong can then be taken back. One that throws changes nothing.
+	let snapshotted = false;
+	versions.forEach((v, i) => {
 		const version = db.version(v.version).stores(v.stores);
-		if (v.upgrade) version.upgrade(v.upgrade);
-	}
+		if (v.version < SNAPSHOTS_SINCE) {
+			if (v.upgrade) version.upgrade(v.upgrade);
+			return;
+		}
+		version.upgrade(async (tx) => {
+			if (!snapshotted) {
+				snapshotted = true;
+				await migrationSnapshot(tx, { id: uuid(), now: now(), fromVersion: versions[i - 1]?.version ?? 0 });
+			}
+			await v.upgrade?.(tx);
+		});
+	});
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const table = <T = any>(name: string): Table<T, string> => db.table(name);
@@ -83,9 +98,12 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 		}
 	}
 
+	/** A table of the schema this store was opened with. Tests open older ones. */
+	const has = (name: string) => db.tables.some((t) => t.name === name);
+
 	/** One transaction over the queue's tables and `extra`. */
 	function write<T>(extra: readonly string[], fn: () => Promise<T>): Promise<T> {
-		return db.transaction('rw', [...extra, ...QUEUE_TABLES].map((n) => table(n)), fn);
+		return db.transaction('rw', [...extra, ...QUEUE_TABLES].filter(has).map((n) => table(n)), fn);
 	}
 
 	// What follows runs inside a `write`.
@@ -102,7 +120,9 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 	async function dropBlobs(recordId: string): Promise<void> {
 		const ids = await blobs.where('recordId').equals(recordId).primaryKeys();
 		await blobs.bulkDelete(ids);
-		await blobData.bulkDelete(ids);
+		// Bytes a snapshot names stay until it goes: restoring it brings the file back.
+		const pinned = await snapshots.pinned();
+		await blobData.bulkDelete(ids.filter((id) => !pinned.has(id)));
 	}
 
 	/**
@@ -164,6 +184,15 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 			dependsOn: [info.recordId]
 		};
 	}
+
+	const snapshots = createSnapshots({
+		db,
+		schemaVersion: versions[versions.length - 1].version,
+		now,
+		uuid,
+		emit,
+		storage: () => store.storage()
+	});
 
 	const port: OutboxPort = {
 		entries: () => outbox.orderBy('seq').toArray(),
@@ -305,7 +334,8 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 		async pruneBlobs(keepMs = BLOB_KEEP_MS) {
 			const pruned = await write([], async () => {
 				const at = now();
-				const ids = (await blobs.toArray()).filter((info) => prunable(info, at, keepMs)).map((info) => info.id);
+				const pinned = await snapshots.pinned();
+				const ids = (await blobs.toArray()).filter((info) => prunable(info, at, keepMs) && !pinned.has(info.id)).map((info) => info.id);
 				await blobData.bulkDelete(ids);
 				for (const id of ids) await blobs.update(id, { prunedAt: at });
 				return ids.length;
@@ -315,6 +345,7 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 		},
 
 		outbox: port,
+		snapshots,
 
 		unsynced: async () => unsynced(await port.entries()),
 
@@ -376,19 +407,28 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 		schemaVersion: versions[versions.length - 1].version,
 		tableNames: () => [...BACKUP_TABLES],
 		rows: (name) => table(name).toArray(),
-		blobIds: () => blobData.toCollection().primaryKeys(),
+		async blobIds() {
+			// Bytes kept only for a snapshot are not part of the store any more.
+			const described = new Set(await blobs.toCollection().primaryKeys());
+			return (await blobData.toCollection().primaryKeys()).filter((id) => described.has(id));
+		},
 
 		async isEmpty() {
 			for (const name of [...TABLES, ...INTERNAL_TABLES]) {
-				if (name !== 'meta' && (await table(name).count())) return false;
+				if (name !== 'meta' && name !== 'blobData' && (await table(name).count())) return false;
 			}
 			return true;
 		},
 
 		async clear() {
 			const names = [...TABLES, ...INTERNAL_TABLES];
-			await db.transaction('rw', names.map((n) => table(n)), async () => {
-				for (const name of names) await table(name).clear();
+			await db.transaction('rw', [...names, 'snapshots'].filter(has).map((n) => table(n)), async () => {
+				const pinned = await snapshots.pinned();
+				for (const name of names) {
+					// The bytes a snapshot names stay: the snapshot taken before this can bring them back.
+					if (name === 'blobData') await blobData.bulkDelete((await blobData.toCollection().primaryKeys()).filter((id) => !pinned.has(id)));
+					else await table(name).clear();
+				}
 			});
 			emit(names);
 		},

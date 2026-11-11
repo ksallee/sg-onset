@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INTERNAL_TABLES, SCHEMA_VERSION, VERSIONS } from './schema';
+import { INTERNAL_TABLES, SCHEMA_VERSION, SNAPSHOT_TABLES, SNAPSHOTS_SINCE, VERSIONS } from './schema';
 import { PARENTS, TABLES } from './tables';
 
 describe('VERSIONS', () => {
@@ -23,6 +23,13 @@ describe('VERSIONS', () => {
 			expect((TABLES as readonly string[]).includes(name)).toBe(false);
 		}
 		expect(Object.keys(stores).sort()).toEqual([...TABLES, ...INTERNAL_TABLES].sort());
+	});
+
+	it('adds the snapshot tables in their own version, and nothing else', () => {
+		const added = VERSIONS.find((v) => v.version === SNAPSHOTS_SINCE)!;
+		expect(added.stores).toEqual({ snapshots: 'id, at, *blobIds', snapshotData: 'id' });
+		expect([...SNAPSHOT_TABLES]).toEqual(['snapshots', 'snapshotData']);
+		for (const name of SNAPSHOT_TABLES) expect((INTERNAL_TABLES as readonly string[]).includes(name)).toBe(false);
 	});
 
 	it('keeps the bytes of a file apart from its description', () => {

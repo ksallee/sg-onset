@@ -27,6 +27,17 @@ export type SchemaVersion = {
  */
 export const INTERNAL_TABLES = ['blobs', 'blobData', 'outbox', 'remotes', 'trash', 'meta'] as const;
 
+/**
+ * The snapshots' tables, apart from the store's own: a backup does not hold them, emptying the
+ * store for a restore does not empty them, and they do not count when asking if the store is empty.
+ * - `snapshots`: one row per snapshot, without its bytes. `*blobIds` finds the files it names.
+ * - `snapshotData`: the bytes, `{ id, data: Blob }`.
+ */
+export const SNAPSHOT_TABLES = ['snapshots', 'snapshotData'] as const;
+
+/** The version that added the snapshots. Every upgrade from it on takes a snapshot first. */
+export const SNAPSHOTS_SINCE = 2;
+
 function recordStores(): Record<string, string> {
 	return Object.fromEntries(TABLES.map((table) => [table, PARENTS[table] ? `id, ${PARENTS[table].key}` : 'id']));
 }
@@ -43,6 +54,10 @@ export const VERSIONS: readonly SchemaVersion[] = [
 			trash: 'id',
 			meta: 'key'
 		}
+	},
+	{
+		version: 2,
+		stores: { snapshots: 'id, at, *blobIds', snapshotData: 'id' }
 	}
 ];
 

@@ -11,6 +11,11 @@ node_modules/
 /.vercel
 vite.config.ts.timestamp-*
 
+# E2E: pnpm qa and pnpm e2e write here
+/.qa
+/test-results
+/playwright-report
+
 # OS
 .DS_Store
 

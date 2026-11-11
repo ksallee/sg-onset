@@ -5,32 +5,32 @@ the wordmark. One drawing, `static/brand/icon.svg`, is the source. `scripts/icon
 every other file from it. The specimen page is `/proto/icon`. `src/lib/pwa/manifest.test.ts`
 checks the files.
 
-## The concept: take marks
+## The concept: tracking marker
 
-Four bars and a strike. It is the way a count is kept by hand, and the count kept on a set is
-takes. The bars are the takes behind you. The strike is the take being logged, in the app's one
-blue.
+The quartered square VFX tapes to a set so a shot can be tracked. Two quarters in gold, two in deep
+gold, meeting at one point: the point a tracker locks to. Kevin picked it from the specimen (#53).
 
 Why this one:
 
-- It says what the app does (log takes), where a camera, a lens or a clapperboard says film in
-  general.
-- Five straight strokes hold at small sizes. The tab icon is the same drawing snapped to pixels.
-- It stays itself in one colour: the strike is cut clear of the bars, so the tinted, clear and
-  monochrome versions read as well as the coloured one.
+- It is this crew's own object. A camera, a lens or a clapperboard says film in general.
+- It is the sharpest of the eight drawings at 16 px: four squares on the pixel grid.
+- It is one object. The quarters touch, with no gap, and the square keeps its outer corners. With
+  gaps it is a window logo. With two quarters left out it is a pair of steps. With more than four
+  cells it is a flag.
+- It stays itself in one colour: the deep quarters become the same colour at 35 %, so the tinted,
+  clear and monochrome versions still show a quartered square.
 - A light mark on a dark field is what iPadOS darkens and tints best. A Home Screen web app has no
   documented way to give the system its own dark, tinted or clear icon
   ([Apple forum thread](https://developer.apple.com/forums/thread/787919)), so the one image has
   to survive the system's own versions. Not yet checked on an iPad: see "To check on a device".
-- Nothing near it in the trade. No clapperboard (an editor's icon already), no record disc (every
-  camera app), no Autodesk or Flow Production Tracking mark or colour.
+- No Autodesk or Flow Production Tracking mark or colour.
 
 Eight concepts were drawn. All are on `/proto/icon` with the reason each was kept or set aside.
 
 | Concept | From | Verdict |
 |---|---|---|
-| Take marks | The take count, kept by hand | Chosen |
-| Tracking marker | The marker VFX tapes to the set | Runner-up. Sharpest at 16 px, but a checker to anyone outside VFX. |
+| Tracking marker | The marker VFX tapes to the set | Chosen |
+| Take marks | The take count, kept by hand | Runner-up. The first icon. Kevin preferred the marker. |
 | Floor mark | The tape T an actor stands on | Runner-up. Bold, but it is the letter T when small. |
 | Sticks | The clapper on a slate | Set aside. Every film app has one; stripes are noise under 60 px. |
 | Start disc | The button that starts a take | Set aside. A record button, and red is kept for that one control. |
@@ -38,41 +38,65 @@ Eight concepts were drawn. All are on `/proto/icon` with the reason each was kep
 | Slate sheet | A slate as rows of fields | Set aside. A calendar or a calculator at a glance. |
 | Letters | The name | Set aside. SG is the family, not this app. |
 
+The gold was drawn six ways (`/proto/icon`, "The gold, six ways") and judged at 180, 60, 32 and 16
+px on a pale and a dark wallpaper.
+
+| Variant | Verdict |
+|---|---|
+| As first seen: the tint mock, gaps of 24, two quarters at 30 % | Set aside. A window logo. |
+| Pair: two gold quarters, two left out | Set aside. Steps; the square is gone. |
+| Framed pair: the pair inside a deep gold frame | Set aside. The frame is gone at 16 px. |
+| One gold: off-white, charcoal and one gold quarter | Set aside. Three colours, and little gold. |
+| Bronze, with gaps: gold and bronze, a cross between | Set aside. The bronze reads brown; the cross reads as a window. |
+| Gold and deep gold, no gaps | Chosen |
+
 ## Construction
 
 The canvas is 1024 square, full bleed, no corners: the system cuts them.
 
 | Part | Geometry |
 |---|---|
-| Bars | Four. 88 wide, 488 tall, 56 apart, corner radius 18. x 252, 396, 540, 684; y 268 to 756. |
-| Strike | 88 thick, 768 long, radius 18, turned 23.4° up to the right about the centre (512, 512). |
-| Gap | The strike clears every bar by 30: the bars are masked by a band 148 thick. |
-| Mark | 740 wide by 488 tall, centred. 72 % of the canvas. Its farthest corner is 387 from the centre. |
-| Maskable | The same mark at 84 %, so it sits well inside the safe circle (radius 410 at this size). |
+| Marker | A square of 544, centred: 240 to 784. 53 % of the canvas. Outer corners of radius 60. |
+| Quarters | Four of 272. No gap. They meet at the centre (512, 512). |
+| Gold | Top left and bottom right. Top right and bottom left are deep gold. |
+| Reach | The marker's corner is 385 from the centre. |
+| Maskable | The same marker at 84 %, so it sits well inside the safe circle (radius 410 at this size). |
 
-The unit is one bar (88). A bar and a gap are 144.
+The unit is one quarter (272).
 
-Small sizes are drawn again on the pixel grid, same count and same angle:
+Small sizes are drawn again on the pixel grid, with the centre on a pixel edge:
 
-- 16 px (the tab icon, no field): bars 2 wide and 2 apart, 12 tall; strike 2 thick.
-- 32 px (the PNG fallback, on the field): bars 3 wide and 2 apart, 16 tall; strike 3 thick.
+- 16 px (the tab icon, no field): a square of 14, quarters of 7, corner radius 2.
+- 32 px (the PNG fallback, on the field): a square of 18, quarters of 9, corner radius 2.
 
 ## Colours
 
-All from `src/lib/theme/palette.ts`, except the strike on dark, which sits between the palette's
-two dark blues so it carries on a Home Screen.
+The gold is the icon's own. It is an identity colour, separate from the UI accent: the app's accent
+stays the blue in `src/lib/theme/palette.ts`, and the gold is not a palette token. Do not use it
+for a control, a status or text in the app.
 
-| Part | On the dark field | On a light ground |
-|---|---|---|
-| Field or ground | #232427 at the top to #0a0a0b (`--bg`, dark) | #ecedf2 (`--bg`, light) |
-| Bars | #eff0f2 (`--label`, dark) | #0d0e12 (`--label`, light) |
-| Strike | #568ef9: OKLCH 0.66 0.17 262 | #3d70d1 (`--tint-solid`, dark) |
+| Part | OKLCH | On the dark field | On a light ground |
+|---|---|---|---|
+| Field or ground | | #232427 at the top to #0a0a0b (`--bg`, dark) | #ecedf2 (`--bg`, light) |
+| Gold | 0.80 0.145 84 | #eab53b | #cf9b0f (0.72 0.145 84) |
+| Deep gold | 0.41 0.065 88 | #59481c | #272114 (0.25 0.025 85) |
+| Name, in the lockup | | #eff0f2 (`--label`, dark) | #0d0e12 (`--label`, light) |
 
-Red is not in the icon. Red is Record's (`docs/design/colour.md`).
+- Gold on the field is 10.5:1 at the bottom and 8.2:1 at the top. Hue 84 sits between yellow (about
+  100) and orange (about 60). Chroma 0.145 keeps it from mustard.
+- Deep gold is 2.2:1 on the bottom of the field, enough to close the square at 16 px.
+  Its hue is turned 4° toward yellow and its chroma is more than halved, so it reads as gold in
+  shadow rather than brown.
+- On a light ground the deep quarters go near black (13.7:1 on the canvas) and carry the shape.
+  The gold beside them is a shade darker.
+- In one colour (monochrome, clear), the deep quarters are that colour at 35 %.
+
+Red is not in the icon. Red is Record's (`docs/design/colour.md`). The UI blue is not in it either.
+`manifest.test.ts` checks both.
 
 ## Clear space and size
 
-- Keep one bar and one gap (144 of 1024, a fifth of the mark's width) clear on every side of the
+- Keep half a quarter (136 of 1024, a quarter of the mark's width) clear on every side of the
   mark. The lockup's own box already includes nothing else: add the space around it.
 - The mark alone: no smaller than 16 px wide. Under 24 px use `favicon.svg`, the pixel drawing.
 - The lockup: no smaller than 20 px tall.
@@ -86,8 +110,9 @@ Red is not in the icon. Red is Record's (`docs/design/colour.md`).
 
 ## Do not
 
-- Recolour the bars or the strike, or make the strike red.
-- Change the count, the angle or the gap. Do not round the bar ends into pills.
+- Recolour the quarters, swap the golds, or use the UI blue or Record red in the mark.
+- Open a gap between the quarters, drop two of them, or turn the marker.
+- Use the gold in the app's UI. It is the icon's.
 - Put the mark on a photograph or a mid-grey: light ground or dark field only.
 - Set the name in another face beside the mark, or write it "SG Onset" or "sg-onset"
   (`docs/vocabulary.md`).
@@ -116,7 +141,7 @@ iPadOS does not make a launch screen from the manifest the way Android does. A H
 with no `apple-touch-startup-image` that matches the device exactly opens on a blank screen
 ([web.dev](https://web.dev/learn/pwa/enhancements),
 [firt.dev](https://firt.dev/notes/pwa-ios/)). On a dark set that is a white flash, so the images
-are shipped: the mark, 144 pt wide, centred on the canvas of the scheme (`--bg`), for the nine
+are shipped: the mark, 112 pt wide, centred on the canvas of the scheme (`--bg`), for the nine
 iPad screen sizes iPadOS 26 runs on, both ways up, light and dark. The link's media query picks
 one by `device-width`, `device-height`, pixel ratio, orientation and `prefers-color-scheme`.
 
@@ -152,7 +177,7 @@ On the welcome screen, one image per scheme (the app's `data-theme`, not the dev
 }
 ```
 
-Red night has no lockup of its own (blue and off-white are not red-only). There, show the name as
+Red night has no lockup of its own (gold and off-white are not red-only). There, show the name as
 text in `--label`.
 
 ## Manifest and head

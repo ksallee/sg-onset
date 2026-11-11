@@ -136,6 +136,32 @@ describe('manifest.webmanifest', () => {
 	});
 });
 
+// The icon's two golds as pixels: the bright quarters, and the deep ones (darker, still warm).
+const isGold = (r: number, g: number, b: number) => r > 200 && g > 150 && b < 120;
+const isDeepGold = (r: number, g: number, b: number) => r > 70 && r < 130 && r > g + 10 && g > b + 25;
+
+describe('the drawing', () => {
+	it('is the tracking marker: gold top left and bottom right, deep gold between, on the dark field', async () => {
+		const { size, at } = await pngPixels('/icons/apple-touch-icon.png');
+		const q = (fx: number, fy: number) => at(Math.round(size * fx), Math.round(size * fy)).slice(0, 3) as [number, number, number];
+		expect(isGold(...q(0.37, 0.37)), 'top left').toBe(true);
+		expect(isGold(...q(0.63, 0.63)), 'bottom right').toBe(true);
+		expect(isDeepGold(...q(0.63, 0.37)), 'top right').toBe(true);
+		expect(isDeepGold(...q(0.37, 0.63)), 'bottom left').toBe(true);
+		expect(Math.max(...q(0.1, 0.5)), 'the field beside the marker').toBeLessThan(48);
+	});
+
+	it('keeps the UI blue and Record red out of the source', () => {
+		const fills = [...brand['/brand/icon.svg'].matchAll(/#[0-9a-f]{6}/g)].map((m) => parseColor(m[0]));
+		expect(fills.length).toBeGreaterThan(3);
+		// Field greys and golds only: red is never under green, blue never over green.
+		for (const { r, g, b } of fills) {
+			expect(b).toBeLessThanOrEqual(g + 0.02);
+			expect(r - g).toBeLessThan(0.25);
+		}
+	});
+});
+
 describe('the masked icons', () => {
 	// A platform may cut a maskable icon to any shape inside the circle of radius 40 % of the
 	// side (W3C manifest, "icon masks and safe zone"). Nothing of the mark may sit outside it.
@@ -160,7 +186,7 @@ describe('the masked icons', () => {
 			for (let x = 0; x < size; x++) {
 				const [r, g, b] = at(x, y);
 				if (outside(size, x, y)) stray += Math.max(r, g, b) >= 48 ? 1 : 0;
-				else ink += Math.min(r, g, b) > 200 ? 1 : 0;
+				else ink += isGold(r, g, b) ? 1 : 0;
 			}
 		}
 		expect(stray, 'pixels of the mark outside the safe zone').toBe(0);

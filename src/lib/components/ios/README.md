@@ -2,7 +2,8 @@
 
 From holosession (#57 there). Classic iOS 17 look: bar material (`--mat-bar`, `.material-bar`)
 and hairlines, no Liquid Glass (Kevin, 2026-10-29). Tokens and type utilities in `src/app.css`.
-Phone-sized: no split view, sidebar or side action rail yet.
+The phone parts are from holosession; the iPad parts (Workspace, Rail, RailButton, RecordButton,
+Keypad, Chip) are sg-onset's own (#1).
 
 ## Deviations from docs/ios/plan.md §2
 
@@ -61,6 +62,26 @@ One line each: props, then an example.
   `<EmptyState icon={Folder} title="No Sessions" message="…">{#snippet action()}…{/snippet}</EmptyState>`
 - `ProgressRing {value (0–1), size = 64, stroke?, color = tint, label?, children?}`.
   `<ProgressRing value={0.5} size={72}>3 of 6</ProgressRing>`
+
+## iPad (#1)
+
+- `Workspace {hand = 'right', target = 78, gap = 16, class?, list, main, dock, rail}`: list, main,
+  dock and rail side by side; the rail on the holding hand's edge, the left hand mirrors every
+  column. Under 1000 px wide the list is a strip on top; under 700 px one stack, the rail along
+  the foot. Snippets get where they sit: `list(at, form)`, `main(form)`, `dock(form)`,
+  `rail(edge)`. `class="ios-light ios-day"`, `ios-dark`, `ios-dark ios-night` picks the theme.
+  `target` and `gap` (px, from `ios/target.ts`) become `--target` and `--gap`.
+- `Rail {edge, label, rolling?, top?, capture, more?}`: the action rail. `capture` sits a third to
+  half way down a side edge, `more` under it, `top` in the corner.
+- `RailButton {label, caption?, capture?, badge?, disabled?, pressed?, onclick, children}`: an icon
+  in a square with a word under it. `capture`: the full target (15 mm, 20 mm for gloves).
+- `RecordButton {rolling, label, caption?, detail?, onclick}`: a ring and a disc; a square while rolling.
+- `Keypad {onkey, point = true, labels}`: digits, point, delete. Sends `ios/keypad.ts` keys.
+- `Chip {on?, label?, onclick, children}`: a value to pick with one tap.
+- No motion in any of these: they are the capture path.
+- Pure, tested: `ios/target.ts` `mmToPx`, `captureTarget` (132 px to the inch on an iPad);
+  `ios/handedness.ts` `formFor`, `workspaceLayout`, `gridAreas`; `ios/keypad.ts` `keypadPress`,
+  `entryValue`, `stepValue`, `formatNumber`.
 
 ## Shared
 

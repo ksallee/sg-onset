@@ -70,6 +70,65 @@
 	}
 }
 
+/* Capture colours (#1): Record and its label, the mark on a field that differs from the last take. */
+:root,
+.ios-dark {
+	--record: #ff453a;
+	--on-record: #fff;
+	--changed: #ff9f0a;
+}
+@media all {
+	:root[data-theme='light']:not(.ios-dark),
+	.ios-light {
+		--record: #ff3b30;
+		--changed: #c25e00;
+	}
+}
+
+/* Day (#1): light for sunlight. Secondary text and the tint are darkened to about 7:1 on a cell.
+   Used with `.ios-light`: `class="ios-light ios-day"`. */
+.ios-day {
+	--bg: #ececf1;
+	--bg-elevated: #ececf1;
+	--label-2: rgb(60 60 67 / 0.86);
+	--label-3: rgb(60 60 67 / 0.5);
+	--separator: rgb(60 60 67 / 0.45);
+	--fill: rgb(120 120 128 / 0.28);
+	--fill-2: rgb(120 120 128 / 0.22);
+	--fill-3: rgb(120 120 128 / 0.16);
+	--tint: #0d5f54;
+	--destructive: #c9140a;
+	--record: #d70015;
+	--changed: #9a4a00;
+}
+
+/* Night (#1): red on black for a dark set. No white anywhere, so state never rests on colour:
+   shape and words carry it. Used with `.ios-dark`: `class="ios-dark ios-night"`. */
+.ios-night {
+	--bg: #000;
+	--bg-elevated: #0b0000;
+	--cell: #130201;
+	--cell-elevated: #1d0403;
+	--label: #d02f25;
+	--label-2: rgb(208 47 37 / 0.66);
+	--label-3: rgb(208 47 37 / 0.36);
+	--separator: rgb(208 47 37 / 0.32);
+	--fill: rgb(208 47 37 / 0.22);
+	--fill-2: rgb(208 47 37 / 0.17);
+	--fill-3: rgb(208 47 37 / 0.12);
+	--press: rgb(208 47 37 / 0.16);
+	--tint: #f24c3e;
+	--on-tint: #000;
+	--destructive: #f24c3e;
+	--mat-bar: rgb(10 0 0 / 0.92);
+	--thumb: #d02f25;
+	--segment-thumb: #4d100c;
+	--scrim: rgb(0 0 0 / 0.6);
+	--record: #f24c3e;
+	--on-record: #000;
+	--changed: #f24c3e;
+}
+
 /* Everything derived from the tokens: declared wherever they are, so a forced-dark subtree
    (`.ios-dark`) gets dark aliases too. */
 :root,

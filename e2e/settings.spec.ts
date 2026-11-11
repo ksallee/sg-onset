@@ -209,7 +209,9 @@ test.describe('settings: storage', () => {
 
 	test('with no estimate it shows no numbers and no NaN', async ({ page }) => {
 		await page.addInitScript(() => {
-			if (navigator.storage) navigator.storage.estimate = () => Promise.reject(new Error('no estimate'));
+			// On the prototype: WebKit drops a property set on `navigator.storage` itself when it
+			// collects that wrapper, and the real estimate comes back.
+			if (globalThis.StorageManager) StorageManager.prototype.estimate = () => Promise.reject(new Error('no estimate'));
 		});
 		await openApp(page, '/settings');
 		await expect(page.getByText('Not reported by this browser')).toHaveCount(2);

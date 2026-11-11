@@ -134,7 +134,7 @@
 </script>
 
 <Page width="columns">
-	<NavBar title={tp?.name ?? t('templates.title')} large back={{ href: '/templates', label: t('templates.title') }}>
+	<NavBar title={tp?.name ?? (record.ready ? t('templates.title') : '')} large back={{ href: '/templates', label: t('templates.title') }}>
 		{#snippet trailing()}
 			{#if tp}<Button variant="plain" class="strong" disabled={!dirty} onclick={save}>{t('templates.edit.save')}</Button>{/if}
 		{/snippet}

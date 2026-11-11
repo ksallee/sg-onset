@@ -2,6 +2,7 @@
 	// The navigation bar: back, an inline title, trailing buttons; `large` adds the large title
 	// under it, which scrolls under the bar (the inline title fades in once it has). Transparent
 	// at the top, bar material once content is under it. Sticky at the top of Screen's scroll.
+	// An empty title renders no heading: a page whose record is loading has no title yet.
 	import type { Snippet } from 'svelte';
 	import { ChevronLeft } from '@lucide/svelte';
 	import { backLabel } from '$lib/ios/back';
@@ -47,8 +48,11 @@
 		<div class="side trail">{@render trailing?.()}</div>
 	</div>
 </header>
-{#if large}
+{#if large && title}
 	<h1 class="large-title" style:opacity={1 - progress * 0.9}>{title}</h1>
+{:else if large}
+	<!-- No title yet (a record still loading): the room for it, and no empty heading. -->
+	<div class="large-title" aria-hidden="true">&nbsp;</div>
 {/if}
 
 <style>

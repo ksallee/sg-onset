@@ -95,8 +95,15 @@ export function createSnapshotter(options: {
 		clearTimer();
 		cancelIdle = env.requestIdle(() => {
 			cancelIdle = undefined;
-			void check(false);
+			look(false);
 		}, policy.idleTimeoutMs);
+	}
+
+	/** A look nobody awaits. A read that fails (the page unloading, say) is kept as `lastError`. */
+	function look(hidden: boolean): void {
+		check(hidden).catch((error: unknown) => {
+			lastError = error;
+		});
 	}
 
 	async function check(hidden: boolean): Promise<void> {
@@ -146,7 +153,7 @@ export function createSnapshotter(options: {
 		if (event.tables.some((t) => !OWN.has(t))) request();
 	});
 	const unhide = env.onHidden(() => {
-		if (!writing) void check(true);
+		if (!writing) look(true);
 	});
 
 	return {

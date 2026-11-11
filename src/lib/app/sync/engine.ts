@@ -22,7 +22,7 @@ import { PROJECT_FILTER, projectChoices, type ProjectChoice } from './projects';
 import { projectScope, type ProjectScope } from './scope';
 
 export interface SyncDeps {
-	store: Pick<DexieStore, 'get' | 'rows' | 'outbox' | 'remoteId' | 'subscribe'>;
+	store: Pick<DexieStore, 'get' | 'rows' | 'outbox' | 'remoteId' | 'subscribe'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
 	/** The signed-in site, or null. */
 	site(): string | null;
 	/** A live session (`auth.canSync`). */
@@ -149,6 +149,10 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			patch.lastSyncAt = at;
 			await deps.kv.set(lastKey(projectId), String(at));
 		}
+		// Nothing left at all: everything is on Flow PT, a copy off the device. The store checks the
+		// whole queue, other projects too, and marks nothing while any entry waits. A mark that fails
+		// is no sync error: the next drain marks it.
+		if (report.stopped === 'idle' && report.unsynced.entries === 0) await deps.store.snapshots.markOffDevice('sync', deps.page.now()).catch(() => false);
 		if (state.projectId === projectId) set(patch);
 	}
 

@@ -11,6 +11,7 @@ function rig() {
 	const taken: { reason: SnapshotReason; seq: number; signal?: AbortSignal }[] = [];
 	let hold: Promise<void> | undefined;
 	let fail = false;
+	let failReads = false;
 	const listeners = new Set<(e: StoreEvent) => void>();
 	const idle: (() => void)[] = [];
 	const timers = new Map<number, { at: number; fn: () => void }>();
@@ -35,7 +36,10 @@ function rig() {
 	};
 
 	const snapshots = {
-		seq: async () => state.seq,
+		seq: async () => {
+			if (failReads) throw new Error('the page is going');
+			return state.seq;
+		},
 		last: async () => state.last,
 		async take(reason: SnapshotReason, options: { signal?: AbortSignal } = {}) {
 			const seq = state.seq;
@@ -95,6 +99,7 @@ function rig() {
 			};
 		},
 		failTakes: (on: boolean) => (fail = on),
+		failReads: (on: boolean) => (failReads = on),
 		flush
 	};
 }
@@ -237,5 +242,20 @@ describe('createSnapshotter', () => {
 		expect(r.listeners.size).toBe(0);
 		expect(r.timers.size).toBe(0);
 		expect(r.idle).toHaveLength(0);
+	});
+
+	it('keeps a failed look quiet, as lastError, and looks again on the next change', async () => {
+		const r = rig();
+		r.failReads(true);
+		await r.edit();
+		await r.runIdle();
+		await r.hide();
+		expect(r.taken).toEqual([]);
+		expect(String(r.snapshotter.lastError)).toContain('the page is going');
+		r.failReads(false);
+		await r.edit();
+		await r.runIdle();
+		expect(r.taken.map((t) => t.reason)).toEqual(['changes']);
+		expect(r.snapshotter.lastError).toBeUndefined();
 	});
 });

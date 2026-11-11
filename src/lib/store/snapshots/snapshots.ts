@@ -89,7 +89,14 @@ export type SnapshotHost = {
 	tzOffsetMs?(): number;
 };
 
-type DataRow = { id: string; data: Blob };
+/**
+ * The stored bytes. Written as a plain array: a private WebKit context (Safari's private browsing,
+ * Playwright's WebKit) refuses Blobs in IndexedDB. Rows written as a Blob still read.
+ */
+type DataRow = { id: string; data: Uint8Array | Blob };
+
+/** A view over its own buffer: IndexedDB stores the whole buffer behind a view. */
+const own = (bytes: Uint8Array): Uint8Array => (bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength ? bytes : bytes.slice());
 type MetaRow = { key: string; value: number };
 
 const OFF_DEVICE = { sync: 'offDevice.sync', export: 'offDevice.export', exportSeq: 'offDevice.exportSeq' } as const;
@@ -158,7 +165,7 @@ export async function migrationSnapshot(tx: Transaction, at: { id: string; now: 
 			crc: crc32(zip.bytes),
 			blobIds: withBytes(rows)
 		};
-		await tx.table('snapshotData').add({ id: meta.id, data: new Blob([zip.bytes as BlobPart]) });
+		await tx.table('snapshotData').add({ id: meta.id, data: own(zip.bytes) });
 		await tx.table('snapshots').add(meta);
 	} catch {
 		// The upgrade matters more than its snapshot.
@@ -261,7 +268,7 @@ export function createSnapshots(host: SnapshotHost): Snapshots {
 					blobIds
 				};
 				await db.transaction('rw', [snapshots(), snapshotData()], async () => {
-					await snapshotData().add({ id: row.id, data: new Blob([encoded.bytes as BlobPart]) });
+					await snapshotData().add({ id: row.id, data: own(encoded.bytes) });
 					await snapshots().add(row);
 				});
 				host.emit(['snapshots']);

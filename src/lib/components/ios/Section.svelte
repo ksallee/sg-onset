@@ -8,12 +8,13 @@
 		header,
 		footer,
 		inset = true,
+		id,
 		children,
 		class: cls = ''
-	}: { header?: string | Snippet; footer?: string | Snippet; inset?: boolean; children: Snippet; class?: string } = $props();
+	}: { header?: string | Snippet; footer?: string | Snippet; inset?: boolean; id?: string; children: Snippet; class?: string } = $props();
 </script>
 
-<section class="ios-section {cls}" class:inset>
+<section class="ios-section {cls}" class:inset {id}>
 	{#if header}
 		<h2 class="head section-header">{#if typeof header === 'string'}{header}{:else}{@render header()}{/if}</h2>
 	{/if}

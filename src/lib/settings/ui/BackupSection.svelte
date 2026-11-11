@@ -3,23 +3,19 @@
 	// from one. A restore checks the file first, then asks before it replaces anything, in plain
 	// words. A snapshot of what is on the device is taken before the replace, so it can be
 	// undone from Snapshots. The steps are backupFlow.ts, the work backupDriver.svelte.ts.
-	import { onDestroy, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 	import ActionSheet from '$lib/components/ios/ActionSheet.svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import { useApp } from '$lib/app/app.svelte';
 	import { ago } from '$lib/app/format';
 	import { t } from '$lib/i18n/messages';
-	import { createSnapshotter, type Snapshotter } from '$lib/store/snapshots';
 	import { BackupDriver } from '../backupDriver.svelte';
 	import { device } from '../device.svelte';
 
 	const app = useApp();
-	// The app's one snapshotter, once `useApp()` exposes it as `app.snapshotter`. Until then a
-	// snapshotter of this section's own, let go when the section goes.
-	const shared = (app as { snapshotter?: Snapshotter }).snapshotter;
-	const snapshotter = shared ?? createSnapshotter({ snapshots: app.store.snapshots, subscribe: app.store.subscribe });
-	if (!shared) onDestroy(() => snapshotter.stop());
+	// The app's one snapshotter (app.svelte.ts).
+	const snapshotter = app.snapshotter;
 	const backup = new BackupDriver({
 		store: app.store,
 		now: app.now,
@@ -66,7 +62,7 @@
 
 </script>
 
-<Section header={t('backup.header')} footer={t('backup.footer')}>
+<Section id="backup" header={t('backup.header')} footer={t('backup.footer')}>
 	<Row title={t('settings.backup.last')} detail={last} />
 
 	{#if view.export === 'ready'}

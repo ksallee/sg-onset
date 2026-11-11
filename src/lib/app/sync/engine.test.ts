@@ -244,6 +244,26 @@ describe('a drain through the app wiring', () => {
 		expect(s.engine.state.scoped?.entries).toBe(0);
 	});
 
+	it('marks the copy off the device when a drain leaves the whole queue empty', async () => {
+		const s = setup();
+		await shoot(s);
+		await linked(s);
+		s.world.visible = true;
+		expect((await s.store.snapshots.status()).offDevice.sync).toBeUndefined();
+		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
+		expect((await s.store.snapshots.status()).offDevice.sync).toBe(s.fpt.clock.t);
+	});
+
+	it('does not mark it while another project still waits on the device', async () => {
+		const s = setup();
+		await shoot(s);
+		await s.edit.create('project', { id: 'p2', name: 'Sample' });
+		await linked(s);
+		s.world.visible = true;
+		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
+		expect((await s.store.snapshots.status()).offDevice.sync).toBeUndefined();
+	});
+
 	it('goes offline mid-drain, keeps what landed, and resumes without a duplicate', async () => {
 		const s = setup();
 		await shoot(s);

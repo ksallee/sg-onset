@@ -134,3 +134,94 @@ describe('undo after the server took a delete', () => {
 		expect(edit.state).toEqual({ past: [], future: [] });
 	});
 });
+
+describe('a snapshot before a risky edit', () => {
+	function guarded(result: 'take' | 'fail' | 'throw' = 'take') {
+		const s = setup();
+		const reasons: string[] = [];
+		const edit = createEditor(s.store, (_, event) => s.events.push(event), {
+			async snapshotBefore(reason) {
+				reasons.push(reason);
+				if (result === 'throw') throw new Error('disk full');
+				if (result === 'fail') return false;
+				return (await s.store.snapshots.take(reason)) !== undefined;
+			}
+		});
+		return { ...s, edit, reasons };
+	}
+	async function takes(s: ReturnType<typeof setup>, n: number) {
+		await s.store.create('project', { id: 'p1', name: 'Show' });
+		await s.store.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.store.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '12A' });
+		for (let i = 0; i < n; i++) await s.store.create('take', { id: `t${i}`, slateId: 's1', take: String(i + 1), tStop: 2.8 });
+	}
+	const bulk = (n: number) => Array.from({ length: n }, (_, i) => change({ id: `t${i}` }, 'tStop', 4));
+
+	it('takes one before a patch of 20 entries, holding the values from before it', async () => {
+		const s = guarded();
+		await takes(s, 20);
+		await s.edit.apply('take', bulk(20), { key: 'edit.changed' });
+		expect(s.reasons).toEqual(['bulkEdit']);
+		expect((await s.store.get('take', 't0'))?.tStop).toBe(4);
+		const [snap] = await s.store.snapshots.list();
+		expect(snap).toMatchObject({ reason: 'bulkEdit', kind: 'risky', verified: true });
+		// Restoring it would change back every entry the patch changed: it holds the old values.
+		expect((await s.store.snapshots.preview(snap.id)).tables.take).toEqual({ added: 0, removed: 0, changed: 20 });
+		expect(s.events.at(-1)).toEqual({ kind: 'done', label: { key: 'edit.changed' } });
+	});
+
+	it('takes none below 20 entries', async () => {
+		const s = guarded();
+		await takes(s, 19);
+		await s.edit.apply('take', bulk(19));
+		expect(s.reasons).toEqual([]);
+		expect(await s.store.snapshots.list()).toEqual([]);
+	});
+
+	it('counts entries, not changes: two fields of ten takes is ten', async () => {
+		const s = guarded();
+		await takes(s, 10);
+		await s.edit.apply('take', [...bulk(10), ...Array.from({ length: 10 }, (_, i) => change({ id: `t${i}` }, 'notes', 'x'))]);
+		expect(s.reasons).toEqual([]);
+	});
+
+	it('takes one before deleting a shoot day, and it holds the day and its takes', async () => {
+		const s = guarded();
+		await takes(s, 2);
+		await s.edit.removeTree('shootDay', 'd1', { key: 'edit.removed' });
+		expect(s.reasons).toEqual(['deleteShootDay']);
+		expect(await s.store.list('shootDay', 'p1')).toEqual([]);
+		const [snap] = await s.store.snapshots.list();
+		expect(snap.counts).toMatchObject({ shootDay: 1, slate: 1, take: 2 });
+	});
+
+	it('takes one before deleting a project, none before deleting a slate', async () => {
+		const s = guarded();
+		await takes(s, 2);
+		await s.edit.removeTree('slate', 's1');
+		expect(s.reasons).toEqual([]);
+		await s.edit.removeTree('project', 'p1');
+		expect(s.reasons).toEqual(['deleteProject']);
+	});
+
+	it('goes on with the edit when the snapshot fails, and says so once', async () => {
+		for (const result of ['fail', 'throw'] as const) {
+			const s = guarded(result);
+			await takes(s, 20);
+			await s.edit.apply('take', bulk(20), { key: 'edit.changed' });
+			expect((await s.store.get('take', 't19'))?.tStop).toBe(4);
+			expect(s.events.filter((e) => e.noSnapshot)).toEqual([{ kind: 'done', label: { key: 'edit.changed' }, noSnapshot: true }]);
+			// Undo still works.
+			await s.edit.undo();
+			expect((await s.store.get('take', 't19'))?.tStop).toBe(2.8);
+		}
+	});
+
+	it('says so for a failed delete snapshot too, and the delete happens', async () => {
+		const s = guarded('fail');
+		await takes(s, 1);
+		await s.edit.removeTree('shootDay', 'd1', { key: 'edit.removed' });
+		expect(await s.store.get('shootDay', 'd1')).toBeUndefined();
+		expect(s.events.at(-1)).toEqual({ kind: 'done', label: { key: 'edit.removed' }, noSnapshot: true });
+	});
+});

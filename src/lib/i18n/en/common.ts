@@ -54,6 +54,7 @@ export const common = {
 	'notice.redone': 'Redone: {what}',
 	'notice.tooLate': 'Too late to undo: it is already in Flow PT.',
 	'notice.failed': 'That did not save. Try again.',
+	'notice.noSnapshot': '{what}. No snapshot was taken before it.',
 	'edit.changed': '{field} changed',
 	'edit.created': '{what} added',
 	'edit.removed': '{what} deleted',
@@ -157,5 +158,17 @@ export const common = {
 	'time.now': 'Just now',
 	'time.minutes': '{n} min ago',
 	'time.hours': '{n} h ago',
-	'time.days': '{n} d ago'
+	'time.days': '{n} d ago',
+
+	'safety.local.ipad': '{n} entries only on this iPad, for {span}. Sync or export a backup.',
+	'safety.local.device': '{n} entries only on this device, for {span}. Sync or export a backup.',
+	'safety.local.one.ipad': '1 entry only on this iPad, for {span}. Sync or export a backup.',
+	'safety.local.one.device': '1 entry only on this device, for {span}. Sync or export a backup.',
+	'safety.last.ipad': 'Last copy off this iPad: {span}',
+	'safety.last.device': 'Last copy off this device: {span}',
+	'safety.span.minutes': '{n}\u00a0min',
+	'safety.span.hours': '{n}\u00a0h',
+	'safety.span.days': '{n}\u00a0d',
+	'safety.backup': 'Go to Backup',
+	'safety.dismiss': 'Hide'
 } as const;

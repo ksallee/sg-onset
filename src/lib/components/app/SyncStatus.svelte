@@ -2,11 +2,14 @@
 	// The sync status in the navigation: quiet, always there, a tap opens the detail. A shape and
 	// words say the state, never the colour alone. `placement`: a row at the foot of the sidebar,
 	// an icon over a word in the strip, a pill in the top bar (icon and count in a narrow one).
-	import { CloudAlert, CloudCheck, CloudUpload, LogIn, Unlink, WifiOff, Wrench } from '@lucide/svelte';
-	import { t } from '$lib/i18n/messages';
+	import { CloudAlert, CloudCheck, CloudUpload, LogIn, TriangleAlert, Unlink, WifiOff, Wrench } from '@lucide/svelte';
+	import { deviceOf, lineMessage, type Safety } from '$lib/app/safety';
+	import { t, tk } from '$lib/i18n/messages';
 	import type { SyncState, SyncStatus } from '$lib/app/sync/status';
 
-	let { summary, placement, onclick }: { summary: SyncStatus; placement: 'side' | 'strip' | 'top'; onclick: () => void } = $props();
+	// `safety`: past remind, entries have been only on this device too long (app/safety.ts). A mark
+	// on the glyph, the line in the accessible name; the detail shows it in full.
+	let { summary, placement, safety, onclick }: { summary: SyncStatus; placement: 'side' | 'strip' | 'top'; safety?: Safety; onclick: () => void } = $props();
 
 	// Each state has its own shape, so none is told by colour alone.
 	const ICONS: Record<SyncState, typeof CloudCheck> = {
@@ -21,12 +24,16 @@
 	};
 	const Icon = $derived(ICONS[summary.state]);
 	const text = $derived(t(summary.key, { n: summary.count }));
+	const mark = $derived(safety && safety.level !== 'ok' ? safety.level : undefined);
+	const markMessage = $derived(mark && safety ? lineMessage(safety, deviceOf(navigator)) : undefined);
+	const markText = $derived(markMessage ? ` ${tk(markMessage.key, { ...markMessage.params, span: tk(markMessage.span.key, markMessage.span.params) })}` : '');
 	const label = $derived(summary.count > 0 && summary.state !== 'attention' && summary.state !== 'syncing' ? t('sync.state.open', { status: text, n: summary.count }) : t('sync.open', { status: text }));
 </script>
 
-<button type="button" class="sync-status" data-placement={placement} data-state={summary.state} aria-label={label} {onclick}>
+<button type="button" class="sync-status" data-placement={placement} data-state={summary.state} aria-label={label + markText} {onclick}>
 	<span class="glyph">
 		<Icon class="size-[22px]" strokeWidth={1.8} />
+		{#if mark}<span class="mark" data-mark={mark}>{#if mark === 'warn'}<TriangleAlert class="size-[12px]" strokeWidth={2.6} />{/if}</span>{/if}
 		{#if summary.count > 0}<span class="count num">{summary.count > 999 ? '999+' : summary.count}</span>{/if}
 	</span>
 	<span class="full">{text}</span>
@@ -58,6 +65,27 @@
 		position: relative;
 		flex: none;
 		display: flex;
+	}
+	/* A dot at remind, a triangle at warn: told by shape. */
+	.mark {
+		position: absolute;
+		bottom: -3px;
+		left: -4px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 10px;
+		height: 10px;
+		border-radius: 5px;
+		background: var(--label-2);
+		box-shadow: 0 0 0 2px var(--sidebar);
+	}
+	.mark[data-mark='warn'] {
+		width: 18px;
+		height: 18px;
+		border-radius: 9px;
+		background: var(--warning);
+		color: var(--bg);
 	}
 	.count,
 	.short {

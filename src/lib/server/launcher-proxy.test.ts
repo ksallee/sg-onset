@@ -48,7 +48,7 @@ describe('session request', () => {
 		expect(String(url)).toBe(`${SITE}/internal_api/app_session_request`);
 		expect(init?.method).toBe('POST');
 		expect(init?.redirect).toBe('manual');
-		expect(init?.body).toBe('appName=sg-onset&machineId=sg-onset');
+		expect(init?.body).toBe('appName=SG+OnSet&machineId=sg-onset');
 		expect(new Headers(init?.headers).get('content-type')).toBe('application/x-www-form-urlencoded');
 		expect(new Headers(init?.headers).get('cookie')).toBeNull();
 		expect(new Headers(init?.headers).get('authorization')).toBeNull();

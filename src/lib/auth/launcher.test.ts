@@ -15,11 +15,11 @@ const ID = 'a1b2c3d4e5';
 
 describe('the two calls the proxy may make', () => {
 	it('asks for a session with the app name fixed by the server', () => {
-		expect(APP_NAME).toBe('sg-onset');
+		expect(APP_NAME).toBe('SG OnSet');
 		expect(sessionRequestCall()).toEqual({
 			method: 'POST',
 			path: '/internal_api/app_session_request',
-			form: { appName: 'sg-onset', machineId: 'sg-onset' }
+			form: { appName: 'SG OnSet', machineId: 'sg-onset' }
 		});
 	});
 

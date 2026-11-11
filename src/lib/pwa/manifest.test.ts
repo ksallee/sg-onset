@@ -23,8 +23,8 @@ function pngSize(path: string): [number, number] {
 
 describe('manifest.webmanifest', () => {
 	it('has what an installable standalone app needs', () => {
-		expect(manifest.name).toBe('sg-onset');
-		expect(manifest.short_name).toBe('sg-onset');
+		expect(manifest.name).toBe('SG OnSet');
+		expect(manifest.short_name).toBe('SG OnSet');
 		expect(manifest.display).toBe('standalone');
 		expect(manifest.start_url).toBe('/');
 		expect(manifest.scope).toBe('/');

@@ -246,8 +246,10 @@ derived: the status colour at `--status-fill`.
 
 ## How to switch the app over
 
-A follow-up, once the shell PR (root `data-theme`, `data-night`, `data-motion`) has merged. The
-specimen page previews every component edit below in its `:global` rules at the foot.
+Done in #30, except the take prototype's part below: until it lands, `lib/theme/compat.css`
+(generated, `renderCompatCss`) gives the old `ios-light`, `ios-dark`, `ios-night` classes the
+tokens, and app.css's `dark` variant and derived block still list them. Remove those with it.
+`e2e/night.spec.ts` checks that no page sends out green, blue or white in red night mode.
 
 ### `src/app.css`
 

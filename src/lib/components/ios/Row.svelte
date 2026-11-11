@@ -217,7 +217,7 @@
 		transition: none;
 	}
 	.cell:focus-visible {
-		outline: 2px solid var(--tint);
+		outline: 2px solid var(--focus);
 		outline-offset: -2px;
 	}
 	.lead {
@@ -319,8 +319,8 @@
 		align-items: center;
 		justify-content: center;
 		padding: 0 8px;
-		background: #8e8e93;
-		color: #fff;
+		background: linear-gradient(var(--fill), var(--fill)), var(--cell);
+		color: var(--label);
 		font-size: 15px;
 		font-weight: 500;
 		white-space: nowrap;
@@ -328,7 +328,8 @@
 		transition: flex-grow var(--dur-reveal);
 	}
 	.action.red {
-		background: var(--destructive);
+		background: var(--destructive-solid);
+		color: var(--on-destructive);
 	}
 	.action.grow {
 		flex-grow: 10;
@@ -339,7 +340,7 @@
 		padding: 0;
 	}
 	.action:focus-visible {
-		outline: 2px solid #fff;
+		outline: 2px solid currentColor;
 		outline-offset: -4px;
 	}
 	@media (prefers-reduced-motion: reduce) {

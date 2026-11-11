@@ -122,7 +122,7 @@ test.describe('settings', () => {
 		await expect(root(page)).toHaveAttribute('data-theme', 'dark');
 		await page.getByRole('switch', { name: 'Red night mode' }).tap();
 		await expect(root(page)).toHaveAttribute('data-night', 'true');
-		await expect(root(page)).toHaveClass(/ios-night/);
+		await expect(root(page)).not.toHaveClass(/ios-/);
 		await page.getByRole('radio', { name: 'Reduced', exact: true }).tap();
 		await expect(root(page)).toHaveAttribute('data-motion', 'reduced');
 		await page.getByRole('radio', { name: 'Large', exact: true }).tap();

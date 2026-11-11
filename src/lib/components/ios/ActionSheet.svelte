@@ -179,7 +179,7 @@
 		background: var(--cell-elevated);
 	}
 	.act:focus-visible {
-		outline: 2px solid var(--tint);
+		outline: 2px solid var(--focus);
 		outline-offset: -2px;
 	}
 </style>

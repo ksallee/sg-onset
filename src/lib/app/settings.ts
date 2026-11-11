@@ -4,7 +4,6 @@
 
 import type { Hand } from '$lib/ios/handedness';
 import { captureTarget } from '$lib/ios/target';
-import { THEME_COLOR, themeClass, type ThemeName } from '$lib/ios/theme';
 import type { UnitSystem } from '$lib/model/length';
 
 export const SETTINGS_KEY = 'sg-onset.settings';
@@ -51,13 +50,13 @@ export const DEFAULT_SETTINGS: Settings = { hand: 'right', appearance: 'system',
 
 /**
  * The look in force. `theme` is `data-theme` on <html>: the appearance, or with `system` what the
- * device asks; red night mode is always dark. `night` is `data-night="true"`. `kit` is the kit
- * theme whose classes carry the tokens today (ios/theme.ts): Day for light, Dark, Night.
+ * device asks; red night mode is always dark. `night` is `data-night="true"`. The two attributes are the
+ * theme: lib/theme/tokens.css keys on them.
  */
-export function resolveTheme(settings: Pick<Settings, 'appearance' | 'night'>, systemDark: boolean): { theme: 'light' | 'dark'; night: boolean; kit: ThemeName } {
-	if (settings.night) return { theme: 'dark', night: true, kit: 'night' };
+export function resolveTheme(settings: Pick<Settings, 'appearance' | 'night'>, systemDark: boolean): { theme: 'light' | 'dark'; night: boolean } {
+	if (settings.night) return { theme: 'dark', night: true };
 	const dark = settings.appearance === 'dark' || (settings.appearance === 'system' && systemDark);
-	return { theme: dark ? 'dark' : 'light', night: false, kit: dark ? 'dark' : 'day' };
+	return { theme: dark ? 'dark' : 'light', night: false };
 }
 
 /** The motion in force, `data-motion` on <html>: the choice, or with `system` what the device asks. */
@@ -113,14 +112,15 @@ export function withLast(settings: Settings, place: Last): Settings {
 export const TOUCH_PX = 44;
 export const LARGE_TOUCH_PX = 56;
 
+/** The theme-color meta per scheme: its canvas, `--bg` in lib/theme/palette.ts (the test checks). */
+export const CHROME_COLOR = { light: '#ECEDF2', dark: '#0A0A0B', night: '#000000' } as const;
+
 /** What the settings put on <html>. */
 export interface DocumentLook {
 	/** `data-theme`. */
 	theme: 'light' | 'dark';
 	/** `data-night="true"` when on. */
 	night: boolean;
-	/** The kit's theme classes. */
-	classes: string[];
 	/** `data-hand`. */
 	hand: Hand;
 	/** `data-motion`. */
@@ -144,13 +144,12 @@ export function documentLook(settings: Settings, system: { dark: boolean; reduce
 	return {
 		theme: look.theme,
 		night: look.night,
-		classes: themeClass(look.kit).split(' '),
 		hand: settings.hand,
 		motion: resolveMotion(settings.motion, system.reducedMotion),
 		buttonSize: settings.buttonSize,
 		target: target.size,
 		gap: target.gap,
 		touch: large ? LARGE_TOUCH_PX : TOUCH_PX,
-		themeColor: THEME_COLOR[look.kit]
+		themeColor: CHROME_COLOR[look.night ? 'night' : look.theme]
 	};
 }

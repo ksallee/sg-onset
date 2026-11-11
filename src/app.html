@@ -5,8 +5,9 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="theme-color" content="#000000" />
 		<script>
-			// The theme, the holding hand and the motion before the first paint (lib/app/settings.ts
-			// and lib/ios/theme.ts, keep in step): the stored settings, else what the device asks.
+			// The theme (data-theme, data-night: lib/theme/tokens.css keys on them), the holding hand and
+			// the motion before the first paint (lib/app/settings.ts, keep in step): the stored settings,
+			// else what the device asks.
 			var root = document.documentElement;
 			try {
 				var s = JSON.parse(localStorage.getItem('sg-onset.settings')) || {};
@@ -14,10 +15,9 @@
 				var dark = night || s.appearance === 'dark' || (s.appearance !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
 				root.dataset.theme = dark ? 'dark' : 'light';
 				if (night) root.dataset.night = 'true';
-				root.className = night ? 'ios-dark ios-night' : dark ? 'ios-dark' : 'ios-light ios-day';
 				root.dataset.hand = s.hand === 'left' ? 'left' : 'right';
 				root.dataset.motion = s.motion === 'full' || s.motion === 'reduced' ? s.motion : matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduced' : 'full';
-				document.querySelector('meta[name="theme-color"]').content = dark ? '#000000' : '#ECECF1';
+				document.querySelector('meta[name="theme-color"]').content = night ? '#000000' : dark ? '#0A0A0B' : '#ECEDF2';
 			} catch (e) {
 				root.dataset.theme = 'dark';
 				root.dataset.motion = 'full';

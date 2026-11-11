@@ -40,6 +40,8 @@
 	.group {
 		background: var(--group-bg, var(--cell));
 		overflow: hidden;
+		/* Increase Contrast outlines the group (--cell-ring, 0 otherwise). An outline: the rows paint over an inset shadow. */
+		outline: var(--cell-ring) solid var(--separator-opaque);
 	}
 	.inset .group {
 		margin: 0 var(--page-margin, 16px);

@@ -30,7 +30,7 @@
 		border-radius: 26px;
 		background: var(--cell-elevated);
 		color: var(--label);
-		box-shadow: 0 0 0 var(--hairline) var(--separator), 0 10px 30px rgb(0 0 0 / 0.28);
+		box-shadow: var(--shadow-2);
 		font-size: 16px;
 		line-height: 21px;
 		font-weight: 600;
@@ -65,7 +65,7 @@
 		opacity: 0.6;
 	}
 	button:focus-visible {
-		outline: 2px solid var(--tint);
+		outline: 2px solid var(--focus);
 		outline-offset: 2px;
 	}
 </style>

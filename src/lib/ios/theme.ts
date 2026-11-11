@@ -1,5 +1,7 @@
-// The three themes of the kit and the classes that put one on a subtree or on <html> (app.css).
-// Day sits on light, Night on dark. Pure.
+// The take prototype's three themes and the old kit classes that put one on a subtree. The app
+// itself sets `data-theme` and `data-night` (lib/app/settings.ts); app.css keeps the classes
+// working through lib/theme/compat.css. Delete this file once the prototype uses the attributes:
+// day is `data-theme="light"`, dark `data-theme="dark"`, night adds `data-night="true"`. Pure.
 
 export type ThemeName = 'day' | 'dark' | 'night';
 export const THEMES: readonly ThemeName[] = ['day', 'dark', 'night'];
@@ -10,9 +12,3 @@ export function themeClass(theme: ThemeName): string {
 	if (theme === 'night') return 'ios-dark ios-night';
 	return 'ios-dark';
 }
-
-/** Every class a theme can set, to clear before setting another. */
-export const THEME_CLASSES: readonly string[] = ['ios-light', 'ios-day', 'ios-dark', 'ios-night'];
-
-/** The status bar and browser chrome colour of each theme: its `--bg`. */
-export const THEME_COLOR: Record<ThemeName, string> = { day: '#ECECF1', dark: '#000000', night: '#000000' };

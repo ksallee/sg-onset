@@ -11,6 +11,7 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `link.ts` | yes | `ProjectLink`, its stored form, `linkOn` (same site only), `linkProblem`. |
 | `links.ts` | port | `linkStore`: the links over a key-value port. |
 | `report.ts` | yes | `setupView`: `checkSetup`'s report as the sheet shows it. |
+| `review.ts` | yes | `setupReview`, `nextStep`: the review before Set Up Fields; `prototypeNote`. |
 | `queue.ts` | yes | `pendingByKind`, `scopedUpdate`, `parentOf`, `conflictLines`. |
 | `projects.ts` | yes | `PROJECT_FILTER`, `projectChoices`: the FPT projects a person picks from. |
 | `errors.ts` | yes | `syncError`, `syncErrorText`. |
@@ -41,7 +42,9 @@ Made by Claude. Kevin can overrule any of them.
    id for any project's create, so without the scope the sample project would land in it. Other
    projects' changes wait until they are current and linked. The status counts the current
    project's.
-4. **Linking runs the check, which only reads.** Fields are created on **Set Up Fields** only.
+4. **Linking runs the check, which only reads.** Fields are created on **Set Up Fields** only,
+   after a review: the site and Flow PT project, the fields by entity, the fields Flow PT adds,
+   and that the schema change cannot be undone from the app. **Not Now** writes nothing.
 5. **The project list** leaves out templates, the demo show and archived projects (corpus
    findings/018). One page of 500.
 6. **Last sync** is when a drain last ended with nothing it could move (`idle` or `waiting`).

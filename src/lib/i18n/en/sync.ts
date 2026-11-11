@@ -77,6 +77,18 @@ export const sync = {
 	'sync.setup.field.line': '{entity}: {field}',
 	'sync.setup.field.unique': 'unique',
 
+	'sync.review.header': 'Before setting up fields',
+	'sync.review.site': 'Site',
+	'sync.review.project': 'Flow PT project',
+	'sync.review.fields': 'Fields to create',
+	'sync.review.fields.footer': 'Tap an entity to see its fields.',
+	'sync.review.reverse': 'Fields Flow PT adds',
+	'sync.review.reverse.footer': 'Flow PT adds these by itself, one for each link field.',
+	'sync.review.schema': "This changes the schema of {site}. SG OnSet cannot undo it. Do it on a test site, or with the agreement of the site's admin.",
+	'sync.review.confirm': 'Set Up Fields',
+	'sync.review.notNow': 'Not Now',
+	'sync.prototype': 'Early prototype: use a test project on a test site.',
+
 	'sync.refused.create': "This Flow PT account can't create {things}. Ask an Admin for the permission.",
 	'sync.refused.update': "This Flow PT account can't change {things}. Ask an Admin for the permission.",
 	'sync.refused.delete': "This Flow PT account can't delete {things}. Ask an Admin for the permission.",

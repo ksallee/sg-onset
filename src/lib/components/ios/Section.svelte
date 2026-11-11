@@ -31,7 +31,7 @@
 		margin-bottom: 32px;
 	}
 	.head {
-		padding: 0 32px 6px;
+		padding: 0 calc(var(--page-margin, 16px) + 16px) 6px;
 		font-weight: 400;
 	}
 	.ios-section:not(.inset) .head {
@@ -42,14 +42,14 @@
 		overflow: hidden;
 	}
 	.inset .group {
-		margin: 0 16px;
+		margin: 0 var(--page-margin, 16px);
 		border-radius: 24px;
 	}
 	.ios-section:not(.inset) .group {
 		box-shadow: 0 calc(-1 * var(--hairline)) 0 var(--separator), 0 var(--hairline) 0 var(--separator);
 	}
 	.foot {
-		padding: 6px 32px 0;
+		padding: 6px calc(var(--page-margin, 16px) + 16px) 0;
 		font-size: 13px;
 		line-height: 18px;
 		letter-spacing: -0.08px;

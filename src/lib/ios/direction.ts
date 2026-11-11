@@ -3,7 +3,10 @@
 export type NavDirection = 'push' | 'pop' | 'cover' | 'uncover' | 'none';
 
 /** The tab roots: moving between them does not slide. */
-export const TAB_ROOTS = ['/', '/sessions', '/settings'];
+export const TAB_ROOTS = ['/', '/shoot', '/slates', '/gear', '/templates', '/settings'];
+
+/** One-segment pages that sit over a tab root: sign-in opens from Settings. */
+export const PUSHED = ['/sign-in'];
 
 const trim = (path: string) => (path.length > 1 ? path.replace(/\/+$/, '') : path);
 const isCover = (path: string) => /\/run$/.test(trim(path));
@@ -12,6 +15,7 @@ const isCover = (path: string) => /\/run$/.test(trim(path));
 export function depth(path: string): number {
 	const p = trim(path);
 	if (TAB_ROOTS.includes(p)) return 0;
+	if (PUSHED.includes(p)) return 1;
 	return Math.max(0, p.split('/').filter(Boolean).length - 1);
 }
 

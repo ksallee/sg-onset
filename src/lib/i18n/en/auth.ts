@@ -1,0 +1,42 @@
+// Strings of sign-in. Owned by the shell.
+
+export const auth = {
+	'auth.title': 'Sign In',
+	'auth.back': 'Back',
+	'auth.site.header': 'Flow PT Site',
+	'auth.site.placeholder': 'studio.shotgrid.autodesk.com',
+	'auth.site.label': 'Flow PT site',
+	'auth.site.footer': 'Your studio’s site address. You approve the sign-in on your site. This app never sees your password.',
+	'auth.continue': 'Continue',
+	'auth.asking': 'Asking your site…',
+	'auth.waiting.header': 'Approve',
+	'auth.waiting': 'Waiting for approval',
+	'auth.waiting.footer': 'Open your site, sign in if it asks, and approve sg-onset. Come back here after.',
+	'auth.open': 'Open Flow PT',
+	'auth.cancel': 'Cancel',
+	'auth.signedIn.header': 'Signed In',
+	'auth.site': 'Site',
+	'auth.user': 'Account',
+	'auth.signOut': 'Sign Out',
+	'auth.signedIn.footer': 'Sync uses this account. Capture works signed in or not.',
+	'auth.expired': 'Your session expired. Approve again to sync. Capture keeps working.',
+	'auth.signedOut.footer': 'Capture works without signing in. Sync needs it.',
+
+	'auth.problem.empty': 'Type your Flow PT site.',
+	'auth.problem.not-https': 'Use the https address of your site.',
+	'auth.problem.port': 'Leave out the port.',
+	'auth.problem.userinfo': 'Type the site only, with no name or password in it.',
+	'auth.problem.path': 'Type the site only, with nothing after its name.',
+	'auth.problem.ip': 'Type the site’s name, not an IP address.',
+	'auth.problem.local': 'That is a local address. Type your Flow PT site.',
+	'auth.problem.punycode': 'Type the site in plain letters.',
+	'auth.problem.not-ascii': 'Type the site in plain letters.',
+	'auth.problem.invalid': 'That is not a site address.',
+	'auth.problem.not-allowed': 'This app signs in to Autodesk-hosted Flow PT sites only. A self-hosted deploy can allow others.',
+
+	'auth.failure.gone': 'The request expired or was refused. Try again.',
+	'auth.failure.timeout': 'Nobody approved the request. Try again.',
+	'auth.failure.offline': 'No network. Signing in needs one. Capture works without.',
+	'auth.failure.unreachable': 'Your site did not answer. Check the address.',
+	'auth.failure.refused': 'Your site refused the request. Check the address.'
+} as const;

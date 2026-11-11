@@ -1,18 +1,6 @@
-// The English catalogue. Keys are `area.name`; `{name}` is filled by `t` (messages.ts).
+// Strings of the take screen: the prototype's, and the Shoot page. Owned by the take screen.
 
-export const en = {
-	'app.name': 'sg-onset',
-	'home.status': 'Status',
-	'home.footer': 'On-set VFX data capture for Flow Production Tracking.',
-	'home.build': 'Build',
-	'home.build.value': 'Scaffold',
-	'home.installed': 'Home Screen',
-	'home.installed.yes': 'Installed',
-	'home.installed.no': 'In the browser',
-	'home.prototypes': 'Prototypes',
-	'home.proto.take': 'Take screen',
-	'home.proto.take.detail': 'Action rail',
-
+export const take = {
 	'take.title': 'Take',
 	'take.back': 'Home',
 	'take.scene': 'Scene',
@@ -39,10 +27,6 @@ export const en = {
 	'field.tStop': 'T-stop',
 	'field.cameraHeight': 'Height',
 	'field.tilt': 'Tilt',
-	'unit.mm': 'mm',
-	'unit.m': 'm',
-	'unit.deg': '°',
-	'unit.t': 'T',
 
 	'rail.label': 'Capture',
 	'rail.record': 'Record',
@@ -79,17 +63,21 @@ export const en = {
 	'undo.value': '{field} set to {value}',
 	'undo.undone': 'Undone: {what}',
 
-	'settings.title': 'Setup',
-	'settings.hand': 'Holding hand',
-	'settings.hand.left': 'Left',
-	'settings.hand.right': 'Right',
-	'settings.theme': 'Theme',
-	'settings.theme.day': 'Day',
-	'settings.theme.dark': 'Dark',
-	'settings.theme.night': 'Night',
-	'settings.gloves': 'Gloves',
-	'settings.gloves.off': 'Off',
-	'settings.gloves.on': 'On',
-	'settings.targets': 'Capture targets {mm} mm, {px} px.',
-	'settings.close': 'Close'
+	'shoot.title': 'Shoot',
+	'shoot.slate': 'Slate',
+	'shoot.slate.none': 'No slate picked',
+	'shoot.slate.pick': 'Pick a slate',
+	'shoot.slate.pick.footer': 'The slates of this shoot day. Make one in Slates.',
+	'shoot.slate.change': 'Change Slate',
+	'shoot.slate.open': 'Slate Details',
+	'shoot.noSlates': 'No Slates Today',
+	'shoot.noSlates.message': 'Make a slate for this shoot day, then come back to shoot it.',
+	'shoot.noSlates.action': 'Go to Slates',
+	'shoot.takes': 'Takes',
+	'shoot.takes.none': 'No take on this slate yet.',
+	'shoot.takes.footer': 'The take screen is being built. This page reads the real slate and its takes.',
+	'shoot.take.circled': 'Circled',
+	'shoot.take.noGood': 'No good',
+	'shoot.proto': 'Take Screen Prototype',
+	'shoot.proto.detail': 'Mock data'
 } as const;

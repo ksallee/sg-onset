@@ -67,7 +67,8 @@ const toNumber = (text: string) => Number(text.replace(',', '.'));
 /** What a header means: its squashed name, or that name without a unit on the end. */
 function columnTarget(header: string, known: Record<string, string>): string | undefined {
 	const squashed = header.toLowerCase().replace(/[^a-z0-9]/g, '');
-	return known[squashed] ?? known[squashed.replace(/(mm|px)$/, '')];
+	const own = (name: string) => (Object.hasOwn(known, name) ? known[name] : undefined);
+	return own(squashed) ?? own(squashed.replace(/(mm|px)$/, ''));
 }
 
 type Cell = { text: string; column: string };

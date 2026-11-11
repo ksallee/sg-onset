@@ -59,7 +59,7 @@ export function validateValue(def: FieldDef, value: unknown): Issue[] {
 			return isDate(value) ? [] : [{ key: 'validation.date' }];
 		case 'timestamp':
 			if (typeof value !== 'string') return wrongType;
-			return TIMESTAMP.test(value) && !Number.isNaN(Date.parse(value)) ? [] : [{ key: 'validation.timestamp' }];
+			return TIMESTAMP.test(value) && isDate(value.slice(0, 10)) && !Number.isNaN(Date.parse(value)) ? [] : [{ key: 'validation.timestamp' }];
 		case 'timecode':
 			if (typeof value !== 'string') return wrongType;
 			return isTimecode(value) ? [] : [{ key: 'validation.timecode' }];

@@ -95,6 +95,8 @@ describe('validateValue', () => {
 		expect(keys('shootDay', 'shootDate', '2026-13-40')).toEqual(['validation.date']);
 		expect(keys('take', 'startedAt', 'this morning')).toEqual(['validation.timestamp']);
 		expect(keys('take', 'startedAt', '2026-11-11T10:00:00')).toEqual(['validation.timestamp']);
+		expect(keys('take', 'startedAt', '2026-02-30T10:00:00Z')).toEqual(['validation.timestamp']);
+		expect(keys('take', 'startedAt', '2025-02-29T10:00:00Z')).toEqual(['validation.timestamp']);
 		expect(keys('take', 'timecodeStart', '1:08:59:28')).toEqual(['validation.timecode']);
 		expect(keys('take', 'timecodeStart', '24:00:00:00')).toEqual(['validation.timecode']);
 		expect(keys('take', 'timecodeStart', '01:60:00:00')).toEqual(['validation.timecode']);

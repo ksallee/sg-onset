@@ -160,6 +160,19 @@ describe('importCameras', () => {
 		]);
 	});
 
+	it('reports a column named like an Object prototype key as ignored', () => {
+		const { report } = importCameras('Make,Model,Constructor\nARRI,ALEXA 35,x', ids());
+		expect(report.columns).toEqual({ Make: 'cameraMake', Model: 'cameraModel' });
+		expect(report.ignoredColumns).toEqual(['Constructor']);
+	});
+
+	it('finds a semicolon header under a title line', () => {
+		const { records, report } = importCameras('Camera list\nMake;Model;Sensor\nSony;HDC-5500;2/3"\nARRI;ALEXA 35;27.99 x 19.22', ids());
+		expect(report.headerRow).toBe(2);
+		expect(records.map((r) => r.cameraModel)).toEqual(['HDC-5500', 'ALEXA 35']);
+		expect(report.issues).toEqual([{ row: 3, column: 'Sensor', key: 'import.badValue', value: '2/3"', severity: 'warning' }]);
+	});
+
 	it('does not take a lens file for a camera file', () => {
 		expect(importCameras('Lens,Focal\nMaster Prime,32', ids()).report.headerRow).toBeNull();
 	});

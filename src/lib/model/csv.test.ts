@@ -52,6 +52,13 @@ describe('parseCsv', () => {
 		expect(parseCsv('"a"b,c')).toEqual([['ab', 'c']]);
 		expect(parseCsv('')).toEqual([]);
 	});
+
+	it('takes a quote inside an unquoted cell as text: 2/3" is a sensor size', () => {
+		expect(parseCsv('a,2/3",b\nc,1",d')).toEqual([
+			['a', '2/3"', 'b'],
+			['c', '1"', 'd']
+		]);
+	});
 });
 
 describe('sniffDelimiter', () => {
@@ -61,5 +68,10 @@ describe('sniffDelimiter', () => {
 		expect(sniffDelimiter('"a,b,c";d;e')).toBe(';');
 		expect(sniffDelimiter('a\tb')).toBe('\t');
 		expect(sniffDelimiter('abc')).toBe(',');
+	});
+
+	it('skips title lines with no delimiter', () => {
+		expect(sniffDelimiter('Gear list\n\nMake;Model;Focal\nCooke;S4, 32;32')).toBe(';');
+		expect(sniffDelimiter('Sony 2/3" bodies\nMake\tModel')).toBe('\t');
 	});
 });

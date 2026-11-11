@@ -13,8 +13,9 @@ export type Length = {
 
 const M_PER_INCH = 0.0254;
 const NUM = String.raw`\d+(?:\.\d+)?`;
-const FEET = String.raw`(?:'|′|ft|feet|foot)`;
-const INCHES = String.raw`(?:"|″|''|in|inch|inches)`;
+/** ’ and ” are what iOS smart punctuation makes of ' and ". */
+const FEET = String.raw`(?:'|′|’|ft|feet|foot)`;
+const INCHES = String.raw`(?:"|″|”|''|’’|in|inch|inches)`;
 /** Inches: "3", "3.5", "3 1/2" or "1/2". */
 const INCH_VALUE = String.raw`(?:(${NUM})(?:\s+(\d+)\s*\/\s*(\d+))?|(\d+)\s*\/\s*(\d+))`;
 

@@ -15,6 +15,12 @@ describe('parseLength', () => {
 		expect(parseLength('6′ 3″', 'imperial')?.m).toBe(1.905);
 	});
 
+	it('reads the curly quotes iOS smart punctuation types for feet and inches', () => {
+		expect(parseLength('6’ 3”', 'imperial')?.m).toBe(1.905);
+		expect(parseLength('6’3’’', 'imperial')?.m).toBe(1.905);
+		expect(parseLength('75”', 'imperial')?.m).toBe(1.905);
+	});
+
 	it('reads metric with a unit', () => {
 		expect(parseLength('1.2m', 'imperial')?.m).toBe(1.2);
 		expect(parseLength('1,2 m', 'metric')?.m).toBe(1.2);

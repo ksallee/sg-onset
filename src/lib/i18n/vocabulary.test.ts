@@ -38,7 +38,7 @@ const BANNED: readonly [RegExp, string][] = [
 const NO_ROLL_PREFIXES = ['rail.', 'phase.', 'timing.', 'undo.'];
 
 /** Keys whose value breaks a rule and lives in a file another area owns, listed in the vocabulary PR. Remove a key when its file is fixed. */
-const PENDING = new Set(['stills.title', 'stills.none', 'stills.alt', 'undo.photo']);
+const PENDING = new Set<string>([]);
 
 const label = (d: FieldDef) => tk(d.labelKey);
 

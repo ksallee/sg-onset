@@ -2,8 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn-svelte/tailwind.css";
 @import './lib/theme/tokens.css';
-/* Temporary: the old kit theme classes, see "compatibility" below. */
-@import './lib/theme/compat.css';
 
 /* The iOS kit's theme, from holosession's app.css (#57 there): tokens, type ramp, base, the
    push and pop motion. Its purpose and level colours and the desktop phone frame are left out. */
@@ -14,7 +12,7 @@
    (docs/design/colour.md); with no attribute, the system's. `data-theme` on any element forces
    that theme on its subtree. `dark:` matches dark and red night. */
 @custom-variant dark {
-	&:where([data-theme='dark'], [data-theme='dark'] *, [data-night='true'], [data-night='true'] *, .ios-dark, .ios-dark *):not(:where([data-theme='light']:not([data-night='true']), [data-theme='light']:not([data-night='true']) *, .ios-light, .ios-light *)) {
+	&:where([data-theme='dark'], [data-theme='dark'] *, [data-night='true'], [data-night='true'] *):not(:where([data-theme='light']:not([data-night='true']), [data-theme='light']:not([data-night='true']) *)) {
 		@slot;
 	}
 	@media (prefers-color-scheme: dark) {
@@ -24,22 +22,11 @@
 	}
 }
 
-/* ------------------------------------------------------------------ compatibility, temporary
-   The take prototype (/proto/take, lib/take/settings.ts themeClass) still puts the old kit classes
-   on its Workspace: `ios-light ios-day`, `ios-dark`, `ios-dark ios-night`. compat.css gives them
-   the tokens, `.ios-dark` is in the `dark` variant above and the derived block below lists them.
-   compat.css is imported at the top. Remove the import, `.ios-dark` and `.ios-light` in the
-   variant, the three classes in the derived block, compat.css and renderCompatCss in
-   lib/theme/css.ts once the prototype uses the attributes. */
-
 /* Everything derived from the tokens: declared wherever a theme is, so a forced subtree derives
-   its own. The three classes are the compatibility above. */
+   its own. */
 :root,
 [data-theme],
-[data-night],
-.ios-light,
-.ios-dark,
-.ios-night {
+[data-night] {
 	--mat-blur: blur(20px) saturate(180%);
 	--hairline: 0.5px;
 	--ease-ios: cubic-bezier(0.32, 0.72, 0, 1);

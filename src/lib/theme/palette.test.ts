@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { measure, report, layers } from './check';
 import { oklchToSrgb, inGamut } from './contrast';
-import { renderCompatCss, renderCss } from './css';
+import { renderCss } from './css';
 import { MODES, PAIRINGS, SCHEMES, TOKENS, valueOf } from './palette';
 
 // Node's fs, without @types/node (the project has none): the test runs in node.
@@ -76,19 +76,5 @@ describe('tokens.css', () => {
 		const css = renderCss();
 		for (const s of ["[data-theme='light']", "[data-theme='dark']", "[data-night='true']", 'prefers-color-scheme: dark', 'prefers-contrast: more', "[data-contrast='more']", 'prefers-reduced-transparency: reduce'])
 			expect(css).toContain(s);
-	});
-});
-
-describe('compat.css', () => {
-	it('is generated from palette.ts too', () => {
-		const file = fs.readFileSync(new URL('./compat.css', import.meta.url), 'utf8');
-		expect(file).toBe(renderCompatCss());
-	});
-	it('puts each old kit theme class on the scheme it stands for, night last', () => {
-		const css = renderCompatCss();
-		const at = (s: string) => css.indexOf(s);
-		for (const s of [':where(.ios-light)', ':where(.ios-dark)', ':where(.ios-night)']) expect(css).toContain(s);
-		expect(at(':where(.ios-dark)')).toBeLessThan(at(':where(.ios-night)'));
-		expect(css).toContain('--label: oklch(0.61 0.2503 29.234)');
 	});
 });

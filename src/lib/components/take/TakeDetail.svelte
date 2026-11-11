@@ -1,43 +1,55 @@
 <script lang="ts">
-	// The take on screen: scene, slate, take and where it stands; the numbers of every camera
-	// (CameraTable); the stills on it.
+	// The take on screen: slate, take and where it stands; the numbers of every camera
+	// (CameraTable); the photos on it. In a phone-width window the marks sit here too: the dock is
+	// the keypad's there. With no camera setup yet, a line says where to add them.
+	import { Camera } from '@lucide/svelte';
 	import { t } from '$lib/i18n/messages';
-	import { formatElapsed } from '$lib/take/record';
-	import type { TakeScreen } from '$lib/take/screen.svelte';
+	import type { Form } from '$lib/ios/handedness';
+	import { elapsedMs, formatElapsed } from '$lib/take/record';
+	import type { Shoot } from '$lib/take/shoot.svelte';
 	import CameraTable from './CameraTable.svelte';
+	import MarkBar from './MarkBar.svelte';
+	import PhotoStrip from './PhotoStrip.svelte';
 
-	let { screen }: { screen: TakeScreen } = $props();
-	const take = $derived(screen.take);
+	let { shoot, form, onnote }: { shoot: Shoot; form: Form; onnote: () => void } = $props();
+	const slate = $derived(shoot.slate);
+	const elapsed = $derived(formatElapsed(elapsedMs({ start: shoot.times.start, end: shoot.times.end }, shoot.now)));
 </script>
 
 <div class="take-detail">
+	<!-- The page's name for assistive tech; the screen shows the parts below. -->
+	<h1 class="sr-only">{t('shoot.heading', { slate: slate?.slateUID ?? '' })}</h1>
 	<header>
 		<dl class="ident">
-			<div><dt>{t('take.scene')}</dt><dd class="num">{take.scene}</dd></div>
-			<div><dt>{t('take.slate')}</dt><dd class="num">{take.slate}</dd></div>
-			<div class="big"><dt>{t('take.take')}</dt><dd class="num">{take.take}</dd></div>
+			{#if slate?.sceneNumber}<div><dt>{t('take.scene')}</dt><dd class="num">{slate.sceneNumber}</dd></div>{/if}
+			<div><dt>{t('take.slate')}</dt><dd class="num">{slate?.slateUID ?? ''}</dd></div>
+			<div class="big"><dt>{t('take.take')}</dt><dd class="num">{shoot.group?.number ?? '–'}</dd></div>
 		</dl>
-		<p class="phase {screen.phase}" role="status">
+		<p class="phase {shoot.phase}" role="status">
 			<span class="shape" aria-hidden="true"></span>
-			<span class="word">{t(`phase.${screen.phase}`)}</span>
-			{#if screen.phase !== 'idle'}<span class="time num">{formatElapsed(screen.elapsed)}</span>{/if}
+			<span class="word">{t(`phase.${shoot.phase}`)}</span>
+			{#if shoot.phase !== 'idle'}<span class="time num">{elapsed}</span>{/if}
 		</p>
 	</header>
 
-	<CameraTable {screen} />
+	{#if form === 'compact'}<MarkBar {shoot} {onnote} compact />{/if}
 
-	<section class="stills" aria-label={t('stills.title')}>
-		<h2>{t('stills.title')} <span class="num">{take.stills.length || ''}</span></h2>
-		{#if take.stills.length}
-			<ul>
-				{#each take.stills as still, i (still.id)}
-					<li><img src={still.url} alt={t('stills.alt', { n: i + 1, take: take.take })} /></li>
-				{/each}
-			</ul>
-		{:else}
-			<p class="none">{t('stills.none')}</p>
-		{/if}
-	</section>
+	{#if !shoot.setups.value.length && shoot.setups.ready}
+		<p class="nosetups">
+			<Camera class="size-5" strokeWidth={2} aria-hidden="true" />
+			<span><strong>{t('take.noSetups')}</strong> {t('take.noSetups.message')} <a href="/gear">{t('take.noSetups.action')}</a></span>
+		</p>
+	{/if}
+
+	{#if shoot.group}
+		<CameraTable {shoot} />
+		<button type="button" class="more" aria-pressed={shoot.showAll} onclick={() => (shoot.showAll = !shoot.showAll)}>
+			{shoot.showAll ? t('take.fields.fewer') : t('take.fields.all')}
+		</button>
+		<PhotoStrip {shoot} />
+	{:else}
+		<p class="none">{t('take.none')}</p>
+	{/if}
 </div>
 
 <style>
@@ -62,6 +74,9 @@
 		gap: 22px;
 		min-width: 0;
 	}
+	.ident div {
+		min-width: 0;
+	}
 	dt {
 		font-size: 13px;
 		line-height: 18px;
@@ -76,6 +91,8 @@
 		line-height: 34px;
 		font-weight: 700;
 		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.big dd {
 		font-size: 56px;
@@ -95,7 +112,7 @@
 		font-weight: 600;
 		white-space: nowrap;
 	}
-	/* The shape says the state without colour: a ring ready, a square rolling, a bar filed. */
+	/* The shape says the state without colour: a ring ready, a square running, a bar ended. */
 	.shape {
 		width: 14px;
 		height: 14px;
@@ -117,8 +134,7 @@
 		background: var(--record);
 		color: var(--on-record);
 	}
-	/* Night: no bright slab. An outline, the square and the word. */
-	:global(.ios-night) .phase.rolling {
+	:global([data-night='true']) .phase.rolling {
 		background: transparent;
 		box-shadow: inset 0 0 0 2.5px var(--record);
 		color: var(--record);
@@ -128,49 +144,51 @@
 		font-size: 22px;
 		font-weight: 700;
 	}
-	h2 {
-		font-size: 13px;
-		line-height: 18px;
-		font-weight: 600;
-		letter-spacing: 0.02em;
-		text-transform: uppercase;
-		color: var(--label-2);
-	}
-	.stills {
-		margin-top: 6px;
-	}
-	ul {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-		gap: 8px;
-		margin-top: 8px;
-	}
-	li {
-		aspect-ratio: 4 / 3;
-		border-radius: 12px;
-		overflow: hidden;
+	.nosetups {
+		display: flex;
+		gap: 10px;
+		padding: 12px 14px;
+		border-radius: 14px;
 		background: var(--fill-3);
-	}
-	img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-	.none {
-		margin-top: 4px;
 		font-size: 15px;
 		line-height: 20px;
 		color: var(--label-2);
 	}
-	/* Night: a still must not light the set. Grey, then red through the cell behind it. */
-	:global(.ios-night) li {
-		background: var(--label);
+	.nosetups :global(svg) {
+		flex: none;
+		margin-top: 1px;
 	}
-	:global(.ios-night) img {
-		filter: grayscale(1) brightness(0.75);
-		mix-blend-mode: multiply;
+	.nosetups strong {
+		color: var(--label);
 	}
-	@container (max-width: 380px) {
+	.nosetups a {
+		color: var(--tint);
+		font-weight: 600;
+	}
+	.more {
+		align-self: flex-start;
+		min-height: var(--touch, 44px);
+		padding: 0 14px;
+		margin-top: -6px;
+		border-radius: 12px;
+		color: var(--tint);
+		font-size: 16px;
+		font-weight: 600;
+	}
+	.more:active {
+		background: var(--press);
+	}
+	.none {
+		padding: 24px 0;
+		font-size: 17px;
+		line-height: 22px;
+		color: var(--label-2);
+	}
+	button:focus-visible {
+		outline: 2px solid var(--focus);
+		outline-offset: 2px;
+	}
+	@container (max-width: 400px) {
 		.ident {
 			gap: 14px;
 		}

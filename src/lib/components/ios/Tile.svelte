@@ -17,8 +17,7 @@
 		color: var(--on-tint);
 	}
 	/* Night fills nothing brightly: whatever its colour, a dim slab, a red glyph and a ring. */
-	:global([data-night='true']) .ios-tile,
-	:global(.ios-night) .ios-tile {
+	:global([data-night='true']) .ios-tile {
 		background: var(--tint-solid) !important;
 		color: var(--on-tint-solid);
 		box-shadow: inset 0 0 0 calc(var(--state-ring) / 2) var(--on-tint-solid);

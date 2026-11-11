@@ -5,7 +5,7 @@ import { open, openApp, test } from './fixtures';
 const OUT = process.env.E2E_OUT ?? '.qa';
 
 // Pages that stand alone, and pages in the shell (they need a project: the sample).
-const PAGES = ['/welcome', '/proto/take', '/proto/take?hand=left', '/proto/take?theme=night', '/proto/take?gloves=1'];
+const PAGES = ['/welcome'];
 const APP_PAGES = ['/shoot', '/slates', '/gear', '/templates', '/settings', '/sign-in'];
 
 const slug = (path: string) => path.replace(/^\//, '').replace(/[^a-z0-9]+/gi, '-').replace(/-$/, '') || 'home';
@@ -27,11 +27,11 @@ test.describe('layout', () => {
 		});
 	}
 
-	test('audit /proto/take with the keypad open', async ({ page }, testInfo) => {
-		await open(page, '/proto/take');
-		await page.getByRole('button', { name: /^Camera A, Focus,/ }).tap();
+	test('audit /shoot with the keypad open', async ({ page }, testInfo) => {
+		await openApp(page, '/shoot');
+		await page.getByRole('button', { name: /^Cam A, Focus,/ }).tap();
 		await page.getByRole('group', { name: 'Number keypad' }).waitFor();
-		await page.screenshot({ path: `${OUT}/shots/${testInfo.project.name}/proto-take-keypad.png` });
-		await auditLayout(page, testInfo, '/proto/take (keypad)');
+		await page.screenshot({ path: `${OUT}/shots/${testInfo.project.name}/shoot-keypad.png` });
+		await auditLayout(page, testInfo, '/shoot (keypad)');
 	});
 });

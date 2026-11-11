@@ -199,6 +199,10 @@ test.describe('sign-in', () => {
 		// Signed in: who and which site, in Settings and on the page.
 		await page.goto('/settings');
 		await page.getByRole('link', { name: /ada@studio\.example/ }).tap();
+		// The picture of Settings left by the push is gone: its row names the account too.
+		await expect(page).toHaveURL(/\/sign-in\?next=/);
+		await expect(page.getByRole('button', { name: 'Sign Out' })).toBeVisible();
+		await expect(page.locator('[data-page-ghost]')).toHaveCount(0);
 		await expect(page.getByText('ada@studio.example')).toBeVisible();
 		await expect(page.getByText(HOST, { exact: true })).toBeVisible();
 		await expect(page.getByText('Sign Out forgets the session on this device only. Nothing kept here is deleted, and your Flow PT account is untouched.')).toBeVisible();

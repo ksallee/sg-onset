@@ -156,6 +156,8 @@ test.describe('settings: project', () => {
 		await openApp(page, '/settings');
 		await page.getByRole('button', { name: 'Switch Project or Shoot Day' }).tap();
 		await page.getByRole('button', { name: 'New project' }).tap();
+		// The welcome page first: Settings has a Name field of its own.
+		await expect(page.getByRole('heading', { name: 'New project', level: 1 })).toBeVisible();
 		await page.getByRole('textbox', { name: 'Name' }).fill('The Long Night');
 		await page.getByRole('button', { name: 'Create Project', exact: true }).tap();
 		await expect(page).toHaveURL(/\/slates$/);

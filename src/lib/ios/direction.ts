@@ -3,7 +3,7 @@
 export type NavDirection = 'push' | 'pop' | 'cover' | 'uncover' | 'fade' | 'none';
 
 /** The tab roots: moving between them fades, never slides. */
-export const TAB_ROOTS = ['/', '/shoot', '/slates', '/gear', '/templates', '/settings'];
+export const TAB_ROOTS = ['/', '/shoot', '/slates', '/wrap', '/gear', '/templates', '/settings'];
 
 const trim = (path: string) => (path.length > 1 ? path.replace(/\/+$/, '') : path);
 

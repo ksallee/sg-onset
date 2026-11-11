@@ -37,8 +37,8 @@ describe('tk', () => {
 });
 
 describe('the catalogue by area', () => {
-	it('has the eleven areas', () => {
-		expect(Object.keys(AREAS).sort()).toEqual(['auth', 'common', 'fields', 'gear', 'import', 'settings', 'slates', 'sync', 'take', 'templates', 'validation']);
+	it('has the twelve areas', () => {
+		expect(Object.keys(AREAS).sort()).toEqual(['auth', 'common', 'fields', 'gear', 'import', 'settings', 'slates', 'sync', 'take', 'templates', 'validation', 'wrap']);
 	});
 	it('holds each key in one area only', () => {
 		const seen = new Map<string, string>();

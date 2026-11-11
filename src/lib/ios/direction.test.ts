@@ -14,10 +14,17 @@ describe('depth', () => {
 });
 
 describe('sg-onset routes', () => {
-	it('the five destinations fade between each other, never slide', () => {
+	it('the destinations fade between each other, never slide', () => {
 		expect(navDirection('/shoot', '/slates')).toBe('fade');
 		expect(navDirection('/gear', '/templates')).toBe('fade');
 		expect(navDirection('/settings', '/shoot')).toBe('fade');
+		expect(navDirection('/slates', '/wrap')).toBe('fade');
+		expect(navDirection('/wrap', '/gear')).toBe('fade');
+	});
+	it('the day report pushes over Wrap and pops back; from another destination it fades', () => {
+		expect(navDirection('/wrap', '/wrap/report')).toBe('push');
+		expect(navDirection('/wrap/report', '/wrap')).toBe('pop');
+		expect(navDirection('/wrap/report', '/shoot')).toBe('fade');
 	});
 	it('sign-in pushes over Settings and pops back', () => {
 		expect(navDirection('/settings', '/sign-in')).toBe('push');

@@ -17,4 +17,15 @@ describe('pushRecent', () => {
 		pushRecent(list, 3);
 		expect(list).toEqual([1, 2]);
 	});
+	it('holds zero once, never as a negative zero', () => {
+		expect(pushRecent([0, 2], -0)).toEqual([0, 2]);
+		expect(Object.is(pushRecent([2], -0)[0], 0)).toBe(true);
+	});
+	it('keeps nothing that is not a number', () => {
+		expect(pushRecent([1, 2], Number.NaN)).toEqual([1, 2]);
+		expect(pushRecent([1, 2], Number.POSITIVE_INFINITY)).toEqual([1, 2]);
+	});
+	it('holds nothing at a cap of zero', () => {
+		expect(pushRecent([1, 2], 3, 0)).toEqual([]);
+	});
 });

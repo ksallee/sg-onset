@@ -15,6 +15,25 @@ export function mmToPx(mm: number, pxPerMm = IPAD_PX_PER_MM): number {
 	return Math.round(mm * pxPerMm);
 }
 
+export function pxToMm(px: number, pxPerMm = IPAD_PX_PER_MM): number {
+	return px / pxPerMm;
+}
+
+/**
+ * A touch wider than this is a palm or the heel of the hand, not a fingertip. A fingertip is
+ * 8 to 14 mm across, a flat thumb or a gloved finger up to about 20 mm, a palm 40 mm and more.
+ */
+export const PALM_MM = 30;
+
+/**
+ * Whether a pointer's contact is a palm: a touch wider than PALM_MM on either axis. A touch that
+ * reports no size, a mouse and a pen always pass: a real press is never refused on a guess.
+ */
+export function isPalm(contact: { pointerType: string; width: number; height: number }, pxPerMm = IPAD_PX_PER_MM): boolean {
+	if (contact.pointerType !== 'touch') return false;
+	return Math.max(contact.width, contact.height) > mmToPx(PALM_MM, pxPerMm);
+}
+
 export interface Target {
 	mm: number;
 	/** The side of the square target, px. */

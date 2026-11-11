@@ -127,7 +127,7 @@ export class TakeScreen {
 		if (key === this.field) return;
 		this.commitField();
 		this.field = key;
-		this.entry = startEntry(fieldValue(this.take.cameras[this.setup], key, this.lens));
+		this.entry = startEntry(fieldValue(this.take.cameras[this.setup], key, this.lens), specFor(key, this.lens).decimals);
 	}
 
 	press(key: Key) {

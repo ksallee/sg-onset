@@ -22,8 +22,8 @@
 	import { t, tk } from '$lib/i18n/messages';
 	import { gearTitle, type GearScope } from '$lib/gear/names';
 	import { columnsRead, previewImport, recordsToImport, type DuplicateChoice, type PreviewRow } from '$lib/gear/preview';
-	import { sampleCsv, sampleFileName } from '$lib/gear/sampleCsv';
-	import { countText } from '$lib/gear/text';
+	import { sampleCsv, sampleFileName, samplePlaceholder } from '$lib/gear/sampleCsv';
+	import { countText, rowIssueText } from '$lib/gear/text';
 
 	const app = useApp();
 	const current = useCurrent();
@@ -101,7 +101,7 @@
 		return row.record ? gearTitle(scope, row.record) || t('import.row', { row: row.row }) : t('import.row.left');
 	}
 	function rowLine(row: PreviewRow): string | undefined {
-		const said = row.issues.map((i) => importIssueText(i));
+		const said = row.issues.map((i) => rowIssueText(i));
 		if (row.status === 'duplicate') {
 			const what = row.within ? t('import.row.duplicateWithin', { row: preview.rows.find((r) => r.record?.id === row.duplicateOf)?.row ?? '' }) : t('import.row.duplicate');
 			said.unshift(duplicates === 'skip' ? `${what} · ${t('import.row.skipped')}` : what);
@@ -139,7 +139,7 @@
 
 			<Section header={t('import.paste')} footer={t('import.paste.footer')}>
 				<div class="paste">
-					<textarea bind:value={text} placeholder={t('import.paste.placeholder')} aria-label={t('import.paste')} spellcheck="false" autocapitalize="off" autocomplete="off" rows="7"></textarea>
+					<textarea bind:value={text} placeholder={samplePlaceholder(scope)} aria-label={t('import.paste')} spellcheck="false" autocapitalize="off" autocomplete="off" rows="7"></textarea>
 				</div>
 			</Section>
 
@@ -246,6 +246,10 @@
 		font-size: max(16px, 15px);
 		resize: vertical;
 		outline: none;
+	}
+	/* The browser draws the resize grip in grey, whatever the colours: none in red night. */
+	:global(html[data-night='true']) textarea {
+		resize: none;
 	}
 	textarea::placeholder {
 		color: var(--label-3);

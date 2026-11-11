@@ -9,13 +9,40 @@ import type { CameraSetup, Take } from '$lib/model/types';
 const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 const isLetter = (label: string) => /^\p{L}$/u.test(label.trim());
 
-/** Single letters first (A, B, C), then names (Drone, Second Unit), each in alphabetical order. */
+/** The rule with no order set: single letters first (A, B, C), then names, each alphabetical. */
+function byRule(a: CameraSetup, b: CameraSetup): number {
+	const la = (a.cameraLabel ?? '').trim();
+	const lb = (b.cameraLabel ?? '').trim();
+	return Number(!isLetter(la)) - Number(!isLetter(lb)) || collator.compare(la, lb);
+}
+
+const hasOrder = (s: CameraSetup) => typeof s.order === 'number' && Number.isFinite(s.order);
+
+/**
+ * The order of camera setups everywhere: Gear, the take screen, the pickers. Setups with an order
+ * set by hand first, by that order; then the rest by the rule (single letters first, then names
+ * such as Drone or Second Unit, each in alphabetical order). A tie goes by the rule.
+ */
 export function sortSetups(setups: readonly CameraSetup[]): CameraSetup[] {
 	return [...setups].sort((a, b) => {
-		const la = (a.cameraLabel ?? '').trim();
-		const lb = (b.cameraLabel ?? '').trim();
-		return Number(!isLetter(la)) - Number(!isLetter(lb)) || collator.compare(la, lb);
+		const oa = hasOrder(a);
+		const ob = hasOrder(b);
+		if (oa !== ob) return oa ? -1 : 1;
+		return (oa ? a.order! - b.order! : 0) || byRule(a, b);
 	});
+}
+
+/**
+ * The order to save after moving setup `id` to index `to` of the sorted list: every setup
+ * numbered from 1 in the new order, listed only where its order changes. Empty for no move.
+ */
+export function moveSetup(setups: readonly CameraSetup[], id: string, to: number): { setup: CameraSetup; order: number }[] {
+	const sorted = sortSetups(setups);
+	const from = sorted.findIndex((s) => s.id === id);
+	if (from < 0 || from === Math.max(0, Math.min(to, sorted.length - 1))) return [];
+	const [moving] = sorted.splice(from, 1);
+	sorted.splice(Math.max(0, Math.min(to, sorted.length)), 0, moving);
+	return sorted.map((setup, i) => ({ setup, order: i + 1 })).filter((c) => c.setup.order !== c.order);
 }
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';

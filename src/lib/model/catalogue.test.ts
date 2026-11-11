@@ -18,6 +18,11 @@ describe('FIELDS', () => {
 		expect(seen.size).toBe(defs.length + defs.filter((d) => d.end).length);
 	});
 
+	it('keeps the order of camera setups set by hand, as an integer', () => {
+		expect(findField('cameraSetup', 'order')?.def).toMatchObject({ type: 'integer', labelKey: 'field.cameraSetup.order' });
+		expect(findField('cameraSetup', 'order')?.def.required).toBeUndefined();
+	});
+
 	it('names each label message field.<scope>.<key>', () => {
 		for (const def of defs) expect(def.labelKey).toBe(`field.${def.scope}.${def.key}`);
 	});

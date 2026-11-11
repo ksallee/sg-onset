@@ -55,6 +55,34 @@ describe('importLenses', () => {
 		expect(report.columns).toEqual({ 'Lens Model': 'lensModel', 'Focal Min (mm)': 'focalLengthMin', 'Focal Max (mm)': 'focalLengthMax' });
 	});
 
+	it('reads a focal length column and a long end column together, in either order', () => {
+		const keys = 'lensModel,focalLength,focalLengthMax\nOptimo,24,290\nMaster Prime,32,\nUltra Prime,40,40';
+		const swapped = 'focalLengthMax,lensModel,focalLength\n290,Optimo,24\n,Master Prime,32\n40,Ultra Prime,40';
+		for (const csv of [keys, swapped]) {
+			const { records, report } = importLenses(csv, ids());
+			expect(records.map((l) => [l.focalLength, l.focalLengthMax])).toEqual([
+				[24, 290],
+				[32, undefined],
+				[40, undefined]
+			]);
+			expect(report.issues).toEqual([]);
+			expect(report.ignoredColumns).toEqual([]);
+		}
+	});
+
+	it('takes a range in the focal length column and a long end that agrees', () => {
+		const { records, report } = importLenses('Model,Focal,Long end mm\nOptimo,24-290,290', ids());
+		expect(report.columns).toEqual({ Model: 'lensModel', Focal: 'focalLength', 'Long end mm': 'focalLengthMax' });
+		expect(records.map((l) => [l.focalLength, l.focalLengthMax])).toEqual([[24, 290]]);
+		expect(report.issues).toEqual([]);
+	});
+
+	it('keeps the range of the focal length column over a long end that disagrees, and warns', () => {
+		const { records, report } = importLenses('Model,Focal,Focal Max\nOptimo,24-290,300', ids());
+		expect(records.map((l) => [l.focalLength, l.focalLengthMax])).toEqual([[24, 290]]);
+		expect(report.issues).toEqual([{ row: 2, column: 'Focal Max', key: 'import.focalConflict', value: '300', severity: 'warning' }]);
+	});
+
 	it('knows a column by many names, whatever the case and punctuation', () => {
 		const csv = 'MANUFACTURER;lens_type;Serial No.;focal-length (mm);Anamorphic Squeeze\nZEISS;Supreme;S1;85;1.0';
 		const { records, report } = importLenses(csv, ids());

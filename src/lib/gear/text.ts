@@ -1,6 +1,8 @@
 // The lines the gear lists show under a name. Pure: strings from the catalogue (`t`).
 
-import { tk, t } from '$lib/i18n/messages';
+import { hasMessage, tk, t } from '$lib/i18n/messages';
+import { importIssueText } from '$lib/i18n/modelText';
+import type { ImportIssue } from '$lib/model/gearImport';
 import { formatRational } from '$lib/model/rational';
 import type { Camera, Dimensions, Lens } from '$lib/model/types';
 import { focalRange, lensKind } from './names';
@@ -33,6 +35,15 @@ export function lensLine(lens: Lens): string {
 	]
 		.filter(Boolean)
 		.join(' · ');
+}
+
+/**
+ * What one import issue says in the list of rows, where the row number already sits beside it:
+ * the `<key>.inRow` string, or the full message for a key with none.
+ */
+export function rowIssueText(issue: Pick<ImportIssue, 'key' | 'row' | 'column' | 'value'>): string {
+	const key = `${issue.key}.inRow`;
+	return hasMessage(key) ? tk(key, { column: issue.column ?? '', value: issue.value ?? '' }) : importIssueText(issue);
 }
 
 const size = (d: Dimensions | undefined, unit: string) => (d ? t('gear.size', { width: d.width, height: d.height, unit }) : '');

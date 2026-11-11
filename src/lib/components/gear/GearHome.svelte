@@ -23,7 +23,7 @@
 	import { sortCameras, sortLenses } from '$lib/gear/list';
 	import { cameraTitle, gearTitle, lensTitle, type GearScope } from '$lib/gear/names';
 	import { duplicateGear, formSelection, parseSelection, type Selection } from '$lib/gear/records';
-	import { setupsUsing, sortSetups } from '$lib/gear/setups';
+	import { moveSetup, setupsUsing, sortSetups } from '$lib/gear/setups';
 	import GearDetail from './GearDetail.svelte';
 	import GearList from './GearList.svelte';
 	import GearPicker from './GearPicker.svelte';
@@ -130,6 +130,15 @@
 		});
 		select(undefined);
 	}
+	/** Moves a setup to an index of the sorted list: every order that changes, as one edit. */
+	async function move(setup: CameraSetup, to: number) {
+		const changes = moveSetup(setups, setup.id, to);
+		if (!changes.length) return;
+		const place = Math.max(0, Math.min(to, setups.length - 1)) + 1;
+		await app.edit.group({ key: 'gear.edit.moved', params: { setup: setup.cameraLabel ?? '', n: place } }, async () => {
+			for (const change of changes) await app.edit.set('cameraSetup', change.setup, 'order', change.order);
+		});
+	}
 	async function removeSetup(setup: CameraSetup) {
 		await app.edit.remove('cameraSetup', setup.id, { key: 'edit.removed', params: { what: `${tk('scope.cameraSetup')} ${setup.cameraLabel ?? ''}` } });
 		select(undefined);
@@ -184,6 +193,7 @@
 						onlens={(setup) => openPicker(setup, 'lens')}
 						onadd={add}
 						onimport={importFrom}
+						onmove={move}
 					/>
 				</div>
 			{/if}
@@ -194,7 +204,7 @@
 							<div class="pane-in">
 								{#if selection.scope === 'cameraSetup'}
 									{@const setup = selected as CameraSetup}
-									<SetupDetail {setup} {setups} {cameras} {lenses} onpick={(kind) => openPicker(setup, kind)} ondelete={() => removeSetup(setup)} />
+									<SetupDetail {setup} {setups} {cameras} {lenses} onpick={(kind) => openPicker(setup, kind)} onmove={(to) => move(setup, to)} ondelete={() => removeSetup(setup)} />
 								{:else}
 									{@const scope = selection.scope}
 									{@const record = selected as Camera | Lens}
@@ -276,6 +286,10 @@
 	}
 	.split.alone .pane-in {
 		animation-name: pane-push;
+	}
+	/* Reduced motion: the entry is there at once, no slide and no fade. */
+	:global(html[data-motion='reduced']) .pane-in {
+		animation: none;
 	}
 	@keyframes pane-in {
 		from {

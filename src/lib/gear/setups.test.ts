@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CameraSetup, Take } from '$lib/model/types';
 import { validateRecord } from '$lib/model/validate';
-import { blankSetup, nextSetupLabel, pickerList, pushPick, recentIds, setupLabelTaken, setupsUsing, sortSetups } from './setups';
+import { blankSetup, moveSetup, nextSetupLabel, pickerList, pushPick, recentIds, setupLabelTaken, setupsUsing, sortSetups } from './setups';
 
 const setup = (id: string, cameraLabel: string, rest: Partial<CameraSetup> = {}): CameraSetup => ({ id, projectId: 'p', cameraLabel, ...rest });
 
@@ -12,6 +12,56 @@ describe('sortSetups', () => {
 	});
 	it('counts numbers in order', () => {
 		expect(sortSetups([setup('1', 'Unit 10'), setup('2', 'Unit 2')]).map((s) => s.cameraLabel)).toEqual(['Unit 2', 'Unit 10']);
+	});
+	it('follows the order set by hand, before the rule', () => {
+		const sorted = sortSetups([setup('1', 'A', { order: 3 }), setup('2', 'Drone', { order: 1 }), setup('3', 'B', { order: 2 })]);
+		expect(sorted.map((s) => s.cameraLabel)).toEqual(['Drone', 'B', 'A']);
+	});
+	it('puts setups with no order after those with one, by the rule', () => {
+		const sorted = sortSetups([setup('1', 'Second Unit'), setup('2', 'C'), setup('3', 'Drone', { order: 1 }), setup('4', 'A', { order: 2 })]);
+		expect(sorted.map((s) => s.cameraLabel)).toEqual(['Drone', 'A', 'C', 'Second Unit']);
+	});
+	it('breaks a tie in the order by the rule', () => {
+		expect(sortSetups([setup('1', 'B', { order: 1 }), setup('2', 'A', { order: 1 })]).map((s) => s.cameraLabel)).toEqual(['A', 'B']);
+	});
+});
+
+describe('moveSetup', () => {
+	const list = [setup('a', 'A'), setup('b', 'B'), setup('c', 'C'), setup('d', 'D')];
+	const applied = (changes: { setup: CameraSetup; order: number }[]) => {
+		const orders = new Map(changes.map((c) => [c.setup.id, c.order]));
+		return sortSetups(list.map((s) => (orders.has(s.id) ? { ...s, order: orders.get(s.id) } : s))).map((s) => s.id);
+	};
+	it('numbers every setup from 1 in the new order', () => {
+		const changes = moveSetup(list, 'c', 0);
+		expect(changes.map((c) => [c.setup.id, c.order])).toEqual([
+			['c', 1],
+			['a', 2],
+			['b', 3],
+			['d', 4]
+		]);
+		expect(applied(changes)).toEqual(['c', 'a', 'b', 'd']);
+	});
+	it('moves down and to the end', () => {
+		expect(applied(moveSetup(list, 'a', 1))).toEqual(['b', 'a', 'c', 'd']);
+		expect(applied(moveSetup(list, 'b', 9))).toEqual(['a', 'c', 'd', 'b']);
+	});
+	it('changes only the setups whose order differs', () => {
+		const numbered = list.map((s, i) => ({ ...s, order: i + 1 }));
+		expect(moveSetup(numbered, 'd', 2).map((c) => [c.setup.id, c.order])).toEqual([
+			['d', 3],
+			['c', 4]
+		]);
+	});
+	it('changes nothing for a move to the same place or an unknown setup', () => {
+		const numbered = list.map((s, i) => ({ ...s, order: i + 1 }));
+		expect(moveSetup(numbered, 'b', 1)).toEqual([]);
+		expect(moveSetup(numbered, 'x', 0)).toEqual([]);
+		expect(moveSetup(list, 'b', 1)).toEqual([]);
+		expect(moveSetup(list, 'd', 9)).toEqual([]);
+	});
+	it('keeps a valid camera setup', () => {
+		for (const c of moveSetup(list, 'c', 0)) expect(validateRecord('cameraSetup', { ...c.setup, order: c.order })).toEqual({});
 	});
 });
 

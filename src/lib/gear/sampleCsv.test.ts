@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { fieldsOf } from '$lib/model/catalogue';
 import { parseCsv } from '$lib/model/csv';
 import { importCameras, importLenses } from '$lib/model/gearImport';
-import { csvCell, sampleCsv, sampleFileName, toCsv } from './sampleCsv';
+import { csvCell, sampleCsv, sampleFileName, samplePlaceholder, toCsv } from './sampleCsv';
 
 const options = () => {
 	let n = 0;
@@ -27,10 +27,11 @@ describe('toCsv', () => {
 });
 
 describe('sampleCsv', () => {
-	it('has the catalogue keys of the scope as its header, a zoom’s long end in the focal length', () => {
+	it('has the catalogue keys of the scope as its header, a zoom’s long end in its own column', () => {
 		expect(parseCsv(sampleCsv('camera'))[0]).toEqual(fieldsOf('camera').map((d) => d.key));
-		expect(parseCsv(sampleCsv('lens'))[0]).toEqual(fieldsOf('lens').map((d) => d.key).filter((k) => k !== 'focalLengthMax'));
-		expect(sampleCsv('lens')).toContain(',24-290,');
+		expect(parseCsv(sampleCsv('lens'))[0]).toEqual(fieldsOf('lens').map((d) => d.key));
+		expect(sampleCsv('lens')).toContain(',24,290,');
+		expect(sampleCsv('lens')).not.toContain(',24-290,');
 	});
 	it('imports cleanly: every column read, every row a record, no issue', () => {
 		const cams = importCameras(sampleCsv('camera'), options());
@@ -44,6 +45,23 @@ describe('sampleCsv', () => {
 		expect(lenses.report.issues).toEqual([]);
 		expect(lenses.records.some((r) => r.focalLengthMax !== undefined)).toBe(true);
 		expect(lenses.records.some((r) => r.anamorphicSqueeze !== undefined)).toBe(true);
+	});
+});
+
+describe('samplePlaceholder', () => {
+	it('is the sample’s header and its first rows, for both kinds', () => {
+		for (const scope of ['camera', 'lens'] as const) {
+			const shown = parseCsv(samplePlaceholder(scope));
+			const sample = parseCsv(sampleCsv(scope));
+			expect(shown[0]).toEqual(sample[0]);
+			expect(shown.length).toBeGreaterThan(1);
+			expect(shown.length).toBeLessThanOrEqual(3);
+			expect(shown).toEqual(sample.slice(0, shown.length));
+		}
+	});
+	it('imports cleanly, as typed', () => {
+		expect(importCameras(samplePlaceholder('camera'), options()).report.issues).toEqual([]);
+		expect(importLenses(samplePlaceholder('lens'), options()).report.issues).toEqual([]);
 	});
 });
 

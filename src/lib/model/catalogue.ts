@@ -105,6 +105,8 @@ export const FIELDS = [
 	{ scope: 'cameraSetup', key: 'cameraLabel', type: 'string', labelKey: 'field.cameraSetup.cameraLabel', required: true, names: { crif: 'Camera Letter', omc: 'cameraLabel', otk: 'static.camera.label', ale: { avid: 'Camera', arri: 'Camera_index', silverstack: 'Camera' } } },
 	{ scope: 'cameraSetup', key: 'cameraId', type: 'ref', ref: 'camera', labelKey: 'field.cameraSetup.cameraId' },
 	{ scope: 'cameraSetup', key: 'lensId', type: 'ref', ref: 'lens', labelKey: 'field.cameraSetup.lensId' },
+	// The place of the setup in every list, set by hand. Never a form field: set by moving the setup.
+	{ scope: 'cameraSetup', key: 'order', type: 'integer', labelKey: 'field.cameraSetup.order' },
 
 	// Slate
 	{ scope: 'slate', key: 'slateUID', type: 'string', labelKey: 'field.slate.slateUID', required: true, names: { crif: 'Slate', omc: 'Slate.slateUID' } },

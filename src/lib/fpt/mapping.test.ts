@@ -140,7 +140,8 @@ describe('wantedColumns', () => {
 	});
 
 	it('lists what a camera setup needs', () => {
-		expect(names('cameraSetup').sort()).toEqual(['sg_camera', 'sg_lens', 'sg_onset_uuid']);
+		expect(names('cameraSetup').sort()).toEqual(['sg_camera', 'sg_lens', 'sg_onset_uuid', 'sg_sort_order']);
+		expect(fieldMap('cameraSetup', 'order')).toMatchObject({ kind: 'integer', columns: [{ name: 'sg_sort_order', display: 'Sort Order', dataType: 'number' }] });
 	});
 });
 

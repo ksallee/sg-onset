@@ -41,7 +41,8 @@ ids and times in. Each module has its test beside it.
 - Validation: `validation.required`, `.type`, `.integer`, `.above`, `.min`, `.max`, `.infinity`,
   `.unit`, `.rational`, `.option`, `.date`, `.timestamp`, `.timecode`, `.endBeforeStart`,
   `.focalRange`. Parameters are listed in `validate.ts`.
-- Import: `import.noHeader`, `.missingModel`, `.badValue`, `.incompleteSize`, `.noFocalLength`.
+- Import: `import.noHeader`, `.missingModel`, `.badValue`, `.incompleteSize`, `.noFocalLength`,
+  `.focalConflict`.
 
 No message file yet: the UI owns it.
 
@@ -82,7 +83,7 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
     `nominalFocalLength` and OMC says `focusPosition`.
 12. **Where neither standard has a name, the CRIF name in camelCase:** `lensHeight`, `filter`,
     `interiorExterior`, `scriptTime`, `elementType`, `wrangler`. Ours alone: `distanceToSubject`,
-    `noGood`, `clipName`, `startedAt`, `endedAt`, `setup`, `take`, `focalLengthMax`.
+    `noGood`, `clipName`, `startedAt`, `endedAt`, `setup`, `take`, `focalLengthMax`, `order`.
 13. **One `tStop` field.** No separate `fStop`. Reason: CRIF has one stop column and cine lenses
     are marked in T.
 14. **One `filter` text field** for ND and filters together, as CRIF does.
@@ -147,3 +148,14 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
 38. **Two timestamps are one value when they name the same moment.** FPT answers
     `09:01:02Z` for `09:01:02.000Z`. The app stamps times to the second (`app.now()`), so a
     time read back equals the one sent.
+
+### Gear (Claude, 2026-11-11)
+
+39. **A lens CSV may give the focal length and the long end in two columns,** as the catalogue
+    names them (`focalLength`, `focalLengthMax`), in any order. When the focal length cell already
+    holds a range, a long end that agrees is fine; one that disagrees is left out with the warning
+    `import.focalConflict`, and the range wins. Reason: the range is one cell written whole, so it
+    is the likelier to be right, and a dropped value is reported, never silent.
+40. **A camera setup has an `order`, set by hand.** Setups with an order come first, by it; the
+    rest follow by the old rule: single letters, then names, each alphabetical. A move numbers
+    every setup from 1, so a new setup lands at the end.

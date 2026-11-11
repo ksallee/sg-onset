@@ -134,6 +134,7 @@ const OVERRIDES: Record<string, Override> = {
 	'shootDay.cameraUnit': { display: 'Unit' },
 	'lightingSetup.referenceBalls': { display: 'Grey and Chrome Balls' },
 	'lens.focalLengthMax': { display: 'Focal Length Long End' },
+	'cameraSetup.order': { display: 'Sort Order' },
 	'camera.activeSensorPhysicalDimensions': { displays: ['Sensor Width mm', 'Sensor Height mm'] },
 	'camera.activeSensorResolution': { displays: ['Sensor Resolution Width', 'Sensor Resolution Height'] }
 };

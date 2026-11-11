@@ -83,6 +83,7 @@ gives.
 | Camera letter | A, B, C: the letter the crew calls the camera by. | `cameraLabel` | CRIF Camera Letter; OMC cameraLabel; OpenTrackIO static.camera.label; ALE Camera | Name (code) |
 | Camera | The body on this setup. | `cameraId` | | Camera |
 | Lens | The lens on this setup. | `lensId` | | Lens |
+| Order | The setup's place in every list, set by moving it. Not a form field. | `order` | | Sort Order |
 
 ### Slate
 

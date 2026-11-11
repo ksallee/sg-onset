@@ -85,6 +85,47 @@ test.describe('red night mode', () => {
 		});
 	}
 
+	// Gear with data on screen: a setup open (its badge, lens chip, order rows), a lens open, and
+	// an import preview with a ready row, a warning, a left-out row and a duplicate.
+	const GEAR: [string, (page: Page) => Promise<void>][] = [
+		[
+			'/gear, a camera setup open',
+			async (page) => {
+				await openApp(page, '/gear');
+				await page.getByRole('button', { name: /^A\b/ }).first().tap();
+				await page.getByRole('heading', { name: 'A', level: 2, exact: true }).waitFor();
+			}
+		],
+		[
+			'/gear, a lens open',
+			async (page) => {
+				await openApp(page, '/gear');
+				await page.getByRole('button', { name: /^Angénieux Optimo/ }).first().tap();
+				await page.getByRole('textbox', { name: 'Long end' }).waitFor();
+			}
+		],
+		[
+			'/gear/import, a preview',
+			async (page) => {
+				await openApp(page, '/gear/import?kind=lens');
+				const csv = ['Make,Model,Serial,Focal,Colour', 'Zeiss,Supreme 25,Z25-1,25,red', ',,X2,50,', 'Zeiss,Supreme 35,Z35-1,wide,', 'Cooke,S4/i 32 mm T2,,32,'].join('\n');
+				await page.getByRole('textbox', { name: 'Pasted text' }).fill(csv);
+				await page.getByText('No model. The row was left out.').waitFor();
+			}
+		]
+	];
+	for (const [name, show] of GEAR) {
+		test(`${name} sends out only red`, async ({ page }) => {
+			await night(page, true);
+			await show(page);
+			await expect(page.locator('html')).toHaveAttribute('data-night', 'true');
+			await settle(page);
+			const seen = await lightCount(page);
+			expect(seen.white, `${name}: pure-white pixels sampled`).toBe(0);
+			expect(seen.notRed, `${name}: pixels with green or blue, of ${seen.sampled}`).toBe(0);
+		});
+	}
+
 	for (const path of ALONE) {
 		test(`${path} sends out only red`, async ({ page }) => {
 			await night(page, true);

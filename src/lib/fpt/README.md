@@ -187,6 +187,7 @@ Every entity also gets `sg_onset_uuid` (text, unique): the record id on the devi
 | `cameraLabel` | `code` | text | |
 | `cameraId` | `sg_camera` | entity | |
 | `lensId` | `sg_lens` | entity | |
+| `order` | `sg_sort_order` | number | |
 
 **slate**
 

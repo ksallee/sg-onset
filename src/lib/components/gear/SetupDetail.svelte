@@ -2,6 +2,7 @@
 	// One camera setup: its letter, its camera and its lens. The letter saves when the field is
 	// left; the camera and the lens open a picker. It says plainly that a change is for the takes
 	// to come: a take keeps the camera and lens it was shot with (model decision 2).
+	import { ArrowDown, ArrowUp } from '@lucide/svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import { useApp } from '$lib/app/app.svelte';
@@ -21,15 +22,21 @@
 		cameras,
 		lenses,
 		onpick,
+		onmove,
 		ondelete
 	}: {
 		setup: CameraSetup;
+		/** Every setup, sorted. */
 		setups: CameraSetup[];
 		cameras: Camera[];
 		lenses: Lens[];
 		onpick: (kind: 'camera' | 'lens') => void;
+		/** Move this setup to an index of `setups`. */
+		onmove: (to: number) => void;
 		ondelete: () => void;
 	} = $props();
+
+	const index = $derived(setups.findIndex((s) => s.id === setup.id));
 
 	const app = useApp();
 	const labelDef = findField('cameraSetup', 'cameraLabel')!.def;
@@ -74,6 +81,21 @@
 	<Row title={fieldLabel(lensDef)} detail={lens ? lensTitle(lens) || t('gear.untitled') : t('gear.setup.none')} chevron onclick={() => onpick('lens')} />
 </Section>
 
+{#if setups.length > 1 && index >= 0}
+	<Section footer={t('gear.order.footer', { n: index + 1, total: setups.length })}>
+		{#if index > 0}
+			<Row title={t('gear.order.up')} class="tint" onclick={() => onmove(index - 1)}>
+				{#snippet leading()}<span class="icon" aria-hidden="true"><ArrowUp class="size-[19px]" strokeWidth={2.2} /></span>{/snippet}
+			</Row>
+		{/if}
+		{#if index < setups.length - 1}
+			<Row title={t('gear.order.down')} class="tint" onclick={() => onmove(index + 1)}>
+				{#snippet leading()}<span class="icon" aria-hidden="true"><ArrowDown class="size-[19px]" strokeWidth={2.2} /></span>{/snippet}
+			</Row>
+		{/if}
+	</Section>
+{/if}
+
 <Section footer={t('gear.delete.footer')}>
 	<Row title={t('gear.delete.cameraSetup')} destructive onclick={ondelete} />
 </Section>
@@ -95,6 +117,7 @@
 		border-radius: 14px;
 		background: var(--tint-solid);
 		color: var(--on-tint-solid);
+		box-shadow: inset 0 0 0 var(--status-ring) var(--tint);
 		font-family: var(--font-rounded);
 		font-size: 28px;
 		font-weight: 700;
@@ -102,6 +125,15 @@
 	.badge.long {
 		background: var(--fill);
 		color: var(--label);
+		box-shadow: none;
+	}
+	.icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 29px;
+		height: 29px;
+		color: var(--tint);
 	}
 	.words {
 		min-width: 0;

@@ -83,5 +83,12 @@ export const gear = {
 	'gear.edit.lens': '{setup}: {lens}',
 	'gear.edit.camera': '{setup}: {camera}',
 	'gear.edit.cleared': '{setup}: {field} cleared',
-	'gear.edit.duplicated': '{what} duplicated'
+	'gear.edit.duplicated': '{what} duplicated',
+	'gear.edit.moved': '{setup} moved to place {n}',
+
+	'gear.order.handle': 'Move {setup}',
+	'gear.order.handle.hint': 'Drag, or use the up and down arrow keys.',
+	'gear.order.up': 'Move Up',
+	'gear.order.down': 'Move Down',
+	'gear.order.footer': 'Place {n} of {total}. The take screen lists the camera setups in this order.'
 } as const;

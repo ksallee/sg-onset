@@ -1,8 +1,8 @@
 // A sample CSV for each kind of gear, so a person sees the shape the import reads. The header is
 // the catalogue's keys, which the import knows; the rows are made-up gear written as the import
-// reads it back. A zoom's range sits in the focal length column ("24-290"): the import reads a
-// long end column only when there is no focal length column. Pure: the page turns the text into
-// a file.
+// reads it back. A zoom has its short end under focalLength and its long end under
+// focalLengthMax. The paste box shows the same text cut to its first rows, so the two never
+// part. Pure: the page turns the text into a file.
 
 import { fieldsOf, type FieldDef } from '$lib/model/catalogue';
 import { formatField } from '$lib/model/fieldText';
@@ -28,25 +28,32 @@ const CAMERAS: Omit<Camera, 'id' | 'projectId'>[] = [
 
 const LENSES: Omit<Lens, 'id' | 'projectId'>[] = [
 	{ lensMake: 'Cooke', lensModel: 'S4/i 32 mm', lensSerialNumber: 'C32-0001', focalLength: 32 },
-	{ lensMake: 'Cooke', lensModel: 'S4/i 50 mm', lensSerialNumber: 'C50-0001', focalLength: 50 },
 	{ lensMake: 'Angénieux', lensModel: 'Optimo 24-290', lensSerialNumber: 'OPT-0001', focalLength: 24, focalLengthMax: 290 },
+	{ lensMake: 'Cooke', lensModel: 'S4/i 50 mm', lensSerialNumber: 'C50-0001', focalLength: 50 },
 	{ lensMake: 'Hawk', lensModel: 'V-Lite 40 mm', lensSerialNumber: 'HWK-0001', focalLength: 40, anamorphicSqueeze: rational(2, 1) }
 ];
 
-/** The columns of a sample: the catalogue's keys of the scope, the long end folded into the focal length. */
+/** The columns of a sample: the catalogue's keys of the scope. */
 export function sampleColumns(scope: GearScope): FieldDef[] {
-	return fieldsOf(scope).filter((d) => d.key !== 'focalLengthMax');
+	return fieldsOf(scope);
 }
 
-function cell(def: FieldDef, example: Example): string {
-	if (def.key === 'focalLength' && example.focalLengthMax !== undefined) return `${example.focalLength}-${example.focalLengthMax}`;
-	return formatField(def, example[def.key], 'metric');
+function sampleRows(scope: GearScope): string[][] {
+	const defs = sampleColumns(scope);
+	const examples: Example[] = scope === 'camera' ? CAMERAS : LENSES;
+	return [defs.map((d) => d.key), ...examples.map((e) => defs.map((d) => formatField(d, e[d.key], 'metric')))];
 }
 
 export function sampleCsv(scope: GearScope): string {
-	const defs = sampleColumns(scope);
-	const examples: Example[] = scope === 'camera' ? CAMERAS : LENSES;
-	return toCsv([defs.map((d) => d.key), ...examples.map((e) => defs.map((d) => cell(d, e)))]);
+	return toCsv(sampleRows(scope));
+}
+
+/** How many example rows the paste box shows under the header. */
+const PLACEHOLDER_ROWS = 2;
+
+/** The paste box's placeholder: the sample's header and its first rows. */
+export function samplePlaceholder(scope: GearScope): string {
+	return toCsv(sampleRows(scope).slice(0, 1 + PLACEHOLDER_ROWS)).trimEnd();
 }
 
 export function sampleFileName(scope: GearScope): string {

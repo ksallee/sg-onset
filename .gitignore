@@ -1,0 +1,19 @@
+node_modules/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# SvelteKit / Vite
+/.svelte-kit
+/build
+/.vercel
+vite.config.ts.timestamp-*
+
+# OS
+.DS_Store
+
+# Not public yet: Kevin decides what of these goes in the repo.
+research/
+HANDOFF.md

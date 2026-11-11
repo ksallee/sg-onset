@@ -46,6 +46,12 @@ enforces the parts a test can check.
 | Change | | One edit waiting to sync. | outbox entry | | |
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
 | Gear | | The cameras, lenses and camera setups of a project. | | | |
+| Wrap | | The destination for the end of the day: the day's summary, what is left to fix, the export and the hand-over. | | | |
+| Wrap package | | One zip of a day's (or several days') files and photos, made on Wrap, for the people after set. | | | |
+| Camera report | | The VES camera report CSV (CRIF), one row per take. | | VES CRIF | |
+| Day report | | The printable page of one shoot day, for the VFX supervisor. | | | |
+| Backup | | One zip of everything on the device, made in Settings, to restore from. | | | |
+| Snapshot | | A copy of the device's data the app keeps by itself, on the device. | | | |
 
 Note for code: the outbox calls a change an "entry" (`counts.entries`). The UI word for a queued
 edit is **Change**; **Entry** is a stored record.
@@ -209,4 +215,10 @@ gives.
 - **Unit** is the shooting unit. **Shoot day** is one unit's day, named "Day {n}".
 - **Entry** for a stored thing. "Item" is vague; "record" means to shoot.
 - **Photo**, not still. On set, "stills" means the unit stills photographer.
+- **Wrap** names the destination, the crew word for the end of the shooting day. Rejected: Export
+  (a verb, and the Backup uses it), Handover, Deliver. Three zips, three words: a **Wrap package**
+  is for the people after set; a **Backup** is the whole device, to restore; a **Snapshot** is the
+  app's own copy on the device. Never call one by another's name.
+- **Camera report** is the VES CSV, as crews and the spec call it. **Day report** is the printed
+  page. The file kinds keep their format in brackets: "Camera report (VES CSV)", "Editorial (ALE)".
 - Sync speaks of **Flow PT** and **this device**. Never "the server", "mine and theirs".

@@ -3,7 +3,7 @@
 
 import type { MessageKey } from '$lib/i18n/messages';
 
-export type NavId = 'shoot' | 'slates' | 'gear' | 'templates' | 'settings';
+export type NavId = 'shoot' | 'slates' | 'wrap' | 'gear' | 'templates' | 'settings';
 
 export interface NavEntry {
 	id: NavId;
@@ -22,6 +22,7 @@ export interface NavEntry {
 export const NAV: readonly NavEntry[] = [
 	{ id: 'shoot', href: '/shoot', labelKey: 'nav.shoot', focus: true },
 	{ id: 'slates', href: '/slates', labelKey: 'nav.slates' },
+	{ id: 'wrap', href: '/wrap', labelKey: 'nav.wrap' },
 	{ id: 'gear', href: '/gear', labelKey: 'nav.gear' },
 	{ id: 'templates', href: '/templates', labelKey: 'nav.templates' },
 	{ id: 'settings', href: '/settings', labelKey: 'nav.settings', also: ['/sign-in'] }

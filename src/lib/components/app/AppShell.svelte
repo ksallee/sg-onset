@@ -3,7 +3,7 @@
 	// status, the project and day picker, the sync detail and the notice of the last edit with
 	// its Undo. The holding hand and the sidebar's width come from the settings.
 	import type { Component, Snippet } from 'svelte';
-	import { Aperture, Camera, Clapperboard, LayoutTemplate, SlidersHorizontal } from '@lucide/svelte';
+	import { Aperture, Camera, Clapperboard, LayoutTemplate, PackageCheck, SlidersHorizontal } from '@lucide/svelte';
 	import { page } from '$app/state';
 	import NavShell from '$lib/components/ios/NavShell.svelte';
 	import Notice from '$lib/components/ios/Notice.svelte';
@@ -25,6 +25,7 @@
 	const ICONS: Record<NavId, Component<{ class?: string; strokeWidth?: number }>> = {
 		shoot: Aperture,
 		slates: Clapperboard,
+		wrap: PackageCheck,
 		gear: Camera,
 		templates: LayoutTemplate,
 		settings: SlidersHorizontal

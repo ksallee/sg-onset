@@ -4,8 +4,8 @@ import { TAB_ROOTS } from '$lib/ios/direction';
 import { NAV, activeNav } from './nav';
 
 describe('NAV', () => {
-	it('lists the five destinations, Shoot first', () => {
-		expect(NAV.map((n) => n.id)).toEqual(['shoot', 'slates', 'gear', 'templates', 'settings']);
+	it('lists the six destinations, Shoot first', () => {
+		expect(NAV.map((n) => n.id)).toEqual(['shoot', 'slates', 'wrap', 'gear', 'templates', 'settings']);
 	});
 	it('has a label for each, and each is a tab root: moving between them does not slide', () => {
 		for (const entry of NAV) {

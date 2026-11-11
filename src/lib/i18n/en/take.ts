@@ -16,11 +16,11 @@ export const take = {
 	'take.empty': 'Not set',
 
 	'phase.idle': 'Ready',
-	'phase.rolling': 'Rolling',
-	'phase.filed': 'Filed',
+	'phase.rolling': 'Running',
+	'phase.filed': 'Ended',
 	'timing.title': 'Timing',
-	'timing.start': 'Start',
-	'timing.end': 'Stop',
+	'timing.start': 'Start time',
+	'timing.end': 'End time',
 
 	'field.focalLength': 'Focal length',
 	'field.focusDistance': 'Focus',
@@ -29,8 +29,8 @@ export const take = {
 	'field.tilt': 'Tilt',
 
 	'rail.label': 'Capture',
-	'rail.record': 'Record',
-	'rail.cut': 'Stop',
+	'rail.record': 'Start',
+	'rail.cut': 'End',
 	'rail.photo': 'Photo',
 	'rail.newTake': 'New take',
 	'rail.undo': 'Undo',
@@ -56,8 +56,8 @@ export const take = {
 	'keypad.range': '{min} to {max}',
 
 	'undo.undo': 'Undo',
-	'undo.rolled': 'Take {take} rolling',
-	'undo.filed': 'Take {take} filed',
+	'undo.rolled': 'Take {take} running',
+	'undo.filed': 'Take {take} ended',
 	'undo.newTake': 'Take {take} added',
 	'undo.photo': 'Still added to take {take}',
 	'undo.value': '{field} set to {value}',

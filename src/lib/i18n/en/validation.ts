@@ -23,7 +23,7 @@ export const validation = {
 	'validation.typeName.date': 'a date',
 	'validation.typeName.timestamp': 'a time',
 	'validation.typeName.timecode': 'a timecode',
-	'validation.typeName.ref': 'a record',
+	'validation.typeName.ref': 'an item',
 	'validation.typeName.enum': 'one of the choices',
 	'validation.typeName.integer': 'a whole number',
 	'validation.typeName.number': 'a number',

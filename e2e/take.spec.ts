@@ -5,7 +5,7 @@ import { expect, open, test } from './fixtures';
 const PATH = '/proto/take';
 
 const rail = (page: Page) => page.getByRole('toolbar', { name: 'Capture' });
-const recordButton = (page: Page) => rail(page).getByRole('button', { name: /^(Record|Stop)\b/ });
+const recordButton = (page: Page) => rail(page).getByRole('button', { name: /^(Start|End)\b/ });
 /** The take's phase: the status line that starts with the phase word. */
 const phase = (page: Page, word: string) => page.getByRole('status').filter({ hasText: new RegExp(`^\\s*${word}`) });
 
@@ -44,13 +44,13 @@ test.describe('take screen', () => {
 		await expect(phase(page, 'Ready')).toBeVisible();
 	});
 
-	test('Record rolls, a second press files the take', async ({ page }) => {
+	test('Start runs the take, a second press ends it', async ({ page }) => {
 		await open(page, PATH);
 		await recordButton(page).tap();
-		await expect(phase(page, 'Rolling')).toBeVisible();
-		await expect(rail(page).getByRole('button', { name: /^Stop\b/ })).toBeVisible();
+		await expect(phase(page, 'Running')).toBeVisible();
+		await expect(rail(page).getByRole('button', { name: /^End\b/ })).toBeVisible();
 		await recordButton(page).tap();
-		await expect(phase(page, 'Filed')).toBeVisible();
+		await expect(phase(page, 'Ended')).toBeVisible();
 	});
 
 	test('New take adds one, Undo takes it back', async ({ page }) => {
@@ -94,8 +94,8 @@ test.describe('take screen', () => {
 		const right = await centre();
 		await open(page, `${PATH}?hand=left`);
 		const left = await centre();
-		expect(right, 'right hand: Record on the right half').toBeGreaterThan(width / 2);
-		expect(left, 'left hand: Record on the left half').toBeLessThan(width / 2);
+		expect(right, 'right hand: Start on the right half').toBeGreaterThan(width / 2);
+		expect(left, 'left hand: Start on the left half').toBeLessThan(width / 2);
 		// Mirrored: about as far from the left edge as it was from the right.
 		expect(Math.abs(left - (width - right))).toBeLessThan(width * 0.1);
 	});

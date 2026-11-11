@@ -1,6 +1,10 @@
 // A label for every field of the model's catalogue (`field.<scope>.<key>`), for each option of
 // an enum (`field.<scope>.<key>.<option>`), for each scope and each unit. Owned by the shell:
 // a new catalogue field needs its label here, and `model.test.ts` fails until it has one.
+//
+// Every label follows docs/vocabulary.md: one term per concept, sentence case. A take field
+// shown in the dense take table also has a short label, `field.take.<key>.short`; forms use the
+// long one. `vocabulary.test.ts` checks both.
 
 export const fields = {
 	'scope.project': 'Project',
@@ -11,7 +15,7 @@ export const fields = {
 	'scope.take': 'Take',
 	'scope.camera': 'Camera',
 	'scope.lens': 'Lens',
-	'scope.still': 'Still',
+	'scope.still': 'Photo',
 
 	'unit.mm': 'mm',
 	'unit.m': 'm',
@@ -22,6 +26,7 @@ export const fields = {
 	'unit.px': 'px',
 
 	'field.end': '{field}, end',
+	'field.end.short': '{field} end',
 
 	'field.project.name': 'Name',
 
@@ -32,14 +37,14 @@ export const fields = {
 	'field.shootDay.wrangler': 'Wrangler',
 
 	'field.lightingSetup.label': 'Name',
-	'field.lightingSetup.hdri': 'HDRI shot',
-	'field.lightingSetup.hdriFilename': 'HDRI file',
+	'field.lightingSetup.hdri': 'HDRI',
+	'field.lightingSetup.hdriFilename': 'HDRI filename',
 	'field.lightingSetup.referenceBalls': 'Grey and chrome balls',
 	'field.lightingSetup.colourChart': 'Colour chart',
 	'field.lightingSetup.notes': 'Notes',
 
-	'field.cameraSetup.cameraLabel': 'Camera',
-	'field.cameraSetup.cameraId': 'Body',
+	'field.cameraSetup.cameraLabel': 'Camera letter',
+	'field.cameraSetup.cameraId': 'Camera',
 	'field.cameraSetup.lensId': 'Lens',
 
 	'field.slate.slateUID': 'Slate',
@@ -64,41 +69,63 @@ export const fields = {
 	'field.slate.notes': 'Notes',
 
 	'field.take.take': 'Take',
+	'field.take.take.short': 'Take',
 	'field.take.startedAt': 'Start time',
+	'field.take.startedAt.short': 'Start',
 	'field.take.endedAt': 'End time',
+	'field.take.endedAt.short': 'End',
 	'field.take.circleTake': 'Circled',
+	'field.take.circleTake.short': 'Circled',
 	'field.take.noGood': 'No good',
+	'field.take.noGood.short': 'NG',
 	'field.take.notes': 'Notes',
-	'field.take.cameraSetupId': 'Camera',
-	'field.take.cameraId': 'Body',
+	'field.take.cameraSetupId': 'Camera setup',
+	'field.take.cameraSetupId.short': 'Cam',
+	'field.take.cameraId': 'Camera',
 	'field.take.lensId': 'Lens',
 	'field.take.focalLength': 'Focal length',
+	'field.take.focalLength.short': 'Focal',
 	'field.take.tStop': 'T-stop',
-	'field.take.focusDistance': 'Focus',
+	'field.take.tStop.short': 'T-stop',
+	'field.take.focusDistance': 'Focus distance',
+	'field.take.focusDistance.short': 'Focus',
 	'field.take.lensHeight': 'Lens height',
+	'field.take.lensHeight.short': 'Height',
 	'field.take.tilt': 'Tilt',
-	'field.take.roll': 'Dutch',
-	'field.take.distanceToSubject': 'Distance to subject',
+	'field.take.tilt.short': 'Tilt',
+	'field.take.roll': 'Dutch angle',
+	'field.take.roll.short': 'Dutch',
+	'field.take.distanceToSubject': 'Subject distance',
+	'field.take.distanceToSubject.short': 'Subject',
 	'field.take.captureFrameRate': 'Frame rate',
+	'field.take.captureFrameRate.short': 'FPS',
 	'field.take.shutterAngle': 'Shutter angle',
+	'field.take.shutterAngle.short': 'Shutter',
 	'field.take.isoSpeed': 'ISO',
+	'field.take.isoSpeed.short': 'ISO',
 	'field.take.whiteBalance': 'White balance',
+	'field.take.whiteBalance.short': 'WB',
 	'field.take.filter': 'Filter',
-	'field.take.cameraRoll': 'Reel',
-	'field.take.clipName': 'Clip',
+	'field.take.filter.short': 'Filter',
+	'field.take.cameraRoll': 'Camera roll',
+	'field.take.cameraRoll.short': 'Roll',
+	'field.take.clipName': 'Clip name',
+	'field.take.clipName.short': 'Clip',
 	'field.take.timecodeStart': 'Timecode in',
+	'field.take.timecodeStart.short': 'TC in',
 	'field.take.timecodeEnd': 'Timecode out',
+	'field.take.timecodeEnd.short': 'TC out',
 
 	'field.camera.cameraMake': 'Make',
 	'field.camera.cameraModel': 'Model',
 	'field.camera.cameraSerialNumber': 'Serial number',
 	'field.camera.activeSensorPhysicalDimensions': 'Sensor size',
-	'field.camera.activeSensorResolution': 'Resolution',
+	'field.camera.activeSensorResolution': 'Sensor resolution',
 
 	'field.lens.lensMake': 'Make',
 	'field.lens.lensModel': 'Model',
 	'field.lens.lensSerialNumber': 'Serial number',
 	'field.lens.focalLength': 'Focal length',
 	'field.lens.focalLengthMax': 'Long end',
-	'field.lens.anamorphicSqueeze': 'Squeeze'
+	'field.lens.anamorphicSqueeze': 'Anamorphic squeeze'
 } as const;

@@ -1,21 +1,22 @@
-// Strings of Settings, and of the prototype's setup panel. Owned by the shell.
+// Strings of Settings, and of the prototype's settings panel. Owned by the shell.
+// Words follow docs/vocabulary.md.
 
 export const settings = {
-	'settings.title': 'Setup',
+	'settings.title': 'Settings',
 	'settings.hand': 'Holding hand',
 	'settings.hand.left': 'Left',
 	'settings.hand.right': 'Right',
 	'settings.hand.footer': 'The capture buttons sit under the thumb of this hand. The sections sit on the other side.',
-	'settings.theme': 'Theme',
-	'settings.theme.day': 'Day',
+	'settings.theme': 'Appearance',
+	'settings.theme.day': 'Light',
 	'settings.theme.dark': 'Dark',
-	'settings.theme.night': 'Night',
+	'settings.theme.night': 'Red night mode',
 	'settings.appearance': 'Appearance',
 	'settings.appearance.system': 'System',
 	'settings.appearance.light': 'Light',
 	'settings.appearance.dark': 'Dark',
 	'settings.night': 'Red night mode',
-	'settings.night.footer': 'Red on black, for a dark set. On, it takes the place of the appearance.',
+	'settings.night.footer': 'Red on black, for a dark set. When on, it replaces the appearance.',
 	'settings.buttonSize': 'Button size',
 	'settings.buttonSize.standard': 'Standard',
 	'settings.buttonSize.large': 'Large',
@@ -27,15 +28,15 @@ export const settings = {
 	'settings.close': 'Close',
 
 	'settings.handling': 'Handling',
-	'settings.look': 'Look',
+	'settings.look': 'Display',
 	'settings.motion': 'Motion',
 	'settings.motion.system': 'System',
 	'settings.motion.full': 'Full',
 	'settings.motion.reduced': 'Reduced',
 	'settings.motion.footer': 'System follows Reduce Motion on this device. Capture never waits on motion.',
 	'settings.units': 'Lengths',
-	'settings.units.metric': 'Metric',
-	'settings.units.imperial': 'Feet',
+	'settings.units.metric': 'Metres',
+	'settings.units.imperial': 'Feet and inches',
 	'settings.units.footer': 'How lengths are shown and typed. They are stored in metres either way.',
 
 	'settings.storage': 'Storage',
@@ -46,7 +47,7 @@ export const settings = {
 	'settings.storage.used.value': '{used} of {quota}',
 	'settings.storage.unknown': 'Not reported',
 	'settings.storage.ask': 'Ask to Keep Storage',
-	'settings.storage.refused': 'The browser said no. Add sg-onset to the Home Screen, then ask again.',
+	'settings.storage.refused': 'The browser said no. Add SG OnSet to the Home Screen, then ask again.',
 	'settings.storage.footer.kept': 'The browser has promised not to clear this data when space runs low.',
 	'settings.storage.footer.notKept': 'Until the browser promises to keep it, data can be cleared when space runs low. Export a backup each day.',
 

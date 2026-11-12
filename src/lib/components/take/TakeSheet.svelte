@@ -1,5 +1,5 @@
 <script lang="ts">
-	// The take on screen in a sheet: its note, and the cameras on it, one of which can be taken
+	// The take on screen in a sheet: its note, its template, and the cameras on it, one of which can be taken
 	// off. A full sheet, so the keyboard never covers the note. Everything is undoable.
 	import InputRow from '$lib/components/ios/InputRow.svelte';
 	import Row from '$lib/components/ios/Row.svelte';
@@ -7,6 +7,7 @@
 	import Sheet from '$lib/components/ios/Sheet.svelte';
 	import { t } from '$lib/i18n/messages';
 	import type { Shoot } from '$lib/take/shoot.svelte';
+	import TakeTemplate from './TakeTemplate.svelte';
 
 	let { shoot, open = $bindable(false) }: { shoot: Shoot; open?: boolean } = $props();
 
@@ -23,6 +24,7 @@
 	<Section header={t('note.label')}>
 		<InputRow label={t('marks.note')} bind:value={note} placeholder={t('note.placeholder')} onchange={(text) => shoot.setNote(text)} />
 	</Section>
+	{#if shoot.group}<TakeTemplate {shoot} />{/if}
 	{#if on.length > 1}
 		<Section header={t('take.cameras')}>
 			{#each on as col (col.id)}

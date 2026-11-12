@@ -14,6 +14,7 @@ import { t } from '$lib/i18n/messages';
 import type { FieldDef } from '$lib/model/catalogue';
 import type { FieldValue, Lens, Still, Take } from '$lib/model/types';
 import { sameValue } from '$lib/model/value';
+import { sortTemplates } from '$lib/templates/list';
 import { canStepEntry, commitEntry, pressEntry, startEntry, stepEntry, type EntryKey, type FieldEntry } from './entry';
 import { entrySpec, isLocked, numberFields, shownValue, slotKey, visibleFields, type EntrySpec } from './fields';
 import { activeSetupIds, cameraColumns, groupTakes, NO_SETUP, type TakeGroup } from './groups';
@@ -22,6 +23,7 @@ import { groupPhase, groupTimes, runningGroup } from './phase';
 import { nextSecondIn } from './record';
 import { recentValues } from './recent';
 import { addCameraTake, nextTakes, pressTarget, shownGroup, startEndPlan } from './startEnd';
+import { groupChanged, groupLink, groupLinkPatch, groupResetPatch, groupUnlinkPatch, type GroupLink } from './template';
 
 /** The field in the keypad: whose, which, start or end value. */
 export interface OpenField {
@@ -40,6 +42,8 @@ export class Shoot {
 	readonly lenses;
 	/** The stills of every take of the slate. */
 	readonly stills;
+	/** The project's templates. */
+	readonly templates;
 
 	/** The take number picked. None: the running one, else the last. */
 	selected = $state<string | undefined>(undefined);
@@ -88,6 +92,17 @@ export class Shoot {
 	readonly circled = $derived(this.group ? groupMark(this.group, 'circleTake') : false);
 	readonly noGood = $derived(this.group ? groupMark(this.group, 'noGood') : false);
 	readonly note = $derived(this.group ? groupNote(this.group) : '');
+	/** The take templates to pick from, by name. */
+	readonly takeTemplates = $derived.by(() => sortTemplates(this.templates.value.filter((tp) => tp.scope === 'take')));
+	/** The template the take on screen follows. */
+	readonly link = $derived.by<GroupLink>(() => (this.group ? groupLink(this.group) : { kind: 'none' }));
+	/** That template; undefined when there is none, or it was deleted. */
+	readonly template = $derived.by(() => {
+		const link = this.link;
+		return link.kind === 'one' ? this.templates.value.find((tp) => tp.id === link.id) : undefined;
+	});
+	/** The template fields changed on this take since. */
+	readonly templateChanged = $derived.by(() => (this.group && this.template ? groupChanged(this.group, this.template) : []));
 	readonly spec = $derived.by<EntrySpec | null>(() => (this.field ? entrySpec(this.field.def, settings.value.units, this.lensOf(this.takeOf(this.field.setupId))) : null));
 	readonly recents = $derived.by(() => (this.field ? recentValues(this.takes.value, this.field.def, slotKey(this.field.def.key, this.field.end), settings.value.units) : []));
 
@@ -98,6 +113,7 @@ export class Shoot {
 		this.setups = liveList('cameraSetup', () => current.project?.id);
 		this.cameras = liveList('camera', () => current.project?.id);
 		this.lenses = liveList('lens', () => current.project?.id);
+		this.templates = liveList('template', () => current.project?.id);
 		this.stills = live<Still[]>(
 			['still', 'take'],
 			async (store) => {
@@ -260,6 +276,29 @@ export class Shoot {
 		const group = this.group;
 		if (!group) return;
 		void this.#app.edit.apply('take', notePatch(group, text), this.#label('take.edit.note', { take: group.number }));
+	}
+
+	/** Links every camera of the take on screen to a take template and fills its values. */
+	linkTemplate(id: string) {
+		const group = this.group;
+		const tp = this.takeTemplates.find((x) => x.id === id);
+		if (!group || !tp) return;
+		this.close();
+		void this.#app.edit.apply('take', groupLinkPatch(group, tp), this.#label('slates.link.linked', { what: t('take.row', { take: group.number }), template: tp.name }));
+	}
+
+	resetTemplate() {
+		const group = this.group;
+		const tp = this.template;
+		if (!group || !tp) return;
+		this.close();
+		void this.#app.edit.apply('take', groupResetPatch(group, tp), this.#label('slates.link.reset.done', { what: t('take.row', { take: group.number }), template: tp.name }));
+	}
+
+	unlinkTemplate() {
+		const group = this.group;
+		if (!group) return;
+		void this.#app.edit.apply('take', groupUnlinkPatch(group), this.#label('slates.link.unlinked', { what: t('take.row', { take: group.number }) }));
 	}
 
 	addCamera(setupId: string) {

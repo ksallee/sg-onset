@@ -1,2 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /proto/
+Disallow: /auth/
+
+Sitemap: https://sg-onset.vercel.app/sitemap.xml

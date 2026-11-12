@@ -32,6 +32,14 @@ export function installHint(ua: string, standalone: boolean, touchPoints = 0): I
 	return IN_APP.test(ua) ? 'ios-open-in-safari' : 'ios-share';
 }
 
+/**
+ * Does asking for persistent storage open a dialog. Firefox asks the person; Chromium and Safari
+ * answer on their own, with no dialog, so there the app may ask again each time it opens.
+ */
+export function persistAsksWithDialog(ua: string): boolean {
+	return /Firefox\//.test(ua);
+}
+
 /** The page's own answer; false outside a browser. */
 export function readStandalone(): boolean {
 	if (typeof window === 'undefined') return false;

@@ -13,7 +13,7 @@ export const templates = {
 	'templates.slate': 'Slate templates',
 	'templates.take': 'Take templates',
 	'templates.slate.footer': 'Fills a new slate. Pick one under New Slate.',
-	'templates.take.footer': 'Fills takes. Link one to takes from bulk edit.',
+	'templates.take.footer': 'Fills takes. Link one to a take in Shoot, under Note, or to many takes from bulk edit.',
 	'templates.linked.none': 'Nothing linked',
 	'templates.linked.slate.one': '1 slate',
 	'templates.linked.slate.many': '{n} slates',

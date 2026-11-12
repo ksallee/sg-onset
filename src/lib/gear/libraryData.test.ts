@@ -4,42 +4,56 @@ import { parseCsv } from '$lib/model/csv';
 import { rationalToNumber } from '$lib/model/rational';
 import { lensSeries, parseLibraryCameras, parseLibraryLenses } from './library';
 import camerasCsv from './library/cameras.csv?raw';
+import modesCsv from './library/camera-modes.csv?raw';
 import lensesCsv from './library/lenses.csv?raw';
 
 const rows = (csv: string) => parseCsv(csv).slice(1).filter((cells) => cells.some((c) => c !== ''));
 const SQUEEZES = [1.25, 1.3, 1.33, 1.5, 1.6, 1.65, 1.8, 2];
 
-describe('library/cameras.csv', () => {
-	const cameras = parseLibraryCameras(camerasCsv);
-	it('reads every row', () => {
+describe('library/cameras.csv and camera-modes.csv', () => {
+	const cameras = parseLibraryCameras(camerasCsv, modesCsv);
+	const modes = cameras.flatMap((c) => c.modes.map((m, i) => ({ c, m, i, label: `${c.model} / ${m.name ?? 'full'}` })));
+	it('reads every row: each mode row names a body of cameras.csv', () => {
 		expect(cameras.length).toBe(rows(camerasCsv).length);
 		expect(cameras.length).toBeGreaterThanOrEqual(40);
+		expect(modes.length).toBe(rows(camerasCsv).length + rows(modesCsv).length);
 	});
-	it('names each body once, with a make and a source', () => {
+	it('names each body once and each of its modes once, with a make and a source', () => {
 		const names = cameras.map((c) => `${c.make} ${c.model}`.toLowerCase());
 		expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([]);
 		for (const c of cameras) {
 			expect(c.make, c.model).not.toBe('');
-			expect(c.source, c.model).toMatch(/^https:\/\//);
+			const own = c.modes.map((m) => (m.name ?? '').toLowerCase());
+			expect(own.filter((n, i) => own.indexOf(n) !== i), c.model).toEqual([]);
+		}
+		for (const { m, i, label } of modes) {
+			expect(m.source, label).toMatch(/^https:\/\//);
+			if (i > 0) expect(m.name, label).toBeTruthy();
 		}
 	});
-	it('holds plausible sizes: 5 to 70 mm wide, wider than tall or square, 1000 px and up', () => {
-		for (const c of cameras) {
-			if (c.sensor) {
-				expect(c.sensor.width, c.model).toBeGreaterThan(5);
-				expect(c.sensor.width, c.model).toBeLessThan(70);
-				expect(c.sensor.height, c.model).toBeLessThanOrEqual(c.sensor.width);
+	it('holds plausible sizes: 3 to 70 mm wide, 1000 px and up, the sensor shaped as the recording', () => {
+		for (const { m, label } of modes) {
+			if (m.sensor) {
+				expect(m.sensor.width, label).toBeGreaterThan(3);
+				expect(m.sensor.width, label).toBeLessThan(70);
 			}
-			if (c.resolution) {
-				expect(c.resolution.width, c.model).toBeGreaterThanOrEqual(1000);
-				expect(c.resolution.height, c.model).toBeLessThanOrEqual(c.resolution.width);
-				expect(Number.isInteger(c.resolution.width) && Number.isInteger(c.resolution.height), c.model).toBe(true);
+			if (m.resolution) {
+				expect(m.resolution.width, label).toBeGreaterThanOrEqual(1000);
+				expect(Number.isInteger(m.resolution.width) && Number.isInteger(m.resolution.height), label).toBe(true);
 			}
 			// Square photosites: the sensor and the recording have the same shape, within 3 %.
-			if (c.sensor && c.resolution) {
-				const shape = c.sensor.width / c.sensor.height / (c.resolution.width / c.resolution.height);
-				expect(Math.abs(shape - 1), c.model).toBeLessThan(0.03);
+			if (m.sensor && m.resolution) {
+				const shape = m.sensor.width / m.sensor.height / (m.resolution.width / m.resolution.height);
+				expect(Math.abs(shape - 1), label).toBeLessThan(0.03);
 			}
+		}
+	});
+	it('no mode reads more sensor than the full sensor', () => {
+		for (const { c, m, i, label } of modes) {
+			const full = c.modes[0].sensor;
+			if (i === 0 || !full || !m.sensor) continue;
+			expect(m.sensor.width, label).toBeLessThanOrEqual(full.width * 1.01);
+			expect(m.sensor.height, label).toBeLessThanOrEqual(full.height * 1.01);
 		}
 	});
 });

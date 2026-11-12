@@ -5,7 +5,7 @@ import { importIssueText } from '$lib/i18n/modelText';
 import type { ImportIssue } from '$lib/model/gearImport';
 import { formatRational } from '$lib/model/rational';
 import type { Camera, Dimensions, Lens } from '$lib/model/types';
-import type { LensSeries, LibraryCamera, LibraryLens } from './library';
+import type { LensSeries, LibraryCameraMode, LibraryLens } from './library';
 import { focalRange, lensKind } from './names';
 
 /** "1 lens", "3 lenses". */
@@ -60,9 +60,9 @@ export function cameraLine(camera: Camera): string {
 }
 
 
-/** A library body: "27.99 × 19.22 mm · 4608 × 3164 px · 4.6K 3:2 Open Gate". */
-export function libraryCameraLine(camera: LibraryCamera): string {
-	return [size(camera.sensor, tk('unit.mm')), size(camera.resolution, tk('unit.px')), camera.mode ?? ''].filter(Boolean).join(' · ');
+/** A mode of a library body: "27.99 × 19.22 mm · 4608 × 3164 px". */
+export function libraryModeLine(mode: LibraryCameraMode): string {
+	return [size(mode.sensor, tk('unit.mm')), size(mode.resolution, tk('unit.px'))].filter(Boolean).join(' · ');
 }
 
 const stop = (n: number | undefined) => (n === undefined ? '' : t('gear.library.tStop', { stop: n }));

@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { afterNavigate, beforeNavigate, onNavigate } from '$app/navigation';
+	import { dev } from '$app/environment';
 	import { updated } from '$app/state';
 	import { provideApp } from '$lib/app/app.svelte';
 	import { settings } from '$lib/app/settings.svelte';
@@ -9,6 +10,7 @@
 	import { reducedMotion } from '$lib/components/ios/layer.svelte';
 	import { arrive, leave } from '$lib/components/ios/pageStage';
 	import { navDirection, pageMotion } from '$lib/ios/direction';
+	import { onTakeover } from '$lib/pwa/update';
 
 	let { children } = $props();
 
@@ -18,9 +20,26 @@
 	// A new deploy is out (polled, see vite.config.ts): the next in-app navigation loads it in
 	// full, so an open app never keeps the old version or asks for files the deploy removed.
 	beforeNavigate((nav) => {
-		if (!updated.current || nav.willUnload || !nav.to) return;
+		if (!(updated.current || stale) || nav.willUnload || !nav.to) return;
 		nav.cancel();
 		location.href = nav.to.url.href;
+	});
+
+	// The same when the new deploy's service worker takes over this page (lib/pwa/update.ts): the
+	// shell came from the old worker's cache, so this is the old build. With nothing done in this
+	// visit it loads the new one at once.
+	let stale = false;
+	onMount(() => {
+		const workers = navigator.serviceWorker;
+		if (dev || !workers) return;
+		const hadWorker = workers.controller !== null;
+		const takeover = () => {
+			const action = onTakeover({ hadWorker, edited: !!app && (app.canUndo || app.canRedo || app.lastEdit !== null) });
+			if (action === 'reload') location.reload();
+			else if (action === 'later') stale = true;
+		};
+		workers.addEventListener('controllerchange', takeover);
+		return () => workers.removeEventListener('controllerchange', takeover);
 	});
 
 	// A change of page moves (docs/design/motion.md): a push or a pop inside a destination, a fade

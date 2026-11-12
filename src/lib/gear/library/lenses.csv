@@ -1,0 +1,630 @@
+lensMake,series,lensModel,focalLength,focalLengthMax,anamorphicSqueeze,maxTStop,coverage,sourceUrl,confidence
+ARRI,Signature Prime,Signature Prime 12 mm,12,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 15 mm,15,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 18 mm,18,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 21 mm,21,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 25 mm,25,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 29 mm,29,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 35 mm,35,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 40 mm,40,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 47 mm,47,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 58 mm,58,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 75 mm,75,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 95 mm,95,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 125 mm,125,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 150 mm,150,,,1.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 200 mm,200,,,2.5,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Prime,Signature Prime 280 mm,280,,,2.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-primes/technical-data-signature-prime,maker
+ARRI,Signature Zoom,Signature Zoom 16-32,16,32,,2.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-zooms/technical-data-signature-zoom,maker
+ARRI,Signature Zoom,Signature Zoom 24-75,24,75,,2.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-zooms/technical-data-signature-zoom,maker
+ARRI,Signature Zoom,Signature Zoom 45-135,45,135,,2.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-zooms/technical-data-signature-zoom,maker
+ARRI,Signature Zoom,Signature Zoom 65-300,65,300,,2.8,LF,https://www.arri.com/en/cine-lenses/signature-lenses/signature-primes-zooms/signature-zooms/technical-data-signature-zoom,maker
+ARRI,Master Prime,Master Prime 12 mm,12,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 14 mm,14,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 16 mm,16,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 18 mm,18,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 21 mm,21,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 25 mm,25,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 27 mm,27,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 32 mm,32,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 35 mm,35,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 40 mm,40,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 50 mm,50,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 65 mm,65,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 75 mm,75,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 100 mm,100,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 135 mm,135,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Master Prime,Master Prime 150 mm,150,,,1.3,S35,https://www.arri.com/resource/blob/178208/eb2ae4f712451cd1e0036a646057c888/master-prime-lenses-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 8R,8,,,2.8,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 12 mm,12,,,2,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 14 mm,14,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 16 mm,16,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 20 mm,20,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 24 mm,24,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 28 mm,28,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 32 mm,32,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 40 mm,40,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 50 mm,50,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 65 mm,65,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 85 mm,85,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 100 mm,100,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 135 mm,135,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Ultra Prime,Ultra Prime 180 mm,180,,,1.9,S35,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Master Anamorphic,Master Anamorphic 28 mm,28,,2,1.9,S35,https://www.arri.com/en/cine-lenses/arri-zeiss-fujinon-lenses/master-anamorphics/arri-master-anamorphic-technical-data,maker
+ARRI,Master Anamorphic,Master Anamorphic 35 mm,35,,2,1.9,S35,https://www.arri.com/en/cine-lenses/arri-zeiss-fujinon-lenses/master-anamorphics/arri-master-anamorphic-technical-data,maker
+ARRI,Master Anamorphic,Master Anamorphic 40 mm,40,,2,1.9,S35,https://www.arri.com/en/cine-lenses/arri-zeiss-fujinon-lenses/master-anamorphics/arri-master-anamorphic-technical-data,maker
+ARRI,Master Anamorphic,Master Anamorphic 50 mm,50,,2,1.9,S35,https://www.arri.com/en/cine-lenses/arri-zeiss-fujinon-lenses/master-anamorphics/arri-master-anamorphic-technical-data,maker
+ARRI,Master Anamorphic,Master Anamorphic 60 mm,60,,2,1.9,S35,https://www.arri.com/en/cine-lenses/arri-zeiss-fujinon-lenses/master-anamorphics/arri-master-anamorphic-technical-data,maker
+ARRI,Master Anamorphic,Master Anamorphic 75 mm,75,,2,1.9,S35,https://www.arri.com/en/cine-lenses/arri-zeiss-fujinon-lenses/master-anamorphics/arri-master-anamorphic-technical-data,maker
+ARRI,Master Anamorphic,Master Anamorphic 100 mm,100,,2,1.9,S35,https://www.arri.com/en/cine-lenses/arri-zeiss-fujinon-lenses/master-anamorphics/arri-master-anamorphic-technical-data,maker
+ARRI,Master Anamorphic,Master Anamorphic 135 mm,135,,2,1.9,S35,https://www.arri.com/en/cine-lenses/arri-zeiss-fujinon-lenses/master-anamorphics/arri-master-anamorphic-technical-data,maker
+ARRI,Master Anamorphic,Master Anamorphic 180 mm,180,,2,2.8,S35,https://www.arri.com/en/cine-lenses/arri-zeiss-fujinon-lenses/master-anamorphics/arri-master-anamorphic-technical-data,maker
+ARRI,Alura Studio Zoom,Alura Studio Zoom 18-80,18,80,,2.6,,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Alura Studio Zoom,Alura Studio Zoom 45-250,45,250,,2.6,,https://www.arri.com/resource/blob/41890/be0f524a1cf0012b5e51cb8630599395/arri-lens-brochure-data.pdf,maker
+ARRI,Alura Lightweight Zoom,Alura Lightweight Zoom 15.5-45,15.5,45,,2.8,S35,https://www.arri.com/en/cine-lenses/arri-zeiss-fujinon-lenses/legacy/alura-lightweight-zooms,maker
+ARRI,Alura Lightweight Zoom,Alura Lightweight Zoom 30-80,30,80,,2.8,S35,https://www.arri.com/en/cine-lenses/arri-zeiss-fujinon-lenses/legacy/alura-lightweight-zooms,maker
+ARRI,Ultra Wide Zoom,Ultra Wide Zoom 9.5-18,9.5,18,,2.9,S35,https://www.arri.com/en/cine-lenses/arri-ultra-wide-zooms/ultra-wide-zoom/arri-ultra-wide-zoom-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 10.5 mm,10.5,,,2.8,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 14 mm,14,,,2.5,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 18 mm,18,,,2.1,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 21 mm,21,,,2.1,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 24 mm,24,,,2.1,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 28 mm,28,,,2.1,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 32 mm,32,,,2.1,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 40 mm,40,,,2.1,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 47 mm,47,,,2.1,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 58 mm,58,,,2.1,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 75 mm,75,,,2.1,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 105 mm,105,,,2.1,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 150 mm,150,,,2.5,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Ensō Prime,Ensō Prime 250 mm,250,,,2.8,LF,https://www.arri.com/en/cine-lenses/enso-prime-lenses/enso-lenses-technical-data,maker
+ARRI,Anamorphic Ultra Wide Zoom,Anamorphic Ultra Wide Zoom 19-36,19,36,2,4.2,S35,https://www.arri.com/en/cine-lenses/arri-ultra-wide-zooms/anamorphic-ultra-wide-zoom/arri-anamorphic-ultra-wide-zoom-technical-data,maker
+ZEISS,Supreme Prime,Supreme Prime 15 mm,15,,,1.8,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 18 mm,18,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 21 mm,21,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 25 mm,25,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 29 mm,29,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 35 mm,35,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 40 mm,40,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 50 mm,50,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 65 mm,65,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 85 mm,85,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 100 mm,100,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 135 mm,135,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 150 mm,150,,,1.8,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime,Supreme Prime 200 mm,200,,,2.2,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-lenses.html,maker
+ZEISS,Supreme Prime Radiance,Supreme Prime Radiance 18 mm,18,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-radiance-lenses.html,maker
+ZEISS,Supreme Prime Radiance,Supreme Prime Radiance 21 mm,21,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-radiance-lenses.html,maker
+ZEISS,Supreme Prime Radiance,Supreme Prime Radiance 25 mm,25,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-radiance-lenses.html,maker
+ZEISS,Supreme Prime Radiance,Supreme Prime Radiance 29 mm,29,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-radiance-lenses.html,maker
+ZEISS,Supreme Prime Radiance,Supreme Prime Radiance 35 mm,35,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-radiance-lenses.html,maker
+ZEISS,Supreme Prime Radiance,Supreme Prime Radiance 40 mm,40,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-radiance-lenses.html,maker
+ZEISS,Supreme Prime Radiance,Supreme Prime Radiance 50 mm,50,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-radiance-lenses.html,maker
+ZEISS,Supreme Prime Radiance,Supreme Prime Radiance 65 mm,65,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-radiance-lenses.html,maker
+ZEISS,Supreme Prime Radiance,Supreme Prime Radiance 85 mm,85,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-radiance-lenses.html,maker
+ZEISS,Supreme Prime Radiance,Supreme Prime Radiance 100 mm,100,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-radiance-lenses.html,maker
+ZEISS,Supreme Prime Radiance,Supreme Prime Radiance 135 mm,135,,,1.5,LF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-prime-radiance-lenses.html,maker
+ZEISS,Supreme Zoom Radiance,Supreme Zoom Radiance 15-30,15,30,,2.9,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-zoom-radiance-lenses.html,maker
+ZEISS,Supreme Zoom Radiance,Supreme Zoom Radiance 28-80,28,80,,2.9,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-zoom-radiance-lenses.html,maker
+ZEISS,Supreme Zoom Radiance,Supreme Zoom Radiance 70-200,70,200,,2.9,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/supreme-zoom-radiance-lenses.html,maker
+ZEISS,CP.3,CP.3 15 mm,15,,,2.9,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/compact-prime-cp-3-lenses.html,maker
+ZEISS,CP.3,CP.3 18 mm,18,,,2.9,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/compact-prime-cp-3-lenses.html,maker
+ZEISS,CP.3,CP.3 21 mm,21,,,2.9,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/compact-prime-cp-3-lenses.html,maker
+ZEISS,CP.3,CP.3 25 mm,25,,,2.1,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/compact-prime-cp-3-lenses.html,maker
+ZEISS,CP.3,CP.3 28 mm,28,,,2.1,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/compact-prime-cp-3-lenses.html,maker
+ZEISS,CP.3,CP.3 35 mm,35,,,2.1,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/compact-prime-cp-3-lenses.html,maker
+ZEISS,CP.3,CP.3 50 mm,50,,,2.1,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/compact-prime-cp-3-lenses.html,maker
+ZEISS,CP.3,CP.3 85 mm,85,,,2.1,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/compact-prime-cp-3-lenses.html,maker
+ZEISS,CP.3,CP.3 100 mm,100,,,2.1,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/compact-prime-cp-3-lenses.html,maker
+ZEISS,CP.3,CP.3 135 mm,135,,,2.1,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/compact-prime-cp-3-lenses.html,maker
+ZEISS,Compact Zoom CZ.2,CZ.2 15-30,15,30,,2.9,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/cinema-zoom-lenses.html,maker
+ZEISS,Compact Zoom CZ.2,CZ.2 28-80,28,80,,2.9,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/cinema-zoom-lenses.html,maker
+ZEISS,Compact Zoom CZ.2,CZ.2 70-200,70,200,,2.9,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/cinema-zoom-lenses.html,maker
+ZEISS,Nano Prime,Nano Prime 18 mm,18,,,1.5,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/nano-prime-lenses.html,maker
+ZEISS,Nano Prime,Nano Prime 24 mm,24,,,1.5,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/nano-prime-lenses.html,maker
+ZEISS,Nano Prime,Nano Prime 35 mm,35,,,1.5,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/nano-prime-lenses.html,maker
+ZEISS,Nano Prime,Nano Prime 50 mm,50,,,1.5,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/nano-prime-lenses.html,maker
+ZEISS,Nano Prime,Nano Prime 75 mm,75,,,1.5,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/nano-prime-lenses.html,maker
+ZEISS,Nano Prime,Nano Prime 100 mm,100,,,1.5,FF,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/nano-prime-lenses.html,maker
+ZEISS,LWZ.3,LWZ.3 21-100,21,100,,2.9,S35,https://www.zeiss.com/photonics-and-optics/en/cinematography/lenses/lightweight-zoom-lwz-3.html,maker
+Cooke,S4/i,S4/i 12 mm,12,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 14 mm,14,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 16 mm,16,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 18 mm,18,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 21 mm,21,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 25 mm,25,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 27 mm,27,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 32 mm,32,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 35 mm,35,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 40 mm,40,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 50 mm,50,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 65 mm,65,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 75 mm,75,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 100 mm,100,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 135 mm,135,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 150 mm,150,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 180 mm,180,,,2,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,S4/i,S4/i 300 mm,300,,,2.8,S35,https://cookeoptics.com/lens/s4-i-prime/,maker
+Cooke,Mini S4/i,Mini S4/i 18 mm,18,,,2.8,S35,https://cookeoptics.com/lens/minis4-i-prime-lenses/,maker
+Cooke,Mini S4/i,Mini S4/i 21 mm,21,,,2.8,S35,https://cookeoptics.com/lens/minis4-i-prime-lenses/,maker
+Cooke,Mini S4/i,Mini S4/i 25 mm,25,,,2.8,S35,https://cookeoptics.com/lens/minis4-i-prime-lenses/,maker
+Cooke,Mini S4/i,Mini S4/i 32 mm,32,,,2.8,S35,https://cookeoptics.com/lens/minis4-i-prime-lenses/,maker
+Cooke,Mini S4/i,Mini S4/i 40 mm,40,,,2.8,S35,https://cookeoptics.com/lens/minis4-i-prime-lenses/,maker
+Cooke,Mini S4/i,Mini S4/i 50 mm,50,,,2.8,S35,https://cookeoptics.com/lens/minis4-i-prime-lenses/,maker
+Cooke,Mini S4/i,Mini S4/i 65 mm,65,,,2.8,S35,https://cookeoptics.com/lens/minis4-i-prime-lenses/,maker
+Cooke,Mini S4/i,Mini S4/i 75 mm,75,,,2.8,S35,https://cookeoptics.com/lens/minis4-i-prime-lenses/,maker
+Cooke,Mini S4/i,Mini S4/i 100 mm,100,,,2.8,S35,https://cookeoptics.com/lens/minis4-i-prime-lenses/,maker
+Cooke,Mini S4/i,Mini S4/i 135 mm,135,,,2.8,S35,https://cookeoptics.com/lens/minis4-i-prime-lenses/,maker
+Cooke,5/i,5/i 18 mm,18,,,1.4,S35,https://cookeoptics.com/lens/5-i/,maker
+Cooke,5/i,5/i 25 mm,25,,,1.4,S35,https://cookeoptics.com/lens/5-i/,maker
+Cooke,5/i,5/i 32 mm,32,,,1.4,S35,https://cookeoptics.com/lens/5-i/,maker
+Cooke,5/i,5/i 40 mm,40,,,1.4,S35,https://cookeoptics.com/lens/5-i/,maker
+Cooke,5/i,5/i 50 mm,50,,,1.4,S35,https://cookeoptics.com/lens/5-i/,maker
+Cooke,5/i,5/i 65 mm,65,,,1.4,S35,https://cookeoptics.com/lens/5-i/,maker
+Cooke,5/i,5/i 75 mm,75,,,1.4,S35,https://cookeoptics.com/lens/5-i/,maker
+Cooke,5/i,5/i 100 mm,100,,,1.4,S35,https://cookeoptics.com/lens/5-i/,maker
+Cooke,5/i,5/i 135 mm,135,,,1.4,S35,https://cookeoptics.com/lens/5-i/,maker
+Cooke,S7/i,S7/i 16 mm,16,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 18 mm,18,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 21 mm,21,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 25 mm,25,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 27 mm,27,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 32 mm,32,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 40 mm,40,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 50 mm,50,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 65 mm,65,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 75 mm,75,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 100 mm,100,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 135 mm,135,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 180 mm,180,,,2,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S7/i,S7/i 300 mm,300,,,3.3,FF,https://cookeoptics.com/lens/cooke-s7-i-ff/,maker
+Cooke,S8/i,S8/i 18 mm,18,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S8/i,S8/i 21 mm,21,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S8/i,S8/i 25 mm,25,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S8/i,S8/i 27 mm,27,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S8/i,S8/i 32 mm,32,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S8/i,S8/i 35 mm,35,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S8/i,S8/i 40 mm,40,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S8/i,S8/i 50 mm,50,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S8/i,S8/i 65 mm,65,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S8/i,S8/i 75 mm,75,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S8/i,S8/i 100 mm,100,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S8/i,S8/i 135 mm,135,,,1.4,LF,https://cookeoptics.com/lens/s8-i-ff/,maker
+Cooke,S4 FF/i,S4 FF/i 18 mm,18,,,2,FF,https://cookeoptics.com/lens/s4-ff-i/,maker
+Cooke,S4 FF/i,S4 FF/i 25 mm,25,,,2,FF,https://cookeoptics.com/lens/s4-ff-i/,maker
+Cooke,S4 FF/i,S4 FF/i 35 mm,35,,,2,FF,https://cookeoptics.com/lens/s4-ff-i/,maker
+Cooke,S4 FF/i,S4 FF/i 50 mm,50,,,2,FF,https://cookeoptics.com/lens/s4-ff-i/,maker
+Cooke,S4 FF/i,S4 FF/i 75 mm,75,,,2,FF,https://cookeoptics.com/lens/s4-ff-i/,maker
+Cooke,S4 FF/i,S4 FF/i 100 mm,100,,,2,FF,https://cookeoptics.com/lens/s4-ff-i/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 18 mm,18,,,2.2,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 21 mm,21,,,2.2,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 25 mm,25,,,2.2,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 27 mm,27,,,2.2,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 32 mm,32,,,2.2,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 40 mm,40,,,2.2,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 50 mm,50,,,2.2,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 65 mm,65,,,2.4,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 75 mm,75,,,2.2,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 100 mm,100,,,2.6,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 135 mm,135,,,2.8,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic FF,Panchro/i Classic FF 152 mm,152,,,3,FF,https://cookeoptics.com/lens/cooke-panchro-classic-i-ff/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 18 mm,18,,,2.2,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 21 mm,21,,,2.2,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 25 mm,25,,,2.2,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 27 mm,27,,,2.2,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 32 mm,32,,,2.2,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 40 mm,40,,,2.2,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 50 mm,50,,,2.2,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 65 mm,65,,,2.4,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 75 mm,75,,,2.2,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 100 mm,100,,,2.6,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 135 mm,135,,,2.8,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Panchro/i Classic,Panchro/i Classic 152 mm,152,,,3,S35,https://cookeoptics.com/lens/panchro-classic-i-s35/,maker
+Cooke,Anamorphic/i,Anamorphic/i 25 mm,25,,2,2.3,S35,https://cookeoptics.com/lens/anamorphic-i-s35/,maker
+Cooke,Anamorphic/i,Anamorphic/i 32 mm,32,,2,2.3,S35,https://cookeoptics.com/lens/anamorphic-i-s35/,maker
+Cooke,Anamorphic/i,Anamorphic/i 40 mm,40,,2,2.3,S35,https://cookeoptics.com/lens/anamorphic-i-s35/,maker
+Cooke,Anamorphic/i,Anamorphic/i 50 mm,50,,2,2.3,S35,https://cookeoptics.com/lens/anamorphic-i-s35/,maker
+Cooke,Anamorphic/i,Anamorphic/i 65 mm,65,,2,2.6,S35,https://cookeoptics.com/lens/anamorphic-i-s35/,maker
+Cooke,Anamorphic/i,Anamorphic/i 75 mm,75,,2,2.3,S35,https://cookeoptics.com/lens/anamorphic-i-s35/,maker
+Cooke,Anamorphic/i,Anamorphic/i 100 mm,100,,2,2.3,S35,https://cookeoptics.com/lens/anamorphic-i-s35/,maker
+Cooke,Anamorphic/i,Anamorphic/i 135 mm,135,,2,2.3,S35,https://cookeoptics.com/lens/anamorphic-i-s35/,maker
+Cooke,Anamorphic/i,Anamorphic/i 180 mm,180,,2,2.8,S35,https://cookeoptics.com/lens/anamorphic-i-s35/,maker
+Cooke,Anamorphic/i,Anamorphic/i 300 mm,300,,2,3.5,S35,https://cookeoptics.com/lens/anamorphic-i-s35/,maker
+Cooke,Anamorphic/i FF,Anamorphic/i FF 32 mm,32,,1.8,2.3,FF,https://cookeoptics.com/lens/anamorphic-i-ff/,maker
+Cooke,Anamorphic/i FF,Anamorphic/i FF 40 mm,40,,1.8,2.3,FF,https://cookeoptics.com/lens/anamorphic-i-ff/,maker
+Cooke,Anamorphic/i FF,Anamorphic/i FF 50 mm,50,,1.8,2.3,FF,https://cookeoptics.com/lens/anamorphic-i-ff/,maker
+Cooke,Anamorphic/i FF,Anamorphic/i FF 75 mm,75,,1.8,2.3,FF,https://cookeoptics.com/lens/anamorphic-i-ff/,maker
+Cooke,Anamorphic/i FF,Anamorphic/i FF 85 mm,85,,1.8,2.8,FF,https://cookeoptics.com/lens/anamorphic-i-ff/,maker
+Cooke,Anamorphic/i FF,Anamorphic/i FF 100 mm,100,,1.8,2.3,FF,https://cookeoptics.com/lens/anamorphic-i-ff/,maker
+Cooke,Anamorphic/i FF,Anamorphic/i FF 135 mm,135,,1.8,2.3,FF,https://cookeoptics.com/lens/anamorphic-i-ff/,maker
+Cooke,Anamorphic/i FF,Anamorphic/i FF 180 mm,180,,1.8,2.9,FF,https://cookeoptics.com/lens/anamorphic-i-ff/,maker
+Cooke,Varotal/i FF,Varotal/i FF 19-40,19,40,,2.9,FF,https://cookeoptics.com/lens/varotal-i-ff/,maker
+Cooke,Varotal/i FF,Varotal/i FF 30-95,30,95,,2.9,FF,https://cookeoptics.com/lens/varotal-i-ff/,maker
+Cooke,Varotal/i FF,Varotal/i FF 85-215,85,215,,2.9,FF,https://cookeoptics.com/lens/varotal-i-ff/,maker
+Cooke,SP3,SP3 18 mm,18,,,2.4,FF,https://cookeoptics.com/lens/sp3/,maker
+Cooke,SP3,SP3 25 mm,25,,,2.4,FF,https://cookeoptics.com/lens/sp3/,maker
+Cooke,SP3,SP3 32 mm,32,,,2.4,FF,https://cookeoptics.com/lens/sp3/,maker
+Cooke,SP3,SP3 50 mm,50,,,2.4,FF,https://cookeoptics.com/lens/sp3/,maker
+Cooke,SP3,SP3 75 mm,75,,,2.4,FF,https://cookeoptics.com/lens/sp3/,maker
+Cooke,SP3,SP3 100 mm,100,,,2.4,FF,https://cookeoptics.com/lens/sp3/,maker
+Leitz,Summilux-C,Summilux-C 16 mm,16,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summilux-C,Summilux-C 18 mm,18,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summilux-C,Summilux-C 21 mm,21,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summilux-C,Summilux-C 25 mm,25,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summilux-C,Summilux-C 29 mm,29,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summilux-C,Summilux-C 35 mm,35,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summilux-C,Summilux-C 40 mm,40,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summilux-C,Summilux-C 50 mm,50,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summilux-C,Summilux-C 65 mm,65,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summilux-C,Summilux-C 75 mm,75,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summilux-C,Summilux-C 100 mm,100,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summilux-C,Summilux-C 135 mm,135,,,1.4,S35,https://www.leitz-cine.com/product/summilux-c,maker
+Leitz,Summicron-C,Summicron-C 15 mm,15,,,2,S35,https://www.leitz-cine.com/product/summicron-c,maker
+Leitz,Summicron-C,Summicron-C 18 mm,18,,,2,S35,https://www.leitz-cine.com/product/summicron-c,maker
+Leitz,Summicron-C,Summicron-C 21 mm,21,,,2,S35,https://www.leitz-cine.com/product/summicron-c,maker
+Leitz,Summicron-C,Summicron-C 25 mm,25,,,2,S35,https://www.leitz-cine.com/product/summicron-c,maker
+Leitz,Summicron-C,Summicron-C 29 mm,29,,,2,S35,https://www.leitz-cine.com/product/summicron-c,maker
+Leitz,Summicron-C,Summicron-C 35 mm,35,,,2,S35,https://www.leitz-cine.com/product/summicron-c,maker
+Leitz,Summicron-C,Summicron-C 40 mm,40,,,2,S35,https://www.leitz-cine.com/product/summicron-c,maker
+Leitz,Summicron-C,Summicron-C 50 mm,50,,,2,S35,https://www.leitz-cine.com/product/summicron-c,maker
+Leitz,Summicron-C,Summicron-C 75 mm,75,,,2,S35,https://www.leitz-cine.com/product/summicron-c,maker
+Leitz,Summicron-C,Summicron-C 100 mm,100,,,2,S35,https://www.leitz-cine.com/product/summicron-c,maker
+Leitz,Summicron-C,Summicron-C 135 mm,135,,,2,S35,https://www.leitz-cine.com/product/summicron-c,maker
+Leitz,Leitz Prime,Leitz Prime 18 mm,18,,,1.8,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 21 mm,21,,,1.8,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 25 mm,25,,,1.8,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 29 mm,29,,,1.8,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 35 mm,35,,,1.8,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 40 mm,40,,,1.8,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 50 mm,50,,,1.8,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 65 mm,65,,,1.8,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 75 mm,75,,,1.8,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 100 mm,100,,,1.8,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 135 mm,135,,,1.8,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 180 mm,180,,,2,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Prime,Leitz Prime 350 mm,350,,,3.6,LF,https://www.leitz-cine.com/product/leitz-prime,maker
+Leitz,Leitz Zoom,Leitz Zoom 25-75,25,75,,2.8,LF,https://www.leitz-cine.com/product/leitz-zoom,maker
+Leitz,Leitz Zoom,Leitz Zoom 55-125,55,125,,2.8,LF,https://www.leitz-cine.com/product/leitz-zoom,maker
+Leitz,Elsie,Elsie 15 mm,15,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 18 mm,18,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 21 mm,21,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 25 mm,25,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 29 mm,29,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 35 mm,35,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 40 mm,40,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 50 mm,50,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 65 mm,65,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 75 mm,75,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 100 mm,100,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 125 mm,125,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Elsie,Elsie 150 mm,150,,,2.1,LF,https://www.leitz-cine.com/product/elsie,maker
+Leitz,Thalia,Thalia 20 mm,20,,,3.6,65,https://www.leitz-cine.com/product/thalia,maker
+Leitz,Thalia,Thalia 24 mm,24,,,3.6,65,https://www.leitz-cine.com/product/thalia,maker
+Leitz,Thalia,Thalia 30 mm,30,,,2.9,65,https://www.leitz-cine.com/product/thalia,maker
+Leitz,Thalia,Thalia 35 mm,35,,,2.6,65,https://www.leitz-cine.com/product/thalia,maker
+Leitz,Thalia,Thalia 45 mm,45,,,2.9,65,https://www.leitz-cine.com/product/thalia,maker
+Leitz,Thalia,Thalia 55 mm,55,,,2.8,65,https://www.leitz-cine.com/product/thalia,maker
+Leitz,Thalia,Thalia 70 mm,70,,,2.6,65,https://www.leitz-cine.com/product/thalia,maker
+Leitz,Thalia,Thalia 90 mm,90,,,2.2,65,https://www.leitz-cine.com/product/thalia,maker
+Leitz,Thalia,Thalia 100 mm,100,,,2.2,65,https://www.leitz-cine.com/product/thalia,maker
+Leitz,Thalia,Thalia 120 mm,120,,,2.6,65,https://www.leitz-cine.com/product/thalia,maker
+Leitz,Thalia,Thalia 180 mm,180,,,3.6,65,https://www.leitz-cine.com/product/thalia,maker
+Leitz,Hugo,Hugo 18 mm,18,,,1.5,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 21 mm,21,,,1.5,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 24 mm,24,,,1.5,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 28 mm,28,,,1.5,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 35 mm,35,,,1.5,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 40 mm,40,,,1.5,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 50 mm T1.5,50,,,1.5,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 75 mm T1.5,75,,,1.5,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 90 mm T1.5,90,,,1.5,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 135 mm,135,,,,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 66 mm T2.1,66,,,2.1,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 75 mm T2.1,75,,,2.1,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 90 mm T2.1,90,,,2.1,FF,https://www.leitz-cine.com/product/hugo,maker
+Leitz,Hugo,Hugo 50 mm T1.0,50,,,1,FF,https://www.leitz-cine.com/product/hugo,maker
+Angénieux,Optimo,Optimo 24-290,24,290,,2.8,S35,https://www.angenieux.com/lenses/legacy-series/optimo-long-lens-zoom-24-290/,maker
+Angénieux,Optimo,Optimo 28-340,28,340,,3.2,S35,https://www.angenieux.com/wp-content/uploads/2016/11/Ang%C3%A9nieux-Catalog-2015.pdf,maker
+Angénieux,Optimo,Optimo 15-40,15,40,,2.6,S35,https://www.angenieux.com/wp-content/uploads/2016/11/Ang%C3%A9nieux-Catalog-2015.pdf,maker
+Angénieux,Optimo,Optimo 28-76,28,76,,2.6,S35,https://www.angenieux.com/lenses/legacy-series/optimo-compact-lens-zoom-28-76/,maker
+Angénieux,Optimo,Optimo 45-120,45,120,,2.8,S35,https://www.angenieux.com/lenses/legacy-series/optimo-compact-lens-zoom-45-120/,maker
+Angénieux,Optimo,Optimo 19.5-94,19.5,94,,2.6,S35,https://www.angenieux.com/lenses/legacy-series/optimo-long-lens-zoom-19-5-94/,maker
+Angénieux,Optimo,Optimo 17-80,17,80,,2.2,S35,https://www.koernercamera.com/angenieux-optimo-zooms,secondary
+Angénieux,Optimo Style,Optimo Style 16-40,16,40,,2.8,S35,https://www.angenieux.com/wp-content/uploads/2016/11/Ang%C3%A9nieux-Catalog-2015.pdf,maker
+Angénieux,Optimo Style,Optimo Style 30-76,30,76,,2.8,S35,https://www.angenieux.com/wp-content/uploads/2016/11/Ang%C3%A9nieux-Catalog-2015.pdf,maker
+Angénieux,Optimo Style,Optimo Style 25-250,25,250,,3.5,S35,https://www.angenieux.com/lenses/legacy-series/long-lens-zoom-optimo-style-25-250/,maker
+Angénieux,Optimo Style,Optimo Style 48-130,48,130,,3,,https://www.angenieux.com/lenses/legacy-series/optimo-style-48-130/,maker
+Angénieux,Optimo Anamorphic,Optimo Anamorphic 56-152,56,152,2,4,S35,https://www.angenieux.com/lenses/legacy-series/optimo-anamorphic-56-152-a2s-compact-lens-zoom/,maker
+Angénieux,Optimo Anamorphic,Optimo Anamorphic 30-72,30,72,2,4,S35,https://www.angenieux.com/wp-content/uploads/2016/11/Ang%C3%A9nieux-Catalog-2015.pdf,maker
+Angénieux,Optimo Anamorphic,Optimo Anamorphic 42-420,42,420,2,4.5,S35,https://www.angenieux.com/lenses/legacy-series/optimo-anamorphic-42-420-a2s/,maker
+Angénieux,Optimo Ultra 12x,Optimo Ultra 12x 24-290,24,290,,2.8,S35,https://www.angenieux.com/lenses/optimo-ultra-12x/,maker
+Angénieux,Optimo Ultra 12x,Optimo Ultra 12x 26-320,26,320,,3.1,,https://www.angenieux.com/lenses/optimo-ultra-12x/,maker
+Angénieux,Optimo Ultra 12x,Optimo Ultra 12x 36-435,36,435,,4.2,LF,https://www.angenieux.com/lenses/optimo-ultra-12x/,maker
+Angénieux,Optimo Ultra Compact,Optimo Ultra Compact 21-56,21,56,,2.9,LF,https://www.angenieux.com/lenses/optimo-ultra-compact/,maker
+Angénieux,Optimo Ultra Compact,Optimo Ultra Compact 37-102,37,102,,2.9,LF,https://www.angenieux.com/lenses/optimo-ultra-compact/,maker
+Angénieux,Optimo Ultra Compact,Optimo Ultra Compact 16-42,16,42,,2.2,,https://www.angenieux.com/lenses/optimo-ultra-compact/,maker
+Angénieux,Optimo Ultra Compact,Optimo Ultra Compact 28-76,28,76,,2.2,,https://www.angenieux.com/lenses/optimo-ultra-compact/,maker
+Angénieux,Optimo Prime,Optimo Prime 18 mm,18,,,2,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,Optimo Prime,Optimo Prime 21 mm,21,,,1.8,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,Optimo Prime,Optimo Prime 24 mm,24,,,1.8,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,Optimo Prime,Optimo Prime 28 mm,28,,,1.8,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,Optimo Prime,Optimo Prime 32 mm,32,,,1.8,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,Optimo Prime,Optimo Prime 40 mm,40,,,1.8,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,Optimo Prime,Optimo Prime 50 mm,50,,,1.8,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,Optimo Prime,Optimo Prime 60 mm,60,,,1.8,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,Optimo Prime,Optimo Prime 75 mm,75,,,1.8,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,Optimo Prime,Optimo Prime 100 mm,100,,,1.8,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,Optimo Prime,Optimo Prime 135 mm,135,,,1.8,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,Optimo Prime,Optimo Prime 200 mm,200,,,2.2,LF,https://www.angenieux.com/lenses/optimo-prime-series/,maker
+Angénieux,EZ,EZ-1 30-90,30,90,,2,S35,https://www.angenieux.com/lenses/type-ez-series/,maker
+Angénieux,EZ,EZ-2 15-40,15,40,,2,S35,https://www.angenieux.com/lenses/type-ez-series/,maker
+Angénieux,EZ,EZ-1 45-135,45,135,,3,LF,https://www.angenieux.com/lenses/type-ez-series/,maker
+Angénieux,EZ,EZ-2 22-60,22,60,,3,LF,https://www.angenieux.com/lenses/type-ez-series/,maker
+Angénieux,EZ,EZ-3 45-165,45,165,,2.3,S35,https://www.angenieux.com/lenses/type-ez-series/,maker
+Angénieux,EZ,EZ-3 68-250,68,250,,3.5,LF,https://www.angenieux.com/lenses/type-ez-series/,maker
+Fujinon,Premista,Premista 19-45,19,45,,2.9,LF,https://www.fujifilm.com/us/en/business/cine-and-broadcast/cine-lens/premista,maker
+Fujinon,Premista,Premista 28-100,28,100,,2.9,LF,https://www.fujifilm.com/us/en/business/cine-and-broadcast/cine-lens/premista,maker
+Fujinon,Premista,Premista 80-250,80,250,,2.9,LF,https://www.fujifilm.com/us/en/business/cine-and-broadcast/cine-lens/premista,maker
+Fujinon,Cabrio,Cabrio 14-35,14,35,,2.9,S35,https://www.fujifilm.com/us/en/business/cine-and-broadcast/cine-lens/zk,maker
+Fujinon,Cabrio,Cabrio 19-90,19,90,,2.9,S35,https://www.fujifilm.com/us/en/business/cine-and-broadcast/cine-lens/zk,maker
+Fujinon,Cabrio,Cabrio 85-300,85,300,,2.9,S35,https://www.fujifilm.com/us/en/business/cine-and-broadcast/cine-lens/zk,maker
+Fujinon,Cabrio,Cabrio 25-300,25,300,,3.5,S35,https://www.fujifilm.com/us/en/business/cine-and-broadcast/cine-lens/zk,maker
+Fujinon,Cabrio,Cabrio 20-120,20,120,,3.5,,https://www.fujifilm.com/us/en/business/cine-and-broadcast/cine-lens/xk,maker
+Fujinon,MK,MK 18-55,18,55,,2.9,S35,https://www.fujifilm.com/us/en/business/cine-and-broadcast/cine-lens/mk,maker
+Fujinon,MK,MK 50-135,50,135,,2.9,S35,https://www.fujifilm.com/us/en/business/cine-and-broadcast/cine-lens/mk,maker
+Fujinon,Duvo,Duvo 24-300,24,300,,2.9,S35,https://www.fujifilm.com/de/en/business/cine-and-broadcast/duvo/duvo24-300,maker
+Canon,CN-E Prime,CN-E 14 mm,14,,,3.1,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/efprime,maker
+Canon,CN-E Prime,CN-E 20 mm,20,,,1.5,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/efprime,maker
+Canon,CN-E Prime,CN-E 24 mm,24,,,1.5,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/efprime,maker
+Canon,CN-E Prime,CN-E 35 mm,35,,,1.5,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/efprime,maker
+Canon,CN-E Prime,CN-E 50 mm,50,,,1.3,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/efprime,maker
+Canon,CN-E Prime,CN-E 85 mm,85,,,1.3,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/efprime,maker
+Canon,CN-E Prime,CN-E 135 mm,135,,,2.2,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/efprime,maker
+Canon,Sumire Prime,Sumire Prime 14 mm,14,,,3.1,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/sumireprime,maker
+Canon,Sumire Prime,Sumire Prime 20 mm,20,,,1.5,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/sumireprime,maker
+Canon,Sumire Prime,Sumire Prime 24 mm,24,,,1.5,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/sumireprime,maker
+Canon,Sumire Prime,Sumire Prime 35 mm,35,,,1.5,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/sumireprime,maker
+Canon,Sumire Prime,Sumire Prime 50 mm,50,,,1.3,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/sumireprime,maker
+Canon,Sumire Prime,Sumire Prime 85 mm,85,,,1.3,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/sumireprime,maker
+Canon,Sumire Prime,Sumire Prime 135 mm,135,,,2.2,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/sumireprime,maker
+Canon,Flex Zoom,Flex Zoom 20-50,20,50,,2.4,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/cn-e20-50,maker
+Canon,Flex Zoom,Flex Zoom 45-135,45,135,,2.4,FF,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/cn-e20-50,maker
+Canon,CN-E Zoom,CN-E 30-105,30,105,,2.8,,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/old-products,maker
+Canon,CN-E Zoom,CN-E 15.5-47,15.5,47,,2.8,,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/old-products,maker
+Canon,CN-E Zoom,CN-E 30-300,30,300,,2.95,,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/old-products,maker
+Canon,CN-E Zoom,CN-E 14.5-60,14.5,60,,2.6,,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/old-products,maker
+Canon,CN-E Zoom,CN-E 18-80,18,80,,4.4,S35,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/cn-e18-80t44,maker
+Canon,CINE-SERVO,CINE-SERVO 25-250,25,250,,2.95,,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/cn10-25ias,maker
+Canon,CINE-SERVO,CINE-SERVO 15-120,15,120,,2.95,,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/cn8-15ias,maker
+Canon,CINE-SERVO,CINE-SERVO 11-55,11,55,,2.95,,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/cn5-11rf/spec,maker
+Canon,CINE-SERVO,CINE-SERVO 17-120,17,120,,2.95,,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/cn7-17rf/spec,maker
+Canon,CINE-SERVO,CINE-SERVO 50-1000,50,1000,,5,S35,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/cn20-50ias,maker
+Canon,CINE-SERVO,CINE-SERVO 40-1200,40,1200,,5,,https://canon.jp/biz/product/camera/pro-imaging/cinema-eos/lineup/ces-lens/cn30-40rf/spec,maker
+Sigma,FF High Speed Prime,FF High Speed Prime 14 mm,14,,,2,FF,https://www.sigma-global.com/en/cine-lenses/ff-high-speed-prime/14_2/,maker
+Sigma,FF High Speed Prime,FF High Speed Prime 20 mm,20,,,1.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-high-speed-prime/20_15/,maker
+Sigma,FF High Speed Prime,FF High Speed Prime 24 mm,24,,,1.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-high-speed-prime/24_15/,maker
+Sigma,FF High Speed Prime,FF High Speed Prime 28 mm,28,,,1.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-high-speed-prime/28_15/,maker
+Sigma,FF High Speed Prime,FF High Speed Prime 35 mm,35,,,1.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-high-speed-prime/35_15/,maker
+Sigma,FF High Speed Prime,FF High Speed Prime 40 mm,40,,,1.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-high-speed-prime/40_15/,maker
+Sigma,FF High Speed Prime,FF High Speed Prime 50 mm,50,,,1.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-high-speed-prime/50_15/,maker
+Sigma,FF High Speed Prime,FF High Speed Prime 65 mm,65,,,1.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-high-speed-prime/65_15/,maker
+Sigma,FF High Speed Prime,FF High Speed Prime 85 mm,85,,,1.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-high-speed-prime/85_15/,maker
+Sigma,FF High Speed Prime,FF High Speed Prime 105 mm,105,,,1.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-high-speed-prime/105_15/,maker
+Sigma,FF High Speed Prime,FF High Speed Prime 135 mm,135,,,2,FF,https://www.sigma-global.com/en/cine-lenses/ff-high-speed-prime/135_2/,maker
+Sigma,FF Classic Prime,FF Classic Prime 14 mm,14,,,3.2,FF,https://www.sigma-global.com/en/cine-lenses/ff-classic-prime/14_32/,maker
+Sigma,FF Classic Prime,FF Classic Prime 20 mm,20,,,2.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-classic-prime/20_25/,maker
+Sigma,FF Classic Prime,FF Classic Prime 24 mm,24,,,2.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-classic-prime/24_25/,maker
+Sigma,FF Classic Prime,FF Classic Prime 28 mm,28,,,2.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-classic-prime/28_25/,maker
+Sigma,FF Classic Prime,FF Classic Prime 35 mm,35,,,2.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-classic-prime/35_25/,maker
+Sigma,FF Classic Prime,FF Classic Prime 40 mm,40,,,2.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-classic-prime/40_25/,maker
+Sigma,FF Classic Prime,FF Classic Prime 50 mm,50,,,2.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-classic-prime/50_25/,maker
+Sigma,FF Classic Prime,FF Classic Prime 65 mm,65,,,2.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-classic-prime/65_25/,maker
+Sigma,FF Classic Prime,FF Classic Prime 85 mm,85,,,2.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-classic-prime/85_25/,maker
+Sigma,FF Classic Prime,FF Classic Prime 105 mm,105,,,2.5,FF,https://www.sigma-global.com/en/cine-lenses/ff-classic-prime/105_25/,maker
+Sigma,FF Classic Prime,FF Classic Prime 135 mm,135,,,3.2,FF,https://www.sigma-global.com/en/cine-lenses/ff-classic-prime/135_32/,maker
+Sigma,Aizu Prime,Aizu Prime 21 mm,21,,,1.3,LF,https://www.sigma-global.com/en/cine-lenses/aizu-prime/21_13/,maker
+Sigma,Aizu Prime,Aizu Prime 25 mm,25,,,1.3,LF,https://www.sigma-global.com/en/cine-lenses/aizu-prime/25_13/,maker
+Sigma,Aizu Prime,Aizu Prime 27 mm,27,,,1.3,LF,https://www.sigma-global.com/en/cine-lenses/aizu-prime/27_13/,maker
+Sigma,Aizu Prime,Aizu Prime 32 mm,32,,,1.3,LF,https://www.sigma-global.com/en/cine-lenses/aizu-prime/32_13/,maker
+Sigma,Aizu Prime,Aizu Prime 35 mm,35,,,1.3,LF,https://www.sigma-global.com/en/cine-lenses/aizu-prime/35_13/,maker
+Sigma,Aizu Prime,Aizu Prime 40 mm,40,,,1.3,LF,https://www.sigma-global.com/en/cine-lenses/aizu-prime/40_13/,maker
+Sigma,Aizu Prime,Aizu Prime 50 mm,50,,,1.3,LF,https://www.sigma-global.com/en/cine-lenses/aizu-prime/50_13/,maker
+Sigma,Aizu Prime,Aizu Prime 65 mm,65,,,1.3,LF,https://www.sigma-global.com/en/cine-lenses/aizu-prime/65_13/,maker
+Sigma,Aizu Prime,Aizu Prime 75 mm,75,,,1.3,LF,https://www.sigma-global.com/en/cine-lenses/aizu-prime/75_13/,maker
+Sigma,Aizu Prime,Aizu Prime 100 mm,100,,,1.3,LF,https://www.sigma-global.com/en/cine-lenses/aizu-prime/100_13/,maker
+Sigma,Aizu Prime,Aizu Prime 125 mm,125,,,1.3,LF,https://www.sigma-global.com/en/cine-lenses/aizu-prime/125_13/,maker
+Sigma,FF Zoom,FF Zoom 24-35,24,35,,2.2,FF,https://www.sigma-global.com/en/cine-lenses/ff-zoom/24_35_22/,maker
+Sigma,High Speed Zoom,High Speed Zoom 18-35,18,35,,2,S35,https://www.sigma-global.com/en/cine-lenses/high-speed-zoom/18_35_2/,maker
+Sigma,High Speed Zoom,High Speed Zoom 50-100,50,100,,2,S35,https://www.sigma-global.com/en/cine-lenses/high-speed-zoom/50_100_2/,maker
+Atlas,Orion,Orion 18 mm,18,,2,2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Orion,Orion 21 mm,21,,2,2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Orion,Orion 25 mm,25,,2,2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Orion,Orion 28 mm,28,,2,2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Orion,Orion 32 mm,32,,2,2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Orion,Orion 40 mm,40,,2,2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Orion,Orion 50 mm,50,,2,2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Orion,Orion 65 mm,65,,2,2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Orion,Orion 80 mm,80,,2,2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Orion,Orion 100 mm,100,,2,2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Orion,Orion 135 mm,135,,2,2.2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Orion,Orion 200 mm,200,,2,3.2,S35,https://atlaslensco.com/products/orion-series-anamorphic-lenses,maker
+Atlas,Mercury,Mercury 24 mm,24,,1.5,2.2,FF,https://atlaslensco.com/products/mercury-series-anamorphic-lenses,maker
+Atlas,Mercury,Mercury 27 mm,27,,1.5,2.2,FF,https://atlaslensco.com/products/mercury-series-anamorphic-lenses,maker
+Atlas,Mercury,Mercury 32 mm,32,,1.5,2.2,FF,https://atlaslensco.com/products/mercury-series-anamorphic-lenses,maker
+Atlas,Mercury,Mercury 36 mm,36,,1.5,2.2,FF,https://atlaslensco.com/products/mercury-series-anamorphic-lenses,maker
+Atlas,Mercury,Mercury 42 mm,42,,1.5,2.2,FF,https://atlaslensco.com/products/mercury-series-anamorphic-lenses,maker
+Atlas,Mercury,Mercury 54 mm,54,,1.5,2.2,FF,https://atlaslensco.com/products/mercury-series-anamorphic-lenses,maker
+Atlas,Mercury,Mercury 72 mm,72,,1.5,2.2,FF,https://atlaslensco.com/products/mercury-series-anamorphic-lenses,maker
+Atlas,Mercury,Mercury 95 mm,95,,1.5,2.2,FF,https://atlaslensco.com/products/mercury-series-anamorphic-lenses,maker
+Atlas,Mercury,Mercury 138 mm,138,,1.5,2.6,FF,https://atlaslensco.com/products/mercury-series-anamorphic-lenses,maker
+Hawk,V-Lite,V-Lite 28 mm,28,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-lite-technical-data.pdf,maker
+Hawk,V-Lite,V-Lite 35 mm,35,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-lite-technical-data.pdf,maker
+Hawk,V-Lite,V-Lite 45 mm,45,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-lite-technical-data.pdf,maker
+Hawk,V-Lite,V-Lite 55 mm,55,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-lite-technical-data.pdf,maker
+Hawk,V-Lite,V-Lite 55 mm Macro,55,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-lite-technical-data.pdf,maker
+Hawk,V-Lite,V-Lite 65 mm,65,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-lite-technical-data.pdf,maker
+Hawk,V-Lite,V-Lite 80 mm,80,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-lite-technical-data.pdf,maker
+Hawk,V-Lite,V-Lite 110 mm,110,,2,3,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-lite-technical-data.pdf,maker
+Hawk,V-Lite,V-Lite 140 mm,140,,2,3.5,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-lite-technical-data.pdf,maker
+Hawk,V-Plus,V-Plus 30 mm,30,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-technical-data.pdf,maker
+Hawk,V-Plus,V-Plus 35 mm,35,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-technical-data.pdf,maker
+Hawk,V-Plus,V-Plus 40 mm,40,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-technical-data.pdf,maker
+Hawk,V-Plus,V-Plus 50 mm,50,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-technical-data.pdf,maker
+Hawk,V-Plus,V-Plus 65 mm Close Focus,65,,2,3,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-technical-data.pdf,maker
+Hawk,V-Plus,V-Plus 75 mm,75,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-technical-data.pdf,maker
+Hawk,V-Plus,V-Plus 85 mm,85,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-technical-data.pdf,maker
+Hawk,V-Plus,V-Plus 100 mm,100,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-technical-data.pdf,maker
+Hawk,V-Plus,V-Plus 120 mm Close Focus,120,,2,3.5,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-technical-data.pdf,maker
+Hawk,V-Plus,V-Plus 135 mm,135,,2,3,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-technical-data.pdf,maker
+Hawk,V-Plus,V-Plus 150 mm,150,,2,3,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-technical-data.pdf,maker
+Hawk,V-Plus Zoom,V-Plus Zoom 45-90,45,90,2,2.8,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-front-anamorphic-zoom-lenses-technical-data.pdf,maker
+Hawk,V-Plus Zoom,V-Plus Zoom 80-180,80,180,2,2.8,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-v-plus-front-anamorphic-zoom-lenses-technical-data.pdf,maker
+Hawk,class-X,class-X 28 mm,28,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-class-x-technical-data.pdf,maker
+Hawk,class-X,class-X 35 mm,35,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-class-x-technical-data.pdf,maker
+Hawk,class-X,class-X 45 mm,45,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-class-x-technical-data.pdf,maker
+Hawk,class-X,class-X 55 mm,55,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-class-x-technical-data.pdf,maker
+Hawk,class-X,class-X 55 mm Macro,55,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-class-x-technical-data.pdf,maker
+Hawk,class-X,class-X 65 mm,65,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-class-x-technical-data.pdf,maker
+Hawk,class-X,class-X 80 mm,80,,2,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-class-x-technical-data.pdf,maker
+Hawk,class-X,class-X 110 mm,110,,2,3,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-class-x-technical-data.pdf,maker
+Hawk,class-X,class-X 140 mm,140,,2,3.5,S35,https://www.vantagefilm.com/file/edee/downloads/optics/2x-hawk-anamorphic-lenses/hawk-class-x-technical-data.pdf,maker
+Hawk,V-Lite 1.3x,V-Lite 1.3x 20 mm,20,,1.3,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-lite-13x-technical-data.pdf,maker
+Hawk,V-Lite 1.3x,V-Lite 1.3x 24 mm,24,,1.3,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-lite-13x-technical-data.pdf,maker
+Hawk,V-Lite 1.3x,V-Lite 1.3x 28 mm,28,,1.3,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-lite-13x-technical-data.pdf,maker
+Hawk,V-Lite 1.3x,V-Lite 1.3x 35 mm,35,,1.3,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-lite-13x-technical-data.pdf,maker
+Hawk,V-Lite 1.3x,V-Lite 1.3x 45 mm,45,,1.3,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-lite-13x-technical-data.pdf,maker
+Hawk,V-Lite 1.3x,V-Lite 1.3x 55 mm,55,,1.3,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-lite-13x-technical-data.pdf,maker
+Hawk,V-Lite 1.3x,V-Lite 1.3x 55 mm Macro,55,,1.3,2.3,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-lite-13x-technical-data.pdf,maker
+Hawk,V-Lite 1.3x,V-Lite 1.3x 65 mm,65,,1.3,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-lite-13x-technical-data.pdf,maker
+Hawk,V-Lite 1.3x,V-Lite 1.3x 80 mm,80,,1.3,2.2,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-lite-13x-technical-data.pdf,maker
+Hawk,V-Lite 1.3x,V-Lite 1.3x 110 mm,110,,1.3,3,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-lite-13x-technical-data.pdf,maker
+Hawk,V-Lite 1.3x,V-Lite 1.3x 140 mm,140,,1.3,3.5,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-lite-13x-technical-data.pdf,maker
+Hawk,V-Plus 1.3x Zoom,V-Plus 1.3x Zoom 30-60,30,60,1.3,2.8,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-plus-13x-front-anamorphic-zoom-lenses-technical-data.pdf,maker
+Hawk,V-Plus 1.3x Zoom,V-Plus 1.3x Zoom 45-90,45,90,1.3,2.8,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-plus-13x-front-anamorphic-zoom-lenses-technical-data.pdf,maker
+Hawk,V-Plus 1.3x Zoom,V-Plus 1.3x Zoom 80-180,80,180,1.3,2.8,S35,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk-v-plus-13x-front-anamorphic-zoom-lenses-technical-data.pdf,maker
+Hawk,Hawk65,Hawk65 35 mm,35,,1.3,2.2,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk65-technical-data.pdf,maker
+Hawk,Hawk65,Hawk65 40 mm,40,,1.3,2.2,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk65-technical-data.pdf,maker
+Hawk,Hawk65,Hawk65 45 mm,45,,1.3,2.2,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk65-technical-data.pdf,maker
+Hawk,Hawk65,Hawk65 50 mm,50,,1.3,2.2,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk65-technical-data.pdf,maker
+Hawk,Hawk65,Hawk65 60 mm,60,,1.3,2.2,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk65-technical-data.pdf,maker
+Hawk,Hawk65,Hawk65 65 mm Macro,65,,1.3,2.2,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk65-technical-data.pdf,maker
+Hawk,Hawk65,Hawk65 70 mm,70,,1.3,2.2,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk65-technical-data.pdf,maker
+Hawk,Hawk65,Hawk65 80 mm,80,,1.3,2.8,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk65-technical-data.pdf,maker
+Hawk,Hawk65,Hawk65 95 mm,95,,1.3,2.8,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk65-technical-data.pdf,maker
+Hawk,Hawk65,Hawk65 120 mm,120,,1.3,2.8,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk65-technical-data.pdf,maker
+Hawk,Hawk65,Hawk65 150 mm,150,,1.3,2.8,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1.3x-hawk-anamorphic-lenses/hawk65-technical-data.pdf,maker
+Vantage,One4,One4 19 mm,19,,,1.4,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1x-spherical-lenses-made-by-hawk/vantageone4-technical-data.pdf,maker
+Vantage,One4,One4 22 mm,22,,,1.4,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1x-spherical-lenses-made-by-hawk/vantageone4-technical-data.pdf,maker
+Vantage,One4,One4 27 mm,27,,,1.4,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1x-spherical-lenses-made-by-hawk/vantageone4-technical-data.pdf,maker
+Vantage,One4,One4 35 mm,35,,,1.4,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1x-spherical-lenses-made-by-hawk/vantageone4-technical-data.pdf,maker
+Vantage,One4,One4 42 mm,42,,,1.4,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1x-spherical-lenses-made-by-hawk/vantageone4-technical-data.pdf,maker
+Vantage,One4,One4 50 mm,50,,,1.4,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1x-spherical-lenses-made-by-hawk/vantageone4-technical-data.pdf,maker
+Vantage,One4,One4 65 mm,65,,,1.4,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1x-spherical-lenses-made-by-hawk/vantageone4-technical-data.pdf,maker
+Vantage,One4,One4 80 mm,80,,,1.4,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1x-spherical-lenses-made-by-hawk/vantageone4-technical-data.pdf,maker
+Vantage,One4,One4 105 mm,105,,,1.4,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1x-spherical-lenses-made-by-hawk/vantageone4-technical-data.pdf,maker
+Vantage,One4,One4 140 mm,140,,,1.4,LF,https://www.vantagefilm.com/file/edee/downloads/optics/1x-spherical-lenses-made-by-hawk/vantageone4-technical-data.pdf,maker
+DZOFilm,Vespid,Vespid 12 mm,12,,,2.8,LF,https://www.dzofilm.com/lens/prime/vespid-prime,maker
+DZOFilm,Vespid,Vespid 16 mm,16,,,2.8,LF,https://www.dzofilm.com/lens/prime/vespid-prime,maker
+DZOFilm,Vespid,Vespid 21 mm,21,,,2.1,LF,https://www.dzofilm.com/lens/prime/vespid-prime,maker
+DZOFilm,Vespid,Vespid 25 mm,25,,,2.1,LF,https://www.dzofilm.com/lens/prime/vespid-prime,maker
+DZOFilm,Vespid,Vespid 35 mm,35,,,2.1,LF,https://www.dzofilm.com/lens/prime/vespid-prime,maker
+DZOFilm,Vespid,Vespid 40 mm,40,,,2.1,LF,https://www.dzofilm.com/lens/prime/vespid-prime,maker
+DZOFilm,Vespid,Vespid 50 mm,50,,,2.1,LF,https://www.dzofilm.com/lens/prime/vespid-prime,maker
+DZOFilm,Vespid,Vespid 75 mm,75,,,2.1,LF,https://www.dzofilm.com/lens/prime/vespid-prime,maker
+DZOFilm,Vespid,Vespid 90 mm Macro,90,,,2.8,LF,https://www.dzofilm.com/lens/prime/vespid-prime,maker
+DZOFilm,Vespid,Vespid 100 mm,100,,,2.1,LF,https://www.dzofilm.com/lens/prime/vespid-prime,maker
+DZOFilm,Vespid,Vespid 125 mm,125,,,2.1,LF,https://www.dzofilm.com/lens/prime/vespid-prime,maker
+DZOFilm,Arles,Arles 14 mm,14,,,1.9,LF,https://www.dzofilm.com/lens/prime/arles-prime,maker
+DZOFilm,Arles,Arles 18 mm,18,,,1.4,LF,https://www.dzofilm.com/lens/prime/arles-prime,maker
+DZOFilm,Arles,Arles 21 mm,21,,,1.4,LF,https://www.dzofilm.com/lens/prime/arles-prime,maker
+DZOFilm,Arles,Arles 25 mm,25,,,1.4,LF,https://www.dzofilm.com/lens/prime/arles-prime,maker
+DZOFilm,Arles,Arles 35 mm,35,,,1.4,LF,https://www.dzofilm.com/lens/prime/arles-prime,maker
+DZOFilm,Arles,Arles 40 mm,40,,,1.4,LF,https://www.dzofilm.com/lens/prime/arles-prime,maker
+DZOFilm,Arles,Arles 50 mm,50,,,1.4,LF,https://www.dzofilm.com/lens/prime/arles-prime,maker
+DZOFilm,Arles,Arles 75 mm,75,,,1.4,LF,https://www.dzofilm.com/lens/prime/arles-prime,maker
+DZOFilm,Arles,Arles 100 mm,100,,,1.4,LF,https://www.dzofilm.com/lens/prime/arles-prime,maker
+DZOFilm,Arles,Arles 135 mm,135,,,1.8,LF,https://www.dzofilm.com/lens/prime/arles-prime,maker
+DZOFilm,Arles,Arles 180 mm,180,,,2.4,LF,https://www.dzofilm.com/lens/prime/arles-prime,maker
+DZOFilm,Pictor,Pictor 12-25,12,25,,2.8,S35,https://www.dzofilm.com/lens/zoom/pictor-zoom,maker
+DZOFilm,Pictor,Pictor 14-30,14,30,,2.8,S35,https://www.dzofilm.com/lens/zoom/pictor-zoom,maker
+DZOFilm,Pictor,Pictor 20-55,20,55,,2.8,S35,https://www.dzofilm.com/lens/zoom/pictor-zoom,maker
+DZOFilm,Pictor,Pictor 50-125,50,125,,2.8,S35,https://www.dzofilm.com/lens/zoom/pictor-zoom,maker
+DZOFilm,Catta Ace,Catta Ace 18-35,18,35,,2.9,FF,https://www.dzofilm.com/lens/zoom/catta-ace,maker
+DZOFilm,Catta Ace,Catta Ace 35-80,35,80,,2.9,FF,https://www.dzofilm.com/lens/zoom/catta-ace,maker
+DZOFilm,Catta Ace,Catta Ace 70-135,70,135,,2.9,FF,https://www.dzofilm.com/lens/zoom/catta-ace,maker
+DZOFilm,Pavo,Pavo 28 mm,28,,2,2.1,S35,https://www.dzofilm.com/lens/anamorphic/pavo,maker
+DZOFilm,Pavo,Pavo 32 mm,32,,2,2.1,S35,https://www.dzofilm.com/lens/anamorphic/pavo,maker
+DZOFilm,Pavo,Pavo 40 mm,40,,2,2.1,S35,https://www.dzofilm.com/lens/anamorphic/pavo,maker
+DZOFilm,Pavo,Pavo 55 mm,55,,2,2.1,S35,https://www.dzofilm.com/lens/anamorphic/pavo,maker
+DZOFilm,Pavo,Pavo 75 mm,75,,2,2.1,S35,https://www.dzofilm.com/lens/anamorphic/pavo,maker
+DZOFilm,Pavo,Pavo 65 mm Macro,65,,2,2.8,S35,https://www.dzofilm.com/lens/anamorphic/pavo,maker
+DZOFilm,Pavo,Pavo 100 mm,100,,2,2.4,S35,https://www.dzofilm.com/lens/anamorphic/pavo,maker
+DZOFilm,Pavo,Pavo 135 mm,135,,2,2.5,S35,https://www.dzofilm.com/lens/anamorphic/pavo,maker
+DZOFilm,Pavo,Pavo 180 mm,180,,2,2.8,S35,https://www.dzofilm.com/lens/anamorphic/pavo,maker
+Tokina,Vista,Vista 18 mm,18,,,1.5,LF,https://tokinacinema.com/vista-prime-t15,maker
+Tokina,Vista,Vista 21 mm,21,,,1.5,LF,https://tokinacinema.com/vista-prime-t15,maker
+Tokina,Vista,Vista 25 mm,25,,,1.5,LF,https://tokinacinema.com/vista-prime-t15,maker
+Tokina,Vista,Vista 29 mm,29,,,1.5,LF,https://tokinacinema.com/vista-prime-t15,maker
+Tokina,Vista,Vista 35 mm,35,,,1.5,LF,https://tokinacinema.com/vista-prime-t15,maker
+Tokina,Vista,Vista 40 mm,40,,,1.5,LF,https://tokinacinema.com/vista-prime-t15,maker
+Tokina,Vista,Vista 50 mm,50,,,1.5,LF,https://tokinacinema.com/vista-prime-t15,maker
+Tokina,Vista,Vista 65 mm,65,,,1.5,LF,https://tokinacinema.com/vista-prime-t15,maker
+Tokina,Vista,Vista 85 mm,85,,,1.5,LF,https://tokinacinema.com/vista-prime-t15,maker
+Tokina,Vista,Vista 105 mm,105,,,1.5,LF,https://tokinacinema.com/vista-prime-t15,maker
+Tokina,Vista,Vista 135 mm,135,,,1.5,LF,https://tokinacinema.com/vista-prime-t15,maker
+Tokina,Cinema Zoom,Cinema Zoom 11-20,11,20,,2.9,S35,https://tokinacinema.com/11-20mm-t29,maker
+Tokina,Cinema Zoom,Cinema Zoom 25-75,25,75,,2.9,,https://tokinacinema.com/2575mm-t29,maker
+Tokina,Cinema Zoom,Cinema Zoom 50-135,50,135,,2.9,,https://tokinacinema.com/50-135mm-t29-mkii,maker
+Tokina,Cinema Zoom,Cinema Zoom 16-28,16,28,,3,,https://tokinacinema.com/1628mm-t30-mkii,maker
+Panavision,Primo,Primo 10 mm,10,,,1.9,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 14.5 mm,14.5,,,1.9,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 17.5 mm,17.5,,,1.9,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 21 mm,21,,,1.9,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 27 mm,27,,,1.9,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 35 mm,35,,,1.9,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 40 mm,40,,,1.9,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 50 mm,50,,,1.9,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 65 mm,65,,,1.8,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 75 mm,75,,,1.9,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 85 mm,85,,,1.8,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 100 mm,100,,,1.9,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 125 mm,125,,,1.8,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Primo,Primo 150 mm,150,,,1.9,S35,https://www.panavision.com/camera-and-optics/optics/product-detail/sl-primo,maker
+Panavision,Panaspeed,Panaspeed 17 mm,17,,,1.4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Panaspeed,Panaspeed 21 mm,21,,,1.4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Panaspeed,Panaspeed 24 mm,24,,,1.4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Panaspeed,Panaspeed 29 mm,29,,,1.4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Panaspeed,Panaspeed 35 mm,35,,,1.4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Panaspeed,Panaspeed 40 mm,40,,,1.4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Panaspeed,Panaspeed 50 mm,50,,,1.4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Panaspeed,Panaspeed 65 mm,65,,,1.4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Panaspeed,Panaspeed 80 mm,80,,,1.4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Panaspeed,Panaspeed 100 mm,100,,,1.4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Panaspeed,Panaspeed 135 mm,135,,,1.4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Panaspeed,Panaspeed 180 mm,180,,,1.9,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ps-panaspeed,maker
+Panavision,Primo 65,Primo 65 21 mm,21,,,2,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Primo 65,Primo 65 27 mm,27,,,2,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Primo 65,Primo 65 30 mm,30,,,2,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Primo 65,Primo 65 35 mm,35,,,2,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Primo 65,Primo 65 45 mm,45,,,2,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Primo 65,Primo 65 50 mm,50,,,2,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Primo 65,Primo 65 65 mm,65,,,2,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Primo 65,Primo 65 80 mm,80,,,2,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Primo 65,Primo 65 100 mm,100,,,2,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Primo 65,Primo 65 125 mm,125,,,2,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Primo 65,Primo 65 170 mm,170,,,2,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Primo 65,Primo 65 225 mm,225,,,2.5,,https://www.panavision.com/camera-and-optics/optics/product-detail/65p-primo-65,maker
+Panavision,Ultra Panatar II,Ultra Panatar II 35 mm,35,,1.3,2.8,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ultra-panatar-ii,maker
+Panavision,Ultra Panatar II,Ultra Panatar II 40 mm,40,,1.3,2.8,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ultra-panatar-ii,maker
+Panavision,Ultra Panatar II,Ultra Panatar II 50 mm,50,,1.3,2.8,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ultra-panatar-ii,maker
+Panavision,Ultra Panatar II,Ultra Panatar II 65 mm,65,,1.3,2.8,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ultra-panatar-ii,maker
+Panavision,Ultra Panatar II,Ultra Panatar II 85 mm,85,,1.3,2.8,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ultra-panatar-ii,maker
+Panavision,Ultra Panatar II,Ultra Panatar II 100 mm,100,,1.3,2.8,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ultra-panatar-ii,maker
+Panavision,Ultra Panatar II,Ultra Panatar II 135 mm,135,,1.3,2.8,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ultra-panatar-ii,maker
+Panavision,Ultra Panatar II,Ultra Panatar II 180 mm,180,,1.3,2.8,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/ultra-panatar-ii,maker
+Panavision,Large Format Zoom,Large Format Zoom 15-30,15,30,,2.8,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/pvflz-large-format-zooms,maker
+Panavision,Large Format Zoom,Large Format Zoom 20-36,20,36,,4,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/pvflz-large-format-zooms,maker
+Panavision,Large Format Zoom,Large Format Zoom 28-80,28,80,,3,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/pvflz-large-format-zooms,maker
+Panavision,Large Format Zoom,Large Format Zoom 70-185,70,185,,3.5,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/pvflz-large-format-zooms,maker
+Panavision,Large Format Zoom,Large Format Zoom 150-600,150,600,,6.3,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/pvflz-large-format-zooms,maker
+Panavision,Large Format Zoom,Large Format Zoom 200-400,200,400,,4.5,LF,https://www.panavision.com/camera-and-optics/optics/product-detail/pvflz-large-format-zooms,maker

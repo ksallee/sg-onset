@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Camera, Lens } from '$lib/model/types';
-import { cameraLine, countText, focalBadge, focalText, lensLine, rowIssueText } from './text';
+import { cameraLine, countText, focalBadge, focalText, lensLine, rowIssueText, libraryCameraLine, libraryLensLine, seriesLine } from './text';
 
 const lens = (rest: Partial<Lens>): Lens => ({ id: 'l', projectId: 'p', ...rest });
 
@@ -56,5 +56,23 @@ describe('rowIssueText', () => {
 	});
 	it('falls back to the full message for a key with no short form', () => {
 		expect(rowIssueText({ key: 'import.noHeader', row: 0 })).toMatch(/^No header row/);
+	});
+});
+
+describe('the library lines', () => {
+	it('says a body by its full sensor', () => {
+		expect(libraryCameraLine({ make: 'ARRI', model: 'Alexa 35', mode: 'Open Gate', sensor: { width: 27.99, height: 19.22 }, resolution: { width: 4608, height: 3164 }, source: '' })).toBe(
+			'27.99 × 19.22 mm · 4608 × 3164 px · Open Gate'
+		);
+		expect(libraryCameraLine({ make: 'X', model: 'Y', source: '' })).toBe('');
+	});
+	it('says a lens by its stop, squeeze and coverage', () => {
+		expect(libraryLensLine({ make: 'Cooke', series: 'S', model: 'S 40 mm', focalLength: 40, tStop: 2.3, squeeze: { num: 9, denom: 5 }, coverage: 'FF', source: '' })).toBe('T2.3 · 1.8× anamorphic · FF');
+	});
+	it('says a set by its primes, zooms and span', () => {
+		const lens = (focalLength: number, focalLengthMax?: number) => ({ make: 'M', series: 'S', model: `S ${focalLength}`, focalLength, focalLengthMax, source: '' });
+		expect(seriesLine({ key: 'k', make: 'M', series: 'S', lenses: [lens(18), lens(25), lens(100)] })).toBe('3 primes · 18–100 mm');
+		expect(seriesLine({ key: 'k', make: 'M', series: 'S', lenses: [lens(24, 290)] })).toBe('1 zoom · 24–290 mm');
+		expect(seriesLine({ key: 'k', make: 'M', series: 'S', lenses: [lens(50)] })).toBe('1 prime · 50 mm');
 	});
 });

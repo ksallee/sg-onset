@@ -1,0 +1,103 @@
+cameraMake,cameraModel,sensorMode,sensorWidthMm,sensorHeightMm,resolutionWidthPx,resolutionHeightPx,sourceUrl,confidence
+ARRI,ALEXA Classic,16:9 ARRIRAW,23.76,13.37,2880,1620,https://www.arri.com/resource/blob/178012/d6a32bdbaee788486bce45ec1de9e4f1/alexa-classic-and-xt-recording-areas-surround-views-framelines-sup-11-data.pdf,maker
+ARRI,ALEXA Plus 4:3,4:3 Full ARRIRAW,23.76,17.82,2880,2160,https://www.arri.com/resource/blob/178012/d6a32bdbaee788486bce45ec1de9e4f1/alexa-classic-and-xt-recording-areas-surround-views-framelines-sup-11-data.pdf,maker
+ARRI,ALEXA XT,Open Gate ARRIRAW,28.17,18.13,3414,2198,https://www.arri.com/resource/blob/178012/d6a32bdbaee788486bce45ec1de9e4f1/alexa-classic-and-xt-recording-areas-surround-views-framelines-sup-11-data.pdf,maker
+ARRI,ALEXA SXT,Open Gate ARRIRAW 3.4K,,,3424,2202,https://www.arri.com/en/learn-help/learn-help-camera-system/frequently-asked-questions/alexa-sxt-faq,maker
+ARRI,ALEXA SXT W,Open Gate ARRIRAW 3.4K,28.25,18.17,3424,2202,https://www.arri.com/en/cine-systems/cine-cameras/legacy-cine-cameras/alexa-sxt-w,maker
+ARRI,ALEXA Mini,Open Gate 3.4K,28.25,18.17,3424,2202,https://www.arri.com/en/cine-systems/cine-cameras/legacy-cine-cameras/alexa-mini,maker
+ARRI,AMIRA,3.2K,26.40,14.85,3200,1800,https://www.arri.com/en/cine-systems/cine-cameras/amira,maker
+ARRI,ALEXA LF,LF Open Gate ARRIRAW 4.5K,36.70,25.54,4448,3096,https://www.arri.com/en/cine-systems/cine-cameras/alexa-lf,maker
+ARRI,ALEXA Mini LF,4.5K LF 3:2 Open Gate,36.70,25.54,4448,3096,https://www.arri.com/resource/blob/306446/d7bf94ecd6bc57c4b430b360b7cdc7e6/alexa-mini-lf-recording-formats-sheet-din-a4-size-pdf-data.pdf,maker
+ARRI,ALEXA 65,Open Gate,54.12,25.58,6560,3100,https://www.arrirental.com/en/cameras/alexa-65,maker
+ARRI,ALEXA 35,4.6K 3:2 Open Gate,27.99,19.22,4608,3164,https://www.arri.com/resource/blob/296424/88454a5a3dee9fe1d3fd68e75aa3411e/alexa-35-recording-format-poster-data.pdf,maker
+ARRI,ALEXA 35 Xtreme,4.6K 3:2 Open Gate,27.99,19.22,4608,3164,https://www.arri.com/en/cine-systems/cine-cameras/alexa-35-xtreme,maker
+ARRI,ALEXA 265,6.5K 2.12:1 Open Gate,54.12,25.58,6560,3100,https://www.arri.com/en/cine-systems/cine-cameras/alexa-265,maker
+Panavision,Millennium DXL2,8K large format,40.96,21.6,8192,4320,https://www.panavision.com/product/panavision-millennium-dXL2-8K-camera/,maker
+RED,DSMC2 Helium 8K S35,8K Full Format,29.9,15.77,8192,4320,https://docs.red.com/955-0171_v7.0/DSMC2HELIUMOperationGuide/Content/A_TechSpecs/Specs_DSMC2_HELIUM.htm,maker
+RED,DSMC2 Gemini 5K S35,5K Full Height 1.7:1,30.72,18,5120,3000,https://docs.red.com/955-0172_v7.0/DSMC2GEMINIOperationGuide/Content/A_TechSpecs/Specs_DSMC2_GEMINI.htm,maker
+RED,DSMC2 Monstro 8K VV,8K Full Format,40.96,21.6,8192,4320,https://docs.red.com/955-0170/DSMC2MONSTROOperationGuide/en-us/Content/A_TechSpecs/Specs_DSMC2_MONSTRO.htm,maker
+RED,DSMC2 Dragon-X 5K S35,5K Full Format,25.6,13.5,5120,2700,https://docs.red.com/955-0182/DSMC2DRAGONXOperationGuide/Content/A_TechSpecs/Specs_DSMC2_DRAGONX.htm,maker
+RED,DSMC2 Dragon-X 6K S35,6K Full Format,30.7,15.8,6144,3160,https://docs.red.com/955-0181_v7.4/DSMC2_DRAGONX_7_4/Content/A_TechSpecs/Specs_DSMC2_DRAGONX_6K.htm,maker
+RED,Ranger Monstro 8K VV,8K Full Format,40.96,21.6,8192,4320,https://docs.red.com/955-0185_v7.2/REDRANGER/Content/A_TechSpecs/Specs_RANGER.htm,maker
+RED,Ranger Helium 8K S35,8K Full Format,29.9,15.77,8192,4320,https://docs.red.com/955-0191_v7.4/RANGER_HELIUM_7_4/Content/A_TechSpecs/Specs_RANGER_HELIUM.htm,maker
+RED,Ranger Gemini 5K S35,5K Full Height 1.7:1,30.72,18,5120,3000,https://docs.red.com/955-0192_v7.4/RANGER_GEMINI_7_4/Content/A_TechSpecs/Specs_RANGER_GEMINI.htm,maker
+RED,Komodo 6K,6K 17:9,27.03,14.26,6144,3240,https://docs.red.com/955-0190_v1.3/955-0190_v1.3_REV-1.3_RED_PS_KOMODO_Operation_Guide/Content/A_TechSpecs/Specs_KOMODO_6K.htm,maker
+RED,Komodo-X 6K,6K 17:9,27.03,14.26,6144,3240,"https://docs.red.com/955-0219/955-0219_V1.0%20Rev-A%20RED%20PS,%20KOMODO-X%20Operation%20Guide/Content/A_TechSpecs/Specs_KOMODO-X.htm",maker
+RED,V-Raptor 8K VV,8K 17:9,40.96,21.6,8192,4320,https://docs.red.com/955-0199/955-0199_V1.2_Rev_A_RED_PS_V-RAPTOR_Operation_Guide/Content/C_TechSpecs/Specs_V-RAPTOR.htm,maker
+RED,V-Raptor 8K S35,8K 17:9,26.21,13.82,8192,4320,"https://docs.red.com/955-0215/955-0215_V1.4_Rev-B%20RED%20PS,%20V-RAPTOR%208K%20S35%20Operation%20Guide/Content/C_TechSpecs/Specs_V-RAPTOR.htm",maker
+RED,V-Raptor XL 8K VV,8K 17:9,40.96,21.6,8192,4320,"https://docs.red.com/955-0203/955-0203_V1.3+Rev-B+RED+PS,+V-RAPTOR+XL+8K+VV+Operation+Guide+HTML/Content/C_TechSpecs/Specs_V-RAPTOR_XL.htm",maker
+RED,V-Raptor XL 8K S35,8K 17:9,26.21,13.82,8192,4320,"https://docs.red.com/955-0221/955-0221_V1.4_Rev_A%20RED%20PS,%20V-RAPTOR%20XL%208K%20S35%20Operation%20Guide%20HTML/Content/C_TechSpecs/Specs_V-RAPTOR_XL.htm",maker
+RED,V-Raptor [X] 8K VV,8K 17:9,40.96,21.6,8192,4320,"https://docs.red.com/955-0225/955-0225_V1.7+Rev-B+RED+PS,+V-RAPTOR+%5BX%5D+8K+VV+Operation+Guide+HTML/Content/B_TechSpecs/Specs_V-RAPTOR%20%5BX%5D.htm",maker
+RED,V-Raptor XL [X] 8K VV,8K 17:9,40.96,21.6,8192,4320,https://docs.red.com/955-0227/955-0227_V1.7%20Rev-A%20RED%20PS%2C%20V-RAPTOR%20XL%20%5BX%5D%208K%20VV%20Operation%20Guide%20HTML/Content/B_TechSpecs/Specs_V-RAPTOR_XL%20%5BX%5D.htm,maker
+RED,V-Raptor XE 8K VV,8K 17:9,40.96,21.6,8192,4320,"https://docs.red.com/955-0233/955-0233_V2.1%20Rev-A%20RED%20PS,%20V-RAPTOR%20XE%20Operation%20Guide%20HTML/Content/B_TechSpecs/Specs_V-RAPTOR%20XE.htm",maker
+Sony,VENICE,6K 3:2,35.9,24.0,6048,4032,https://www.sony.jp/professional/support/manual_pdf/c_c/MPC-3610_OM_4735109081.pdf,maker
+Sony,VENICE 2 6K,6K 3:2,35.9,24.0,6048,4032,https://www.sony.jp/ls-camera/reference/pdf/VENICE_2_MPC-3626_recording_format.pdf,maker
+Sony,VENICE 2 8K,8.6K 3:2,35.9,24.0,8640,5760,https://www.sony.jp/ls-camera/reference/pdf/VENICE_2_MPC-3628_recording_format.pdf,maker
+Sony,BURANO,FF 8.6K 16:9,35.9,20.2,8632,4856,https://www.sony.jp/ls-camera/reference/pdf/BURANO_recording_format.pdf,maker
+Sony,FX9,FF 6K,35.7,18.8,6008,3168,https://sony-cinematography.com/faqs/is-fx9-6k-or-4k-,maker
+Sony,FX6,,,,,,https://www.sony.jp/products/catalog/ILME-FX6V_2609.pdf,maker
+Sony,FX3,Full frame stills 3:2,35.6,23.8,4240,2832,https://www.sony.jp/pro-cam/products/ILME-FX3/spec.html,maker
+Sony,FX30,APS-C stills 3:2,23.3,15.5,6192,4128,https://www.sony.jp/pro-cam/products/ILME-FX30/spec.html,maker
+Sony,F55,4K RAW 17:9,,,4096,2160,https://www.panavision.com/products/sony-f55,secondary
+Sony,F65,Super 35mm 17:9,24.7,13.1,,,https://www.sony.jp/products/catalog/SPC_F65RS.pdf,maker
+Sony,FS7 II,4K 17:9,,,4096,2160,https://www.sony.jp/products/catalog/SPC_PXW-FS7M2.pdf,maker
+Sony,Alpha 7S III,Full frame stills 3:2,35.6,23.8,4240,2832,https://www.sony.jp/ichigan/products/ILCE-7SM3/spec.html,maker
+Sony,Alpha 7S II,Full frame stills 3:2,35.6,23.8,4240,2832,https://www.sony.jp/ichigan/products/ILCE-7SM2/spec.html,maker
+Sony,Alpha 7 III,Full frame stills 3:2,35.6,23.8,6000,4000,https://www.sony.jp/ichigan/products/ILCE-7M3/spec.html,maker
+Sony,Alpha 7 IV,Full frame stills 3:2,35.9,23.9,7008,4672,https://www.sony.jp/ichigan/products/ILCE-7M4/spec.html,maker
+Sony,Alpha 7R III,Full frame stills 3:2,35.9,24.0,7952,5304,https://www.sony.jp/ichigan/products/ILCE-7RM3/spec.html,maker
+Sony,Alpha 7R IV,Full frame stills 3:2,35.7,23.8,9504,6336,https://www.sony.jp/ichigan/products/ILCE-7RM4/spec.html,maker
+Sony,Alpha 7R V,Full frame stills 3:2,35.7,23.8,9504,6336,https://www.sony.jp/ichigan/products/ILCE-7RM5/spec.html,maker
+Sony,Alpha 1,Full frame stills 3:2,35.9,24.0,8640,5760,https://www.sony.jp/ichigan/products/ILCE-1/spec.html,maker
+Sony,Alpha 1 II,Full frame stills 3:2,35.9,24.0,8640,5760,https://www.sony.jp/ichigan/products/ILCE-1M2/spec.html,maker
+Blackmagic Design,URSA Mini Pro 4.6K G2,4.6K 16:9,25.34,14.25,4608,2592,https://www.blackmagicdesign.com/products/blackmagicursaminipro/techspecs,maker
+Blackmagic Design,URSA Mini Pro 12K,12K DCI,27.03,14.25,12288,6480,https://www.blackmagicdesign.com/products/blackmagicursaminipro/techspecs,maker
+Blackmagic Design,URSA Mini Pro 12K OLPF,12K DCI,27.03,14.25,12288,6480,https://www.blackmagicdesign.com/products/blackmagicursaminipro/techspecs,maker
+Blackmagic Design,Pocket Cinema Camera 4K,4K DCI,18.96,10,4096,2160,https://www.blackmagicdesign.com/products/blackmagicpocketcinemacamera/techspecs,maker
+Blackmagic Design,Pocket Cinema Camera 6K,6K,23.10,12.99,6144,3456,https://www.fdtimes.com/2019/10/30/black-magic-pocket-cinema-camera-6k/,secondary
+Blackmagic Design,Pocket Cinema Camera 6K G2,6K,23.10,12.99,6144,3456,https://www.blackmagicdesign.com/products/blackmagicpocketcinemacamera/techspecs,maker
+Blackmagic Design,Pocket Cinema Camera 6K Pro,6K,23.10,12.99,6144,3456,https://www.blackmagicdesign.com/products/blackmagicpocketcinemacamera/techspecs,maker
+Blackmagic Design,Cinema Camera 6K,Open Gate 3:2,36,24,6048,4032,https://www.blackmagicdesign.com/products/blackmagiccinemacamera/techspecs,maker
+Blackmagic Design,URSA Cine 12K LF,12K 3:2 open gate,35.64,23.32,12288,8040,https://www.blackmagicdesign.com/products/blackmagicursacine/techspecs,maker
+Blackmagic Design,URSA Cine 17K 65,17K 2.2:1 open gate,50.81,23.32,17520,8040,https://www.blackmagicdesign.com/products/blackmagicursacine/techspecs,maker
+Blackmagic Design,PYXIS 6K,Open Gate 3:2,36,24,6048,4032,https://www.blackmagicdesign.com/products/blackmagicpyxis/techspecs,maker
+Blackmagic Design,PYXIS 12K,12K 3:2 open gate,35.64,23.32,12288,8040,https://www.blackmagicdesign.com/products/blackmagicpyxis/techspecs,maker
+Z CAM,E2-F6,Open Gate,37.09,24.75,6064,4040,https://www.newsshooter.com/2020/09/22/z-cam-e2-f6-full-frame-6k-cinema-camera-review/,secondary
+Z CAM,E2-F6 Pro,Open Gate,37.09,24.75,6064,4040,https://www.z-cam.com/products/professional-cameras/e2-f6-pro/,maker
+Z CAM,E2-F8,8K UHD,,,7680,4320,https://www.z-cam.com/products/professional-cameras/e2-f8/,maker
+Z CAM,E2-S6G,Open Gate,,,6144,4096,https://www.z-cam.com/products/professional-cameras/e2-s6g/,maker
+Kinefinity,MAVO Edge 8K,FF 8K OG (Open gate 3:2),36,23.3,8192,5288,https://www.kinefinity.com/products/mavo-edge-8k/specs,maker
+Kinefinity,MAVO Edge 6K,Open gate 3:2,36,24,6016,3984,https://www.kinefinity.com/products/mavo-edge-6k/specs,maker
+Kinefinity,MAVO mark2 S35,3:2 Open Gate,24,16,6144,4016,https://www.kinefinity.com/products/mavo-mark2/specs,maker
+Kinefinity,MAVO mark2 LF,3:2 Open Gate,36,24,6016,3984,https://www.kinefinity.com/products/mavo-mark2/specs,maker
+Canon,EOS C70,Super 35mm 4096x2160,,,4096,2160,https://global.canon/ja/c-museum/wp-content/uploads/2021/10/cesc896_en.pdf,maker
+Canon,EOS C80,Full Frame RAW 6000x3164,,,6000,3164,https://global.canon/ja/c-museum/wp-content/uploads/2025/12/cesc912_en.pdf,maker
+Canon,EOS C200,Super 35mm Cinema RAW Light 4096x2160,,,4096,2160,https://global.canon/ja/c-museum/wp-content/uploads/2018/08/cesc864_en.pdf,maker
+Canon,EOS C300 Mark II,Super 35mm 4096x2160,,,4096,2160,https://backend.lensrentals.com/product-assets/3df9b9a4-b441-4145-a275-68f10d0e60f7/eosc300mk2-300mk2pl-im10-en.pdf,maker
+Canon,EOS C300 Mark III,Super 35mm 4096x2160,,,4096,2160,https://global.canon/ja/c-museum/wp-content/uploads/2021/07/cesc893_en.pdf,maker
+Canon,EOS C400,Full Frame RAW 6000x3164,,,6000,3164,https://global.canon/ja/c-museum/wp-content/uploads/2025/12/cesc911_en.pdf,maker
+Canon,EOS C500 Mark II,Full Frame 5952x3140,,,5952,3140,https://global.canon/ja/c-museum/wp-content/uploads/2021/02/cesc889_en.pdf,maker
+Canon,EOS C700,Super 35mm RAW (Codex recorder) 4512x2376,,,4512,2376,https://global.canon/ja/c-museum/wp-content/uploads/2019/05/cesc875_en.pdf,maker
+Canon,EOS C700 GS PL,Super 35mm global shutter RAW (Codex recorder) 4272x2376,,,4272,2376,https://global.canon/ja/c-museum/wp-content/uploads/2019/05/cesc875_en.pdf,maker
+Canon,EOS C700 FF,Full Frame 5952x3140,,,5952,3140,https://global.canon/ja/c-museum/wp-content/uploads/2019/05/cesc875_en.pdf,maker
+Canon,EOS R5,Stills 3:2 Large,36.0,24.0,8192,5464,https://global.canon/ja/c-museum/wp-content/uploads/2021/07/dslr894_en.pdf,maker
+Canon,EOS R5 Mark II,Stills 3:2 Large,36.0,24.0,8192,5464,https://global.canon/ja/c-museum/wp-content/uploads/2025/12/dslr910_en.pdf,maker
+Canon,EOS R5 C,Stills 3:2 Large,36.0,24.0,8192,5464,https://global.canon/ja/c-museum/wp-content/uploads/2023/03/cesc900-1_en.pdf,maker
+Canon,EOS R6,Stills 3:2 Large,35.9,23.9,5472,3648,https://global.canon/ja/c-museum/wp-content/uploads/2021/10/dslr895_en.pdf,maker
+Canon,EOS R6 Mark II,Stills 3:2 Large,36.0,24.0,6000,4000,https://global.canon/ja/c-museum/wp-content/uploads/2023/12/dslr905-en.pdf,maker
+Canon,EOS 5D Mark IV,Stills 3:2 Large,36.0,24.0,6720,4480,https://gdlp01.c-wss.com/gds/0/0300024970/09/eos5d-mk4-im10-en.pdf,maker
+Nikon,Z8,FX stills 3:2 Large,35.9,23.9,8256,5504,https://onlinemanual.nikonimglib.com/z8/en/specifications_384.html,maker
+Nikon,Z9,FX stills 3:2 Large,35.9,23.9,8256,5504,https://onlinemanual.nikonimglib.com/z9/en/specifications_348.html,maker
+Nikon,Z6III,FX stills 3:2 Large,35.9,23.9,6048,4032,https://onlinemanual.nikonimglib.com/z6III/en/specifications_396.html,maker
+Panasonic,VariCam 35,4K (4096x2160),24.576,12.960,4096,2160,https://pro-av.panasonic.net/en/cinema_camera_varicam_eva/support/pdf/VARICAM_35_Sensor.pdf,maker
+Panasonic,VariCam LT,4K (4096x2160),24.576,12.960,4096,2160,https://pro-av.panasonic.net/en/cinema_camera_varicam_eva/support/pdf/VARICAM_35_Sensor.pdf,maker
+Panasonic,EVA1,5.7K (5720x3016),24.60,12.97,5720,3016,https://pro-av.panasonic.net/en/cinema_camera_varicam_eva/support/pdf/All_about_EVA1.pdf,maker
+Panasonic,Lumix S1H,6K 3:2,,,5952,3968,https://pro-av.panasonic.net/en/cinema_camera_varicam_eva/support/pdf/S1H_handbook.pdf,maker
+DJI,Ronin 4D Zenmuse X9-8K,8K Full Frame 17:9,36,19,8192,4320,https://dl.djicdn.com/downloads/DJI_Ronin_4D/20231214/DJI_Ronin_4D_User_Manual_v1.4_en.pdf,maker
+DJI,Ronin 4D Zenmuse X9-6K,6K Full Frame 17:9,35.7,18.8,6008,3168,https://dl.djicdn.com/downloads/DJI_Ronin_4D/20231214/DJI_Ronin_4D_User_Manual_v1.4_en.pdf,maker
+DJI,Inspire 3 Zenmuse X9-8K Air,8K Full Frame 17:9,36,19,8192,4320,https://terra-1-g.djicdn.com/851d20f7b9f64838a34cd02351370894/inspire-3%20%E8%A7%84%E6%A0%BC%E8%A1%A8/630-%E6%91%84%E5%BD%95%E8%A7%84%E6%A0%BC%E8%A1%A8_en%EF%BC%88%E7%AC%AC%E4%BA%8C%E7%89%88-%E5%AE%BD1920-%E6%B8%85%E6%99%B0%E5%BA%A6%E6%8D%A2%E7%AE%97%EF%BC%89.jpg,maker
+DJI,Zenmuse X7,6K CinemaDNG 17:9,23.5,12.5,6016,3200,https://dl.djicdn.com/downloads/zenmuse+x7/20180718/Zenmuse+X7+User+Manual+EN+v1.4.pdf,maker
+Phantom,Flex4K,4096 x 2304 full resolution (Super 35),27.6,15.6,4096,2304,https://www.phantomhighspeed.com/-/media/project/ameteksxa/visionresearch/documents/datasheets/web/wdsflex4k.pdf,maker
+Phantom,VEO4K 990,4096 x 2304 full resolution (Super 35),27.6,15.6,4096,2304,https://www.phantomhighspeed.com/-/media/project/ameteksxa/visionresearch/documents/datasheets/web/wdsveo4kfamily.pdf,maker
+Phantom,VEO4K 590,4096 x 2304 full resolution (Super 35),27.6,15.6,4096,2304,https://www.phantomhighspeed.com/-/media/project/ameteksxa/visionresearch/documents/datasheets/web/wdsveo4kfamily.pdf,maker
+Phantom,VEO4K-PL,4096 x 2304 full resolution (Super 35),27.6,15.6,4096,2304,https://www.phantomhighspeed.com/-/media/project/ameteksxa/visionresearch/documents/datasheets/web/wdsveo4kpl.pdf,maker

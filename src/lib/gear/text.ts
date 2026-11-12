@@ -5,6 +5,7 @@ import { importIssueText } from '$lib/i18n/modelText';
 import type { ImportIssue } from '$lib/model/gearImport';
 import { formatRational } from '$lib/model/rational';
 import type { Camera, Dimensions, Lens } from '$lib/model/types';
+import type { LensSeries, LibraryCamera, LibraryLens } from './library';
 import { focalRange, lensKind } from './names';
 
 /** "1 lens", "3 lenses". */
@@ -58,3 +59,31 @@ export function cameraLine(camera: Camera): string {
 		.join(' · ');
 }
 
+
+/** A library body: "27.99 × 19.22 mm · 4608 × 3164 px · 4.6K 3:2 Open Gate". */
+export function libraryCameraLine(camera: LibraryCamera): string {
+	return [size(camera.sensor, tk('unit.mm')), size(camera.resolution, tk('unit.px')), camera.mode ?? ''].filter(Boolean).join(' · ');
+}
+
+const stop = (n: number | undefined) => (n === undefined ? '' : t('gear.library.tStop', { stop: n }));
+
+/** A library lens: "T1.8 · 2× anamorphic · FF". */
+export function libraryLensLine(lens: LibraryLens): string {
+	return [stop(lens.tStop), lens.squeeze ? t('gear.squeeze', { squeeze: formatRational(lens.squeeze) }) : '', lens.coverage ?? ''].filter(Boolean).join(' · ');
+}
+
+/** A lens set: "12 primes · 2 zooms · 15–200 mm". The span is of the primes, or of the zooms when it has no prime. */
+export function seriesLine(series: LensSeries): string {
+	const primes = series.lenses.filter((l) => l.focalLengthMax === undefined);
+	const zooms = series.lenses.filter((l) => l.focalLengthMax !== undefined);
+	const of = primes.length ? primes : zooms;
+	const min = Math.min(...of.map((l) => l.focalLength));
+	const max = Math.max(...of.map((l) => l.focalLengthMax ?? l.focalLength));
+	return [
+		primes.length ? tk(`gear.library.primes.${primes.length === 1 ? 'one' : 'other'}`, { n: primes.length }) : '',
+		zooms.length ? tk(`gear.library.zooms.${zooms.length === 1 ? 'one' : 'other'}`, { n: zooms.length }) : '',
+		min === max ? t('gear.focal.prime', { min }) : t('gear.focal.zoom', { min, max })
+	]
+		.filter(Boolean)
+		.join(' · ');
+}

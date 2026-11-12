@@ -25,6 +25,7 @@
 	import { duplicateGear, formSelection, parseSelection, type Selection } from '$lib/gear/records';
 	import { moveSetup, setupsUsing, sortSetups } from '$lib/gear/setups';
 	import GearDetail from './GearDetail.svelte';
+	import GearLibrary from './GearLibrary.svelte';
 	import GearList from './GearList.svelte';
 	import GearPicker from './GearPicker.svelte';
 	import NewGearSheet from './NewGearSheet.svelte';
@@ -91,6 +92,12 @@
 		else addOpen = true;
 	}
 	const importFrom = (scope: GearScope) => goto(`/gear/import?kind=${scope}`);
+	let libraryOpen = $state(false);
+	let libraryScope = $state<GearScope>('camera');
+	function library(scope: GearScope) {
+		libraryScope = scope;
+		libraryOpen = true;
+	}
 
 	let picking = $state<{ kind: 'camera' | 'lens'; setupId: string } | null>(null);
 	let pickerOpen = $state(false);
@@ -172,7 +179,8 @@
 		<EmptyState icon={CameraIcon} title={t('gear.empty')} message={t('gear.empty.message')}>
 			{#snippet action()}
 				<div class="empty-actions">
-					<Button variant="filled" onclick={() => add('camera')}>{t('gear.add.camera')}</Button>
+					<Button variant="filled" onclick={() => library('camera')}>{t('gear.library')}</Button>
+					<Button variant="tinted" onclick={() => add('camera')}>{t('gear.add.camera')}</Button>
 					<Button variant="tinted" onclick={() => add('lens')}>{t('gear.add.lens')}</Button>
 					<Button variant="gray" onclick={() => importFrom('lens')}>{t('gear.import')}</Button>
 				</div>
@@ -193,6 +201,7 @@
 						onlens={(setup) => openPicker(setup, 'lens')}
 						onadd={add}
 						onimport={importFrom}
+						onlibrary={library}
 						onmove={move}
 					/>
 				</div>
@@ -235,6 +244,7 @@
 {#if adding && adding !== 'cameraSetup'}
 	<NewGearSheet bind:open={addOpen} scope={adding} {projectId} oncreated={(r) => select({ scope: adding as GearScope, id: r.id })} />
 {/if}
+<GearLibrary bind:open={libraryOpen} bind:scope={libraryScope} {projectId} cameras={cameraRows.value} lenses={lensRows.value} />
 <NewSetupSheet bind:open={setupOpen} {setups} {projectId} oncreated={(s) => select({ scope: 'cameraSetup', id: s.id })} />
 {#if picking}
 	<GearPicker bind:open={pickerOpen} kind={picking.kind} setup={pickingSetup} {cameras} {lenses} takes={takes.value} onpick={assign} />

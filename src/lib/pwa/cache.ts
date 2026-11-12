@@ -20,9 +20,9 @@ export const isAppCache = (name: string) => name.startsWith(APP_PREFIX);
 const MEDIA_DIRS = /^\/(sounds|music)\//;
 const AUDIO = /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/i;
 
-/** Whether a static file goes in the install-time precache: all but the audio and the launch images. */
+/** Whether a static file goes in the install-time precache: all but the audio, the launch images and the link preview image. */
 export function precacheable(path: string): boolean {
-	if (path.startsWith('/splash/')) return false;
+	if (path.startsWith('/splash/') || path === '/og.png') return false;
 	return !(MEDIA_DIRS.test(path) && AUDIO.test(path));
 }
 

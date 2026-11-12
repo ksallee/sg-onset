@@ -42,6 +42,7 @@ describe('precacheable', () => {
 	});
 	it('leaves launch images out: iPadOS fetches them itself', () => {
 		expect(precacheable('/splash/ipad-11-landscape-dark.png')).toBe(false);
+		expect(precacheable('/og.png')).toBe(false);
 		expect(precacheable('/icons/icon-192.png')).toBe(true);
 	});
 	it('leaves audio to the media cache, fetched when first played', () => {

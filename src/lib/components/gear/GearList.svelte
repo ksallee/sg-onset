@@ -1,10 +1,10 @@
 <script lang="ts">
 	// The gear of the project as one list: camera setups first (they change all day), then
 	// cameras, then lenses. A search finds across the three. Each section ends with its Add row;
-	// cameras and lenses also with Import. Out of a search, setups move by the grip on each row:
+	// cameras and lenses also with the library and Import. Out of a search, setups move by the grip on each row:
 	// drag it, or the up and down arrow keys on it. One move is one edit.
 	import { tick } from 'svelte';
-	import { Camera as CameraIcon, FileUp, Plus } from '@lucide/svelte';
+	import { Camera as CameraIcon, FileUp, LibraryBig, Plus } from '@lucide/svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import SearchField from '$lib/components/ios/SearchField.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
@@ -28,6 +28,7 @@
 		onlens,
 		onadd,
 		onimport,
+		onlibrary,
 		onmove
 	}: {
 		cameras: Camera[];
@@ -40,6 +41,7 @@
 		onlens: (setup: CameraSetup) => void;
 		onadd: (scope: GearScope | 'cameraSetup') => void;
 		onimport: (scope: GearScope) => void;
+		onlibrary: (scope: GearScope) => void;
 		/** Move a setup to an index of `setups`. Resolves once it is saved. */
 		onmove: (setup: CameraSetup, to: number) => Promise<void>;
 	} = $props();
@@ -186,6 +188,9 @@
 				<Row title={t('gear.add.camera')} class="tint" onclick={() => onadd('camera')}>
 					{#snippet leading()}<span class="add" aria-hidden="true"><Plus class="size-[18px]" strokeWidth={2.4} /></span>{/snippet}
 				</Row>
+				<Row title={t('gear.library')} class="tint" onclick={() => onlibrary('camera')}>
+					{#snippet leading()}<span class="add" aria-hidden="true"><LibraryBig class="size-[18px]" strokeWidth={2.2} /></span>{/snippet}
+				</Row>
 				<Row title={t('gear.import.camera')} class="tint" onclick={() => onimport('camera')}>
 					{#snippet leading()}<span class="add" aria-hidden="true"><FileUp class="size-[17px]" strokeWidth={2.2} /></span>{/snippet}
 				</Row>
@@ -211,6 +216,9 @@
 			{#if !searching}
 				<Row title={t('gear.add.lens')} class="tint" onclick={() => onadd('lens')}>
 					{#snippet leading()}<span class="add" aria-hidden="true"><Plus class="size-[18px]" strokeWidth={2.4} /></span>{/snippet}
+				</Row>
+				<Row title={t('gear.library')} class="tint" onclick={() => onlibrary('lens')}>
+					{#snippet leading()}<span class="add" aria-hidden="true"><LibraryBig class="size-[18px]" strokeWidth={2.2} /></span>{/snippet}
 				</Row>
 				<Row title={t('gear.import.lens')} class="tint" onclick={() => onimport('lens')}>
 					{#snippet leading()}<span class="add" aria-hidden="true"><FileUp class="size-[17px]" strokeWidth={2.2} /></span>{/snippet}

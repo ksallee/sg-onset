@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { installHint, isStandalone } from './platform';
+import { installHint, isStandalone, persistAsksWithDialog } from './platform';
 
 const IPHONE_SAFARI =
 	'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1';
@@ -15,6 +15,18 @@ const ANDROID_CHROME =
 	'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36';
 const MAC_CHROME =
 	'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
+const MAC_FIREFOX = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:140.0) Gecko/20100101 Firefox/140.0';
+const IPHONE_FIREFOX =
+	'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/140.0 Mobile/15E148 Safari/605.1.15';
+
+describe('persistAsksWithDialog', () => {
+	it('is true on Firefox, which shows a dialog', () => {
+		expect(persistAsksWithDialog(MAC_FIREFOX)).toBe(true);
+	});
+	it('is false where the browser answers on its own', () => {
+		for (const ua of [MAC_CHROME, ANDROID_CHROME, IPHONE_SAFARI, IPAD_DESKTOP_UA, IPHONE_FIREFOX]) expect(persistAsksWithDialog(ua)).toBe(false);
+	});
+});
 
 describe('isStandalone', () => {
 	it('is true when the display-mode query matches', () => {

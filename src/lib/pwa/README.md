@@ -36,8 +36,9 @@ tested; the rest are thin wrappers over browser APIs, safe to import on the serv
   share sheet with the file when it takes files, else `<a download>` (`download(blob, name)`).
   Sharing needs a recent tap; after a long export it may fall back to a download: offer a
   "Share" button once the file is ready rather than sharing at the end of the export.
-- `persist.ts`: `persistStorage(): Promise<boolean>`, asks to keep storage (call after a tap, e.g.
-  on first save or first Run).
+- `persist.ts`: `persistStorage(): Promise<boolean>`, asks to keep storage (call after a tap).
+  `persistQuietly()` asks as the app opens, where asking shows no dialog
+  (`persistAsksWithDialog(ua)` in `platform.ts`: Firefox does, so it is skipped there).
 
 ## Elsewhere
 

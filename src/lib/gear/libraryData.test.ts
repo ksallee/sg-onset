@@ -1,13 +1,11 @@
 // The shipped tables: every row reads, and nothing in them would import wrong.
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseCsv } from '$lib/model/csv';
 import { rationalToNumber } from '$lib/model/rational';
 import { lensSeries, parseLibraryCameras, parseLibraryLenses } from './library';
+import camerasCsv from './library/cameras.csv?raw';
+import lensesCsv from './library/lenses.csv?raw';
 
-const read = (name: string) => readFileSync(new URL(`./library/${name}`, import.meta.url), 'utf8');
-const camerasCsv = read('cameras.csv');
-const lensesCsv = read('lenses.csv');
 const rows = (csv: string) => parseCsv(csv).slice(1).filter((cells) => cells.some((c) => c !== ''));
 const SQUEEZES = [1.25, 1.3, 1.33, 1.5, 1.6, 1.65, 1.8, 2];
 

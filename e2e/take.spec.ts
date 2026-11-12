@@ -266,4 +266,41 @@ test.describe('empty states', () => {
 		await expect(page.getByRole('button', { name: /^Cam A, Focus,/ })).toBeVisible();
 		await expect(page.getByRole('button', { name: /^Cam B, Focus,/ })).toBeVisible();
 	});
+	test('a take template is linked from the take sheet, fills the take, and the next take keeps it', async ({ page }) => {
+		await openApp(page, '/templates');
+		await page.getByRole('button', { name: 'New Template' }).tap();
+		await page.getByRole('menuitem', { name: 'New Take Template' }).tap();
+		await expect(page.getByRole('heading', { name: 'Take template', level: 1 })).toBeVisible();
+		await page.waitForFunction(() => !document.documentElement.dataset.nav);
+		await page.getByRole('textbox', { name: 'Name' }).fill('Night ext');
+		await page.getByRole('textbox', { name: 'ISO', exact: true }).fill('3200');
+		await page.getByRole('textbox', { name: 'ISO', exact: true }).blur();
+		await page.getByRole('button', { name: 'Save' }).first().tap();
+		await expect(page.getByRole('heading', { name: 'Night ext', level: 1 })).toBeVisible();
+
+		await openShoot(page);
+		const note = page.getByRole('button', { name: /^(Add Note|Note:)/ }).first();
+		await note.tap();
+		const sheet = page.getByRole('dialog', { name: 'Take 3' });
+		await sheet.getByRole('combobox', { name: 'Link to Template' }).selectOption({ label: 'Night ext' });
+		await expect(sheet.getByRole('link', { name: /Night ext/ })).toBeVisible();
+		await expect(sheet.getByText('Every field holds the template value.')).toBeVisible();
+		await sheet.getByRole('button', { name: 'Done' }).tap();
+		await expect(sheet).toBeHidden();
+
+		// The next take copies the last: it follows the template too, after a reload as well.
+		await rail(page).getByRole('button', { name: 'New Take' }).tap();
+		await expect.poll(() => takeNumber(page)).toBe(4);
+		await page.reload();
+		await expect(phase(page, 'Ready')).toBeVisible();
+		await expect.poll(() => takeNumber(page)).toBe(4);
+		await note.tap();
+		const next = page.getByRole('dialog', { name: 'Take 4' });
+		await expect(next.getByRole('link', { name: /Night ext/ })).toBeVisible();
+		await expect(next.getByText('Every field holds the template value.')).toBeVisible();
+
+		// Unlink: the picker is back.
+		await next.getByRole('button', { name: 'Unlink' }).tap();
+		await expect(next.getByRole('combobox', { name: 'Link to Template' })).toBeVisible();
+	});
 });

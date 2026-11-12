@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Camera, Lens } from '$lib/model/types';
-import { cameraLine, countText, focalBadge, focalText, lensLine, rowIssueText, libraryCameraLine, libraryLensLine, seriesLine } from './text';
+import { cameraLine, countText, focalBadge, focalText, lensLine, rowIssueText, libraryModeLine, libraryLensLine, seriesLine } from './text';
 
 const lens = (rest: Partial<Lens>): Lens => ({ id: 'l', projectId: 'p', ...rest });
 
@@ -60,11 +60,9 @@ describe('rowIssueText', () => {
 });
 
 describe('the library lines', () => {
-	it('says a body by its full sensor', () => {
-		expect(libraryCameraLine({ make: 'ARRI', model: 'Alexa 35', mode: 'Open Gate', sensor: { width: 27.99, height: 19.22 }, resolution: { width: 4608, height: 3164 }, source: '' })).toBe(
-			'27.99 × 19.22 mm · 4608 × 3164 px · Open Gate'
-		);
-		expect(libraryCameraLine({ make: 'X', model: 'Y', source: '' })).toBe('');
+	it('says a mode by its sensor and resolution', () => {
+		expect(libraryModeLine({ name: 'Open Gate', sensor: { width: 27.99, height: 19.22 }, resolution: { width: 4608, height: 3164 }, source: '' })).toBe('27.99 × 19.22 mm · 4608 × 3164 px');
+		expect(libraryModeLine({ source: '' })).toBe('');
 	});
 	it('says a lens by its stop, squeeze and coverage', () => {
 		expect(libraryLensLine({ make: 'Cooke', series: 'S', model: 'S 40 mm', focalLength: 40, tStop: 2.3, squeeze: { num: 9, denom: 5 }, coverage: 'FF', source: '' })).toBe('T2.3 · 1.8× anamorphic · FF');

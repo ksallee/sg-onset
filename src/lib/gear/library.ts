@@ -1,5 +1,5 @@
 // The gear library: camera bodies and lenses the app ships with, to pick from instead of typing.
-// The tables are CSV (library/cameras.csv, library/lenses.csv), each row read from the maker's
+// The tables are CSV (library/cameras.csv, library/camera-modes.csv, library/lenses.csv), each row read from the maker's
 // spec sheet, its source beside it. Only what is picked becomes a record of the project. Pure:
 // the caller passes the CSV text and the id generator.
 
@@ -10,17 +10,26 @@ import { findDuplicate } from './duplicates';
 import { matchesQuery } from './list';
 import type { GearScope } from './names';
 
-export type LibraryCamera = {
-	make: string;
-	model: string;
-	/** The maker's name of the recording mode the sizes are of: the full sensor. */
-	mode?: string;
-	/** mm */
+/** One recording mode of a body: what the camera menu calls it, and the sensor it reads. */
+export type LibraryCameraMode = {
+	/** The maker's name of the mode. */
+	name?: string;
+	/** The active area, mm. */
 	sensor?: Dimensions;
 	/** px */
 	resolution?: Dimensions;
 	source: string;
 };
+
+export type LibraryCamera = {
+	make: string;
+	model: string;
+	/** The recording modes. The first is the full sensor: the body's own row in cameras.csv. */
+	modes: LibraryCameraMode[];
+};
+
+/** A body in one of its modes: what is picked, and what becomes a camera of the project. */
+export type CameraPick = { camera: LibraryCamera; mode: LibraryCameraMode };
 
 export type LibraryLens = {
 	make: string;
@@ -63,19 +72,37 @@ function compact<T extends object>(row: T): T {
 	return Object.fromEntries(Object.entries(row).filter(([, v]) => v !== undefined && v !== '')) as T;
 }
 
-export function parseLibraryCameras(csv: string): LibraryCamera[] {
-	return lines(csv)
+function readMode(cell: Line): LibraryCameraMode {
+	return compact({
+		name: cell('sensorMode'),
+		sensor: size(cell('sensorWidthMm'), cell('sensorHeightMm')),
+		resolution: size(cell('resolutionWidthPx'), cell('resolutionHeightPx')),
+		source: cell('sourceUrl')
+	});
+}
+
+const bodyKey = (make: string, model: string) => `${make}|${model}`.toLowerCase();
+
+/**
+ * The bodies, each with its modes: the full sensor from `csv`, then the rows of `modesCsv` (same
+ * columns) for that make and model, in file order. A mode row of no known body is left out.
+ */
+export function parseLibraryCameras(csv: string, modesCsv = ''): LibraryCamera[] {
+	const cameras: LibraryCamera[] = lines(csv)
 		.filter((cell) => cell('cameraModel') !== '')
-		.map((cell) =>
-			compact({
-				make: cell('cameraMake'),
-				model: cell('cameraModel'),
-				mode: cell('sensorMode'),
-				sensor: size(cell('sensorWidthMm'), cell('sensorHeightMm')),
-				resolution: size(cell('resolutionWidthPx'), cell('resolutionHeightPx')),
-				source: cell('sourceUrl')
-			})
-		);
+		.map((cell) => ({ make: cell('cameraMake'), model: cell('cameraModel'), modes: [readMode(cell)] }));
+	const byKey = new Map(cameras.map((c) => [bodyKey(c.make, c.model), c]));
+	for (const cell of lines(modesCsv)) {
+		const camera = byKey.get(bodyKey(cell('cameraMake'), cell('cameraModel')));
+		if (camera && cell('sensorMode') !== '') camera.modes.push(readMode(cell));
+	}
+	return cameras;
+}
+
+/** The model a pick is saved under: the body alone for its full sensor, else the body and the mode. */
+export function pickModel(pick: CameraPick): string {
+	const full = pick.mode === pick.camera.modes[0];
+	return full || !pick.mode.name ? pick.camera.model : `${pick.camera.model}, ${pick.mode.name}`;
 }
 
 export function parseLibraryLenses(csv: string): LibraryLens[] {
@@ -118,8 +145,14 @@ export function lensSeries(lenses: readonly LibraryLens[]): LensSeries[] {
 	return [...sets.values()].sort((a, b) => collator.compare(a.make, b.make) || collator.compare(a.series, b.series));
 }
 
+/** The bodies found by make or model. Their modes are searched once a body is open (`searchModes`). */
 export function searchLibraryCameras(cameras: readonly LibraryCamera[], query: string): LibraryCamera[] {
 	return cameras.filter((c) => matchesQuery([c.make, c.model], query));
+}
+
+/** The modes of a body found by name: "6k 16:9". The full sensor answers to its own name only. */
+export function searchModes(camera: LibraryCamera, query: string): LibraryCameraMode[] {
+	return camera.modes.filter((m) => matchesQuery([m.name], query));
 }
 
 const focalWords = (l: LibraryLens) => [l.focalLength, l.focalLengthMax].filter((n) => n !== undefined).flatMap((n) => [String(n), `${n}mm`]);
@@ -129,14 +162,14 @@ export function searchSeries(series: readonly LensSeries[], query: string): Lens
 	return series.filter((s) => matchesQuery([s.make, s.series, ...s.lenses.flatMap((l) => [l.model, ...focalWords(l)])], query));
 }
 
-export function cameraRecord(entry: LibraryCamera, id: string, projectId: string): Camera {
+export function cameraRecord(pick: CameraPick, id: string, projectId: string): Camera {
 	return compact({
 		id,
 		projectId,
-		cameraMake: entry.make,
-		cameraModel: entry.model,
-		activeSensorPhysicalDimensions: entry.sensor,
-		activeSensorResolution: entry.resolution
+		cameraMake: pick.camera.make,
+		cameraModel: pickModel(pick),
+		activeSensorPhysicalDimensions: pick.mode.sensor,
+		activeSensorResolution: pick.mode.resolution
 	});
 }
 
@@ -152,11 +185,11 @@ export function lensRecord(entry: LibraryLens, id: string, projectId: string): L
 	});
 }
 
-type Entry<S extends GearScope> = S extends 'camera' ? LibraryCamera : LibraryLens;
+type Entry<S extends GearScope> = S extends 'camera' ? CameraPick : LibraryLens;
 type Stored<S extends GearScope> = S extends 'camera' ? Camera : Lens;
 
 function record<S extends GearScope>(scope: S, entry: Entry<S>, id: string, projectId: string): Stored<S> {
-	return (scope === 'camera' ? cameraRecord(entry as LibraryCamera, id, projectId) : lensRecord(entry as LibraryLens, id, projectId)) as Stored<S>;
+	return (scope === 'camera' ? cameraRecord(entry as CameraPick, id, projectId) : lensRecord(entry as LibraryLens, id, projectId)) as Stored<S>;
 }
 
 /** The project already lists this model with no serial number (gear/duplicates.ts). */

@@ -12,6 +12,8 @@ tested; the rest are thin wrappers over browser APIs, safe to import on the serv
     what an install banner says. iOS has no install prompt: `ios-share` means "Share, then Add to
     Home Screen"; `ios-open-in-safari` is an in-app browser (Instagram…) that cannot install.
   - Readers: `readStandalone()`, `readInstallHint()` (call in the browser, e.g. in `onMount`).
+- `update.ts`: `onTakeover({ hadWorker, edited })` → `ignore | reload | later`: what the open page does
+  when a new deploy's service worker takes over (the root layout listens for `controllerchange`).
 - `share.ts`: `shareMode({ share, canShareFiles }): 'share' | 'download'`.
 - `cache.ts`: the service worker's rules. `cacheRule(url, { origin, precached }, method)` →
   `precache | media | network | bypass`; `precacheable(path)`; `parseRange(header, size)`;

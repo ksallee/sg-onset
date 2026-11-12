@@ -175,25 +175,30 @@ for (const [kind, file, count] of [
 	});
 }
 
-test('the library adds a body and a whole lens set as one edit, and marks what the project has', async ({ page }) => {
+test('the library adds a body in two recording modes and a whole lens set as one edit, and marks what the project has', async ({ page }) => {
 	await openApp(page, '/gear');
 	await page.getByRole('button', { name: 'Add from Library' }).first().tap();
 	const library = page.getByRole('dialog', { name: 'Gear Library' });
 	await library.getByRole('searchbox').fill('venice 2 8k');
 	await library.getByRole('button', { name: /^VENICE 2 8K/ }).tap();
+	// The body opens to its recording modes: the full sensor, and one more.
+	await library.getByRole('button', { name: /^8\.6K 3:2/ }).tap();
+	await library.getByRole('button', { name: /^8\.2K 17:9/ }).tap();
+	await expect(library.getByText('2 picked')).toBeVisible();
 
 	await library.getByRole('radio', { name: 'Lenses' }).tap();
 	await library.getByRole('searchbox').fill('signature prime');
 	await library.getByRole('button', { name: /^ARRI Signature Prime/ }).tap();
 	await library.getByRole('button', { name: 'Whole Set, 16 Lenses' }).tap();
 	await expect(library.getByText('16 picked')).toBeVisible();
-	await library.getByRole('button', { name: 'Add 17' }).tap();
+	await library.getByRole('button', { name: 'Add 18' }).tap();
 	await expect(library).toBeHidden();
 
-	await expect(page.getByRole('button', { name: /^Sony VENICE 2 8K/ })).toBeVisible();
+	await expect(page.getByRole('button', { name: /^Sony VENICE 2 8K 35\.9/ })).toBeVisible();
+	await expect(page.getByRole('button', { name: /^Sony VENICE 2 8K, 8\.2K 17:9 34\.1/ })).toBeVisible();
 	await expect(page.getByRole('button', { name: /Signature Prime 47 mm/ })).toBeVisible();
 
-	// One Undo takes the seventeen back.
+	// One Undo takes the eighteen back.
 	await page.getByRole('status').getByRole('button', { name: 'Undo' }).tap();
 	await expect(page.getByRole('button', { name: /Signature Prime 47 mm/ })).toHaveCount(0);
 	await expect(page.getByRole('button', { name: /^Sony VENICE 2 8K/ })).toHaveCount(0);
@@ -202,11 +207,13 @@ test('the library adds a body and a whole lens set as one edit, and marks what t
 	await page.getByRole('button', { name: 'Add from Library' }).first().tap();
 	await library.getByRole('searchbox').fill('venice 2 8k');
 	await library.getByRole('button', { name: /^VENICE 2 8K/ }).tap();
+	await library.getByRole('button', { name: /^8\.6K 3:2/ }).tap();
 	await library.getByRole('button', { name: 'Add 1' }).tap();
 	await expect(library).toBeHidden();
 	await page.reload();
 	await expect(page.getByRole('button', { name: /^Sony VENICE 2 8K/ })).toBeVisible();
 	await page.getByRole('button', { name: 'Add from Library' }).first().tap();
 	await library.getByRole('searchbox').fill('venice 2 8k');
-	await expect(library.getByRole('listitem').filter({ hasText: 'VENICE 2 8K' }).getByText('In the project')).toBeVisible();
+	await library.getByRole('button', { name: /^VENICE 2 8K/ }).tap();
+	await expect(library.getByRole('listitem').filter({ hasText: '8.6K 3:2' }).getByText('In the project')).toBeVisible();
 });

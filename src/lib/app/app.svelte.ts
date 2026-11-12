@@ -4,8 +4,10 @@
 // layout renders no page that would ask.
 //
 // The snapshotter starts with the store: it only listens until a change, and writes in an idle
-// callback, so neither the first paint nor the take screen waits on it.
+// callback, so neither the first paint nor the take screen waits on it. The browser is asked to
+// protect the data on each open, where that shows no dialog: nothing waits on its answer.
 import { getContext, setContext } from 'svelte';
+import { persistQuietly } from '$lib/pwa/persist';
 import { openStore, type DexieStore } from '$lib/store/dexieStore';
 import { createSnapshotter, type Snapshotter } from '$lib/store/snapshots';
 import { createEditor, type EditEvent, type Editor } from './editor';
@@ -44,6 +46,7 @@ function open(): App {
 	const store = openStore();
 	let undo = $state.raw<UndoState>(EMPTY_UNDO);
 	let last = $state.raw<App['lastEdit']>(null);
+	void persistQuietly();
 	const snapshotter = createSnapshotter({ snapshots: store.snapshots, subscribe: store.subscribe });
 	const edit = createEditor(
 		store,

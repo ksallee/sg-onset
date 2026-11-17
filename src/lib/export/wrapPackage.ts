@@ -1,16 +1,18 @@
 // What a wrap package holds, as data: the four exports at the root, then a folder per slate with
-// its files and an empty folder for each set reference shot on another device. No zipping here:
+// its manifest, its files and an empty folder for each set reference shot on another device. No
+// zipping here:
 // the UI feeds the plan to the zip writer the backup uses (client-zip), making each text with the
 // export modules and reading each stored file with `store.blob(id)`. Pure.
 //
 // The seam for later media: a take's files come from `takeFiles`, a slate's own from
 // `slateFiles`. Add a kind of file there (and its name in naming.ts); the layout, the zip, the
-// size and the notes pick it up. See docs/export.md, "Wrap package".
+// size, the notes and the manifest pick it up. See docs/export.md, "Adding a kind of file".
 
 import type { Project, Reference, ShootDay, Slate } from '$lib/model/types';
 import type { BlobMeta } from '$lib/store/types';
-import { exportFileName, extensionFor, folderName, kindFolders, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
+import { exportFileName, extensionFor, folderName, kindFolders, manifestFileName, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
 import { referencesBySlate, type FlatTake } from './selection';
+import { slateManifest } from './slateManifest';
 
 /** What the plan needs of a stored file: `BlobMeta` without the sync fields. */
 export type PhotoBlob = Pick<BlobMeta, 'id' | 'recordId' | 'type' | 'size' | 'createdAt' | 'name' | 'prunedAt'>;
@@ -34,13 +36,18 @@ export type SlateFile = {
 	recordId: string;
 	/** The bytes left the device after Flow PT verified them: fetch them or skip the file. */
 	pruned: boolean;
+	/** What the manifest notes about it: a photo's caption. */
+	caption?: string;
 };
 
 /** A take in its slate's folder, with its files. */
 export type TakeFolder = { row: FlatTake; files: SlateFile[] };
 
-/** A set reference, with the empty folder that waits for its files: `hdri-360/HDRI_0412`. */
-export type ReferenceFolder = { reference: Reference; folder: string };
+/**
+ * A set reference, with the empty folder that waits for its files, from the package root:
+ * `42A/hdri-360/HDRI_0412/`. From the root, so another slate's manifest can point at it.
+ */
+export type ReferenceFolder = { reference: Reference; path: string };
 
 /** A slate's folder: what the manifest of a slate lists, and where each thing sits. */
 export type SlateFolder = {
@@ -57,6 +64,8 @@ export type SlateFolder = {
 
 export type WrapEntry =
 	| { kind: 'crif' | 'plainCsv' | 'ale' | 'json'; path: string; mime: string }
+	/** A slate's manifest, made here. */
+	| { kind: 'manifest'; path: string; mime: string; slateId: string; text: string }
 	| ({ kind: 'file'; path: string; slateId: string; takeId?: string } & SlateFile)
 	/** An empty folder. Its path ends in a slash. */
 	| { kind: 'folder'; path: string };
@@ -88,6 +97,8 @@ export type WrapOptions = {
 	references?: readonly Reference[];
 	/** The project's own reference kinds, in the order added, for their folder names. */
 	projectKinds?: readonly string[];
+	/** A reference kind as the app shows it, for the manifests. Absent: the kind as stored. */
+	kindLabel?: (kind: string) => string;
 };
 
 /** What `takeFiles` and `slateFiles` read. One per package: the photo numbers run across it. */
@@ -133,7 +144,8 @@ export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
 			size: blob.size,
 			blobId: blob.id,
 			recordId: still.id,
-			pruned: blob.prunedAt !== undefined
+			pruned: blob.prunedAt !== undefined,
+			...(still.caption ? { caption: still.caption } : {})
 		});
 	}
 	return files;
@@ -166,6 +178,7 @@ function groupBySlate(rows: readonly FlatTake[], options: WrapOptions): Group[] 
  *       <project>_<day>_editorial.ale       ALE
  *       <project>_<day>_data.json           JSON
  *       <slate>/
+ *         <slate>_manifest.csv              its takes, files and references
  *         <slate>-<camera>-reference-<n>.<ext>
  *         <kind>/<reference>/               empty, for what was shot on another device
  *
@@ -194,6 +207,7 @@ export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapP
 		const here = `${root}/${name}`;
 		// Names in the slate's folder, and in each kind's folder in it.
 		const taken = new Set<string>();
+		const manifest = uniqueName(manifestFileName(name), taken);
 		const claim = (f: SlateFile): SlateFile => {
 			const dot = f.name.lastIndexOf('.');
 			return { ...f, name: dot > 0 ? uniqueName(f.name.slice(0, dot), taken, f.name.slice(dot)) : uniqueName(f.name, taken) };
@@ -205,13 +219,14 @@ export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapP
 			const wanted = kindFolder.get(reference.kind ?? '')!;
 			let kind = kinds.get(wanted);
 			if (!kind) kinds.set(wanted, (kind = { name: uniqueName(wanted, taken), taken: new Set() }));
-			return { reference, folder: `${kind.name}/${uniqueName(folderName(reference.name ?? '', 'reference'), kind.taken)}` };
+			return { reference, path: `${name}/${kind.name}/${uniqueName(folderName(reference.name ?? '', 'reference'), kind.taken)}/` };
 		});
 		const folder: SlateFolder = { slate: g.slate, name, takes, files: own, references };
 		slates.push(folder);
+		entries.push({ kind: 'manifest', path: `${here}/${manifest}`, mime: 'text/csv', slateId: g.slate.id, text: slateManifest(folder, options.kindLabel ?? ((k) => k)) });
 		for (const t of takes) for (const f of t.files) entries.push({ kind: 'file', path: `${here}/${f.name}`, slateId: g.slate.id, takeId: t.row.take.id, ...f });
 		for (const f of own) entries.push({ kind: 'file', path: `${here}/${f.name}`, slateId: g.slate.id, ...f });
-		for (const r of references) entries.push({ kind: 'folder', path: `${here}/${r.folder}/` });
+		for (const r of references) entries.push({ kind: 'folder', path: `${root}/${r.path}` });
 	}
 	return { root, entries, slates, missingPhotos: ctx.missing };
 }

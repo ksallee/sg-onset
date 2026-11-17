@@ -46,6 +46,11 @@ export function slateFolderName(slateUID: string | undefined): string {
 	return slug((slateUID ?? '').replace(/\s+/g, ''), 'slate');
 }
 
+/** The manifest in a slate's folder: `42A_manifest.csv`. */
+export function manifestFileName(slateFolder: string): string {
+	return `${slateFolder}_manifest.csv`;
+}
+
 /** The folders of the built-in kinds: their English labels, fixed, so a folder never changes with the app's language. */
 const KIND_FOLDERS: Record<BuiltInKind, string> = {
 	hdri360: 'hdri-360',

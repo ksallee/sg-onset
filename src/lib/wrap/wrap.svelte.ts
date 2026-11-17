@@ -26,7 +26,7 @@ import { makeTexts } from './make';
 import { defaultPaper, reportBody, reportDocument } from './report';
 import { handOverMode, shareOutcome } from './share';
 import { daySummary } from './summary';
-import { writePackage } from './zip';
+import { writePackage, type EntryReader } from './zip';
 
 /** The one file on the private file system the package is written to. */
 const OPFS_NAME = 'sg-onset-wrap.zip';
@@ -114,7 +114,8 @@ export class Wrap {
 			reportHtml: this.reportHtml,
 			slates: selectSlates(input, made.filters),
 			references: input.references,
-			projectKinds: this.data.value?.kinds ?? []
+			projectKinds: this.data.value?.kinds ?? [],
+			kindLabel: plainLabels.kind
 		});
 	});
 	/** What the package holds, as one string: it changes when a file or its size does. */
@@ -197,9 +198,8 @@ export class Wrap {
 		this.phase = 'building';
 		this.message = null;
 		this.progress = { done: 0, total: plan.bytes };
-		const read = async (entry: PackageEntry) => {
+		const read: EntryReader = async (entry) => {
 			if (entry.kind === 'file') return store.blob(entry.blobId);
-			if (entry.kind === 'folder') return undefined;
 			if (entry.kind === 'report') return reportHtml;
 			return texts[entry.kind];
 		};

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Reference, Slate, Take } from '$lib/model/types';
 import { flatten, selectSlates } from './selection';
-import { day3, input, project, s42A, t42A1A } from './testData';
+import { slateManifest } from './slateManifest';
+import { day3, input, kindLabel, project, s42A, t42A1A } from './testData';
 import { wrapPlan, type PhotoBlob, type WrapEntry } from './wrapPackage';
 
 const blobs: PhotoBlob[] = [
@@ -51,8 +52,26 @@ describe('wrapPlan', () => {
 		expect(folders.map(inside)).toEqual(['42A/lidar-scan/Scan-01/', '42A/hdri-360/HDRI_0412/']);
 	});
 
-	it('lists the files of a slate before its reference folders, slate by slate', () => {
-		expect(plan().entries.slice(4).map(inside)).toEqual(['42A/42A-A-reference-1.heic', '42A/42A-A-reference-2.jpg', '42A/42A-A-reference-3.jpg', '42A/lidar-scan/Scan-01/', '42A/hdri-360/HDRI_0412/']);
+	it('lists the manifest of a slate, then its files, then its reference folders, slate by slate', () => {
+		expect(plan().entries.slice(4).map(inside)).toEqual([
+			'9/9_manifest.csv',
+			'10/10_manifest.csv',
+			'42A/42A_manifest.csv',
+			'42A/42A-A-reference-1.heic',
+			'42A/42A-A-reference-2.jpg',
+			'42A/42A-A-reference-3.jpg',
+			'42A/lidar-scan/Scan-01/',
+			'42A/hdri-360/HDRI_0412/'
+		]);
+	});
+
+	it('gives each slate folder its manifest, named for the folder, written with the kind labels passed', () => {
+		const { rows, slates, references } = day3Input();
+		const p = wrapPlan(rows, { project, shootDays: [day3], blobs, slates, references, kindLabel });
+		const manifest = p.entries.find((e) => e.path.endsWith('/42A_manifest.csv'));
+		expect(manifest).toMatchObject({ kind: 'manifest', mime: 'text/csv', slateId: s42A.id });
+		expect(manifest?.kind === 'manifest' && manifest.text).toBe(slateManifest(p.slates[2], kindLabel));
+		expect(manifest?.kind === 'manifest' && manifest.text).toContain('HDRI 360,HDRI_0412,42A/hdri-360/HDRI_0412/');
 	});
 
 	it('holds every slate with a take or a reference, its takes with their files, its references with their folders', () => {
@@ -71,9 +90,9 @@ describe('wrapPlan', () => {
 			['10', 'A', []]
 		]);
 		expect(s.files).toEqual([]);
-		expect(s.references.map((r) => [r.reference.name, r.folder])).toEqual([
-			['Scan 01', 'lidar-scan/Scan-01'],
-			['HDRI_0412', 'hdri-360/HDRI_0412']
+		expect(s.references.map((r) => [r.reference.name, r.path])).toEqual([
+			['Scan 01', '42A/lidar-scan/Scan-01/'],
+			['HDRI_0412', '42A/hdri-360/HDRI_0412/']
 		]);
 	});
 
@@ -93,7 +112,7 @@ describe('wrapPlan', () => {
 	it('leaves out the photos on request, and keeps the reference folders', () => {
 		const { rows, slates, references } = day3Input();
 		const p = wrapPlan(rows, { project, shootDays: [day3], blobs, photos: false, slates, references });
-		expect(p.entries.map((e) => e.kind)).toEqual(['crif', 'plainCsv', 'ale', 'json', 'folder', 'folder']);
+		expect(p.entries.map((e) => e.kind)).toEqual(['crif', 'plainCsv', 'ale', 'json', 'manifest', 'manifest', 'manifest', 'folder', 'folder']);
 		expect(p.slates[2].takes.every((t) => t.files.length === 0)).toBe(true);
 	});
 
@@ -133,12 +152,13 @@ describe('wrapPlan', () => {
 			return wrapPlan(flatten(all, { shootDayIds: ['d3'] }), { project, shootDays: [day3], blobs: [], slates: selectSlates(all, { shootDayIds: ['d3'] }), references: all.references, projectKinds: ['HDRI-360'] });
 		};
 
-		it('steps a slate folder whose name another slate has, case ignored', () => {
+		it('steps a slate folder whose name another slate has, case ignored, and names its manifest for it', () => {
 			expect(clash().slates.map((s) => s.name)).toEqual(['12a', '12A-2']);
+			expect(clash().entries.filter((e) => e.kind === 'manifest').map((e) => e.path.split('/').slice(1).join('/'))).toEqual(['12a/12a_manifest.csv', '12A-2/12A-2_manifest.csv']);
 		});
 
 		it('steps a reference folder whose name another of its kind has, and a kind folder a built-in one has', () => {
-			expect(clash().slates[0].references.map((r) => r.folder)).toEqual(['hdri-360/HDRI_0412', 'hdri-360/hdri_0412-2', 'hdri-360-2/HDRI_0412', 'other/reference']);
+			expect(clash().slates[0].references.map((r) => r.path)).toEqual(['12a/hdri-360/HDRI_0412/', '12a/hdri-360/hdri_0412-2/', '12a/hdri-360-2/HDRI_0412/', '12a/other/reference/']);
 		});
 	});
 });

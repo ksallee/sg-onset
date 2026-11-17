@@ -1,8 +1,8 @@
 # Export
 
-What a data wrangler hands over at wrap. Four files, and a folder per slate with its photos and
-an empty folder for each reference shot on another device, from the records on the device. The
-code is `src/lib/export/`. Every module is pure: records and options in, text out. The
+What a data wrangler hands over at wrap. Four files, and a folder per slate with its photos, its
+manifest and an empty folder for each reference shot on another device, from the records on the
+device. The code is `src/lib/export/`. Every module is pure: records and options in, text out. The
 caller passes the time, the time zone and the labels.
 
 ## Modules
@@ -21,6 +21,7 @@ caller passes the time, the time zone and the labels.
 | `dayReport.ts` | The data of a printed camera report for one day. No rendering. |
 | `naming.ts` | Safe file and folder names, and the steps that keep two from clashing. |
 | `wrapPackage.ts` | What a wrap package holds and where, as data: the exports, a folder per slate. No zipping. |
+| `slateManifest.ts` | The manifest of a slate folder: its takes, files and references, as CSV. |
 
 ## Selection
 
@@ -315,11 +316,13 @@ Night-Train_2026-11-10-day03/
   Night-Train_2026-11-10-day03_data.json
   Night-Train_2026-11-10-day03_day-report.html
   42A/
+    42A_manifest.csv
     42A-A-reference-1.heic
     42A-A-reference-2.jpg
     lidar-scan/Scan-01/
     hdri-360/HDRI_0412/
   50/
+    50_manifest.csv
     drone-survey/Flight-1/
 ```
 
@@ -327,8 +330,9 @@ Night-Train_2026-11-10-day03/
 - A folder per slate that has a take in the package or a set reference, in slate order. A slate
   with references and no take left by the filters still gets its folder, so its references land.
 - The slate folder: the slate as its photo names start, whitespace removed. `42A`.
-- In it, the photos of its takes, named as CRIF. With the Photos switch off they are left out; the
-  slate folders and reference folders stay.
+- In it, its manifest, `<slate folder>_manifest.csv` (below), and the photos of its takes, named as
+  CRIF, with no folder per take: the manifest says which take each is from. With the Photos switch
+  off the photos are left out; the slate folders, manifests and reference folders stay.
 - For each set reference, an empty folder inside a folder for its kind, in the order logged:
   `hdri-360/HDRI_0412/`. The files shot on the other device go in it on a laptop.
 - Kind folders: a built-in kind by its English label, fixed, so a folder does not change with the
@@ -345,9 +349,39 @@ Night-Train_2026-11-10-day03/
   longer lists: a project kind `HDRI-360` is `hdri-360-2` in every slate.
 
 A file entry holds the blob id to read with `store.blob(id)`. A photo whose bytes were freed after
-Flow PT verified them is marked `pruned`. A photo with no file is listed in `missingPhotos`. The
-plan's `slates` hold, per slate folder, its takes with their files and its references with their
-folders. The UI zips with the backup's writer (`client-zip`).
+Flow PT verified them is marked `pruned`. A photo with no file is listed in `missingPhotos`. A
+manifest entry carries its text. The plan's `slates` hold, per slate folder, its takes with their
+files and its references with their folders. The UI zips with the backup's writer (`client-zip`).
+
+### Slate manifest
+
+`slateManifest(folder, kindLabel)`. A CSV in each slate folder, `42A_manifest.csv`, for a person on
+a laptop (Quick Look on a Mac shows it as a table; Excel and Numbers open it) and for a script.
+Decided by Kevin, 2026-11-17 (#95).
+
+```
+What,Take,Camera,Clip,Roll,Timecode in,Timecode out,Kind,Name,Path,Device,Card or roll,Count,Notes
+Take,1,A,A001C003,A001,14:39:39:09,14:39:59:10,,,,,,,
+Photo,1,A,A001C003,A001,14:39:39:09,14:39:59:10,,42A-A-reference-1.heic,42A/42A-A-reference-1.heic,,,,Ball pass
+Take,1,B,,B001,,,,,,,,,
+Reference,,,,,,,Lidar scan,Scan 01,42A/lidar-scan/Scan-01/,,,,
+Reference,,,,,,,HDRI 360,HDRI_0412,42A/hdri-360/HDRI_0412/,Ricoh Theta Z1,A003,7,Noon sun
+```
+
+- One row per take, per file and per set reference. Each take in order, then its files; the
+  slate's own files; then its references in the order logged.
+- A file's row repeats its take's clip, roll and timecode, so each file is linked to its clip on
+  its own line. Its name, its path, and a photo's caption in Notes.
+- A reference's row: its kind as the app shows it, its name as logged, the empty folder that
+  waits for it, its device, card or roll, count and notes.
+- Path is from the package root, so a row can point into another slate's folder (#107: a lighting
+  reference listed on every slate of its lighting setup, its folder in the slate it was logged
+  on). A folder's path ends in a slash.
+- Headers in English, fixed, as CRIF's, so a script does not break with the app's language. What
+  is `Take`, `Photo` or `Reference`.
+- A file whose bytes are not in the package (freed after Flow PT kept them) has no row.
+- Byte order mark, so Excel reads accents; CRLF; a line break in a value becomes a space; a cell a
+  spreadsheet would run as a formula gets a `'` in front, as in the all fields file.
 
 ### Empty folders in the zip
 
@@ -373,13 +407,16 @@ and annotated copies (#86) are a take's; the setup diagram (#87) is the slate's 
    number it per slate and camera as photos are, or build it from the photo it copies
    (`42A-A-reference-1-annotated.jpg`). A clash is still stepped `-2`, but a name that never
    clashes is better.
-2. Add its media to `Media` in `wrapPackage.ts`.
+2. Add its media to `Media` in `wrapPackage.ts`, and the word its manifest row starts with to
+   `WHAT` in `slateManifest.ts` (`Video`, `Audio note`).
 3. A take's file: add it in `takeFiles(row, ctx)`. Read it from the row (add a list to `FlatTake`
    in `selection.ts`, as `stills`) or from `WrapOptions` (filled in `wrap/wrap.svelte.ts`). The
    slate's own file: add it in `slateFiles(slate, ctx)`.
-4. Each is a `SlateFile`: media, name, mime, size, the blob id, the record id, pruned. From there
-   the layout puts it in the slate folder, the zip reads it with `store.blob`, the size counts it,
-   and a pruned one is left out and named per take (`PrunedTake`).
+4. Each is a `SlateFile`: media, name, mime, size, the blob id, the record id, pruned, and a
+   caption for the manifest's Notes. From there the layout puts it in the slate folder, the
+   manifest lists it under its take (a take's) or after the takes (the slate's own), the zip reads
+   it with `store.blob`, the size counts it, and a pruned one is left out and named per take
+   (`PrunedTake`).
 5. A file made at build time, not stored (a diagram drawn from its data), needs another source on
    `SlateFile` (its text, say) and a branch in `read` in `wrap/wrap.svelte.ts`. A slate's own
    file has no take: a pruned one needs its own line in Wrap.

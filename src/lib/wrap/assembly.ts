@@ -1,5 +1,6 @@
 // The plan of the zip: every file and empty folder it will hold, in order, with its size, from the
-// export modules' wrap plan and what was picked. Files whose bytes left the device are left out
+// export modules' wrap plan and what was picked: the files at the root, then each slate's
+// manifest, files and reference folders. Files whose bytes left the device are left out
 // and said. Pure: the zip is written by `zip.ts`.
 
 import type { Project, Reference, ShootDay, Slate } from '$lib/model/types';
@@ -10,6 +11,8 @@ import { zipSize } from './estimate';
 
 export type PackageEntry =
 	| { kind: TextKind | 'report'; path: string; mime: string; size: number }
+	/** A slate's manifest, its text made. */
+	| { kind: 'manifest'; path: string; mime: string; size: number; text: string }
 	/** A stored file in a slate's folder, read with `store.blob(blobId)`. */
 	| { kind: 'file'; media: Media; path: string; mime: string; size: number; blobId: string }
 	/** An empty folder: its path ends in a slash, its size is 0. */
@@ -46,6 +49,8 @@ export type PackageSources = {
 	references?: readonly Reference[];
 	/** The project's own reference kinds, in the order added. */
 	projectKinds?: readonly string[];
+	/** A reference kind as the app shows it, for the manifests. */
+	kindLabel?: (kind: string) => string;
 };
 
 const encoder = new TextEncoder();
@@ -59,11 +64,12 @@ export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sourc
 		photos,
 		slates: sources.slates,
 		references: sources.references,
-		projectKinds: sources.projectKinds
+		projectKinds: sources.projectKinds,
+		kindLabel: sources.kindLabel
 	});
 	const entries: PackageEntry[] = [];
 	for (const e of plan.entries) {
-		if (e.kind === 'file' || e.kind === 'folder') continue;
+		if (e.kind === 'file' || e.kind === 'folder' || e.kind === 'manifest') continue;
 		const text = sources.texts[e.kind];
 		if (!choice.files.includes(e.kind) || text === undefined) continue;
 		entries.push({ kind: e.kind, path: e.path, mime: e.mime, size: encoder.encode(text).length });
@@ -77,6 +83,10 @@ export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sourc
 	for (const e of plan.entries) {
 		if (e.kind === 'folder') {
 			entries.push({ kind: 'folder', path: e.path, size: 0 });
+			continue;
+		}
+		if (e.kind === 'manifest') {
+			entries.push({ kind: 'manifest', path: e.path, mime: e.mime, size: encoder.encode(e.text).length, text: e.text });
 			continue;
 		}
 		if (e.kind !== 'file') continue;

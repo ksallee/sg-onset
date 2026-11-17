@@ -1,6 +1,7 @@
 // Wrap on the sample project: the day summary, a missing value opening its take on Shoot, the
-// wrap package built and read back, the download and share hand-overs, the print view. Role and
-// label selectors only. Every test starts on an empty device.
+// wrap package built and read back (the exports at the root, a folder per slate with its manifest,
+// an empty folder for a reference logged on the slate), the download and share hand-overs, the
+// print view. Role and label selectors only. Every test starts on an empty device.
 import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 import { readZip, entryBlob } from '../src/lib/store/zipRead';
@@ -27,6 +28,19 @@ async function fakeShare(page: Page) {
 			configurable: true
 		});
 	});
+}
+
+/** The wrap package, made and downloaded, read back: its root and entries, and an entry's text. */
+async function downloadPackage(page: Page) {
+	await page.getByRole('button', { name: 'Make Wrap Package' }).tap();
+	const save = page.getByRole('button', { name: 'Download Wrap Package' });
+	await expect(save).toBeVisible();
+	const [download] = await Promise.all([page.waitForEvent('download'), save.tap()]);
+	const name = download.suggestedFilename();
+	const zip = new Blob([await readFile((await download.path())!)]);
+	const entries = await readZip(zip);
+	const text = async (path: string) => (await entryBlob(zip, entries.find((e) => e.name === path)!)).text();
+	return { name, root: name.replace(/\.zip$/, ''), entries, text };
 }
 
 const summary = (page: Page) => page.getByRole('list', { name: 'The day' }).or(page.locator('dl[aria-label="The day"]'));
@@ -63,30 +77,47 @@ test.describe('wrap', () => {
 		await expect(page).toHaveTitle(/42B\/2/);
 	});
 
-	test('builds the wrap package, downloads it, and the zip holds the files with the VES header', async ({ page }) => {
+	test('builds the wrap package, downloads it: the exports at the root with the VES header, a folder per slate with its manifest', async ({ page }) => {
 		await noShare(page);
 		await openApp(page, '/wrap');
-		await page.getByRole('button', { name: 'Make Wrap Package' }).tap();
-		const save = page.getByRole('button', { name: 'Download Wrap Package' });
-		await expect(save).toBeVisible();
-		const [download] = await Promise.all([page.waitForEvent('download'), save.tap()]);
-		const name = download.suggestedFilename();
+		const { name, root, entries, text } = await downloadPackage(page);
 		expect(name).toMatch(/^Sample-project_\d{4}-\d{2}-\d{2}-day02\.zip$/);
-		const root = name.replace(/\.zip$/, '');
-		const bytes = await readFile((await download.path())!);
-		const zip = new Blob([bytes]);
-		const entries = await readZip(zip);
 		expect(entries.map((e) => e.name)).toEqual([
 			`${root}/${root}_camera-report.csv`,
 			`${root}/${root}_all-fields.csv`,
 			`${root}/${root}_editorial.ale`,
 			`${root}/${root}_data.json`,
-			`${root}/${root}_day-report.html`
+			`${root}/${root}_day-report.html`,
+			`${root}/42A/42A_manifest.csv`,
+			`${root}/42B/42B_manifest.csv`
 		]);
-		const crif = await (await entryBlob(zip, entries[0])).text();
+		const crif = await text(`${root}/${root}_camera-report.csv`);
 		expect(crif.split('\r\n')[0]).toMatch(/^"Job","CRIF Version","Unique Slate ID","SlatesUUID","Slate","Camera Letter",/);
 		expect(crif.split('\r\n').filter(Boolean)).toHaveLength(7);
+		const manifest = (await text(`${root}/42A/42A_manifest.csv`)).replace(/^\uFEFF/, '').split('\r\n').filter(Boolean);
+		expect(manifest[0]).toBe('What,Take,Camera,Clip,Roll,Timecode in,Timecode out,Kind,Name,Path,Device,Card or roll,Count,Notes');
+		expect(manifest.slice(1).map((l) => l.split(',').slice(0, 3).join(','))).toEqual(['Take,1,A', 'Take,1,B', 'Take,2,A', 'Take,2,B', 'Take,3,A']);
 		await expect(page.getByText(/^Exported today \d{2}:\d{2}$/)).toBeVisible();
+	});
+
+	test('a reference logged on a slate is an empty folder in its slate folder, named in the manifest', async ({ page }) => {
+		await noShare(page);
+		await openApp(page, '/slates');
+		await page.getByRole('link', { name: /^42A/ }).tap();
+		await expect(page.getByRole('heading', { name: 'Slate 42A', level: 1 })).toBeVisible();
+		await page.waitForFunction(() => !document.documentElement.dataset.nav);
+		await page.getByRole('button', { name: 'Add HDRI 360' }).tap();
+		const sheet = page.getByRole('dialog', { name: 'HDRI 360' });
+		await sheet.getByRole('textbox', { name: 'File or folder' }).fill('HDRI_0412');
+		await sheet.getByRole('textbox', { name: 'File or folder' }).press('Enter');
+		await expect(sheet).toBeHidden();
+		await page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Wrap' }).tap();
+		await expect(page.getByRole('heading', { name: 'Wrap', level: 1 })).toBeVisible();
+		const { root, entries, text } = await downloadPackage(page);
+		const folder = entries.find((e) => e.name === `${root}/42A/hdri-360/HDRI_0412/`);
+		expect(folder).toMatchObject({ size: 0 });
+		const manifest = await text(`${root}/42A/42A_manifest.csv`);
+		expect(manifest.split('\r\n')).toContain('Reference,,,,,,,HDRI 360,HDRI_0412,42A/hdri-360/HDRI_0412/,,,,');
 	});
 
 	test('hands the package to the share sheet where there is one', async ({ page }) => {

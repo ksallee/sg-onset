@@ -135,7 +135,7 @@ export const wrap = {
 	'wrap.package.tapAgain': 'Tap Share again to hand it over.',
 	'wrap.package.handed': 'Handed over.',
 	'wrap.package.offline': 'Works offline: everything is made on this device.',
-	'wrap.package.footer': 'One zip, named for the project and the day. The files picked, then a folder per slate: its photos, and an empty folder for each reference shot on another device. Share sends it to AirDrop, Files or Mail.',
+	'wrap.package.footer': 'One zip, named for the project and the day. The files picked, then a folder per slate with its photos, a list of its takes and references, and an empty folder for each reference shot on another device. Share sends it to AirDrop, Files or Mail.',
 	'wrap.size.large': 'Over 250 MB: too big for Mail. Use AirDrop or Save to Files.',
 	'wrap.size.huge': 'Very large. It may take a long time, and the iPad may run short. Export fewer days, or leave out the photos.',
 	'wrap.size.noRoom': 'Not enough free room on this device for the zip ({size} free).',

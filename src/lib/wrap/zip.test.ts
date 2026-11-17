@@ -9,11 +9,12 @@ const photo = new Uint8Array(70_000).map((_, i) => i % 251);
 function plan(): PackagePlan {
 	const entries: PackageEntry[] = [
 		{ kind: 'crif', path: 'P_d/P_d_camera-report.csv', mime: 'text/csv', size: 10 },
+		{ kind: 'manifest', path: 'P_d/1/1_manifest.csv', mime: 'text/csv', size: 10, text: 'What\r\né\r\n' },
 		{ kind: 'file', media: 'photo', path: 'P_d/1/1-A-reference-1.jpg', mime: 'image/jpeg', size: photo.length, blobId: 'b1' },
 		{ kind: 'file', media: 'photo', path: 'P_d/1/1-A-reference-2.jpg', mime: 'image/jpeg', size: photo.length, blobId: 'b2' },
 		{ kind: 'folder', path: 'P_d/1/hdri-360/HDRI_0412/', size: 0 }
 	];
-	return { root: 'P_d', fileName: 'P_d.zip', entries, files: 3, pruned: [], missing: [], photoBytes: photo.length * 2, bytes: zipSize(entries) };
+	return { root: 'P_d', fileName: 'P_d.zip', entries, files: 4, pruned: [], missing: [], photoBytes: photo.length * 2, bytes: zipSize(entries) };
 }
 const read = async (e: PackageEntry) => (e.kind === 'file' ? new Blob([photo], { type: 'image/jpeg' }) : 'a,b\r\n1,2\r\n');
 const now = new Date(2026, 10, 11, 20, 0);
@@ -23,17 +24,18 @@ describe('writePackage', () => {
 		const zip = await writePackage(plan(), read, memorySink(), { now });
 		const entries = await readZip(zip);
 		expect(entries.map((e) => e.name)).toEqual(plan().entries.map((e) => e.path));
-		expect(entries).toHaveLength(4);
+		expect(entries).toHaveLength(5);
 		expect(await (await entryBlob(zip, entries[0])).text()).toBe('a,b\r\n1,2\r\n');
-		expect(new Uint8Array(await (await entryBlob(zip, entries[1])).arrayBuffer())).toEqual(photo);
+		expect(await (await entryBlob(zip, entries[1])).text()).toBe('What\r\né\r\n');
+		expect(new Uint8Array(await (await entryBlob(zip, entries[2])).arrayBuffer())).toEqual(photo);
 	});
 
-	it('writes an empty folder as a folder entry, and never asks the reader for it', async () => {
+	it('writes an empty folder as a folder entry, and a manifest from its text, never asking the reader for either', async () => {
 		const asked: string[] = [];
 		const zip = await writePackage(plan(), async (e) => (asked.push(e.path), read(e)), memorySink(), { now });
 		const folder = (await readZip(zip)).at(-1)!;
 		expect(folder).toMatchObject({ name: 'P_d/1/hdri-360/HDRI_0412/', size: 0, compressedSize: 0 });
-		expect(asked).not.toContain('P_d/1/hdri-360/HDRI_0412/');
+		expect(asked).toEqual(['P_d/P_d_camera-report.csv', 'P_d/1/1-A-reference-1.jpg', 'P_d/1/1-A-reference-2.jpg']);
 	});
 
 	it('marks the folder entry a folder for every unzip: the name ends in a slash, the mode is a directory', async () => {
@@ -66,7 +68,7 @@ describe('writePackage', () => {
 
 	it('skips a photo whose bytes are gone', async () => {
 		const zip = await writePackage(plan(), async (e) => (e.kind === 'file' && e.blobId === 'b2' ? undefined : read(e)), memorySink(), { now });
-		expect((await readZip(zip)).map((e) => e.name)).toHaveLength(3);
+		expect((await readZip(zip)).map((e) => e.name)).toHaveLength(4);
 	});
 
 	it('stops on cancel, drops what was written and says so', async () => {

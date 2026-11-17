@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { KINDS } from '$lib/references/kinds';
-import { dayPart, exportFileName, extensionFor, folderName, kindFolderName, kindFolders, photoFileName, slateFolderName, slug, uniqueName } from './naming';
+import { dayPart, exportFileName, extensionFor, folderName, kindFolderName, kindFolders, manifestFileName, photoFileName, slateFolderName, slug, uniqueName } from './naming';
 import { day3, day4, project } from './testData';
 
 describe('slug', () => {
@@ -74,6 +74,13 @@ describe('slateFolderName', () => {
 		expect(slateFolderName('42/A')).toBe('42-A');
 		expect(slateFolderName('')).toBe('slate');
 		expect(slateFolderName(undefined)).toBe('slate');
+	});
+});
+
+describe('manifestFileName', () => {
+	it('is the slate folder with _manifest.csv', () => {
+		expect(manifestFileName('42A')).toBe('42A_manifest.csv');
+		expect(manifestFileName('12A-2')).toBe('12A-2_manifest.csv');
 	});
 });
 

@@ -264,8 +264,9 @@ describe('planFields: reverse fields', () => {
 		expect([one(again, 'cameraSetup', 'sg_camera').status, one(again, 'take', 'sg_camera').status].sort()).toEqual(['blocked', 'create']);
 	});
 
-	// A multi_entity on a built-in source: `version_sg_ai_generated_from_versions` was measured on
-	// Version (findings/field_types/multi_entity.md), the slot form in findings/142.
+	// A multi_entity on a built-in source: `slate_<field>_slates` was measured on Slate
+	// (findings/155), as `version_sg_ai_generated_from_versions` on Version
+	// (findings/field_types/multi_entity.md), the slot form in findings/142.
 	it('says the Shots link of the slate adds a field on Shot that lists the slates', () => {
 		const fields = complete();
 		delete fields.slate.sg_shots;

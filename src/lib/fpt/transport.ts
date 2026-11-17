@@ -277,9 +277,10 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	 *    `add` of the Set Shots, then of the Shots, of the codes it holds.
 	 * Each write is a PUT with the mode in the body, one field at a time (corpus
 	 * recipes/009_multi_entity_safely.md: a bare list would replace the field, the query-string mode
-	 * replaces it too). Neither a `_batch` update with the mode nor two fields with it in one PUT is
-	 * measured. Never throws: what did not land is owed, and a later sync makes it. A Shot is never
-	 * created or changed; a Set Shot is never deleted.
+	 * replaces it too). The mode works in a `_batch` update as well, in order (findings/154); kept
+	 * apart, a refused `remove` does not hold back the `add`s. Two fields with the mode in one PUT
+	 * are not measured. Never throws: what did not land is owed, and a later sync makes it. A Shot
+	 * is never created or changed; a Set Shot is never deleted.
 	 */
 	async function writeShots(work: readonly SlateWork[], signal?: AbortSignal): Promise<ShotResult[]> {
 		const codes = shotCodes(work.flatMap((w) => [...w.link, ...w.unlink, ...w.check]));

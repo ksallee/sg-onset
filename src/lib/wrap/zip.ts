@@ -1,14 +1,16 @@
 // Writes a wrap package: the plan's entries, read one at a time, through client-zip into a sink
 // (the private file system where the browser has one, so the zip is never held whole in memory).
 // Progress as bytes written; an abort signal stops it and drops what was written. Files are
-// stored, not compressed: photos do not shrink.
+// stored, not compressed: photos do not shrink. A manifest is written from the text it carries.
+// An empty folder is a folder entry: client-zip writes a name ending in a slash with a directory
+// mode, and every unzip makes the folder.
 
 import { makeZip } from 'client-zip';
 import type { BackupSink } from '$lib/store/backup';
 import type { PackageEntry, PackagePlan } from './assembly';
 
-/** The bytes of an entry: the text made, or the photo read from the store. Undefined: skip it. */
-export type EntryReader = (entry: PackageEntry) => Promise<Blob | string | undefined>;
+/** The bytes of a file: the text made, or the file read from the store. Undefined: skip it. */
+export type EntryReader = (entry: Exclude<PackageEntry, { kind: 'folder' | 'manifest' }>) => Promise<Blob | string | undefined>;
 
 export type WriteOptions = {
 	now: Date;
@@ -23,6 +25,14 @@ export async function writePackage(plan: PackagePlan, read: EntryReader, sink: B
 	async function* files() {
 		for (const entry of plan.entries) {
 			if (signal?.aborted) throw abortError();
+			if (entry.kind === 'folder') {
+				yield { name: entry.path, lastModified: now };
+				continue;
+			}
+			if (entry.kind === 'manifest') {
+				yield { name: entry.path, lastModified: now, input: entry.text };
+				continue;
+			}
 			const input = await read(entry);
 			if (input === undefined) continue;
 			yield { name: entry.path, lastModified: now, input };

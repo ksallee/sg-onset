@@ -50,7 +50,7 @@ enforces the parts a test can check.
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
 | Gear | | The cameras, lenses and camera setups of a project. | | | |
 | Wrap | | The destination for the end of the day: the day's summary, what is left to fix, the export and the hand-over. | | | |
-| Wrap package | | One zip of a day's (or several days') files and photos, made on Wrap, for the people after set. | | | |
+| Wrap package | | One zip of a day's (or several days') files, and a folder per slate with its photos, a list of its takes and references, and an empty folder for each reference, made on Wrap, for the people after set. | | | |
 | Camera report | | The VES camera report CSV (CRIF), one row per take. | | VES CRIF | |
 | Day report | | The printable page of one shoot day, for the VFX supervisor. | | | |
 | Backup | | One zip of everything on the device, every entry and photo, made in Settings, to restore from. Kept off the device. | | | |

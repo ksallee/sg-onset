@@ -13,7 +13,7 @@
 	let confirm = $state(false);
 
 	const plan = $derived(wrap.plan);
-	const files = $derived(plan?.entries.length ?? 0);
+	const files = $derived(plan?.files ?? 0);
 	const size = $derived(plan ? t('wrap.package.size', { size: formatBytes(plan.bytes), files: tk(plural('wrap.package.files', files), { n: files }) }) : '');
 	const warnings = $derived.by(() => {
 		const v = wrap.verdict;

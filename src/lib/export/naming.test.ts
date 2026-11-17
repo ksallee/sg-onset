@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { dayPart, exportFileName, extensionFor, photoFileName, slug } from './naming';
+import { KINDS } from '$lib/references/kinds';
+import { dayPart, exportFileName, extensionFor, folderName, kindFolderName, kindFolders, manifestFileName, photoFileName, slateFolderName, slug, uniqueName } from './naming';
 import { day3, day4, project } from './testData';
 
 describe('slug', () => {
@@ -37,11 +38,116 @@ describe('slug', () => {
 		expect(slug('***', 'project')).toBe('project');
 	});
 
-	it('steps around names Windows reserves', () => {
+	it('steps around names Windows reserves, with an extension too', () => {
 		expect(slug('CON')).toBe('CON-x');
 		expect(slug('nul')).toBe('nul-x');
 		expect(slug('com1')).toBe('com1-x');
+		expect(slug('LPT0')).toBe('LPT0-x');
 		expect(slug('Console')).toBe('Console');
+		expect(slug('nul.tar')).toBe('nul-x.tar');
+		expect(slug('aux.a.b')).toBe('aux-x.a.b');
+	});
+});
+
+describe('folderName', () => {
+	it('is a slug that keeps underscores, so a name logged from a device stays as typed', () => {
+		expect(folderName('HDRI_0412')).toBe('HDRI_0412');
+		expect(folderName('PG_car_01')).toBe('PG_car_01');
+		expect(folderName('Scan 01')).toBe('Scan-01');
+		expect(folderName('IMG_1234.DNG')).toBe('IMG_1234.DNG');
+	});
+
+	it('is safe on every system', () => {
+		expect(folderName(' Café: take 1/2 ')).toBe('Cafe-take-1-2');
+		expect(folderName('_x_. ')).toBe('_x_');
+		expect(folderName('.hidden')).toBe('hidden');
+		expect(folderName('PRN')).toBe('PRN-x');
+		expect(folderName('')).toBe('untitled');
+		expect(folderName('???', 'reference')).toBe('reference');
+	});
+});
+
+describe('slateFolderName', () => {
+	it('is the slate as the photo names start, whitespace removed', () => {
+		expect(slateFolderName('42A')).toBe('42A');
+		expect(slateFolderName('22 ac')).toBe('22ac');
+		expect(slateFolderName('42/A')).toBe('42-A');
+		expect(slateFolderName('')).toBe('slate');
+		expect(slateFolderName(undefined)).toBe('slate');
+	});
+});
+
+describe('manifestFileName', () => {
+	it('is the slate folder with _manifest.csv', () => {
+		expect(manifestFileName('42A')).toBe('42A_manifest.csv');
+		expect(manifestFileName('12A-2')).toBe('12A-2_manifest.csv');
+	});
+});
+
+describe('kindFolderName', () => {
+	it('names the built-in kinds in English, lower case, whatever language the app shows', () => {
+		expect(KINDS.map(kindFolderName)).toEqual(['hdri-360', '360-video', 'hdr-reference', 'witness-camera', 'lidar-scan', 'textured-model', 'photogrammetry', 'splat', 'other']);
+	});
+
+	it('makes a project kind safe, in lower case', () => {
+		expect(kindFolderName('Drone survey')).toBe('drone-survey');
+		expect(kindFolderName('Grey ball / chrome')).toBe('grey-ball-chrome');
+		expect(kindFolderName('Ñandú')).toBe('nandu');
+		expect(kindFolderName('CON')).toBe('con-x');
+	});
+
+	it('puts a reference with no kind, or none left once safe, under other', () => {
+		expect(kindFolderName('')).toBe('other');
+		expect(kindFolderName('  ')).toBe('other');
+		expect(kindFolderName('写真')).toBe('other');
+	});
+});
+
+describe('kindFolders', () => {
+	it('gives each kind its folder; the built-in ones keep theirs', () => {
+		const folders = kindFolders(['hdri360', 'Drone survey', 'HDRI-360', ''], ['Drone survey', 'HDRI-360']);
+		expect(folders.get('hdri360')).toBe('hdri-360');
+		expect(folders.get('Drone survey')).toBe('drone-survey');
+		expect(folders.get('HDRI-360')).toBe('hdri-360-2');
+		expect(folders.get('')).toBe('other');
+	});
+
+	it('is the same whatever kinds a slate holds, so a kind has one folder name in every slate', () => {
+		const alone = kindFolders(['HDRI-360'], ['HDRI-360']);
+		expect(alone.get('HDRI-360')).toBe('hdri-360-2');
+	});
+
+	it('steps two project kinds that come out the same: the one added first keeps the name', () => {
+		const folders = kindFolders(['drone-survey', 'Drone survey'], ['Drone survey', 'drone-survey']);
+		expect(folders.get('Drone survey')).toBe('drone-survey');
+		expect(folders.get('drone-survey')).toBe('drone-survey-2');
+	});
+
+	it('names a kind the project no longer lists after those it does, in alphabetical order', () => {
+		const folders = kindFolders(['Zeppelin', 'zeppelin!', 'Drone'], ['Drone']);
+		expect(folders.get('Zeppelin')).toBe('zeppelin');
+		expect(folders.get('zeppelin!')).toBe('zeppelin-2');
+	});
+});
+
+describe('uniqueName', () => {
+	it('takes the name when it is free, and notes it', () => {
+		const taken = new Set<string>();
+		expect(uniqueName('42A', taken)).toBe('42A');
+		expect(taken.has('42a')).toBe(true);
+	});
+
+	it('steps a name that clashes, case ignored, as macOS and Windows ignore it', () => {
+		const taken = new Set<string>();
+		expect(uniqueName('12a', taken)).toBe('12a');
+		expect(uniqueName('12A', taken)).toBe('12A-2');
+		expect(uniqueName('12A', taken)).toBe('12A-3');
+	});
+
+	it('steps a file name before its extension', () => {
+		const taken = new Set<string>();
+		expect(uniqueName('42A-A-reference-1', taken, '.jpg')).toBe('42A-A-reference-1.jpg');
+		expect(uniqueName('42A-A-reference-1', taken, '.JPG')).toBe('42A-A-reference-1-2.JPG');
 	});
 });
 

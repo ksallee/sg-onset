@@ -43,6 +43,7 @@ enforces the parts a test can check.
 | Take | | One camera setup's run of one slate, from Start to End. | `take` | CRIF Tk Take; VES scope Take | Take |
 | Photo | | A reference photo taken from the take screen or picked from the photo library or Files, kept on the take. | `still` | VES 1.1 reference | Photos |
 | Video | | A reference video picked from the photo library or Files, kept on the take. "Photos and videos" names both. | `still`, a video file | | Version, linked to the take |
+| Audio note | | A note spoken into the microphone from the take sheet, kept on the take as the browser wrote it. | `still`, an audio file | | Version, linked to the take |
 | Reference | | One thing captured for the slate on another device, logged by name: an HDRI, a scan, a witness clip. The file stays on that device. | `reference` | VES 2.1, 4.2, 5.1 | Set Reference |
 | Reference kind | | What a reference is: HDRI 360, 360 video, HDR reference, Witness camera, Lidar scan, Textured model, Photogrammetry, Splat, Other, or a kind the project adds. | `reference.kind` | | Kind |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
@@ -185,6 +186,7 @@ gives.
 | New Take | Starts the next take as a copy of the last. | |
 | Photo | Takes a reference photo for the take. | Still, Ref |
 | Add Photos or Videos | In the take sheet: picks photos and videos from the photo library or Files for the take. | Import, Upload: Upload is a sync word |
+| Add Audio Note, Save Audio Note | In the take sheet: one row that opens the microphone, then keeps what it heard. Closing the sheet keeps it too. | Record, Stop: banned, Start and End are the take's; Voice memo: Apple's app |
 | Undo, Redo | Reverse the last edit. | |
 | Sync | Send changes to Flow PT and read back. | Upload, Push |
 | All synced | Nothing waits, signed in. | |
@@ -239,6 +241,9 @@ gives.
   **Photo** is taken in the app and kept on the take. "Set Reference" is the Flow PT entity.
 - **Lidar scan** for the kind of reference, as for the slate's switch. Flow PT shows "LiDAR".
 - **Photo**, not still. On set, "stills" means the unit stills photographer.
+- **Audio note**, not voice memo or voice note. Its row says **Add Audio Note**, then **Save Audio
+  Note**: "Record" and "Stop" stay banned, so Start and End keep one meaning, the take's. Typing a
+  note by voice is the keyboard's own microphone key; the app adds nothing for it.
 - **Wrap** names the destination, the crew word for the end of the shooting day. Rejected: Export
   (a verb, and the Backup uses it), Handover, Deliver. Three zips, three words: a **Wrap package**
   is for the people after set; a **Backup** is the whole device, to restore; a **Snapshot** is the

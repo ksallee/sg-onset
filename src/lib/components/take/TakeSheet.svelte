@@ -1,8 +1,8 @@
 <script lang="ts">
 	// The take on screen in a sheet: its note, its type (one tap), its template, photos and videos
-	// from the library or Files, and the cameras on it, one of which can be taken off. A full sheet,
-	// so the keyboard never covers the note. Everything is undoable. The rail's Photo stays the
-	// camera, in one press.
+	// from the library or Files, its audio notes from the microphone (AudioNotes), and the cameras
+	// on it, one of which can be taken off. A full sheet, so the keyboard never covers the note.
+	// Everything is undoable. The rail's Photo stays the camera, in one press.
 	import InputRow from '$lib/components/ios/InputRow.svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
@@ -10,6 +10,7 @@
 	import { t, tk } from '$lib/i18n/messages';
 	import { TAKE_TYPES } from '$lib/model/takeType';
 	import type { Shoot } from '$lib/take/shoot.svelte';
+	import AudioNotes from './AudioNotes.svelte';
 	import TakeTemplate from './TakeTemplate.svelte';
 
 	let { shoot, open = $bindable(false) }: { shoot: Shoot; open?: boolean } = $props();
@@ -47,6 +48,7 @@
 		<Row title={t('photos.add')} detail={shoot.groupStills.length ? String(shoot.groupStills.length) : undefined} onclick={() => library?.click()} />
 	</Section>
 	<input bind:this={library} class="file" type="file" accept="image/*,video/*" multiple tabindex="-1" aria-hidden="true" onchange={picked} />
+	<AudioNotes {shoot} {open} />
 	{#if on.length > 1}
 		<Section header={t('take.cameras')}>
 			{#each on as col (col.id)}

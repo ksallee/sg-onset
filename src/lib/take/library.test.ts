@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hasMessage } from '$lib/i18n/messages';
-import { addedLabel, failedLabel, mediaKind, pickedAt, pickedType } from './library';
+import { addedLabel, failedLabel, mediaKind, pickedAt, pickedType, removedLabel } from './library';
 
 describe('mediaKind', () => {
 	it('is a video for a video type, a photo otherwise', () => {
@@ -9,6 +9,12 @@ describe('mediaKind', () => {
 		expect(mediaKind('image/heic')).toBe('photo');
 		expect(mediaKind('image/png')).toBe('photo');
 		expect(mediaKind('')).toBe('photo');
+	});
+
+	// #89: an audio note is stored as a photo is, its file audio.
+	it('is an audio note for an audio type', () => {
+		expect(mediaKind('audio/mp4')).toBe('audio');
+		expect(mediaKind('Audio/WebM;codecs=opus')).toBe('audio');
 	});
 });
 
@@ -47,6 +53,7 @@ describe('labels', () => {
 		expect(addedLabel(['photo', 'photo'], '3')).toEqual({ key: 'take.edit.photos', params: { n: 2, take: '3' } });
 		expect(addedLabel(['video', 'video', 'video'], '3')).toEqual({ key: 'take.edit.videos', params: { n: 3, take: '3' } });
 		expect(addedLabel(['photo', 'video'], '3')).toEqual({ key: 'take.edit.media', params: { n: 2, take: '3' } });
+		expect(addedLabel(['audio'], '3')).toEqual({ key: 'take.edit.audio', params: { take: '3' } });
 	});
 
 	it('names what did not save the same way', () => {
@@ -55,13 +62,21 @@ describe('labels', () => {
 		expect(failedLabel(['photo', 'photo'])).toEqual({ key: 'take.photos.failed', params: { n: 2 } });
 		expect(failedLabel(['video', 'video'])).toEqual({ key: 'take.videos.failed', params: { n: 2 } });
 		expect(failedLabel(['video', 'photo', 'photo'])).toEqual({ key: 'take.media.failed', params: { n: 3 } });
+		expect(failedLabel(['audio'])).toEqual({ key: 'take.audio.failed', params: {} });
+	});
+
+	it('names what was removed', () => {
+		expect(removedLabel('photo', '3')).toEqual({ key: 'take.edit.photoRemoved', params: { take: '3' } });
+		expect(removedLabel('video', '3')).toEqual({ key: 'take.edit.videoRemoved', params: { take: '3' } });
+		expect(removedLabel('audio', '3')).toEqual({ key: 'take.edit.audioRemoved', params: { take: '3' } });
 	});
 
 	it('uses keys the catalogue has', () => {
-		const kinds = [['photo'], ['video'], ['photo', 'photo'], ['video', 'video'], ['photo', 'video']] as const;
+		const kinds = [['photo'], ['video'], ['audio'], ['photo', 'photo'], ['video', 'video'], ['photo', 'video']] as const;
 		for (const k of kinds) {
 			expect(hasMessage(addedLabel([...k], '1').key), addedLabel([...k], '1').key).toBe(true);
 			expect(hasMessage(failedLabel([...k]).key), failedLabel([...k]).key).toBe(true);
 		}
+		for (const k of ['photo', 'video', 'audio'] as const) expect(hasMessage(removedLabel(k, '1').key)).toBe(true);
 	});
 });

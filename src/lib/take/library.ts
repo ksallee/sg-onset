@@ -1,14 +1,16 @@
 // Photos and videos picked from the photo library or Files, from the take sheet: which files are
-// taken and as what type, the time each was taken, and the words for what was added or lost.
-// Each lands on the take as a photo from the camera does (marks.ts). Pure.
+// taken and as what type, the time each was taken, and the words for what was added, lost or
+// removed. Each lands on the take as a photo from the camera does (marks.ts), and so does an
+// audio note (#89, audioNote.ts). Pure.
 
 import type { MessageKey } from '$lib/i18n/messages';
 
-export type MediaKind = 'photo' | 'video';
+export type MediaKind = 'photo' | 'video' | 'audio';
 
-/** A video for a video type, a photo for anything else. */
+/** A video for a video type, an audio note for an audio type, a photo for anything else. */
 export function mediaKind(type: string): MediaKind {
-	return type.trim().toLowerCase().startsWith('video/') ? 'video' : 'photo';
+	const t = type.trim().toLowerCase();
+	return t.startsWith('video/') ? 'video' : t.startsWith('audio/') ? 'audio' : 'photo';
 }
 
 /** What Files may hand over with no type. The kinds a camera or a phone writes. */
@@ -46,22 +48,29 @@ export function pickedAt(fromFile: number | undefined, now: number): number {
 
 export type KindLabel = { key: MessageKey; params: Record<string, string | number> };
 
-function byKinds(kinds: readonly MediaKind[]): 'photo' | 'video' | 'photos' | 'videos' | 'media' {
-	const videos = kinds.filter((k) => k === 'video').length;
-	if (kinds.length === 1) return videos ? 'video' : 'photo';
-	if (videos === 0) return 'photos';
-	return videos === kinds.length ? 'videos' : 'media';
+/** One kind alone, or several: an audio note comes alone, from the microphone. */
+function byKinds(kinds: readonly MediaKind[]): MediaKind | 'photos' | 'videos' | 'media' {
+	if (kinds.length === 1) return kinds[0];
+	if (kinds.every((k) => k === 'photo')) return 'photos';
+	return kinds.every((k) => k === 'video') ? 'videos' : 'media';
 }
+
+const one = (which: ReturnType<typeof byKinds>): which is MediaKind => which === 'photo' || which === 'video' || which === 'audio';
 
 /** The undo label for files added to a take in one go. */
 export function addedLabel(kinds: readonly MediaKind[], take: string): KindLabel {
 	const which = byKinds(kinds);
 	const n = kinds.length;
-	return which === 'photo' || which === 'video' ? { key: `take.edit.${which}`, params: { take } } : { key: `take.edit.${which}`, params: { n, take } };
+	return one(which) ? { key: `take.edit.${which}`, params: { take } } : { key: `take.edit.${which}`, params: { n, take } };
 }
 
 /** The notice for files that did not save. */
 export function failedLabel(kinds: readonly MediaKind[]): KindLabel {
 	const which = byKinds(kinds);
-	return which === 'photo' || which === 'video' ? { key: `take.${which}.failed`, params: {} } : { key: `take.${which}.failed`, params: { n: kinds.length } };
+	return one(which) ? { key: `take.${which}.failed`, params: {} } : { key: `take.${which}.failed`, params: { n: kinds.length } };
+}
+
+/** The undo label for a photo, video or audio note taken off a take. */
+export function removedLabel(kind: MediaKind, take: string): KindLabel {
+	return { key: `take.edit.${kind}Removed`, params: { take } };
 }

@@ -18,7 +18,8 @@
 	const about = $derived([slate?.sceneNumber ? `${t('take.scene')} ${slate.sceneNumber}` : '', slate?.description].filter(Boolean).join(' · '));
 	const photos = (g: TakeGroup) => {
 		const ids = new Set(g.takes.map((x) => x.id));
-		return shoot.stills.value.filter((s) => ids.has(s.takeId)).length;
+		// Photos and videos: an audio note is a still too, and is not counted here.
+		return shoot.stills.value.filter((s) => ids.has(s.takeId) && shoot.kindOf(s) !== 'audio').length;
 	};
 	const shown = $derived(shoot.group?.number);
 	/** The take's type, when it is not Main. */

@@ -8,7 +8,7 @@
  * This is the only place the app's server talks to a Flow PT site, and it is
  * built so it cannot be used as a relay:
  * - the site must pass `checkSite`: https, a plain DNS name, on the allowlist
- *   (Autodesk-hosted by default, plus `FPT_EXTRA_HOSTS`);
+ *   (`FPT_HOSTS`, else Autodesk-hosted, plus `FPT_EXTRA_HOSTS`);
  * - the method and path come from `launcher.ts`, never from the caller, and
  *   `forwardable` is checked once more before the fetch;
  * - redirects are not followed;
@@ -31,7 +31,9 @@ import {
 
 export interface ProxyOptions {
 	fetch: typeof fetch;
-	/** `FPT_EXTRA_HOSTS`: hosts a self-hosted deploy allows beside Autodesk's. */
+	/** `FPT_HOSTS`: when set, the hosts allowed in place of Autodesk's. */
+	hosts?: string;
+	/** `FPT_EXTRA_HOSTS`: hosts added to the list. */
 	extraHosts?: string;
 	/** Give up on the site after this long. */
 	timeoutMs?: number;
@@ -93,7 +95,7 @@ async function intake(request: Request, options: ProxyOptions): Promise<Intake> 
 	const site = (fields as Record<string, unknown>).site;
 	if (typeof site !== 'string') return proxyError('bad-request');
 
-	const checked = checkSite(site, options.extraHosts);
+	const checked = checkSite(site, { hosts: options.hosts, extraHosts: options.extraHosts });
 	if (!checked.ok) return checked.reason === 'not-allowed' ? proxyError('not-allowed') : proxyError('bad-site', { reason: checked.reason });
 	return { origin: checked.origin, fields: fields as Record<string, unknown> };
 }

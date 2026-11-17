@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkSite, DEFAULT_HOST_PATTERNS, hostAllowed, normalizeSite, parseHostPatterns } from './site';
+import { allowedHostPatterns, checkSite, DEFAULT_HOST_PATTERNS, hostAllowed, normalizeSite, parseHostPatterns } from './site';
 
 const ok = (host: string) => ({ ok: true, host, origin: `https://${host}` });
 const no = (reason: string) => ({ ok: false, reason });
@@ -169,6 +169,32 @@ describe('hostAllowed', () => {
 	});
 });
 
+describe('allowedHostPatterns', () => {
+	it('is the Autodesk-hosted domains when FPT_HOSTS is not set', () => {
+		expect(allowedHostPatterns({})).toEqual([...DEFAULT_HOST_PATTERNS]);
+		expect(allowedHostPatterns({ hosts: '' })).toEqual([...DEFAULT_HOST_PATTERNS]);
+		expect(allowedHostPatterns({ hosts: ' \n, ' })).toEqual([...DEFAULT_HOST_PATTERNS]);
+	});
+
+	it('is FPT_HOSTS alone when set: the defaults go', () => {
+		expect(allowedHostPatterns({ hosts: 'studio.shotgrid.autodesk.com' })).toEqual(['studio.shotgrid.autodesk.com']);
+		expect(allowedHostPatterns({ hosts: 'fpt.studio.example, *.Tracking.Example' })).toEqual(['fpt.studio.example', '*.tracking.example']);
+	});
+
+	it('adds FPT_EXTRA_HOSTS to either list', () => {
+		expect(allowedHostPatterns({ extraHosts: 'fpt.studio.example' })).toEqual([...DEFAULT_HOST_PATTERNS, 'fpt.studio.example']);
+		expect(allowedHostPatterns({ hosts: 'studio.shotgrid.autodesk.com', extraHosts: 'fpt.studio.example' })).toEqual([
+			'studio.shotgrid.autodesk.com',
+			'fpt.studio.example'
+		]);
+	});
+
+	it('allows nothing when every FPT_HOSTS entry is refused, rather than falling back to the defaults', () => {
+		expect(allowedHostPatterns({ hosts: '10.0.0.1, *.com, localhost' })).toEqual([]);
+		expect(allowedHostPatterns({ hosts: '*', extraHosts: 'fpt.studio.example' })).toEqual(['fpt.studio.example']);
+	});
+});
+
 describe('checkSite', () => {
 	it('allows the Autodesk-hosted domains by default', () => {
 		expect(DEFAULT_HOST_PATTERNS).toEqual(['*.shotgrid.autodesk.com', '*.shotgunstudio.com']);
@@ -179,14 +205,23 @@ describe('checkSite', () => {
 	it('refuses any other host unless the deploy names it', () => {
 		expect(checkSite('fpt.studio.example')).toEqual(no('not-allowed'));
 		expect(checkSite('autodesk.com')).toEqual(no('not-allowed'));
-		expect(checkSite('fpt.studio.example', 'fpt.studio.example')).toEqual(ok('fpt.studio.example'));
+		expect(checkSite('fpt.studio.example', { extraHosts: 'fpt.studio.example' })).toEqual(ok('fpt.studio.example'));
 		// The defaults stay when the deploy adds hosts.
-		expect(checkSite('studio.shotgrid.autodesk.com', 'fpt.studio.example')).toEqual(ok('studio.shotgrid.autodesk.com'));
+		expect(checkSite('studio.shotgrid.autodesk.com', { extraHosts: 'fpt.studio.example' })).toEqual(ok('studio.shotgrid.autodesk.com'));
+	});
+
+	it('allows only the hosts FPT_HOSTS names when it is set', () => {
+		const own = { hosts: 'studio.shotgrid.autodesk.com' };
+		expect(checkSite('studio.shotgrid.autodesk.com', own)).toEqual(ok('studio.shotgrid.autodesk.com'));
+		expect(checkSite('other.shotgrid.autodesk.com', own)).toEqual(no('not-allowed'));
+		expect(checkSite('studio.shotgunstudio.com', own)).toEqual(no('not-allowed'));
+		expect(checkSite('fpt.studio.example', { ...own, extraHosts: 'fpt.studio.example' })).toEqual(ok('fpt.studio.example'));
+		expect(checkSite('studio.shotgrid.autodesk.com', { hosts: '10.0.0.1' })).toEqual(no('not-allowed'));
 	});
 
 	it('reports a malformed site before the allowlist', () => {
 		expect(checkSite('http://studio.shotgrid.autodesk.com')).toEqual(no('not-https'));
-		expect(checkSite('127.0.0.1', '127.0.0.1')).toEqual(no('ip'));
-		expect(checkSite('localhost', 'localhost')).toEqual(no('local'));
+		expect(checkSite('127.0.0.1', { hosts: '127.0.0.1', extraHosts: '127.0.0.1' })).toEqual(no('ip'));
+		expect(checkSite('localhost', { hosts: 'localhost', extraHosts: 'localhost' })).toEqual(no('local'));
 	});
 });

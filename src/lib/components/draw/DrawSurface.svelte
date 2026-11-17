@@ -8,6 +8,7 @@
 	import { fitView, handles, textBox, toDrawing } from '$lib/draw/geometry';
 	import { IDLE, pointerCancel, pointerDown, pointerMove, pointerUp, preview, type Ask, type Change, type Context, type Gesture, type Pointer, type Result, type Tool } from '$lib/draw/gesture';
 	import { valueText } from '$lib/draw/paint';
+	import { clientSize } from '$lib/components/ios/size';
 	import Shapes from './Shapes.svelte';
 
 	let {
@@ -127,7 +128,7 @@
 	}
 </script>
 
-<div class="room" bind:clientWidth={boxW} bind:clientHeight={boxH}>
+<div class="room" {@attach clientSize((w, h) => ((boxW = w), (boxH = h)))}>
 	{#if view.scale}
 		<div class="paper" style:width="{view.width}px" style:height="{view.height}px">
 		<svg

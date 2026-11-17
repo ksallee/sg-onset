@@ -18,6 +18,10 @@
 // The Slates field of each set reference (#107) is set the same way when a drain ends, to the
 // slates it shows on (referenceSlates.ts): at most once a minute, at once on Sync Now, and at once
 // when what the device holds asks for other slates than the last time. Nothing is kept on the device.
+//
+// On a site without Set Reference (Kevin, #117) the runner drains a port that leaves out the set
+// references' entries (waiting.ts): they wait in the queue, and the status and the sync sheet count
+// them apart. A setup check makes a new runner, so they go at the drain after Set Up Fields.
 
 import { checkSetup, createFptTransport, readShotCodes, type FptTransport, type KeyValue, type SetupReport, type ShotResult } from '$lib/fpt';
 import { actionUrl } from '$lib/fpt/actionMenu';
@@ -34,8 +38,9 @@ import { linkStore, type LinkStore } from './links';
 import { notesKey, readNotesOn, shotsToNote, writeNotesOn } from './notes';
 import { PROJECT_FILTER, projectChoices, type ProjectChoice } from './projects';
 import { legacyReferenceSlatesKey, referenceSlateItems } from './referenceSlates';
-import { projectScope, type ProjectScope } from './scope';
+import { projectScope, withoutWaiting, type ProjectScope } from './scope';
 import { CODES_MS, legacyKeys, linkDue, linkItems, mergeSeveral, projectSlates, type Several } from './shots';
+import { splitWaiting, waitingTables } from './waiting';
 
 export interface SyncDeps {
 	store: Pick<DexieStore, 'get' | 'list' | 'rows' | 'outbox' | 'remoteId' | 'subscribe'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
@@ -80,12 +85,16 @@ export interface SyncState {
 	upload?: Progress['upload'];
 	lastSyncAt?: number;
 	online: boolean;
-	/** The current project's share of the queue. */
+	/** The current project's share of the queue, less what waits for an entity the site lacks. */
 	scoped?: Unsynced;
+	/** The current project's entries that wait for an entity the site lacks: its set references, without Set Reference (Kevin, #117). */
+	waiting?: Unsynced;
 	/** The codes of the current project's slates whose Set Shot holds several Shots of that code, by slate id: what sync read. */
 	several?: Several;
 	/** The site is ready, without Set Shot: the Set Shots and Shot links wait (Kevin, #117). */
 	setShotsMissing?: boolean;
+	/** The site is ready, without Set Reference: the set references and their slates wait on the device (Kevin, #117). */
+	referencesMissing?: boolean;
 	/** Notes on Shots is on for the current project, on this device (#97). Off by default. */
 	notesOnShots: boolean;
 	/** The site is ready, without the Note fields: the Notes on Shots wait for Set Up Fields (#97). */
@@ -151,14 +160,16 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		return scope.scope;
 	}
 
-	// The current project's share of the queue, again after every change of the queue.
+	// The current project's share of the queue, again after every change of the queue and of the
+	// setup: what the runner may send, and what waits for an entity the site lacks.
 	let counting: Promise<void> = Promise.resolve();
 	function recount(): void {
 		const projectId = state.projectId;
 		counting = counting.then(async () => {
 			if (!projectId || disposed) return;
 			const entries = await scopeOf(projectId).port.entries();
-			if (state.projectId === projectId) set({ scoped: unsynced(entries) });
+			const { open, waiting } = splitWaiting(entries, waitingTables(state));
+			if (state.projectId === projectId) set({ scoped: unsynced(open), waiting: unsynced(waiting) });
 		});
 	}
 
@@ -172,10 +183,15 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		deps.page.listen('offline', () => set({ online: false }))
 	];
 
-	/** The site passed the check, and whether it has Set Shot and the Note fields: from the resolution kept on the device. */
-	async function readSetup(site: string | null): Promise<{ ready: boolean; setShotsMissing: boolean; notesMissing: boolean }> {
+	/** The site passed the check, and whether it has Set Shot, Set Reference and the Note fields: from the resolution kept on the device. */
+	async function readSetup(site: string | null): Promise<{ ready: boolean; setShotsMissing: boolean; referencesMissing: boolean; notesMissing: boolean }> {
 		const res = site ? parseResolution(await deps.schemaCache.get(resolutionKey(site)), site) : undefined;
-		return { ready: res !== undefined, setShotsMissing: res !== undefined && !hasScope(res, 'setShot'), notesMissing: res !== undefined && !hasNotes(res) };
+		return {
+			ready: res !== undefined,
+			setShotsMissing: res !== undefined && !hasScope(res, 'setShot'),
+			referencesMissing: res !== undefined && !hasScope(res, 'reference'),
+			notesMissing: res !== undefined && !hasNotes(res)
+		};
 	}
 
 	function stopRunner(): void {
@@ -272,7 +288,9 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		const site = deps.site();
 		const { projectId, link, ready } = state;
 		const allowed = !disposed && !!projectId && !!site && !!link && ready && deps.canSync();
-		const key = allowed ? `${site}|${projectId}|${link!.projectId}` : '';
+		// What waits for an entity the site lacks is kept from the runner: a new runner when that changes.
+		const waits = waitingTables(state);
+		const key = allowed ? `${site}|${projectId}|${link!.projectId}|${waits.join(',')}` : '';
 		if (live && live.key === key) return;
 		stopRunner();
 		if (!allowed) return;
@@ -284,7 +302,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			onShots: (results) => recordShots(projectId!, results)
 		});
 		const runner = createRunner({
-			port: runScope.port,
+			port: withoutWaiting(runScope.port, waits),
 			transport,
 			env: browserEnv(deps.page),
 			onProgress: (p) => {
@@ -344,6 +362,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			lastSyncAt: Number.isFinite(last) && last > 0 ? last : undefined,
 			...(state.report && state.report.site !== site ? { report: undefined } : {})
 		});
+		recount();
 		align();
 	}
 
@@ -358,7 +377,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		async setProject(projectId) {
 			if (state.projectId === projectId) return load();
 			stopRunner();
-			set({ projectId, link: undefined, scoped: undefined, several: undefined, stopped: undefined, lastSyncAt: undefined, error: undefined });
+			set({ projectId, link: undefined, scoped: undefined, waiting: undefined, several: undefined, stopped: undefined, lastSyncAt: undefined, error: undefined });
 			recount();
 			await load();
 		},
@@ -398,8 +417,9 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 				const actionMenu = link && deps.origin ? { projectId: link.projectId, url: actionUrl(deps.origin) } : undefined;
 				const report = await checkSetup({ ...fptOptions(site), createFields, ...(actionMenu ? { actionMenu } : {}) });
 				set({ report, ...(await readSetup(site)) });
-				// A new transport reads the resolution the check kept: an entity enabled since, and its
-				// fields, are synced at once (Kevin, #117).
+				recount();
+				// A new transport reads the resolution the check kept, and a new runner sees what waited
+				// for an entity enabled since: they are synced at once (Kevin, #117).
 				stopRunner();
 				align();
 				return report;

@@ -72,7 +72,7 @@ if (report.ready) {
 | `lens` | custom, "Lens" or "Lenses" | display name |
 | `cameraSetup` | custom, "Camera Setup" | display name |
 | `lightingSetup` | custom, "Lighting Setup" | display name |
-| `reference` | custom, "Set Reference" | display name |
+| `reference` | custom, "Set Reference" | display name. Optional: without it the references wait on the device |
 | `setShot` | custom, "Set Shot", in `sg_set_shots` on the slate | display name. Optional. One row per VFX shot code, made at sync, no table on the device |
 | `still` | Attachment, in `sg_photos` on the take | file name |
 | `still` with a video or audio file | Version, `entity` the take, the file in `sg_uploaded_movie` | client UUID |
@@ -100,7 +100,7 @@ type SetupReport = {
 		status: 'found' | 'missing' | 'ambiguous';
 		entityType?: string; // 'CustomEntity09'; for a built-in type also when missing
 		candidates?: string[]; // ambiguous: every type with that display name
-		optional?: true; // the site syncs without it: Set Shot (Kevin, #117)
+		optional?: true; // the site syncs without it: Set Shot, Set Reference (Kevin, #117)
 	}[];
 	fields: {
 		scope: EntityScope;
@@ -132,7 +132,7 @@ type SetupReport = {
 
 - `missing` entity: an admin enables it in the web interface. No API call does. A missing optional
   entity is a note: the report is ready, nothing is planned on it or for the links to it, and what
-  needs it waits (decision 44).
+  needs it waits (decisions 44 and 60).
 - `needsAdmin`: the person may not create fields. An Artist gets 500 code 105 "User doesn't have
   permission to create a Field" (corpus findings/132). The check stops at that first refusal and
   the sheet says only that an Admin must run Set Up Fields.
@@ -520,6 +520,8 @@ the slate it was logged on. The field is derived, as a slate's Shots are (decisi
 - A reference whose row Flow PT no longer has is skipped: its delete is the outbox's business.
 - The Note on a Shot reads a reference's slates from `sg_slate` and `sg_slates` (`shotNote.ts`), so
   a lighting reference is listed on every Shot of its lighting setup's slates.
+- On a site without Set Reference nothing is read or written (decision 60). The references wait on
+  the device, and their Slates are set at the first sync after they go up.
 
 ## Notes on Shots
 
@@ -543,6 +545,9 @@ newly assigned to the Shot's Tasks are added, and nobody is removed.
    captured, one `PUT` of the Note, then one `POST /entity/replies`; otherwise nothing.
 3. Never throws. No answer or no session stops the writes; a refusal is that Shot's alone. What did
    not land is worked out again at the next sync.
+
+On a site without Set Reference (decision 60) the references are not searched: the Note lists what
+Flow PT holds, which is none. Once they go up, the next sync that writes adds them, with a Reply.
 
 A sample, for a Shot with two slates. The Note sits in a small space in Flow PT (Kevin,
 2026-11-17): short headings, one entry a line, no intro, since the subject names the Shot.
@@ -701,9 +706,8 @@ Made by Claude. Kevin can overrule any of them.
     (findings/134), also with no second request.
 26. **A set reference is a row of the project custom entity "Set Reference", linked to its slate**
     (Kevin, 2026-11-17). Each studio enables the slot and names it in the web interface, as for
-    Take: no call does (findings/114, findings/122, 400 code 111). Until it is there the setup check
-    is not ready and nothing syncs; the sync sheet names it. A site set up before the reference log
-    needs it too: a cached resolution without it is read again.
+    Take: no call does (findings/114, findings/122, 400 code 111). It is optional since #117
+    (decision 60): until it is there the rest syncs and the references wait on the device.
 27. **The kind of a set reference is text:** a built-in key (`hdri360`), as an enum keeps its key
     (decision 7), or a project's own kind as typed. No list field: a project adds kinds, and a list
     would need an admin for each.
@@ -774,7 +778,7 @@ Made by Claude. Kevin can overrule any of them.
     fields and the slate's `sg_set_shots` are all there; until then the rest syncs, the setup check
     names it as a note, and the sync sheet says to enable it and how many slates wait. Nothing is
     dropped: the codes are on the slates, and the first sync after an admin enables it and runs Set
-    Up Fields files the Set Shots and links them all. Set Reference follows in its own change.
+    Up Fields files the Set Shots and links them all. Set Reference follows (decision 60).
 45. **A Set Shot is never deleted** (Kevin, #102). A code renamed or taken off a slate unlinks that
     slate from its Set Shot, which stays, with any Shots set on it, even when no slate lists it.
     Anyone can delete a stray one in Flow PT.
@@ -830,29 +834,39 @@ Made by Claude. Kevin can overrule any of them.
     when it differs. A slate linked by hand in Flow PT is overwritten. Nothing is kept on the device.
     One `PUT` per reference: the mode works in a `_batch` update too (findings/154), but a batch is
     all or nothing, and one reference deleted in Flow PT would refuse the writes of every other.
+60. **Set Reference is optional** (Kevin, #117), as Set Shot is (decision 44). The resolution holds
+    it only once the entity and all nine of its fields are there, `sg_slate` and `sg_slates` among
+    them; no record of another scope links one, so nothing else waits. Until then the rest syncs,
+    the setup check names it as a note, the status says "All synced, 3 waiting", and the sync sheet
+    says to enable it and how many references wait. A set reference is a record on the device, so it waits in the queue: the runner drains a
+    port that leaves its entries out (app/sync README, decision 15). Nothing is dropped and nothing
+    needs a person. The first sync after an admin enables it and runs Set Up Fields sends them, then
+    sets their Slates. Should one reach the transport on such a site all the same, it is refused in
+    plain words, alone, and never sent blind. The Notes on Shots list no references there (decision
+    50: what Flow PT holds).
 
-60. **One Action Menu Item per entity type and deploy, holding every project that ran Set Up
+61. **One Action Menu Item per entity type and deploy, holding every project that ran Set Up
     Fields** (#106). Found by title and URL, so it is never made twice; a second project is added
     to its projects in place. A deploy elsewhere has another URL, so its own row. A row of ours
     with no project gets the project too: what Flow PT does with an empty list is unmeasured.
-61. **Only title, URL, entity type and projects are sent.** Left alone, the item posts a form in a
+62. **Only title, URL, entity type and projects are sent.** Left alone, the item posts a form in a
     new tab, which is what probe 156 recorded. `selection_required`, `light_payload`,
     `open_in_overlay`, `secret_token` and the rest stay as Flow PT sets them: what they change is
     not measured.
-62. **The route takes a form from any origin and writes nothing.** No signature was measured, so
+63. **The route takes a form from any origin and writes nothing.** No signature was measured, so
     the request proves nothing. The page writes only on Send, with the person's own session for
     that site, and the site must pass the sign-in allowlist. A forged post can open the page, and
     nothing more.
-63. **A run covers what was selected.** The match runs on the Set Shots of the selected rows only,
+64. **A run covers what was selected.** The match runs on the Set Shots of the selected rows only,
     and the Notes are written on the run's Shots only. A slate's links are set whole, as at sync,
     so a slate keeps the Set Shots of its other codes. Another code's Set Shot is matched by the
     next sync, or a run on it.
-64. **The slates of a run are those linking its Set Shots.** A slate whose code has a Set Shot
+65. **The slates of a run are those linking its Set Shots.** A slate whose code has a Set Shot
     it does not link yet is put right by the next sync from the device. The Note reads the slates
     the same way (decision 50).
-65. **500 rows a run.** The page address carries every id, and each Shot costs a few requests.
+66. **500 rows a run.** The page address carries every id, and each Shot costs a few requests.
     More is refused in words.
-66. **The page reads the site's schema fresh, into memory.** It needs nothing on the device, and
+67. **The page reads the site's schema fresh, into memory.** It needs nothing on the device, and
     a schema kept from before an admin enabled Set Shot would hide it.
 
 ## Where FPT did not fit the contract
@@ -965,8 +979,9 @@ Of the 76 fields we wanted then (79 with `sg_take_type`, #92, `sg_shots`, #96, a
 another type, so ours step aside: `ShootDay.sg_onset_location` and `Lens.sg_onset_focal_length`.
 The other 69 are created under their plain names.
 
-Set Reference came after this read (#93). The probed site needs that slot enabled and named before
-sync goes on; Set Up Fields then makes its nine fields, `sg_slates` (#107) among them.
+Set Reference came after this read (#93). Without that slot the rest syncs and the references wait
+on the device (#117); once it is enabled and named, Set Up Fields makes its nine fields, `sg_slates`
+(#107) among them.
 
 Set Shot came after too (#102). Kevin enabled the slot on 2026-11-17; its schema was not read here.
 Set Up Fields makes its two fields, `sg_onset_key` and `sg_shots`, and the slate's `sg_set_shots`.

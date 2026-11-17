@@ -4,7 +4,7 @@
 //
 // For the Shots given, in one pass and a handful of searches: their codes, the Set Shots that hold
 // them, the slates of those Set Shots, their takes, references and photos, the Shots' Tasks, and
-// the Notes already there by key. Then per Shot, what notePlan.ts says: one create, or one PUT and
+// the Notes already there by key. A site without Set Reference has no references to read. Then per Shot, what notePlan.ts says: one create, or one PUT and
 // one Reply, or nothing.
 //
 // From the corpus:
@@ -72,9 +72,11 @@ export async function writeShotNotes(api: Api, res: Resolution, projectId: numbe
 		slates = await rowsIn(res.entities.slate, reads.links.slateSetShots, refs(setShotType, idsOf(setShots)), reads.slate);
 		const slateRefs = refs(res.entities.slate, idsOf(slates));
 		takes = await rowsIn(res.entities.take, reads.links.takeSlate, slateRefs, reads.take);
-		// A reference reaches a slate through any of its links to slates (#107 adds one).
+		// A reference reaches a slate through any of its links to slates (#107 adds one). A site
+		// without Set Reference holds none: the Note lists no references (Kevin, #117).
 		references = [];
-		for (const field of reads.links.referenceSlates) references.push(...(await rowsIn(res.entities.reference, field, slateRefs, reads.reference)));
+		const referenceType = res.entities.reference;
+		if (referenceType) for (const field of reads.links.referenceSlates) references.push(...(await rowsIn(referenceType, field, slateRefs, reads.reference)));
 		const photoIds = [...new Set(takes.flatMap((row) => linkIdsOf(row, reads.links.takePhotos)))];
 		files = await rowsIn(ATTACHMENT, 'id', photoIds, reads.file);
 		tasks = await rowsIn(TASK, 'entity', refs(SHOT, shotList), ['entity', 'task_assignees'], [project(projectId)]);

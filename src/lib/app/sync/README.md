@@ -7,7 +7,7 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 
 | module | pure | what it does |
 |---|---|---|
-| `status.ts` | yes | `syncStatus`: the state the shell shows, from account, link, setup, network, queue. |
+| `status.ts` | yes | `syncStatus`: the state the shell shows, from account, link, setup, network, queue, and what waits for an entity the site lacks. |
 | `link.ts` | yes | `ProjectLink`, its stored form, `linkOn` (same site only), `linkProblem`. |
 | `links.ts` | port | `linkStore`: the links over a key-value port. |
 | `report.ts` | yes | `setupView`: `checkSetup`'s report as the sheet shows it. |
@@ -19,7 +19,8 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `shots.ts` | yes | Which slates to bring in line, when, and what the sync sheet lists of their Set Shots. Nothing kept. |
 | `notes.ts` | yes | Notes on Shots (#97): the setting per project, what the sheet shows, which Shots get a Note. |
 | `referenceSlates.ts` | yes | The slates each set reference shows on, by Flow PT id, for its Slates field (#107). Nothing kept. |
-| `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. |
+| `waiting.ts` | yes | What waits on the device for an entity the site lacks: the set references, without Set Reference (#117). |
+| `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. `withoutWaiting`: and without what waits. |
 | `engine.ts` | no | `createSyncEngine`: link, check, runner. No runes. |
 | `controller.svelte.ts` | no | `provideSync`, `useSync`: the engine on the real page, as runes. |
 
@@ -88,7 +89,17 @@ Made by Claude. Kevin can overrule any of them.
     at once when the device asks for other slates than the last time (a reference logged, a slate
     made or moved). That last ask is in memory only. Nothing is kept on the device; an earlier
     build's list, `sg-onset:sync:referenceSlates:<id>`, is removed when the project loads.
-15. **The setup check looks for the Action Menu Item of the linked project, and Set Up Fields makes
+15. **A site without Set Reference syncs the rest** (Kevin, #117). A set reference is a record on the
+    device, so it waits in the queue: the runner drains a port that leaves the references' entries
+    out (`waiting.ts`, `scope.ts`). They stay as they are, never sent, never dropped, and need no
+    person. The status names them, "All synced, 3 waiting", so nobody takes them for safe in Flow
+    PT (Kevin, #117); while sync is stopped they count with the rest of the device's changes.
+    **Waiting, by kind** lists them, and the sync sheet's **Set References** section says an admin
+    enables a custom entity named Set Reference and runs Set Up Fields, and counts the references
+    waiting. After a setup check the runner starts again: they go at the next drain, and their
+    Slates are set when it ends. A Set Shot's links are no entry of the queue: the status does not
+    count them, and the **Set Shots** section counts the slates whose codes wait (decision 11).
+16. **The setup check looks for the Action Menu Item of the linked project, and Set Up Fields makes
     it** (#106, lib/fpt README, "Send set data to artists"). It points at this deploy:
     `location.origin`, passed to the engine as `origin`. With every field there and the item
     missing, Set Up Fields is offered and runs with no review: the item changes no schema and an

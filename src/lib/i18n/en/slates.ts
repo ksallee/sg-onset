@@ -75,6 +75,7 @@ export const slates = {
 	'slates.link.unlinked': '{what} unlinked',
 	'slates.link.reset.done': '{what} reset to {template}',
 
+	'slates.field.shots': 'Shots in Flow PT',
 	'slates.field.none': 'None',
 	'slates.field.yes': 'Yes',
 	'slates.field.no': 'No',

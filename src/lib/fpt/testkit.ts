@@ -12,6 +12,7 @@ export function siteTypes(): SchemaTypes {
 	return {
 		Attachment: type('File'),
 		Project: type('Project'),
+		Shot: type('Shot'),
 		ShootDay: type('Shoot Day'),
 		Slate: type('Slate'),
 		Camera: type('Camera'),
@@ -69,7 +70,7 @@ export function completeFields(): Record<EntityScope, RawFields> {
 	const out = bareFields();
 	for (const scope of ENTITY_SCOPES) {
 		for (const c of wantedColumns(scope)) {
-			const target = c.target === 'attachment' ? 'Attachment' : c.target && c.target !== 'project' ? TYPES[c.target] : undefined;
+			const target = c.target === 'attachment' ? 'Attachment' : c.target === 'shot' ? 'Shot' : c.target && c.target !== 'project' ? TYPES[c.target] : undefined;
 			out[scope][c.name] = rawField(c.dataType, c.display, { unique: c.unique, validTypes: target ? [target] : undefined });
 		}
 	}

@@ -63,7 +63,8 @@ export function provideSync(projectId: () => string | undefined, everything: () 
 		link: (choice) => engine.link(choice),
 		unlink: () => engine.unlink(),
 		check: (createFields) => engine.check(createFields),
-		syncNow: () => engine.syncNow()
+		syncNow: () => engine.syncNow(),
+		shotCodes: () => engine.shotCodes()
 	};
 	setContext(KEY, controller);
 	return controller;

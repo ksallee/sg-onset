@@ -124,6 +124,14 @@ describe('planFields', () => {
 		expect(one(plans, 'slate', 'sg_shoot_day')).toMatchObject({ status: 'present' });
 	});
 
+	it('reuses a Shots field of the site that links Shot, and steps aside from one that does not', () => {
+		const fields = complete();
+		fields.slate.sg_shots = raw('multi_entity', 'Shots', { validTypes: ['Shot'] });
+		expect(one(plan(fields), 'slate', 'sg_shots')).toMatchObject({ status: 'present', name: 'sg_shots' });
+		fields.slate.sg_shots = raw('text', 'Shots');
+		expect(one(plan(fields), 'slate', 'sg_shots')).toMatchObject({ status: 'create', name: 'sg_onset_shots', displayName: 'Onset Shots', validTypes: ['Shot'] });
+	});
+
 	it('reuses a site field of the same name and type', () => {
 		const fields = complete();
 		fields.lens.sg_lens_serial_number = raw('text', 'Lens Serial Number');
@@ -244,6 +252,27 @@ describe('planFields: reverse fields', () => {
 		expect([one(again, 'cameraSetup', 'sg_camera').status, one(again, 'take', 'sg_camera').status].sort()).toEqual(['blocked', 'create']);
 	});
 
+	// A multi_entity on a built-in source: `version_sg_ai_generated_from_versions` was measured on
+	// Version (findings/field_types/multi_entity.md), the slot form in findings/142.
+	it('says the Shots link of the slate adds a field on Shot that lists the slates', () => {
+		const fields = complete();
+		delete fields.slate.sg_shots;
+		const plans = planFields(TYPES, fields, { names: NAMES, others: { Shot: { code: raw('text', 'Shot Code') } } });
+		expect(one(plans, 'slate', 'sg_shots')).toMatchObject({
+			status: 'create',
+			dataType: 'multi_entity',
+			validTypes: ['Shot'],
+			reverse: { entityType: 'Shot', name: 'slate_sg_shots_slates', displayName: 'Slates <-> Shots' }
+		});
+	});
+
+	it('does not create the Shots link when Shot already has the name it would add', () => {
+		const fields = complete();
+		delete fields.slate.sg_shots;
+		const plans = planFields(TYPES, fields, { names: NAMES, others: { Shot: { slate_sg_shots_slates: raw('text', 'x') } } });
+		expect(one(plans, 'slate', 'sg_shots')).toMatchObject({ status: 'blocked', reason: expect.stringContaining('Shot.slate_sg_shots_slates') });
+	});
+
 	it('finds a field of ours present with its reverse, and plans nothing', () => {
 		const fields = complete();
 		fields.slate.sg_takes = raw('multi_entity', 'Take <-> Slate', { validTypes: ['CustomEntity09'] });
@@ -253,7 +282,7 @@ describe('planFields: reverse fields', () => {
 });
 
 describe('createInput', () => {
-	const bare = { take: { code: raw('text', 'Take Name') } };
+	const bare = { take: { code: raw('text', 'Take Name') }, slate: { code: raw('text', 'Slate Name') } };
 	const plans = planFields(TYPES, bare);
 	const input = (column: string) => createInput(plans.find((p) => p.column.name === column)!);
 
@@ -269,6 +298,7 @@ describe('createInput', () => {
 	it('sends valid_types for an entity field, exactly one for a multi-entity', () => {
 		expect(input('sg_slate')).toMatchObject({ dataType: 'entity', properties: { valid_types: ['Slate'] } });
 		expect(input('sg_photos')).toMatchObject({ dataType: 'multi_entity', properties: { valid_types: ['Attachment'] } });
+		expect(input('sg_shots')).toMatchObject({ dataType: 'multi_entity', displayName: 'Shots', properties: { valid_types: ['Shot'] } });
 	});
 
 	// A bare checkbox create is a 500 (endpoints/post_schema_type_fields.md).

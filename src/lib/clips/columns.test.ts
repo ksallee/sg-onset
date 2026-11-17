@@ -16,11 +16,17 @@ describe('autoMap', () => {
 			timecodeStart: i('Start'),
 			timecodeEnd: i('End'),
 			duration: i('Duration'),
-			fps: i('FPS')
+			fps: i('FPS'),
+			lens: i('Lens'),
+			tStop: i('F-Stop'),
+			isoSpeed: i('ASA'),
+			whiteBalance: i('Whitepoint'),
+			shutterAngle: i('Shutter'),
+			captureFrameRate: i('Sensor Fps')
 		});
 	});
 
-	it('reads an ARRI file: Reel_name is the roll, Camera_index the letter, FPS before Project_fps', () => {
+	it('reads an ARRI file: Reel_name is the roll, Camera_index the letter, Lens_type the lens, FPS before Project_fps', () => {
 		const i = at(ARRI_COLUMNS);
 		expect(autoMap(ARRI_COLUMNS)).toEqual({
 			clipName: i('Name'),
@@ -29,7 +35,12 @@ describe('autoMap', () => {
 			timecodeStart: i('Start'),
 			timecodeEnd: i('End'),
 			duration: i('Duration'),
-			fps: i('FPS')
+			fps: i('FPS'),
+			lens: i('Lens_type'),
+			isoSpeed: i('Exposure_index'),
+			whiteBalance: i('White_balance'),
+			shutterAngle: i('Shutter_angle'),
+			captureFrameRate: i('Sensor_fps')
 		});
 	});
 
@@ -40,12 +51,37 @@ describe('autoMap', () => {
 
 	it('reads the ALE SG OnSet writes', () => {
 		const i = at(ALE_COLUMNS);
-		expect(autoMap(ALE_COLUMNS)).toMatchObject({ clipName: i('Name'), cameraRoll: i('Camroll'), camera: i('Camera'), timecodeStart: i('Start'), timecodeEnd: i('End'), duration: i('Duration'), fps: i('FPS') });
+		expect(autoMap(ALE_COLUMNS)).toEqual({
+			clipName: i('Name'),
+			cameraRoll: i('Camroll'),
+			camera: i('Camera'),
+			timecodeStart: i('Start'),
+			timecodeEnd: i('End'),
+			duration: i('Duration'),
+			fps: i('FPS'),
+			lens: i('Lens'),
+			focalLength: i('Focal Length'),
+			tStop: i('T-Stop'),
+			isoSpeed: i('ASA'),
+			whiteBalance: i('Whitepoint'),
+			shutterAngle: i('Shutter_angle'),
+			captureFrameRate: i('Sensor Fps')
+		});
 	});
 
 	it('knows the usual CSV names in any case and punctuation', () => {
 		expect(autoMap(['Slate', 'Take', 'Clip Name', 'Roll', 'Cam', 'TC In', 'TC Out'])).toEqual({ clipName: 2, cameraRoll: 3, camera: 4, timecodeStart: 5, timecodeEnd: 6 });
 		expect(autoMap(['CLIP_NAME', 'camera_roll', 'Camera Letter', 'start tc', 'end-tc'])).toEqual({ clipName: 0, cameraRoll: 1, camera: 2, timecodeStart: 3, timecodeEnd: 4 });
+		expect(autoMap(['Clip', 'Lens Model', 'Focal Length (mm)', 'T-Stop', 'ISO', 'WB', 'Shutter Angle', 'Capture FPS'])).toEqual({
+			clipName: 0,
+			lens: 1,
+			focalLength: 2,
+			tStop: 3,
+			isoSpeed: 4,
+			whiteBalance: 5,
+			shutterAngle: 6,
+			captureFrameRate: 7
+		});
 	});
 
 	it('maps nothing it does not know', () => {
@@ -61,7 +97,13 @@ describe('COLUMN_NAMES', () => {
 			['take', 'cameraRoll', 'cameraRoll'],
 			['take', 'timecodeStart', 'timecodeStart'],
 			['take', 'timecodeEnd', 'timecodeEnd'],
-			['cameraSetup', 'cameraLabel', 'camera']
+			['cameraSetup', 'cameraLabel', 'camera'],
+			['take', 'tStop', 'tStop'],
+			['take', 'captureFrameRate', 'captureFrameRate'],
+			['take', 'shutterAngle', 'shutterAngle'],
+			['take', 'isoSpeed', 'isoSpeed'],
+			['take', 'whiteBalance', 'whiteBalance'],
+			['lens', 'lensModel', 'lens']
 		] as const;
 		for (const [scope, key, target] of fields) {
 			const def = (FIELDS as readonly FieldDef[]).find((d) => d.scope === scope && d.key === key)!;
@@ -78,7 +120,8 @@ describe('knownTarget', () => {
 	it('names what a header is read as', () => {
 		expect(knownTarget('Reel_name')).toBe('cameraRoll');
 		expect(knownTarget(' Clip name ')).toBe('clipName');
-		expect(knownTarget('Sensor Fps')).toBeUndefined();
+		expect(knownTarget('Sensor Fps')).toBe('captureFrameRate');
+		expect(knownTarget('Lens_sn')).toBeUndefined();
 		expect(knownTarget('Comment')).toBeUndefined();
 	});
 });

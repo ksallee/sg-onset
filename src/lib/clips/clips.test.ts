@@ -24,9 +24,34 @@ describe('readClips', () => {
 				startFrame: (14 * 3600 + 2 * 60 + 11) * 24 + 4,
 				endFrame: (14 * 3600 + 2 * 60 + 59) * 24 + 9,
 				rate: { num: 24, denom: 1 },
-				dropFrame: false
+				dropFrame: false,
+				lens: 'Cooke S4/i 32mm',
+				isoSpeed: 800,
+				whiteBalance: 4300,
+				shutterAngle: 172.8,
+				captureFrameRate: { num: 24, denom: 1 }
 			}
 		]);
+	});
+
+	it('reads the camera’s values: a shutter speed at the frame rate, a stop of 0 as none', () => {
+		const { clips, issues } = read(silverstackAle([{ name: 'A001C001', start: '10:00:00:00', shutter: '1/50s', sensorFps: '25', stop: 'T2.8', iso: '1280', wb: '5600K', lens: 'Optimo 24-290' }]));
+		expect(issues).toEqual([]);
+		expect(clips[0]).toMatchObject({ lens: 'Optimo 24-290', tStop: 2.8, isoSpeed: 1280, whiteBalance: 5600, shutterAngle: 180, captureFrameRate: { num: 25, denom: 1 } });
+		const zero = read(silverstackAle([{ name: 'A001C001', stop: '0', lens: '' }])).clips[0];
+		expect(zero).not.toHaveProperty('tStop');
+		expect(zero).not.toHaveProperty('lens');
+	});
+
+	it('reads a focal length, and a shutter speed at the timecode rate with no frame rate', () => {
+		const { clips } = read('Clip Name,TC In,FPS,Focal Length,Shutter\nA001C001,10:00:00:00,24,32mm,1/48');
+		expect(clips[0]).toMatchObject({ focalLength: 32, shutterAngle: 180 });
+	});
+
+	it('reports a camera value it cannot read and leaves it out', () => {
+		const { clips, issues } = read(silverstackAle([{ name: 'A001C001', iso: 'auto' }]));
+		expect(clips[0]).not.toHaveProperty('isoSpeed');
+		expect(issues).toEqual([{ kind: 'badValue', row: 10, column: 'ASA', value: 'auto' }]);
 	});
 
 	it('reads an ARRI clip at 25 fps, the letter from Camera_index', () => {

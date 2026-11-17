@@ -21,7 +21,9 @@ function tod(ms: number, seconds = 0): string {
 
 function dayAle(now: number): string {
 	const at = (minutes: number) => now - minutes * 60_000;
-	const clip = (name: string, start: number, extra: Partial<TestClip> = {}): TestClip => ({ name, roll: name.slice(0, 4), camera: name.slice(0, 1), start: tod(start, -2), end: tod(start, 46), ...extra });
+	// The sample's lenses by name, B's without its accent: found in the gear, so nothing to say.
+	const lens = (name: string) => (name.startsWith('A') ? 'Cooke S4/i 32 mm T2' : 'Angenieux Optimo 24-290 mm T2.8');
+	const clip = (name: string, start: number, extra: Partial<TestClip> = {}): TestClip => ({ name, roll: name.slice(0, 4), camera: name.slice(0, 1), start: tod(start, -2), end: tod(start, 46), lens: lens(name), ...extra });
 	return silverstackAle([
 		clip('A001C001_261117_S8XY', at(AGO.a1)),
 		clip('B001C001_261117_K1PZ', at(AGO.b1)),
@@ -29,8 +31,8 @@ function dayAle(now: number): string {
 		clip('B001C002_261117_K1PZ', at(AGO.b2)),
 		// Two minutes off take 3's Start: no match by time, so by roll and order.
 		clip('A001C003_261117_S8XY', at(AGO.a3) + 120_000),
-		// No roll, no camera, no time of day: left over until it is picked.
-		{ name: 'PICKUP_0001', start: '01:00:00:00', end: '01:00:20:00' }
+		// No roll, no camera, no time of day: left over until it is picked. A lens the gear lacks.
+		{ name: 'PICKUP_0001', start: '01:00:00:00', end: '01:00:20:00', lens: 'Panavision PRIMO_ZOO' }
 	]);
 }
 
@@ -63,6 +65,9 @@ test('an ALE fills clip names on the day’s takes, one match fixed by hand, one
 
 	const matches = page.getByRole('list').filter({ has: page.getByRole('button', { name: /^A001C001/ }) });
 	await expect(matches.getByRole('button', { name: /^A001C001_261117_S8XY.*Slate 42A, take 1 · A · By time of day/ })).toBeVisible();
+	// The lenses are found in the gear; the sample's typed shutter angle stays.
+	await expect(matches.getByRole('button', { name: /Lens not matched/ })).toHaveCount(0);
+	await expect(matches.getByRole('button', { name: /^A001C001_261117_S8XY.*Shutter angle kept: 180°\. The file has 172\.8°\./ })).toBeVisible();
 	await expect(matches.getByRole('button', { name: /^B001C002_261117_K1PZ.*Slate 42A, take 2 · B · By time of day/ })).toBeVisible();
 	await expect(matches.getByRole('button', { name: /^A001C003_261117_S8XY.*Slate 42A, take 3 · A · By roll and order/ })).toBeVisible();
 	await expect(page.getByRole('button', { name: /^PICKUP_0001.*01:00:00:00 to 01:00:19:23/ })).toBeVisible();
@@ -74,7 +79,7 @@ test('an ALE fills clip names on the day’s takes, one match fixed by hand, one
 	const picker = page.getByRole('dialog', { name: 'PICKUP_0001' });
 	await picker.getByRole('button', { name: /^Take 1 · A/ }).last().tap();
 	await expect(picker).toBeHidden();
-	await expect(page.getByRole('button', { name: /^PICKUP_0001.*Slate 42B, take 1 · A · Picked/ })).toBeVisible();
+	await expect(page.getByRole('button', { name: /^PICKUP_0001.*Slate 42B, take 1 · A · Picked.*Lens not matched: Panavision PRIMO_ZOO is not in the gear\./ })).toBeVisible();
 	await page.getByRole('button', { name: 'Fill 6 Takes' }).tap();
 
 	await expect(page).toHaveURL(/\/slates$/);

@@ -1,12 +1,14 @@
 // The clips of the DIT's file, read through the column map: the name without its file extension,
 // the camera roll, the camera letter (from its column, else the roll, else the name), the
-// timecode in and the last frame. What could not be read is reported, never thrown. Pure.
+// timecode in and the last frame, the lens as named, and the camera's values (values.ts). What
+// could not be read is reported, never thrown. Pure.
 
 import { formatTimecode, isDropFrameRate, parseTimecode, timecodeBase } from '$lib/export/timecode';
 import type { Rational } from '$lib/model/rational';
 import type { ColumnMap, ColumnTarget } from './columns';
 import type { Sheet, SheetRow } from './sheet';
 import { guessRate, lastFrame, readRate, tidyTimecode } from './timecode';
+import { readTakeValue, type CameraValueKey } from './values';
 
 export type Clip = {
 	/** 1-based line or row in the file: the clip's id in an import. */
@@ -24,6 +26,14 @@ export type Clip = {
 	/** The timecode rate. */
 	rate: Rational;
 	dropFrame: boolean;
+	/** The lens as the file names it. */
+	lens?: string;
+	focalLength?: number;
+	tStop?: number;
+	isoSpeed?: number;
+	whiteBalance?: number;
+	shutterAngle?: number;
+	captureFrameRate?: Rational;
 };
 
 export type ClipIssue =
@@ -34,7 +44,9 @@ export type ClipIssue =
 	/** A row with no clip name, left out. */
 	| { kind: 'noName'; row: number }
 	/** A timecode cell that is not timecode, left out. */
-	| { kind: 'badTimecode'; row: number; column: string; value: string };
+	| { kind: 'badTimecode'; row: number; column: string; value: string }
+	/** A camera value that does not read, or that the catalogue refuses, left out. */
+	| { kind: 'badValue'; row: number; column: string; value: string };
 
 export type ClipRead = { clips: Clip[]; issues: ClipIssue[] };
 
@@ -108,6 +120,22 @@ export function readClips(sheet: Sheet, map: ColumnMap): ClipRead {
 		if (last !== undefined) {
 			clip.end = formatTimecode(last, base, dropFrame);
 			clip.endFrame = last;
+		}
+
+		const lens = cell(row, 'lens');
+		if (lens) clip.lens = lens;
+		const value = (key: CameraValueKey, fps: Rational) => {
+			const text = cell(row, key);
+			const read = text === '' ? undefined : readTakeValue(key, text, fps);
+			if (read === null) issues.push({ kind: 'badValue', row: row.line, column: header(key), value: text });
+			return read ?? undefined;
+		};
+		// The frame rate first: a shutter speed becomes an angle at it, else at the timecode rate.
+		const capture = value('captureFrameRate', rate) as Rational | undefined;
+		if (capture) clip.captureFrameRate = capture;
+		for (const key of ['focalLength', 'tStop', 'isoSpeed', 'whiteBalance', 'shutterAngle'] as const) {
+			const read = value(key, capture ?? rate);
+			if (read !== undefined) clip[key] = read as number;
 		}
 		clips.push(clip);
 	}

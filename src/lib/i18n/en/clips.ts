@@ -1,5 +1,6 @@
-// The import of the DIT's clips (#109): an ALE or CSV fills clip name, camera roll and timecode on
-// the day's takes. Reached from the Slates list. Words follow docs/vocabulary.md.
+// The import of the DIT's clips (#109): an ALE or CSV fills clip name, camera roll, timecode, lens
+// and the camera's values on the day's takes. Reached from the Slates list. Words follow
+// docs/vocabulary.md.
 
 export const clips = {
 	'clips.open': 'Import Clips',
@@ -25,6 +26,7 @@ export const clips = {
 	'clips.issue.noRate': 'The file names no timecode rate. Read at {rate} fps.',
 	'clips.issue.noName': 'Row {row}: no clip name. The row was left out.',
 	'clips.issue.badTimecode': 'Row {row}, {column}: “{value}” is not timecode. The value was left out.',
+	'clips.issue.badValue': 'Row {row}, {column}: “{value}” could not be read. The value was left out.',
 
 	'clips.earlier': 'Earlier imports of this day',
 	'clips.earlier.footer': 'A new import updates what these filled, where nobody changed it since.',
@@ -59,6 +61,12 @@ export const clips = {
 	'clips.row.fills': 'Fills: {fields}',
 	'clips.row.update': '{field}: {from} to {to}',
 	'clips.row.kept': '{field} kept: {from}. The file has {to}.',
+	'clips.row.cleared': '{field} kept empty. The file has {to}.',
+	'clips.row.lens': 'Lens: {lens}',
+	'clips.row.lens.none': 'Lens not matched: {name} is not in the gear.',
+	'clips.row.lens.many': 'Lens not matched: {name} fits {lenses}.',
+	'clips.lens.serial': '{lens}, serial {serial}',
+	'clips.and': '{list} and {last}',
 	'clips.row.nothing': 'Nothing new',
 	'clips.row.timecode': '{start} to {end}',
 	'clips.row.noTimecode': 'No timecode',

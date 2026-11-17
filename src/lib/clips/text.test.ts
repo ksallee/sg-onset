@@ -36,6 +36,34 @@ describe('fieldLines', () => {
 	it('says when there is nothing new', () => {
 		expect(fieldLines([])).toEqual(['Nothing new']);
 	});
+
+	it('says a field a person cleared stays empty', () => {
+		expect(fieldLines([{ key: 'clipName', kind: 'kept', to: 'A001C003' }])).toEqual(['Clip name kept empty. The file has A001C003.']);
+	});
+
+	it('writes the camera’s values with their units, and the lens by its name', () => {
+		const names = new Map([['c32', 'Cooke S4/i 32mm']]);
+		expect(
+			fieldLines(
+				[
+					{ key: 'lensId', kind: 'add', to: 'c32' },
+					{ key: 'isoSpeed', kind: 'add', to: 800 },
+					{ key: 'whiteBalance', kind: 'update', from: 4300, to: 5600 },
+					{ key: 'shutterAngle', kind: 'kept', from: 180, to: 172.8 },
+					{ key: 'captureFrameRate', kind: 'update', from: { num: 24, denom: 1 }, to: { num: 24000, denom: 1001 } }
+				],
+				{ names }
+			)
+		).toEqual(['Fills: ISO', 'Lens: Cooke S4/i 32mm', 'White balance: 4300 K to 5600 K', 'Frame rate: 24 fps to 23.976 fps', 'Shutter angle kept: 180°. The file has 172.8°.']);
+	});
+
+	it('says when the lens the file names is not matched in the gear', () => {
+		const cooke = { id: 'c32', projectId: 'p', lensMake: 'Cooke', lensModel: 'S4/i 32mm', lensSerialNumber: '111' };
+		const twin = { ...cooke, id: 'c32b', lensSerialNumber: '222' };
+		expect(fieldLines([], { lens: { name: 'PRIMO_ZOO', match: { kind: 'none' } } })).toEqual(['Nothing new', 'Lens not matched: PRIMO_ZOO is not in the gear.']);
+		expect(fieldLines([], { lens: { name: 'S4/i 32mm', match: { kind: 'many', lenses: [cooke, twin] } } })).toEqual(['Nothing new', 'Lens not matched: S4/i 32mm fits Cooke S4/i 32mm, serial 111 and Cooke S4/i 32mm, serial 222.']);
+		expect(fieldLines([], { lens: { name: 'S4/i 32mm', match: { kind: 'one', lens: cooke } } })).toEqual(['Nothing new']);
+	});
 });
 
 describe('clipLine', () => {
@@ -63,6 +91,10 @@ describe('columnLabel', () => {
 		expect(columnLabel('timecodeEnd')).toBe('Timecode out');
 		expect(columnLabel('duration')).toBe('Duration');
 		expect(columnLabel('fps')).toBe('Timecode rate');
+		expect(columnLabel('lens')).toBe('Lens');
+		expect(columnLabel('isoSpeed')).toBe('ISO');
+		expect(columnLabel('captureFrameRate')).toBe('Frame rate');
+		expect(columnLabel('focalLength')).toBe('Focal length');
 	});
 });
 

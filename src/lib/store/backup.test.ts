@@ -106,6 +106,17 @@ describe('importBackup', () => {
 		expect(await snapshot(target)).toEqual(await snapshot(store));
 	});
 
+	it('restores what each import of the DIT’s clips wrote (schema version 7)', async () => {
+		const { store } = await filled();
+		const entry = { id: 'i1', shootDayId: 'd1', importedAt: '2026-11-17T19:00:00Z', fileName: 'A001.ale', filled: { t1: { clipName: 'A001C001', isoSpeed: 800, captureFrameRate: { num: 24000, denom: 1001 } } } };
+		await store.create('clipImport', entry);
+		const target = open('b').store;
+		const report = await importBackup(target, await zipOf(store));
+		expect(report.tables.clipImport).toBe(1);
+		expect(await target.list('clipImport', 'd1')).toEqual([entry]);
+		expect(await snapshot(target)).toEqual(await snapshot(store));
+	});
+
 	it('the restored store carries on: same unsynced count, undo and restore still work, new entries queue behind', async () => {
 		const { store } = await filled();
 		const target = open('b').store;

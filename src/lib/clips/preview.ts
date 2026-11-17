@@ -3,11 +3,11 @@
 // keeps. One pure function of the file, the person's column map and picks, and the day. The page
 // shows it and applies its plan.
 
-import type { ClipImport, Slate, Take } from '$lib/model/types';
+import type { ClipImport, Lens, Slate, Take } from '$lib/model/types';
 import { readClips, type Clip, type ClipRead } from './clips';
 import { autoMap, type ColumnMap } from './columns';
 import { matchClips, matchCounts, withPicks, type Match, type Pick } from './match';
-import { lastFilled, planFill, type FieldPlan, type FillPlan } from './plan';
+import { lastFilled, planFill, type FieldPlan, type FillPlan, type TakePlan } from './plan';
 import { readSheet, type Sheet } from './sheet';
 
 /** A take of the day, with its slate and camera letter, as `slates/takes.ts` `dayTakeLines` gives them. */
@@ -22,12 +22,14 @@ export type PreviewInput = {
 	lines: readonly DayLine[];
 	/** The day's earlier imports. */
 	imports: readonly ClipImport[];
+	/** The project's lenses, to find a clip's lens in. */
+	lenses?: readonly Lens[];
 	/** Minutes east of UTC at a timestamp: the device's time zone. */
 	offsetMinutes: (timestamp: string) => number;
 };
 
-/** One clip: its take, if matched, and what the import does there. */
-export type PreviewRow = { clip: Clip; match: Match; line?: DayLine; fields: FieldPlan[] };
+/** One clip: its take, if matched, what the import does there, and the lens it names. */
+export type PreviewRow = { clip: Clip; match: Match; line?: DayLine; fields: FieldPlan[]; lens?: TakePlan['lens'] };
 
 export type ClipPreview = {
 	sheet: Sheet | null;
@@ -51,13 +53,17 @@ export function previewClips(input: PreviewInput): ClipPreview {
 		const line = m.takeId ? byTake.get(m.takeId) : undefined;
 		return line ? [{ clip: byRow.get(m.row)!, take: line.take }] : [];
 	});
-	const plan = planFill(pairs, lastFilled(input.imports));
-	const fields = new Map(plan.takes.map((p) => [p.row, p.fields]));
-	const rows = matches.map((match) => ({
-		clip: byRow.get(match.row)!,
-		match,
-		...(match.takeId && byTake.has(match.takeId) ? { line: byTake.get(match.takeId) } : {}),
-		fields: fields.get(match.row) ?? []
-	}));
+	const plan = planFill(pairs, lastFilled(input.imports), input.lenses ?? []);
+	const planned = new Map(plan.takes.map((p) => [p.row, p]));
+	const rows = matches.map((match) => {
+		const p = planned.get(match.row);
+		return {
+			clip: byRow.get(match.row)!,
+			match,
+			...(match.takeId && byTake.has(match.takeId) ? { line: byTake.get(match.takeId) } : {}),
+			fields: p?.fields ?? [],
+			...(p?.lens ? { lens: p.lens } : {})
+		};
+	});
 	return { sheet, map, read, matches, counts: matchCounts(matches), rows, plan };
 }

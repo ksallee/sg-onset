@@ -10,6 +10,13 @@ export type TestClip = {
 	end?: string;
 	duration?: string;
 	fps?: string;
+	/** The camera's values. Defaults: Cooke S4/i 32mm, ISO 800, 4300 K, 172.8°, the rate, no stop. */
+	lens?: string;
+	iso?: string;
+	wb?: string;
+	shutter?: string;
+	sensorFps?: string;
+	stop?: string;
 };
 
 export const SILVERSTACK_COLUMNS = [
@@ -33,7 +40,7 @@ function ale(heading: string[], columns: string[], rows: Record<string, string>[
 /** Silverstack: LF line ends, FPS in the heading and on each row, the roll in CamRoll and Reel name. */
 export function silverstackAle(clips: TestClip[], fps = '24'): string {
 	const rows = clips.map((c) => ({
-		ASA: '800',
+		ASA: c.iso ?? '800',
 		'Bin Name': c.roll ?? '',
 		CamRoll: c.roll ?? '',
 		Camera: c.camera ?? '',
@@ -44,21 +51,21 @@ export function silverstackAle(clips: TestClip[], fps = '24'): string {
 		Drive: 'SHUTTLE_01',
 		Duration: c.duration ?? '',
 		End: c.end ?? '',
-		'F-Stop': '0',
+		'F-Stop': c.stop ?? '0',
 		FPS: c.fps ?? fps,
 		Filetype: 'mov',
 		'Import Plugin': 'ARRI Importer',
-		Lens: 'Cooke S4/i 32mm',
+		Lens: c.lens ?? 'Cooke S4/i 32mm',
 		Name: c.name,
 		Production: 'SAMPLE',
 		'Reel name': c.roll ?? '',
 		Resolution: '4608x3164',
-		'Sensor Fps': c.fps ?? fps,
+		'Sensor Fps': c.sensorFps ?? c.fps ?? fps,
 		'Shoot Date': '20261117',
-		Shutter: '172.8',
+		Shutter: c.shutter ?? '172.8',
 		'Source File': `${c.name}.mov`,
 		Start: c.start ?? '',
-		Whitepoint: '4300'
+		Whitepoint: c.wb ?? '4300'
 	}));
 	return ale(['FIELD_DELIM\tTABS', 'VIDEO_FORMAT\t1080', `FPS\t${fps}`], SILVERSTACK_COLUMNS, rows, '\n');
 }
@@ -77,11 +84,11 @@ export function arriAle(clips: TestClip[], fps = '25'): string {
 		Original_video: 'ARRIRAW (4.6K 3:2)',
 		Frame_width: '4608',
 		Frame_height: '3164',
-		Exposure_index: '800',
+		Exposure_index: c.iso ?? '800',
 		Gamma: 'LOG-C4',
-		White_balance: '4300',
-		Sensor_fps: `${c.fps ?? fps}.000`,
-		Shutter_angle: '172.8',
+		White_balance: c.wb ?? '4300',
+		Sensor_fps: c.sensorFps ?? `${c.fps ?? fps}.000`,
+		Shutter_angle: c.shutter ?? '172.8',
 		Manufacturer: 'ARRI',
 		Camera_model: 'ALEXA 35',
 		Camera_sn: '60123',
@@ -91,7 +98,7 @@ export function arriAle(clips: TestClip[], fps = '25'): string {
 		Date_camera: '20261117',
 		Time_camera: '14h02m11s',
 		Reel_name: c.roll ?? '',
-		Lens_type: 'Cooke S4/i 32mm'
+		Lens_type: c.lens ?? 'Cooke S4/i 32mm'
 	}));
 	return ale(['FIELD_DELIM\tTABS', 'VIDEO_FORMAT\tCUSTOM', 'AUDIO_FORMAT\t48kHz', `FPS\t${fps}`], ARRI_COLUMNS, rows, '\n');
 }

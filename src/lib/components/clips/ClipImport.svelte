@@ -1,7 +1,8 @@
 <script lang="ts">
 	// The DIT's clips from an ALE or CSV file (#109), reached from the Slates list. Nothing is saved
 	// until Fill: first the columns read, each clip with its take and how it was found, what it
-	// fills, updates and keeps, and the clips left over. A tap on a clip puts it on another take.
+	// fills, updates and keeps, the lens it names when the gear has none or two of it, and the
+	// clips left over. A tap on a clip puts it on another take.
 	// Fill writes the takes and what the import wrote as one edit, so one Undo takes it all back.
 	// The rules are pure (lib/clips); this page only shows them.
 	import { CircleAlert, CircleCheck, CircleDashed, FileText, FileUp } from '@lucide/svelte';
@@ -25,6 +26,7 @@
 	import type { Pick } from '$lib/clips/match';
 	import { previewClips, type PreviewRow } from '$lib/clips/preview';
 	import { clipLine, columnLabel, commitText, fieldLines, issueText, matchLine } from '$lib/clips/text';
+	import { lensTitle } from '$lib/gear/names';
 	import { dayTakeLines } from '$lib/slates/takes';
 	import TakePicker from './TakePicker.svelte';
 
@@ -56,11 +58,12 @@
 	const lines = $derived(dayTakeLines(current.slates, takes.value, setups.value, lenses.value));
 	// The device's time zone at each take's stamp: what a camera's time of day timecode runs in.
 	const offsetMinutes = (timestamp: string) => -new Date(timestamp).getTimezoneOffset();
-	const preview = $derived(previewClips({ text, map, picks, lines, imports: imports.value, offsetMinutes }));
+	const preview = $derived(previewClips({ text, map, picks, lines, imports: imports.value, lenses: lenses.value, offsetMinutes }));
+	const lensNames = $derived(new Map(lenses.value.map((l) => [l.id, lensTitle(l)])));
 	const matched = $derived(preview.rows.filter((r) => r.line));
 	const left = $derived(preview.rows.filter((r) => !r.line));
 	const fileIssues = $derived(preview.read.issues.filter((i) => i.kind === 'noNameColumn' || i.kind === 'noRate'));
-	const rowIssues = $derived(preview.read.issues.filter((i) => i.kind === 'noName' || i.kind === 'badTimecode'));
+	const rowIssues = $derived(preview.read.issues.filter((i) => i.kind === 'noName' || i.kind === 'badTimecode' || i.kind === 'badValue'));
 	const earlier = $derived([...imports.value].sort((a, b) => b.importedAt.localeCompare(a.importedAt)));
 	const picked = $derived(preview.rows.find((r) => r.clip.row === pickRow));
 
@@ -108,7 +111,7 @@
 		}
 	}
 
-	const subtitle = (row: PreviewRow) => (row.line ? [matchLine(row.line, row.match.how ?? 'picked'), ...fieldLines(row.fields)] : [clipLine(row.clip)]).join('\n');
+	const subtitle = (row: PreviewRow) => (row.line ? [matchLine(row.line, row.match.how ?? 'picked'), ...fieldLines(row.fields, { names: lensNames, lens: row.lens })] : [clipLine(row.clip)]).join('\n');
 	const icon = (row: PreviewRow) => (!row.line ? 'left' : row.fields.some((f) => f.kind !== 'kept') ? 'fills' : 'same');
 </script>
 

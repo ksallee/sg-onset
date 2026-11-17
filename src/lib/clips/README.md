@@ -1,8 +1,9 @@
 # clips
 
 The import of the DIT's clips (#109): the day's ALE or CSV from Silverstack, Pomfort or a camera
-report app fills clip name, camera roll, timecode in and timecode out on the day's takes. Read in
-the browser from a file, offline, no library. Reached from the Slates list (Import Clips), the page
+report app fills clip name, camera roll, timecode in and timecode out on the day's takes, and the
+lens, a zoom's focal length, T-stop, ISO, white balance, shutter angle and frame rate where the
+file has them. Read in the browser from a file, offline, no library. Reached from the Slates list (Import Clips), the page
 is `/slates/import` (`components/clips/`). Pure modules, each with its test beside it.
 
 ## Modules
@@ -13,7 +14,9 @@ is `/slates/import` (`components/clips/`). Pure modules, each with its test besi
 | `sheet.ts` | `readSheet`: an ALE or a CSV (the model's `csv.ts`) as one table. A CSV's header is the first row with a known column, else the first of two cells or more. |
 | `columns.ts` | `COLUMN_NAMES`, `autoMap`, `setColumn`: which column is the clip name, roll, camera letter, timecode in and out, duration and timecode rate. |
 | `timecode.ts` | `readRate`, `guessRate`, `tidyTimecode`, `clockSeconds`, `lastFrame`, `localSeconds`. Builds on `$lib/export/timecode`. |
+| `values.ts` | `readTakeValue`: a T-stop, ISO, white balance, shutter angle (or speed), frame rate or focal length cell as a take value. |
 | `clips.ts` | `readClips`: the clips through the column map, with what could not be read. `clipNameOf`, `cameraOf`. |
+| `lens.ts` | `lensKey`, `matchLens`: the lens a clip names, in the project's gear. |
 | `match.ts` | `matchClips`, `withPicks`, `matchCounts`: the take of each clip. |
 | `plan.ts` | `planFill`, `lastFilled`, `clipImportRecord`: what each match fills, updates or keeps, as one patch. |
 | `preview.ts` | `previewClips`: all of the above from the file, the map, the picks and the day. The page shows it. |
@@ -31,24 +34,36 @@ is `/slates/import` (`components/clips/`). Pure modules, each with its test besi
 - The first import fills only empty fields, never a typed value, in one undo.
 - A re-import of the same day updates the fields an import filled and nobody edited since. A
   field a person typed or edited is never touched. The preview lists what changes.
+- A field an import filled and a person then cleared counts as edited: a re-import leaves it
+  empty. An empty field no import filled is filled.
+- Besides clip name, roll and timecode, each only where empty: ISO, white balance, shutter angle,
+  frame rate and T-stop when the file carries them; the lens, matched to the project's gear by
+  model or name, trimmed and case-blind; a zoom's focal length when the file has it. A lens with
+  no match is left empty and the preview says so, with the name read. Two lenses that match:
+  left empty, both shown. A lens is never created.
+
+Kevin's own answers on QA (2026-11-17): the entry on the Slates list, an import never clears, the
+file extension stripped, the guessed rate shown, the takes' typed rolls ignored in the match.
 
 ## Decisions
 
 Made by Claude where the issue is silent. Kevin can overrule any of them.
 
-1. **The import fills four fields:** clip name, camera roll, timecode in, timecode out, as the
-   issue's title says. ISO, white balance, shutter, frame rate and lens from the file are not
-   read yet.
-2. **Reached from the Slates list,** under All Takes. The gear import lives with the gear it fills
+1. **Reached from the Slates list,** under All Takes. The gear import lives with the gear it fills
    (`/gear/import`); the takes live under Slates, and the import fills a day's takes. Wrap is the
    day's summary and its export.
-3. **"Edited since" is a value test, as for live templates:** a field counts as filled by an import
+2. **"Edited since" is a value test, as for live templates:** a field counts as filled by an import
    while it holds what the latest import of the day wrote there (`sameValue`). Retyping the same
    value is no edit (model decision 22). The record of what each import wrote is the
-   `clipImport` table, kept on the device (store decision 28).
-4. **An empty field is filled, whatever came before.** A field a person cleared after an import is
-   empty, so a re-import fills it. The rule stays three lines: fill what is empty, update what an
-   import filled, keep what a person typed.
+   `clipImport` table, kept on the device (store decision 28). A field that record names and the
+   take holds empty was cleared by a person: kept empty. An undone import takes its record back,
+   so what it filled reads as never filled.
+3. **The lens key** is the name without case, accents, spaces or punctuation: "Cooke S4/i 32mm"
+   and "cooke s4i 32 MM" are one lens. A lens answers to its model, and to its make and model.
+   The serial number (ARRI's Lens_sn) is not used to tell two lenses apart.
+4. **A focal length fills only on a zoom:** the take's lens once imported (the lens it holds, or
+   the one the import fills) must be a zoom in the gear. A prime's focal length is the lens's
+   (model decision 30); an unknown lens gets none.
 5. **An import never clears.** A take an earlier import filled and the new file does not match
    keeps its values.
 6. **One clip per take.** A take is one camera's take (model decision 1). Picking a take for a clip
@@ -73,6 +88,13 @@ Made by Claude where the issue is silent. Kevin can overrule any of them.
 12. **The clip name loses a camera file extension** (.mov, .mxf, .mp4, .r3d, .braw, .ari, .crm and
     a few more): Avid keeps it on the name, cameras and plates do not.
 13. **Drop frame** is kept where the file writes `;` before the frames at 29.97 or 59.94.
+14. **A camera value of 0, a dash or an empty cell is no value.** Cameras write 0 where they know
+    nothing (Silverstack's F-Stop). A value that does not read, or that the catalogue refuses, is
+    left out and listed under the matches.
+15. **A shutter speed becomes an angle:** 360° × frame rate × the time the shutter is open, at the
+    clip's frame rate, else its timecode rate, to a tenth of a degree. Silverstack writes "1/50s".
+16. **A letter or unit around a number is dropped:** "T2.8", "f/4", "5600K", "32mm", "172.8°". A
+    header may end with its unit too: "Focal length (mm)".
 
 ## What a real iPad must still prove
 

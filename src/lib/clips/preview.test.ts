@@ -38,7 +38,16 @@ describe('previewClips', () => {
 		expect(p.counts).toEqual({ time: 3, order: 0, picked: 0, left: 1 });
 		expect(p.rows[2].fields.find((f) => f.key === 'cameraRoll')).toEqual({ key: 'cameraRoll', kind: 'kept', from: 'A009', to: 'A001' });
 		expect(p.rows[3].fields).toEqual([]);
-		expect(p.plan.counts).toEqual({ takes: 3, add: 11, update: 0, kept: 1 });
+		// Each take: clip name, roll, timecode in and out, ISO, white balance, shutter and frame rate.
+		expect(p.plan.counts).toEqual({ takes: 3, add: 23, update: 0, kept: 1 });
+		expect(p.rows[0].lens).toEqual({ name: 'Cooke S4/i 32mm', match: { kind: 'none' } });
+	});
+
+	it('finds the lens in the project’s gear', () => {
+		const lenses = [{ id: 'c32', projectId: 'p', lensMake: 'Cooke', lensModel: 'S4/i 32mm', focalLength: 32 }];
+		const p = previewClips({ ...base, lenses, text: ale });
+		expect(p.rows[0].fields).toContainEqual({ key: 'lensId', kind: 'add', to: 'c32' });
+		expect(p.rows[3].lens).toBeUndefined();
 	});
 
 	it('follows the person’s picks', () => {

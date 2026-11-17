@@ -3,6 +3,8 @@
 // sheet. The shell renders in the browser only, so nothing here runs on the server.
 import { getContext, setContext } from 'svelte';
 import { auth, bearer } from '$lib/auth/session.svelte';
+import { prepareDiagrams } from '$lib/draw/diagramUploads';
+import { flattenDiagram } from '$lib/draw/flatten';
 import { storageKeyValue } from '$lib/fpt';
 import { browserPage } from '$lib/outbox/foreground';
 import type { Unsynced } from '$lib/outbox/select';
@@ -30,7 +32,11 @@ export function provideSync(projectId: () => string | undefined, everything: () 
 		bearer,
 		schemaCache: storageKeyValue(localStorage),
 		kv: storageKeyValue(localStorage, 'sg-onset:sync:'),
-		page: browserPage()
+		page: browserPage(),
+		// A setup diagram's image is drawn here, in the browser, when a sync is about to run (#87).
+		beforeDrain: async () => {
+			await prepareDiagrams(app.store, flattenDiagram);
+		}
 	});
 	let state = $state.raw<SyncState>(engine.state);
 	engine.subscribe((next) => (state = next));

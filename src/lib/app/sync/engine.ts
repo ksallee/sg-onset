@@ -55,6 +55,11 @@ export interface SyncDeps {
 	/** Project links and last sync times. */
 	kv: KeyValue;
 	page: Page;
+	/**
+	 * Run before each drain: what is drawn at sync, a setup diagram's image (#87), is made then and
+	 * queued, so this drain sends it. It never stops the drain: a failure is its own to tell.
+	 */
+	beforeDrain?: () => Promise<void>;
 }
 
 export interface SyncState {
@@ -275,18 +280,21 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		// Each drain's end: wrap `drain` so every caller, the foreground included, reports. `asked`:
 		// a person tapped Sync Now, so the waiting Shot codes are asked about at once.
 		const drain = runner.drain.bind(runner);
+		const before = () => (deps.beforeDrain ? deps.beforeDrain().catch(() => undefined) : Promise.resolve());
 		const reported = (asked: boolean) =>
-			drain().then(
-				async (report) => {
-					await onReport(projectId!, report);
-					if (report.stopped === 'idle' || report.stopped === 'waiting') await retryShots(projectId!, transport, asked);
-					return report;
-				},
-				(error) => {
-					set({ error: syncError(error), phase: 'stopped' });
-					throw error;
-				}
-			);
+			before()
+				.then(() => drain())
+				.then(
+					async (report) => {
+						await onReport(projectId!, report);
+						if (report.stopped === 'idle' || report.stopped === 'waiting') await retryShots(projectId!, transport, asked);
+						return report;
+					},
+					(error) => {
+						set({ error: syncError(error), phase: 'stopped' });
+						throw error;
+					}
+				);
 		const reporting: Runner = {
 			drain: () => reported(false),
 			stop: () => runner.stop(),

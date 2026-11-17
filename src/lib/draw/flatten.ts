@@ -1,0 +1,65 @@
+// Drawings made into images. The flattened copy of a photo: the photo, then its drawing painted
+// over it, as a JPEG at the photo's own size. A setup diagram: a PNG of its sheet. The browser
+// edge: it decodes, paints and encodes. The geometry and the paint order are pure (geometry.ts,
+// paint.ts); the e2e tests cover this.
+
+import { cameraCaptions, cameraFov, DIAGRAM_REACH, placeCameras, type Diagram, type SlateCamera } from './diagram';
+import { styleFor } from './drawing';
+import { flatSize } from './geometry';
+import type { Markup } from './markup';
+import { paint, typedText } from './paint';
+
+/** The largest canvas iPadOS Safari paints: 16,777,216 pixels. A larger photo is flattened smaller. */
+export const MAX_PIXELS = 16_777_216;
+
+/** An image element turns the photo as its EXIF orientation says, as the screen shows it. */
+async function decode(photo: Blob): Promise<HTMLImageElement> {
+	const url = URL.createObjectURL(photo);
+	try {
+		const img = new Image();
+		img.src = url;
+		await img.decode();
+		return img;
+	} finally {
+		URL.revokeObjectURL(url);
+	}
+}
+
+async function encode(canvas: HTMLCanvasElement, type: 'image/jpeg' | 'image/png'): Promise<Blob> {
+	const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, 0.9));
+	canvas.width = canvas.height = 0;
+	if (!blob) throw new Error('The canvas gave no image');
+	return blob;
+}
+
+/**
+ * A slate's setup diagram as a PNG at its own size (#87): the white sheet, the fields of view, the
+ * shapes, the slate's cameras placed where the person left them or where they place themselves.
+ */
+export async function flattenDiagram(diagram: Diagram, cameras: readonly SlateCamera[]): Promise<Blob> {
+	const canvas = document.createElement('canvas');
+	canvas.width = diagram.width;
+	canvas.height = diagram.height;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) throw new Error('No 2D canvas');
+	ctx.fillStyle = '#ffffff';
+	ctx.fillRect(0, 0, diagram.width, diagram.height);
+	const shapes = placeCameras(diagram.shapes, cameras, diagram, styleFor(diagram).symbol);
+	paint(ctx, shapes, { value: typedText, captions: cameraCaptions(cameras), fov: cameraFov(cameras), reach: DIAGRAM_REACH });
+	return encode(canvas, 'image/png');
+}
+
+export async function flattenPhoto(photo: Blob, markup: Markup): Promise<Blob> {
+	const img = await decode(photo);
+	const size = flatSize(img.naturalWidth, img.naturalHeight, MAX_PIXELS);
+	const canvas = document.createElement('canvas');
+	canvas.width = size.width;
+	canvas.height = size.height;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) throw new Error('No 2D canvas');
+	ctx.drawImage(img, 0, 0, size.width, size.height);
+	ctx.scale(size.width / markup.width, size.height / markup.height);
+	// A measurement shows as it was typed: the image is a note, whatever the units setting.
+	paint(ctx, markup.shapes, { value: typedText });
+	return encode(canvas, 'image/jpeg');
+}

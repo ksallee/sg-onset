@@ -87,6 +87,12 @@ export const UUID: Column = { name: 'sg_onset_uuid', display: 'Onset UUID', data
 export const STILLS: Column = { name: 'sg_photos', display: 'Photos', dataType: 'multi_entity', target: 'attachment', note: 'Reference photos, as shot.' };
 
 /**
+ * The setup diagram of a slate (#87): its image, an Attachment, as a take's photos are. The slate
+ * shows the newest one: an older image leaves the field when a newer one is verified.
+ */
+export const DIAGRAMS: Column = { name: 'sg_setup_diagram', display: 'Setup Diagram', dataType: 'multi_entity', target: 'attachment', note: 'The setup diagram, from above, as an image.' };
+
+/**
  * Ours on Version, a stock type: a take's videos go up as Versions linked to the take (Kevin,
  * 2026-11-17; versions.ts). The client UUID only, so a create sent twice is refused.
  */
@@ -300,7 +306,7 @@ export function fieldMap(scope: EntityScope, key: string): FieldMap | undefined 
 }
 
 /** The fields of a scope that are no catalogue field: the links filled at upload and at sync. */
-const EXTRA: Partial<Record<EntityScope, readonly Column[]>> = { take: [STILLS], slate: [SHOTS, SET_SHOTS], setShot: [SET_SHOT_SHOTS] };
+const EXTRA: Partial<Record<EntityScope, readonly Column[]>> = { take: [STILLS], slate: [SHOTS, DIAGRAMS, SET_SHOTS], setShot: [SET_SHOT_SHOTS] };
 
 /**
  * The fields a scope's entity must have that are not stock: ours to find or create. A record of

@@ -16,6 +16,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `schema.ts` | yes | Entities by display name, the field plan, the `Resolution` kept per site. |
 | `payload.ts` | yes | A record to the `data` of a create or update. A row back to our keys. |
 | `stills.ts` | yes | A still's remote id, file name and display name. |
+| `diagrams.ts` | yes | A slate's setup diagram image: its file name and display name. |
 | `versions.ts` | yes | A take's media that go up as a Version (a video; an audio note next): kind, file name, name, create, the file read back. |
 | `takeVersions.ts` | no | The Version of a take's media: found by client UUID, made, its file checked. |
 | `shots.ts` | yes | A slate's VFX shot codes: as typed, as Flow PT matches them, the Shot search, the in-place write. |
@@ -69,6 +70,7 @@ if (report.ready) {
 | `still` with a video file | Version, `entity` the take, the file in `sg_uploaded_movie` | client UUID |
 | `project` | Project | given: `projectId` |
 | (none) | Shot, in `sg_shots` on the Set Shot and on the slate | code, in the project. Read and linked, never written |
+| a slate's setup diagram (#87) | Attachment, in `sg_setup_diagram` on the slate | file name |
 
 Custom entities are matched trimmed and whatever the case, among `CustomEntityNN` types only.
 Never by slot number.
@@ -165,8 +167,9 @@ names follow `docs/vocabulary.md` (its FPT column): Dutch Angle, Start Time, Cir
 Every entity of the device also gets `sg_onset_uuid` (text, unique): the record id on the device.
 So does Version, where a take's videos go. The take gets `sg_photos` (multi-entity to Attachment).
 The slate gets `sg_shots`, "Shots" (multi-entity to Shot), and `sg_set_shots`, "Set Shots"
-(multi-entity to Set Shot): see "Set Shots and Shot links". `created_at` of a take is its
-`startedAt`, of a set reference its `loggedAt`.
+(multi-entity to Set Shot): see "Set Shots and Shot links"; and `sg_setup_diagram`, "Setup
+Diagram" (multi-entity to Attachment): see "A slate's setup diagram". `created_at` of a take is
+its `startedAt`, of a set reference its `loggedAt`.
 
 **shootDay**
 
@@ -327,7 +330,37 @@ Set Shots, and from them the slates (findings/142).
 | the file | `sg_uploaded_movie` | `onset_video_<still>_<blob>.mov`. One file; a new upload replaces it |
 | | `project` | the linked project |
 
+A still's annotated copy (#86: the photo with its drawing flattened on it) is a second file of the
+still, uploaded to the same field: `filename` `onset_<still>_<blob>-annotated.jpg`, `display_name`
+`Photo 2026-11-11T09:01:02.000Z annotated`. The still's prefix finds both; `capturedAtOf` reads
+either display name. A caption or capture time written on the still goes on both files. A copy
+made again after the drawing changed is a new file. When it is verified, the take keeps only the
+newest annotated copy, the one uploaded last, in its photos field: one `_batch` removes the older
+ones (and adds the newest if it is missing), the mode in the body (recipes/009, findings/154 of the
+notes-media probes). The older copies stay as Attachments, off the field: there is no file delete
+in the queue, and an Artist may not delete an Attachment (findings/143). A late check of an older
+copy finds it there and leaves it off.
+
 These are the names asked for. The name on a site can differ: see decision 3.
+
+## A slate's setup diagram
+
+The diagram (#87) stays on the device as data. Flow PT gets its image: a PNG drawn in the browser
+before each drain (`beforeDrain` in `app/sync/engine.ts`, `$lib/draw/diagramUploads.ts`), stored
+as a file of the slate, `variant: 'diagram'`, and uploaded as a photo is, to the slate's
+`sg_setup_diagram` field. It waits while the page is hidden or offline, as any upload does.
+
+| what | field | note |
+|---|---|---|
+| the slate, the file | `filename` | `onset_diagram_<slate>_<blob>.png`, the slate's client UUID |
+| | `display_name` | `Setup diagram` |
+| the slate | the slate's `sg_setup_diagram` | set by the upload, checked by the verify |
+
+An image is drawn again when what it shows changes: a shape, a camera's lens, a zoom's focal length
+on a later take. The one before is taken back while unsent. Once sent, it stays as an Attachment:
+when the new one is verified, one `_batch` takes the older ones off the slate's field (and puts the
+newest back if it is missing), the mode in the body (recipes/009, findings/154 of the notes-media
+probes). The slate shows one. A blank diagram sends nothing; one sent before stays on the field.
 
 ## How a push goes
 
@@ -625,6 +658,9 @@ Still open:
 10. Whether one `PUT` takes the `multi_entity_update_mode` wrapper on two fields at once. Not
     needed: each field is its own `PUT` (decision 28), and one `_batch` of an update per field
     would do the same, in order (findings/154).
+11. The name of the field `Slate.sg_setup_diagram` (multi-entity to Attachment, #87) adds on
+    Attachment. Predicted `slate_sg_setup_diagram_slates` by the rule measured on Slate with Shot
+    as the target (findings/155); Attachment as the target is not measured.
 
 ## On the probed site, read 2026-11-11
 

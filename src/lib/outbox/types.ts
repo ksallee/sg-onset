@@ -12,8 +12,12 @@ export type FieldEdit = { base: unknown; value: unknown };
 export type CreateOp = { kind: 'create'; table: string; recordId: string; fields: Record<string, unknown> };
 export type UpdateOp = { kind: 'update'; table: string; recordId: string; changes: Record<string, FieldEdit> };
 export type DeleteOp = { kind: 'delete'; table: string; recordId: string };
-/** A file of record `recordId` to upload. The bytes stay in the store, under `blobId`. */
-export type BlobOp = { kind: 'blob'; table: string; recordId: string; blobId: string; size: number; type: string };
+/**
+ * A file of record `recordId` to upload. The bytes stay in the store, under `blobId`. `variant`:
+ * a file made by the app: `annotated`, a photo with its drawing flattened on it; `diagram`, a
+ * slate's setup diagram drawn as an image.
+ */
+export type BlobOp = { kind: 'blob'; table: string; recordId: string; blobId: string; size: number; type: string; variant?: 'annotated' | 'diagram' };
 
 export type Op = CreateOp | UpdateOp | DeleteOp | BlobOp;
 

@@ -40,24 +40,26 @@ import { resolutionKey } from './cache';
 import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
 import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
 import { DIAGRAM_SHOWN, diagramFilename, diagramPrefix } from './diagrams';
-import { DIAGRAMS, ENTITY_SCOPES, isEntityScope, SHOTS, STILLS, type EntityScope } from './mapping';
+import { DIAGRAMS, ENTITY_SCOPES, isRecordScope, SET_SHOT_KEY, SET_SHOT_MATCHED, SET_SHOT_SHOTS, SET_SHOTS, SHOTS, STILLS, type RecordScope } from './mapping';
 import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, type Resolution } from './schema';
 import { loadResolution } from './setup';
-import { codeKey, codesOf, linkValue, SHOT, shotChange, shotCodes, shotFilter, shotPlan, shotsOf, type ShotRow, type ShotWork } from './shots';
+import { keyCode, linkIdsOf, matches, missingCodes, setShotData, setShotFilter, setShotKey, setShotsOf, severalCodes, slateWrites, toMatch, type SetShotRow } from './setShots';
+import { codesOf, linkValue, SHOT, shotChange, shotCodes, shotFilter, shotsOf, type ShotRow } from './shots';
 import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, variantOf, type StillRemote } from './stills';
 import { takeVersions, type UploadTarget } from './takeVersions';
 import { completionInfo, isMultipart, partLink, UPLOAD_SIZES, URL_LIFE_MS, type UploadSizes } from './uploadPlan';
 import { capturedAtOfCode, retimedCode, VERSION, versionKind, type TakeMedia } from './versions';
 
+/** One slate Flow PT holds, and the VFX shot codes it holds now. */
+export type SlateCodes = { slate: string; remoteId: number; codes: readonly string[] };
+
 /**
- * What is owed on one slate's Shots field:
- * - `waiting`: codes not linked yet: no Shot had them, or the write failed.
- * - `several`: codes more than one Shot has. All of them are linked; someone cleans up in Flow PT.
- * - `unlink`: codes taken off whose Shots are still linked: the unlink failed, or its turn has not come.
+ * What a sync of links read of one slate: its codes whose Set Shot holds more than one Shot of
+ * that code, for someone to clean up (Kevin, #96). Read at each sync, never kept.
  */
-export type ShotResult = { slate: string; waiting: string[]; several: string[]; unlink: string[] };
+export type ShotResult = { slate: string; several: string[] };
 
 export type FptTransportOptions = FptOptions & {
 	/**
@@ -68,18 +70,17 @@ export type FptTransportOptions = FptOptions & {
 	now?: () => number;
 	/** The upload sizes. For tests: the storage floor is 5 MiB a part. */
 	upload?: Partial<UploadSizes>;
-	/**
-	 * Told, for each slate a push touches the codes of, what is owed on its Shots field: before the
-	 * batch goes, every link and unlink; once they are written, what is left. A batch that gets no
-	 * answer leaves the first word standing, and a later sync makes them (`linkShots`).
-	 */
+	/** Told, once a push has linked the slates whose codes it touched, what it read of them. */
 	onShots?: (results: ShotResult[]) => unknown;
 };
 
 /** The transport, and the Shot links of slates the server already holds. */
 export interface FptTransport extends Transport {
-	/** Makes what is owed on these slates' Shots fields (`ShotWork`). Never throws. */
-	linkShots(items: ({ slate: string; remoteId: number } & ShotWork)[], signal?: AbortSignal): Promise<ShotResult[]>;
+	/**
+	 * Brings these slates' Set Shots and Shots in line with their codes. Never throws. Undefined when
+	 * the site could not be asked or has no Set Shot: the links wait.
+	 */
+	linkShots(slates: SlateCodes[], signal?: AbortSignal): Promise<ShotResult[] | undefined>;
 }
 
 /**
@@ -256,64 +257,149 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 
 	// ------------------------------------------------------------------ shots
 
-	type SlateWork = { slate: string; remoteId?: RemoteId } & ShotWork;
-	/** Nothing made: everything still owed. */
-	const owedAll = (w: SlateWork): ShotResult => ({ slate: w.slate, waiting: shotCodes(w.link), several: shotCodes(w.check), unlink: shotCodes(w.unlink) });
-
-	/** Tells the app which codes wait. What it does with them is not the push's business. */
+	/** Tells the app what the links of the slates of a push read. */
 	async function tell(results: ShotResult[]): Promise<void> {
 		if (!results.length || !options.onShots) return;
 		try {
 			await options.onShots(results);
 		} catch {
-			// The links are on the server or will be; a word the app could not keep changes nothing there.
+			// The links are on the server; a word the app could not keep changes nothing there.
+		}
+	}
+
+	type SetShotFields = { type: string; key: string; shots: string; matched: string };
+
+	/** The Set Shots of these codes, by key, in the project. */
+	async function readSetShots(f: SetShotFields, codes: readonly string[], signal?: AbortSignal): Promise<SetShotRow[]> {
+		if (!codes.length) return [];
+		return setShotsOf(await api.searchAll(f.type, setShotFilter(projectId, f.key, codes), [f.key, 'code', f.shots, f.matched], signal), f);
+	}
+
+	/**
+	 * Files each code as a new Set Shot, in one `_batch`, with the project and the key. The key is
+	 * unique: if another device filed one of the codes since the lookup, the batch is refused whole
+	 * (findings/127, recipes/002); a batch with no answer may have landed (findings/127). Either way
+	 * the codes are looked up again, never sent blind. What is still missing is filed at a later
+	 * sync. Never throws.
+	 */
+	async function fileSetShots(f: SetShotFields, codes: readonly string[], signal?: AbortSignal): Promise<SetShotRow[]> {
+		if (!codes.length) return [];
+		const requests: BatchRequest[] = codes.map((code) => ({ request_type: 'create', entity: f.type, data: setShotData(projectId, code, f.key) }));
+		try {
+			const rows = await api.batch(requests, signal);
+			// One row per request, in request order (recipes/002).
+			return rows.flatMap((row, i) => (row.request_type === 'create' ? [{ id: row.data.id, key: setShotKey(projectId, codes[i]), code: codes[i].trim(), shots: [], matched: false }] : []));
+		} catch {
+			return readSetShots(f, codes, signal).catch(() => []);
 		}
 	}
 
 	/**
-	 * Brings each slate's Shots field in line with its codes: one search for the Shots of every code,
-	 * in the project; then per slate a `remove` of the Shots of the codes taken off and an `add` of
-	 * the Shots of the codes it holds, each a PUT with the mode in the body (corpus
-	 * recipes/009_multi_entity_safely.md: a bare list would replace the field, the query-string mode
-	 * replaces it too). A `_batch` is not used for these: the mode inside a batch update is not
-	 * measured. Never throws: what did not land is owed, and a later sync makes it. A Shot is
-	 * never created.
+	 * Matches the Set Shots never matched that hold no Shot: one search for the Shots of their codes,
+	 * then per Set Shot one `_batch` that adds the Shots and ticks the flag, in that order, together
+	 * or not at all (findings/154). A Set Shot no Shot has the code of is tried at the next sync.
+	 * Never throws: what did not land is tried again.
 	 */
-	async function writeShots(work: readonly SlateWork[], signal?: AbortSignal): Promise<ShotResult[]> {
-		const codes = [...new Map(work.flatMap((w) => [...w.link, ...w.unlink, ...w.check]).map((c) => [codeKey(c), c.trim()])).values()];
-		if (!codes.length) return work.map((w) => ({ slate: w.slate, waiting: [], several: [], unlink: [] }));
-		let res: Resolution;
+	async function matchSetShots(f: SetShotFields, setShots: SetShotRow[], signal?: AbortSignal): Promise<SetShotRow[]> {
+		const candidates = toMatch(setShots);
+		if (!candidates.length) return setShots;
 		let shots: ShotRow[];
 		try {
-			res = await resolved(signal);
-			shots = shotsOf(await api.searchAll(SHOT, shotFilter(projectId, codes), ['code'], signal));
+			shots = shotsOf(await api.searchAll(SHOT, shotFilter(projectId, candidates.map((c) => keyCode(c.key))), ['code'], signal));
 		} catch {
-			return work.map(owedAll);
+			return setShots;
 		}
-		const field = fieldName(res, 'slate', SHOTS);
-		const out: ShotResult[] = [];
-		let reachable = true;
-		for (const w of work) {
-			const plan = shotPlan(w, shots);
-			if (!reachable || typeof w.remoteId !== 'number') {
-				out.push(owedAll(w));
-				continue;
+		const made = new Map<number, ShotRow[]>();
+		for (const match of matches(candidates, shots)) {
+			try {
+				await api.batch(
+					[
+						{ request_type: 'update', entity: f.type, record_id: match.id, data: { [f.shots]: linkValue('add', match.shots.map((s) => s.id)) } },
+						{ request_type: 'update', entity: f.type, record_id: match.id, data: { [f.matched]: true } }
+					],
+					signal
+				);
+				made.set(match.id, match.shots);
+			} catch {
+				// Read again at the next sync: landed or not, it is matched once.
 			}
-			const write = async (mode: 'add' | 'remove', ids: number[]): Promise<boolean> => {
-				if (!ids.length) return true;
-				if (!reachable) return false;
-				try {
-					await api.update(res.entities.slate, w.remoteId as number, { [field]: linkValue(mode, ids) }, signal);
-					return true;
-				} catch (error) {
-					// No answer, or no session: the rest would fare the same. A refusal is this slate's alone.
-					if (error instanceof TransportError && error.kind !== 'failed') reachable = false;
-					return false;
-				}
-			};
-			const removed = await write('remove', plan.remove);
-			const added = await write('add', plan.add);
-			out.push({ slate: w.slate, waiting: added ? plan.waiting : shotCodes(w.link), several: plan.several, unlink: removed ? [] : plan.removing });
+		}
+		return setShots.map((s) => (made.has(s.id) ? { ...s, shots: made.get(s.id)!, matched: true } : s));
+	}
+
+	/** The Set Shots and Shots each slate holds on Flow PT now, by its id. A slate Flow PT lacks is left out. */
+	async function slateLinks(res: Resolution, ids: readonly number[], signal?: AbortSignal): Promise<Map<number, { setShots: number[]; shots: number[] }>> {
+		const setShotsField = fieldName(res, 'slate', SET_SHOTS);
+		const shotsField = fieldName(res, 'slate', SHOTS);
+		const out = new Map<number, { setShots: number[]; shots: number[] }>();
+		for (let i = 0; i < ids.length; i += 500) {
+			const rows = await api.searchAll(res.entities.slate, ['id', 'in', ids.slice(i, i + 500)], [setShotsField, shotsField], signal);
+			for (const row of rows) out.set(row.id, { setShots: linkIdsOf(row, setShotsField), shots: linkIdsOf(row, shotsField) });
+		}
+		return out;
+	}
+
+	/**
+	 * Brings each slate's Set Shots and Shots in line with its codes (setShots.ts):
+	 * 1. Reads what the slates link now, and the Set Shots of their codes, by key.
+	 * 2. Files every code that has no Set Shot, in one batch. Never two for a code.
+	 * 3. Matches the Set Shots never matched that hold no Shot (`matchSetShots`).
+	 * 4. Per slate, sets each field that differs: its Set Shots are those of its codes, its Shots
+	 *    those of its Set Shots. One `PUT` a field, the mode in the body (recipes/009). The mode
+	 *    works in a `_batch` update too (findings/154); kept apart, a refused field does not hold
+	 *    back the other. Two fields with the mode in one `PUT` are not measured.
+	 * Nothing is kept on the device: what did not land is worked out again at the next sync. Never
+	 * throws. Undefined when the site could not be asked, or has no Set Shot: then the links wait,
+	 * and the codes on the slates say what they will be (Kevin, #117). A Shot is never created or
+	 * changed; a Set Shot is never deleted.
+	 */
+	async function writeShots(slates: readonly SlateCodes[], signal?: AbortSignal): Promise<ShotResult[] | undefined> {
+		if (!slates.length) return [];
+		let res: Resolution;
+		try {
+			res = await resolved(signal);
+		} catch {
+			return undefined;
+		}
+		const type = res.entities.setShot;
+		// An optional entity is in the resolution only with all its fields and the slate's link to it (schema.ts).
+		if (!type) return undefined;
+		const f: SetShotFields = {
+			type,
+			key: fieldName(res, 'setShot', SET_SHOT_KEY),
+			shots: fieldName(res, 'setShot', SET_SHOT_SHOTS),
+			matched: fieldName(res, 'setShot', SET_SHOT_MATCHED)
+		};
+		const codes = shotCodes(slates.flatMap((s) => s.codes));
+		let current: Map<number, { setShots: number[]; shots: number[] }>;
+		let setShots: SetShotRow[];
+		try {
+			current = await slateLinks(res, slates.map((s) => s.remoteId), signal);
+			setShots = await readSetShots(f, codes, signal);
+		} catch {
+			return undefined;
+		}
+		setShots = [...setShots, ...(await fileSetShots(f, missingCodes(projectId, codes, setShots), signal))];
+		setShots = await matchSetShots(f, setShots, signal);
+
+		let reachable = true;
+		/** One PUT. No answer, or no session: the rest would fare the same. A refusal is this slate's alone. */
+		const write = async (id: number, field: string, value: unknown): Promise<void> => {
+			if (!reachable) return;
+			try {
+				await api.update(res.entities.slate, id, { [field]: value }, signal);
+			} catch (error) {
+				if (error instanceof TransportError && error.kind !== 'failed') reachable = false;
+			}
+		};
+		const out: ShotResult[] = [];
+		for (const slate of slates) {
+			const now = current.get(slate.remoteId);
+			if (!now) continue;
+			const writes = slateWrites(projectId, slate.codes, now, setShots);
+			if (writes.setShots) await write(slate.remoteId, fieldName(res, 'slate', SET_SHOTS), linkValue('set', writes.setShots, type));
+			if (writes.shots) await write(slate.remoteId, fieldName(res, 'slate', SHOTS), linkValue('set', writes.shots));
+			out.push({ slate: slate.slate, several: severalCodes(projectId, slate.codes, setShots) });
 		}
 		return out;
 	}
@@ -330,7 +416,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 			out.owners.push(o);
 		};
 		const stills = ops.filter((o) => o.op.table === STILL && o.op.kind !== 'create').map((o) => o.op.recordId);
-		const res = ops.some((o) => isEntityScope(o.op.table)) || stills.length ? await resolved(signal) : undefined;
+		const res = ops.some((o) => isRecordScope(o.op.table)) || stills.length ? await resolved(signal) : undefined;
 		const attachments = await attachmentsOf(stills, signal);
 		// A still with no Attachment may be a video: its Version, by client UUID (versions.ts).
 		const videos = res ? await versions.find(res, stills.filter((id) => !attachments.has(id)), signal) : new Map<string, EntityRow>();
@@ -389,7 +475,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 						request(o, { request_type: 'update', entity: ATTACHMENT, record_id: row.id, data });
 					}
 				}
-			} else if (isEntityScope(op.table) && res) {
+			} else if (isRecordScope(op.table) && res) {
 				const entity = res.entities[op.table];
 				if (op.kind === 'create') {
 					const built = createData(res, op.table, op.recordId, op.fields, o.links, projectId);
@@ -418,7 +504,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 		if (isUniqueRefusal(failure)) {
 			// The title names the field, not the request: look every create up, and the ones the
 			// server has are the duplicates (corpus recipes/025_retry_safe_create.md).
-			const creates = owners.filter((o, i) => requests[i].request_type === 'create' && isEntityScope(o.op.table));
+			const creates = owners.filter((o, i) => requests[i].request_type === 'create' && isRecordScope(o.op.table));
 			const found = new Set((await transport.lookup(creates.map((o) => ({ table: o.op.table, id: o.op.recordId })), signal)).map((f) => f.id));
 			const duplicates = creates.filter((o) => found.has(o.op.recordId));
 			if (duplicates.length) return duplicates.map((o) => ({ entryId: o.entryId, reason: 'duplicate' as const }));
@@ -555,13 +641,11 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 			const planned = await plan(ops, signal);
 			if (planned.refusals.length) return { outcome: 'refused', refusals: planned.refusals };
 			if (!planned.requests.length) return { outcome: 'applied', remoteIds: planned.remoteIds };
-			// The slates whose codes change. Until their links are written, every link and unlink is
-			// owed: if the batch lands and its answer is lost, a later sync still makes them.
-			const shotWork = [...new Set(planned.owners)].flatMap((o) => {
-				const change = shotChange(o.op);
-				return change ? [{ owner: o, ...change }] : [];
+			// The slates whose codes change: their links follow once the batch has landed.
+			const touched = [...new Set(planned.owners)].flatMap((o) => {
+				const codes = shotChange(o.op);
+				return codes ? [{ owner: o, codes }] : [];
 			});
-			await tell(shotWork.map((w) => ({ slate: w.owner.op.recordId, waiting: w.link, several: [], unlink: w.unlink })));
 			let rows;
 			try {
 				rows = await api.batch(planned.requests, signal);
@@ -574,15 +658,13 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 				const owner = planned.owners[i];
 				if (owner?.op.kind === 'create' && row.request_type === 'create') planned.remoteIds[owner.entryId] = row.data.id;
 			});
-			if (shotWork.length) {
-				const work = shotWork.map((w) => ({
-					slate: w.owner.op.recordId,
-					remoteId: w.owner.op.kind === 'create' ? planned.remoteIds[w.owner.entryId] : w.owner.remoteId,
-					link: w.link,
-					unlink: w.unlink,
-					check: []
-				}));
-				await tell(await writeShots(work, signal));
+			const slates = touched.flatMap(({ owner, codes }) => {
+				const remoteId = owner.op.kind === 'create' ? planned.remoteIds[owner.entryId] : owner.remoteId;
+				return typeof remoteId === 'number' ? [{ slate: owner.op.recordId, remoteId, codes }] : [];
+			});
+			if (slates.length) {
+				const results = await writeShots(slates, signal);
+				if (results) await tell(results);
 			}
 			return { outcome: 'applied', remoteIds: planned.remoteIds };
 		},
@@ -615,7 +697,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 						const description = text(row.attributes.description);
 						found.push({ table, id, remoteId: encodeStillRemote({ take: take.id, ...(capturedAt ? { capturedAt } : {}), ...(description ? { caption: description } : {}) }) });
 					}
-				} else if (isEntityScope(table)) {
+				} else if (isRecordScope(table)) {
 					const res = await resolved(signal);
 					const field = uuidField(res, table);
 					// `is` and `in` on text ignore case, as the unique check does (findings/127, field_types/text.md).
@@ -652,9 +734,9 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 						if (r.keys.includes('capturedAt') && capturedAt) fields.capturedAt = capturedAt;
 						records.push({ table, id: r.id, remoteId: r.remoteId ?? (row ?? video)!.id, fields });
 					}
-				} else if (isEntityScope(table)) {
+				} else if (isRecordScope(table)) {
 					const res = await resolved(signal);
-					const scope: EntityScope = table;
+					const scope: RecordScope = table;
 					const uuid = uuidField(res, scope);
 					const byId = group.filter((r) => typeof r.remoteId === 'number');
 					const byUuid = group.filter((r) => typeof r.remoteId !== 'number');

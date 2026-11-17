@@ -65,6 +65,7 @@ export const sync = {
 	'sync.setup.entities.footer': 'An admin does this in Site Preferences, Entities. SG OnSet finds a custom entity by its display name, so give it exactly the name shown.',
 	'sync.setup.entity.found': 'Found',
 	'sync.setup.entity.enable': 'Enable a custom entity, name it {name}',
+	'sync.setup.entity.optional': 'Optional. To use it, enable a custom entity, name it {name}',
 	'sync.setup.entity.switchOn': 'Switch on {name}',
 	'sync.setup.entity.keepOne': 'Several are named {name}: {types}. Keep one.',
 	'sync.setup.fieldsHeader': 'Fields',
@@ -90,10 +91,13 @@ export const sync = {
 	'sync.prototype': 'Early prototype: use a test project on a test site.',
 
 	'sync.shots.header': 'VFX shots to check',
-	'sync.shots.none': 'No Shot: {codes}',
 	'sync.shots.several': 'Several Shots: {codes}',
 	'sync.shots.footer':
-		'No Shot: the Flow PT project has no Shot with this code yet. The code stays as text on the slate, and each sync looks again. Several Shots: more than one Shot has this code, and the slate links them all. Clean them up in Flow PT. SG OnSet never makes Shots.',
+		'More than one Shot of the Flow PT project has this code. Its Set Shot links them all, and so does the slate. Fix the Set Shot in Flow PT: the slate follows at the next sync. SG OnSet never makes Shots.',
+	'sync.setShots.header': 'Set Shots',
+	'sync.setShots.waiting': 'Slates waiting',
+	'sync.setShots.footer':
+		'This Flow PT site has no Set Shot entity. An admin enables a custom entity named Set Shot, then runs Set Up Fields. Until then the VFX shot codes stay as text on their slates, and their Set Shots and Shot links wait. Everything else syncs.',
 
 	'sync.refused.create': "This Flow PT account can't create {things}. Ask an Admin for the permission.",
 	'sync.refused.update': "This Flow PT account can't change {things}. Ask an Admin for the permission.",

@@ -1,15 +1,14 @@
-// A slate's link to its Shots: the VFX shot codes typed on the slate, matched to the Shots of the
-// Flow PT project, and the writes that bring the slate's Shots field in line. Pure: the search and
-// the writes are in transport.ts.
+// A slate's VFX shot codes, typed on the slate, and the Shots of the Flow PT project that have
+// them. Each code is also a Set Shot (setShots.ts), which says what the slate links. Pure: the
+// search and the writes are in transport.ts.
 //
 // From the corpus:
 // - Shot `code` is text, not unique, and every read needs a project filter of its own: the
 //   endpoint is not scoped (findings/entity_types/Shot.md).
 // - Text matching is case-blind and strips outer spaces, `is` and `in` alike
 //   (findings/field_types/text.md). A code is matched the same way here.
-// - A multi_entity field takes `{multi_entity_update_mode: add | remove, value}` in the body to add
-//   or remove in place. A bare list replaces the whole set, and would drop a link someone made
-//   from the Shot's side (recipes/009_multi_entity_safely.md, findings/142_reverse_field.md).
+// - A multi_entity field takes `{multi_entity_update_mode: add | remove | set, value}` in the body.
+//   The mode in the query string replaces the set at 200 (recipes/009_multi_entity_safely.md).
 
 import type { Op } from '$lib/outbox/types';
 import type { Filter } from './api';
@@ -21,9 +20,6 @@ export const SHOT = 'Shot';
 export const SHOT_CODES_KEY = 'vfxShots';
 
 export type ShotRow = { id: number; code: string };
-
-/** What to write to one slate's Shots field, and what to say of its codes. See `shotPlan`. */
-export type ShotLink = { add: number[]; remove: number[]; waiting: string[]; several: string[]; removing: string[] };
 
 /** A code as Flow PT matches it: trimmed, whatever the case. */
 export function codeKey(code: string): string {
@@ -73,59 +69,24 @@ export function codesOf(rows: readonly Row[]): string[] {
 	return [...seen.values()].sort(byCode);
 }
 
-/**
- * What one slate's codes ask of its Shots field:
- * - `link`: codes the slate holds whose Shots to link. Adding a Shot already there changes nothing
- *   (field_types/multi_entity.md).
- * - `unlink`: codes taken off whose Shots to unlink. Only those: a link made in Flow PT stays.
- * - `check`: codes already linked, looked at again to see whether several Shots still share them.
- *   Never linked again: a Shot a person unlinked stays unlinked.
- */
-export type ShotWork = { link: readonly string[]; unlink: readonly string[]; check: readonly string[] };
-
-/**
- * The writes for one slate, from the Shots that have its codes:
- * - `add`, `remove`: Shot ids. A Shot of a code it links is never removed.
- * - `waiting`: codes to link or check that no Shot has.
- * - `several`: codes to link or check that more than one Shot has. Shot codes are not unique: every
- *   one is linked, and the code is named so someone cleans up.
- * - `removing`: the codes behind `remove`. Owed, if the unlink fails.
- */
-export function shotPlan(work: ShotWork, shots: readonly ShotRow[]): ShotLink {
-	const linked = new Set(work.link.map(codeKey));
-	const gone = new Set(work.unlink.map(codeKey).filter((key) => !linked.has(key)));
-	const having = (key: string) => shots.filter((s) => codeKey(s.code) === key);
-	const ids = (keys: Set<string>) => [...new Set(shots.filter((s) => keys.has(codeKey(s.code))).map((s) => s.id))].sort((a, b) => a - b);
-	const add = ids(linked);
-	const remove = ids(gone).filter((id) => !add.includes(id));
-	const seen = shotCodes([...work.link, ...work.check]);
-	return {
-		add,
-		remove,
-		waiting: seen.filter((code) => having(codeKey(code)).length === 0),
-		several: seen.filter((code) => new Set(having(codeKey(code)).map((s) => s.id)).size > 1),
-		removing: shotCodes(work.unlink).filter((code) => gone.has(codeKey(code)) && having(codeKey(code)).length > 0)
-	};
+/** The value of a write that adds, removes or sets links in place: Shots, or rows of `type`. */
+export function linkValue(mode: 'add' | 'remove' | 'set', ids: readonly number[], type = SHOT) {
+	return { multi_entity_update_mode: mode, value: ids.map((id) => ({ type, id })) };
 }
 
-/** The value of a write that adds or removes Shots in place. */
-export function linkValue(mode: 'add' | 'remove', ids: readonly number[]) {
-	return { multi_entity_update_mode: mode, value: ids.map((id) => ({ type: SHOT, id })) };
-}
-
-/** The codes an operation on a slate holds and the codes it takes off, if it touches them. */
-export function shotChange(op: Op): { link: string[]; unlink: string[] } | undefined {
+/**
+ * The codes a slate holds after an operation, if it touches them: a new slate's codes, or an
+ * edit's new value, none when the codes were cleared. Its Set Shots and Shots follow from them.
+ */
+export function shotChange(op: Op): string[] | undefined {
 	if (op.table !== 'slate') return undefined;
 	if (op.kind === 'create') {
-		const link = shotCodes(op.fields[SHOT_CODES_KEY]);
-		return link.length ? { link, unlink: [] } : undefined;
+		const codes = shotCodes(op.fields[SHOT_CODES_KEY]);
+		return codes.length ? codes : undefined;
 	}
 	if (op.kind === 'update') {
 		const edit = op.changes[SHOT_CODES_KEY];
-		if (!edit) return undefined;
-		const link = shotCodes(edit.value);
-		const kept = new Set(link.map(codeKey));
-		return { link, unlink: shotCodes(edit.base).filter((code) => !kept.has(codeKey(code))) };
+		return edit ? shotCodes(edit.value) : undefined;
 	}
 	return undefined;
 }

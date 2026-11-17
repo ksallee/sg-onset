@@ -20,6 +20,8 @@ export interface EntityLine {
 	action: EntityAction;
 	entityType?: string;
 	candidates?: string[];
+	/** The site syncs without it; what needs it waits (Kevin, #117). */
+	optional?: true;
 }
 
 export interface FieldLine {
@@ -39,8 +41,10 @@ const STATUSES: FieldStatus[] = ['present', 'created', 'missing', 'needsAdmin', 
 export interface SetupView {
 	ready: boolean;
 	entities: EntityLine[];
-	/** Entities an admin must act on. */
+	/** Entities an admin must act on before anything syncs. */
 	entitiesToFix: number;
+	/** Optional entities the site lacks: notes, not failures. */
+	notes: number;
 	counts: Record<FieldStatus, number>;
 	fields: Record<FieldStatus, FieldLine[]>;
 	/** The person may not create fields here. */
@@ -73,7 +77,8 @@ export function setupView(report: SetupReport): SetupView {
 		displayName: e.displayName,
 		action: actionOf(e),
 		...(e.entityType ? { entityType: e.entityType } : {}),
-		...(e.candidates ? { candidates: e.candidates } : {})
+		...(e.candidates ? { candidates: e.candidates } : {}),
+		...(e.optional ? { optional: true as const } : {})
 	}));
 	// A field on Version, where videos go, is named by its type: Version is not one of our entities.
 	const nameOf = new Map<string, string>(report.entities.map((e) => [e.scope, e.displayName]));
@@ -97,7 +102,8 @@ export function setupView(report: SetupReport): SetupView {
 	return {
 		ready: report.ready,
 		entities,
-		entitiesToFix: entities.filter((e) => e.action !== 'found').length,
+		entitiesToFix: entities.filter((e) => e.action !== 'found' && !e.optional).length,
+		notes: entities.filter((e) => e.action !== 'found' && e.optional).length,
 		counts,
 		fields,
 		permission: report.canCreateFields === false || counts.needsAdmin > 0,

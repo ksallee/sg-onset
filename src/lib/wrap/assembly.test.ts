@@ -67,7 +67,40 @@ describe('packagePlan', () => {
 	});
 
 	it('leaves out a pruned photo and says which take it was on', () => {
-		expect(plan.pruned).toEqual([{ takeId: 't42A2A', slate: '42A', take: '2', cameraLetter: 'A', count: 1 }]);
+		expect(plan.pruned).toEqual([{ takeId: 't42A2A', slate: '42A', take: '2', cameraLetter: 'A', counts: { photo: 1 } }]);
+	});
+
+	it('counts the photos it holds', () => {
+		expect(plan.media).toEqual({ photo: 2 });
+	});
+
+	// Kevin, 2026-11-17 (#89): each kind is counted as itself. The switch is for photos and videos;
+	// audio notes always go.
+	describe('videos and audio notes', () => {
+		const t42A1A = rows.find((r) => r.slate.slateUID === '42A' && r.take.take === '1' && r.cameraLetter === 'A')!.take.id;
+		const withNotes = flatten({ ...input(), audioNotes: [{ id: 'an1', takeId: t42A1A, capturedAt: '2026-11-10T22:30:00.000Z' }, { id: 'an2', takeId: 't42A2A', capturedAt: '2026-11-10T22:31:00.000Z' }] }, { shootDayIds: ['d3'] });
+		const media: PhotoBlob[] = [
+			{ id: 'b1', recordId: 'st1', type: 'video/quicktime', size: 1000, createdAt: 2 },
+			{ id: 'b2', recordId: 'st2', type: 'image/jpeg', size: 2000, createdAt: 1 },
+			{ id: 'b3', recordId: 'st3', type: 'video/mp4', size: 3000, createdAt: 3, prunedAt: 9 },
+			{ id: 'ba1', recordId: 'an1', type: 'audio/mp4', size: 40, createdAt: 4 },
+			{ id: 'ba2', recordId: 'an2', type: 'audio/webm', size: 50, createdAt: 5, prunedAt: 9 }
+		];
+
+		it('counts photos, videos and audio notes apart, and weighs photos and videos only', () => {
+			const p = packagePlan(withNotes, defaultChoice(), { ...base, blobs: media });
+			expect(p.media).toEqual({ photo: 1, video: 1, audio: 1 });
+			expect(p.photoBytes).toBe(3000);
+			expect(p.pruned).toEqual([{ takeId: 't42A2A', slate: '42A', take: '2', cameraLetter: 'A', counts: { video: 1, audio: 1 } }]);
+		});
+
+		it('keeps the audio notes with the photos and videos left out', () => {
+			const p = packagePlan(withNotes, { ...defaultChoice(), files: ['crif'] }, { ...base, blobs: media });
+			expect(p.media).toEqual({ audio: 1 });
+			expect(p.entries.filter((e) => e.kind === 'file').map((e) => e.path.split('/').at(-1))).toEqual(['42A-A-audio-note-1.m4a']);
+			expect(p.pruned).toEqual([{ takeId: 't42A2A', slate: '42A', take: '2', cameraLetter: 'A', counts: { audio: 1 } }]);
+			expect(p.photoBytes).toBe(0);
+		});
 	});
 
 	it('marks the annotated copy of a photo, and does not count a pruned copy as one more photo', () => {
@@ -83,7 +116,7 @@ describe('packagePlan', () => {
 			['42A-A-reference-2.jpg', 'photo']
 		]);
 		expect(p.photoBytes).toBe(3500);
-		expect(p.pruned).toEqual([{ takeId: 't42A2A', slate: '42A', take: '2', cameraLetter: 'A', count: 1 }]);
+		expect(p.pruned).toEqual([{ takeId: 't42A2A', slate: '42A', take: '2', cameraLetter: 'A', counts: { photo: 1 } }]);
 	});
 
 	it('holds the setup diagram of a slate, sized by guess until it is drawn, photos or not, not counted as photos', () => {

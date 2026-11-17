@@ -51,6 +51,19 @@ describe('slateManifest', () => {
 		expect(rows.map((r) => r[9])).not.toContain('42A/42A-A-reference-3.jpg');
 	});
 
+	// Kevin, 2026-11-17 (#89): a video's row says Video, never Photo.
+	it('lists a video under its take as Video', () => {
+		const all = input();
+		const filters = { shootDayIds: ['d3'] };
+		const withVideo = blobs.map((b) => (b.id === 'b1' ? { ...b, type: 'video/quicktime' } : b));
+		const folder = wrapPlan(flatten(all, filters), { project, shootDays: [day3], blobs: withVideo, slates: selectSlates(all, filters), references: all.references }).slates[2];
+		const rows = read(slateManifest(folder, kindLabel)).slice(1);
+		expect(rows.slice(1, 3).map((r) => [r[0], r[8]])).toEqual([
+			['Photo', '42A-A-reference-1.heic'],
+			['Video', '42A-A-reference-2.mov']
+		]);
+	});
+
 	// #89: an audio note's row says so, under its take, after the photos.
 	it('lists an audio note under its take as Audio note', () => {
 		const all = { ...input(), audioNotes: [{ id: 'an1', takeId: t42A1A.id, capturedAt: '2026-11-10T22:30:00.000Z' }] };

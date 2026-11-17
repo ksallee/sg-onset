@@ -305,7 +305,8 @@ render:
 - `folderName`: a slug that keeps underscores, for a name typed as it is on a device.
 - Photos follow CRIF: `<slate>-<camera>-reference-<n>.<ext>`, whitespace removed, numbered per
   slate and camera in take order, then the order taken. The extension comes from the file type.
-  A video is a photo here (#94).
+  A video is named and numbered with the photos, and is a video in the manifest and the counts
+  (Kevin, 2026-11-17).
 - Audio notes (#89) take the same form, as CRIF names none: `<slate>-<camera>-audio-note-<n>.<ext>`,
   numbered the same way on their own. The extension is the one the browser wrote: `m4a` from
   Safari, `webm` from a browser with no AAC.
@@ -341,9 +342,13 @@ Night-Train_2026-11-10-day03/
 - The slate folder: the slate as its photo names start, whitespace removed. `42A`.
 - In it, its manifest, `<slate folder>_manifest.csv` (below), and the photos of its takes, named as
   CRIF, each take's audio notes after its photos, with no folder per take: the manifest says which
-  take each is from. With the Photos switch off the photos and audio notes are left out; the slate
-  folders, manifests and reference folders stay. Audio notes follow that switch as videos do,
-  until Kevin decides otherwise (#89).
+  take each is from. With the **Photos and videos** switch off the photos and videos are left out;
+  the audio notes, slate folders, manifests and reference folders stay. Audio notes always go
+  (Kevin, 2026-11-17, #89).
+- Each kind is counted as itself (`wrap/mediaCount.ts`): the switch's row says "2 photos, 1 video
+  · 12 MB", the list of what is in Flow PT only says it per take with the audio notes, and the
+  note on files with none on the device names them photos or videos: a still's kind is read from
+  its file. The day summary and the day report still count videos among the photos.
 - An audio note is a still whose first file is audio. `withAudioNotes` (`wrap/input.ts`) holds
   them apart in `ExportInput.audioNotes`, so the camera report, the day report and the day summary
   count photos only, and the JSON lists them with the photos of their take.
@@ -392,7 +397,7 @@ Reference,,,,,,,HDRI 360,HDRI_0412,42A/hdri-360/HDRI_0412/,Ricoh Theta Z1,A003,7
   reference listed on every slate of its lighting setup, its folder in the slate it was logged
   on). A folder's path ends in a slash.
 - Headers in English, fixed, as CRIF's, so a script does not break with the app's language. What
-  is `Take`, `Photo`, `Audio note` or `Reference`.
+  is `Take`, `Photo`, `Video`, `Annotated photo`, `Audio note`, `Setup diagram` or `Reference`.
 - A file whose bytes are not in the package (freed after Flow PT kept them) has no row.
 - Byte order mark, so Excel reads accents; CRLF; a line break in a value becomes a space; a cell a
   spreadsheet would run as a formula gets a `'` in front, as in the all fields file.
@@ -439,8 +444,9 @@ named by `audioFileName`, manifest word "Audio note". To add one:
 5. A file made at build time, not stored (a diagram drawn from its data), needs another source on
    `SlateFile` (its text, say) and a branch in `read` in `wrap/wrap.svelte.ts`. A slate's own
    file has no take: a pruned one needs its own line in Wrap.
-6. Photos follow the Photos switch (`ctx.photos`). A new kind follows it, or adds a `FileKind` in
-   `wrap/choice.ts` with its row in Wrap.
+6. Photos and videos follow the Photos and videos switch (`ctx.photos`); audio notes and the
+   setup diagram always go. A new kind does one or the other, or adds a `FileKind` in
+   `wrap/choice.ts` with its row in Wrap. Count it in `wrap/mediaCount.ts` if a person counts it.
 
 ## Proposed catalogue changes
 

@@ -166,14 +166,28 @@ describe('wrapPlan', () => {
 			expect(files[5]).toMatchObject({ media: 'audio', pruned: true });
 		});
 
-		// Until Kevin says otherwise: they follow the Photos switch, as videos do.
-		it('are left out with the photos', () => {
-			expect(withNotes({ photos: false }).entries.filter((x) => x.kind === 'file')).toEqual([]);
+		// Kevin, 2026-11-17: the switch is for photos and videos. Audio notes always go.
+		it('go in with the photos and videos left out', () => {
+			const files = withNotes({ photos: false }).entries.filter((x) => x.kind === 'file');
+			expect(files.map(inside)).toEqual(['42A/42A-A-audio-note-1.m4a', '42A/42A-A-audio-note-2.webm', '42A/42A-A-audio-note-3.m4a']);
 		});
 
 		it('are named among the files missing when one has no file', () => {
 			expect(withNotes({ blobs: [...blobs, ...noteBlobs.slice(1)] }).missingPhotos).toEqual(['an1']);
 		});
+	});
+
+	// Kevin, 2026-11-17 (#89): a video is named as a reference, numbered with the photos, and is a
+	// video, never a photo, in the manifest and the counts.
+	it('marks a video as a video, numbered with the photos', () => {
+		const { rows, slates, references } = day3Input();
+		const withVideo = blobs.map((b) => (b.id === 'b1' ? { ...b, type: 'video/quicktime' } : b));
+		const files = wrapPlan(rows, { project, shootDays: [day3], blobs: withVideo, slates, references }).entries.filter((x) => x.kind === 'file');
+		expect(files.map((f) => [inside(f), f.kind === 'file' && f.media])).toEqual([
+			['42A/42A-A-reference-1.heic', 'photo'],
+			['42A/42A-A-reference-2.mov', 'video'],
+			['42A/42A-A-reference-3.jpg', 'photo']
+		]);
 	});
 
 	it('leaves out the photos on request, and keeps the reference folders', () => {

@@ -18,10 +18,11 @@ import { slateManifest } from './slateManifest';
 export type PhotoBlob = Pick<BlobMeta, 'id' | 'recordId' | 'type' | 'size' | 'createdAt' | 'name' | 'prunedAt' | 'variant'>;
 
 /**
- * What a file in a slate's folder is: a photo (a video is one too, #94), a photo's annotated
- * copy, its drawing flattened on it (#86), an audio note (#89), or the slate's setup diagram (#87).
+ * What a file in a slate's folder is: a photo, a video (#94), a photo's annotated copy, its
+ * drawing flattened on it (#86), an audio note (#89), or the slate's setup diagram (#87). Each is
+ * named as itself in the manifest and counted as itself (Kevin, 2026-11-17).
  */
-export type Media = 'photo' | 'annotated' | 'audio' | 'diagram';
+export type Media = 'photo' | 'video' | 'annotated' | 'audio' | 'diagram';
 
 /** About what a setup diagram's PNG weighs, until it is drawn as the package is written. */
 export const DIAGRAM_BYTES = 120_000;
@@ -81,7 +82,7 @@ export type WrapPlan = {
 	entries: WrapEntry[];
 	/** The slate folders, in order. */
 	slates: SlateFolder[];
-	/** Photos and audio notes with no stored file at all. */
+	/** Stills with no stored file at all: photos or videos, as an audio note is known by its file. */
 	missingPhotos: string[];
 };
 
@@ -91,7 +92,7 @@ export type WrapOptions = {
 	shootDays: readonly ShootDay[];
 	/** The files of the photos, as `store.blobsOf(still.id)` returns them. */
 	blobs: readonly PhotoBlob[];
-	/** Include the photos, and the audio notes with them. Default true. */
+	/** Include the photos and videos. Default true. Audio notes always go (Kevin, 2026-11-17). */
 	photos?: boolean;
 	/**
 	 * The slates of the days picked, as `selectSlates` gives them, so a slate with set references
@@ -110,7 +111,7 @@ export type WrapOptions = {
 
 /** What `takeFiles` and `slateFiles` read. One per package: the photo numbers run across it. */
 export type FileContext = {
-	/** The photos and the audio notes go in. */
+	/** The photos and videos go in. Audio notes always do. */
 	photos: boolean;
 	/** The first stored file of each record: later ones are derived, such as a thumbnail. */
 	firstBlob: Map<string, PhotoBlob>;
@@ -146,13 +147,13 @@ export function annotatedBlobs(blobs: readonly PhotoBlob[]): Map<string, PhotoBl
 /**
  * A take's files, as they sit in its slate's folder: its photos, named as CRIF names them and
  * numbered per slate and camera in take order, then the order taken. A photo's annotated copy
- * follows it, under its name with "-annotated" (#86). Then its audio notes (#89), in the photos'
- * form, `-audio-note-N`, numbered the same way on their own. The audio notes follow the Photos
- * switch, as videos do.
+ * follows it, under its name with "-annotated" (#86). A video is named and numbered as a photo,
+ * and is a video (#94). Then its audio notes (#89), in the photos' form, `-audio-note-N`, numbered
+ * the same way on their own. The Photos and videos switch leaves out the photos and videos; the
+ * audio notes always go (Kevin, 2026-11-17).
  */
 export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
 	const files: SlateFile[] = [];
-	if (!ctx.photos) return files;
 	const slate = row.slate.slateUID ?? '';
 	/** The next number of a kind of file, per slate and camera. */
 	const next = (name: typeof photoFileName | typeof audioFileName) => {
@@ -161,7 +162,7 @@ export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
 		ctx.counters.set(key, n);
 		return n;
 	};
-	for (const still of row.stills) {
+	for (const still of ctx.photos ? row.stills : []) {
 		const blob = ctx.firstBlob.get(still.id);
 		if (!blob) {
 			ctx.missing.push(still.id);
@@ -169,7 +170,7 @@ export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
 		}
 		const n = next(photoFileName);
 		files.push({
-			media: 'photo',
+			media: blob.type.trim().toLowerCase().startsWith('video/') ? 'video' : 'photo',
 			name: photoFileName(slate, row.cameraLetter, n, extensionFor(blob.type, blob.name)),
 			mime: blob.type,
 			size: blob.size,

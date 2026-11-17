@@ -1,6 +1,7 @@
 import { makeZip } from 'client-zip';
 import { describe, expect, it } from 'vitest';
 import { crc32 } from './crc32';
+import { writeZip } from './snapshots/zipWrite';
 import { entryBlob, entryCrc, readZip, ZipError } from './zipRead';
 
 type Source = { name: string; data: Uint8Array; deflate?: boolean };
@@ -189,8 +190,76 @@ describe('readZip', () => {
 	});
 
 	it('refuses an entry packed in a way it does not know', async () => {
+		const data = new Uint8Array(await (await buildZip(files)).arrayBuffer());
+		const v = new DataView(data.buffer);
+		// Method 12, in the local header and in the directory alike.
+		v.setUint16(8, 12, true);
+		v.setUint16(v.getUint32(data.length - 6, true) + 10, 12, true);
+		const zip = new Blob([data]);
+		const entries = await readZip(zip);
+		expect(entries[0].method).toBe(12);
+		await expect(entryBlob(zip, entries[0])).rejects.toThrow(/method 12/);
+	});
+
+	it('refuses a local header that disagrees with the directory', async () => {
 		const zip = await buildZip(files);
 		const entries = await readZip(zip);
-		await expect(entryBlob(zip, { ...entries[0], method: 12 })).rejects.toBeInstanceOf(ZipError);
+		await expect(entryBlob(zip, { ...entries[0], method: 8 })).rejects.toThrow(/header does not match/);
+	});
+});
+
+/** Every entry read and checked, as a restore does. Throws when the archive is damaged. */
+async function readAll(zip: Blob): Promise<void> {
+	for (const entry of await readZip(zip)) {
+		if ((await entryCrc(zip, entry)) !== entry.crc) throw new ZipError(`${entry.name} fails its checksum`);
+	}
+}
+
+/**
+ * The bytes nothing reads, so nothing can check: in each directory record the version that made
+ * it and the file attributes, in a zip64 end record the versions.
+ */
+function unchecked(data: Uint8Array): Set<number> {
+	const v = new DataView(data.buffer, data.byteOffset, data.byteLength);
+	const eocd = data.length - 22;
+	let count = v.getUint16(eocd + 10, true);
+	let offset = v.getUint32(eocd + 16, true);
+	const skip = new Set<number>();
+	if (offset === 0xffffffff) {
+		const end = Number(v.getBigUint64(eocd - 20 + 8, true));
+		for (let i = 12; i < 16; i++) skip.add(end + i);
+		count = Number(v.getBigUint64(end + 32, true));
+		offset = Number(v.getBigUint64(end + 48, true));
+	}
+	for (let i = 0, p = offset; i < count; i++) {
+		for (const at of [4, 5, 36, 37, 38, 39, 40, 41]) skip.add(p + at);
+		p += 46 + v.getUint16(p + 28, true) + v.getUint16(p + 30, true) + v.getUint16(p + 32, true);
+	}
+	return skip;
+}
+
+describe('one flipped byte anywhere in the archive', () => {
+	const small: Source[] = [
+		{ name: 'manifest.json', data: bytes('{"a":1}') },
+		{ name: 'tables/take.ndjson', data: bytes('{"id":"t1"}\n'.repeat(3)), deflate: true },
+		{ name: 'blobs/é', data: Uint8Array.from({ length: 40 }, (_, i) => i) }
+	];
+	it.each([
+		['client-zip, with data descriptors', async () => new Response(makeZip(small.map((f) => ({ name: f.name, input: f.data, lastModified: new Date(0) })))).blob()],
+		['a plain zip', () => buildZip(small)],
+		['a zip64 archive', () => buildZip(small, true)],
+		['the snapshot writer', async () => new Blob([writeZip(small, new Date(0)) as BlobPart])]
+	])('is caught when every entry is read, in %s', async (_label, make) => {
+		const data = new Uint8Array(await (await make()).arrayBuffer());
+		await readAll(new Blob([data]));
+		const skip = unchecked(data);
+		const missed: number[] = [];
+		for (let i = 0; i < data.length; i++) {
+			if (skip.has(i)) continue;
+			const bent = data.slice();
+			bent[i] ^= 0xff;
+			if (await readAll(new Blob([bent])).then(() => true, () => false)) missed.push(i);
+		}
+		expect(missed).toEqual([]);
 	});
 });

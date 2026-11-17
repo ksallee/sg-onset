@@ -39,13 +39,14 @@ import { ApiRefusal, createApi, type Filter, type FptOptions } from './api';
 import { resolutionKey } from './cache';
 import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
 import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
-import { ENTITY_SCOPES, isEntityScope, REFERENCE_SLATES, SHOTS, STILLS, type EntityScope } from './mapping';
+import { DIAGRAM_SHOWN, diagramFilename, diagramPrefix } from './diagrams';
+import { DIAGRAMS, ENTITY_SCOPES, isEntityScope, REFERENCE_SLATES, SHOTS, STILLS, type EntityScope } from './mapping';
 import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, type Resolution } from './schema';
 import { loadResolution } from './setup';
 import { codeKey, codesOf, linkValue, SHOT, shotChange, shotCodes, shotFilter, shotPlan, shotsOf, type ShotRow, type ShotWork } from './shots';
-import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, type StillRemote } from './stills';
+import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, variantOf, type StillRemote } from './stills';
 import { takeVersions, type UploadTarget } from './takeVersions';
 import { completionInfo, isMultipart, partLink, UPLOAD_SIZES, URL_LIFE_MS, type UploadSizes } from './uploadPlan';
 import { capturedAtOfCode, retimedCode, VERSION, versionKind, type TakeMedia } from './versions';
@@ -106,7 +107,8 @@ const STILL_KEYS = ['takeId', 'capturedAt', 'caption'];
 
 type Token = {
 	ref: BlobRef;
-	meta: StillRemote;
+	/** A still's: what its Attachment needs. None for a slate's setup diagram. */
+	meta?: StillRemote;
 	/** Where the file goes: the take's photos field, or a Version's movie field. */
 	target: UploadTarget;
 	/** The Version the file goes on, for a video (versions.ts). */
@@ -213,6 +215,52 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 		const value = missing.map((id) => ({ type: ATTACHMENT, id }));
 		await api.update(res.entities.take, take, { [stillsField(res)]: { multi_entity_update_mode: 'add', value } }, signal);
 	}
+
+	/**
+	 * A photo drawn on again has several annotated copies on Flow PT: one per drawing sent. The take
+	 * shows only the newest, the one uploaded last; the older ones leave its photos field and stay
+	 * as Attachments (an Artist may not delete one, findings/143). Add and remove go in one batch,
+	 * in order, the mode in the body (recipes/009, findings/154): the field never shows none or two.
+	 */
+	async function keepNewestCopy(res: Resolution, take: number, stillId: string, signal?: AbortSignal): Promise<void> {
+		const copies = ((await attachmentsOf([stillId], signal)).get(stillId) ?? []).filter((row) => variantOf(row.attributes.filename) === 'annotated');
+		await keepNewest(res.entities.take, take, stillsField(res), copies, signal);
+	}
+
+	/**
+	 * Of `rows` (Attachments of one family, newest first), only the newest in `field` of the record:
+	 * the older ones leave it, and the newest goes in if it is missing. One batch, in order.
+	 */
+	async function keepNewest(entity: string, id: number, field: string, rows: readonly EntityRow[], signal?: AbortSignal): Promise<void> {
+		const [newest, ...older] = rows;
+		if (!newest) return;
+		const [row] = await api.search(entity, ['id', 'is', id], [field], 1, signal);
+		const links = (row?.relationships[field]?.data ?? []) as { id: number }[];
+		const held = Array.isArray(links) ? links.map((link) => link.id) : [];
+		const edit = (mode: 'add' | 'remove', ids: number[]): BatchRequest => ({
+			request_type: 'update',
+			entity,
+			record_id: id,
+			data: { [field]: { multi_entity_update_mode: mode, value: ids.map((x) => ({ type: ATTACHMENT, id: x })) } }
+		});
+		const stale = older.filter((r) => held.includes(r.id)).map((r) => r.id);
+		const requests = [...(held.includes(newest.id) ? [] : [edit('add', [newest.id])]), ...(stale.length ? [edit('remove', stale)] : [])];
+		if (requests.length) await api.batch(requests, signal);
+	}
+
+	/** The Attachments whose file name starts with `prefix`, newest first. */
+	async function family(prefix: string, signal?: AbortSignal): Promise<EntityRow[]> {
+		const rows = await api.search(ATTACHMENT, ['filename', 'starts_with', prefix], ['filename'], 500, signal);
+		return rows.filter((r) => String(r.attributes.filename ?? '').toLowerCase().startsWith(prefix)).sort((a, b) => b.id - a.id);
+	}
+
+	const diagramsField = (res: Resolution) => fieldName(res, 'slate', DIAGRAMS);
+
+	/** A still's file the app made: its annotated copy. */
+	const stillVariant = (ref: Pick<BlobRef, 'variant'>) => (ref.variant === 'annotated' ? ref.variant : undefined);
+
+	/** The slate's server id, for a slate's setup diagram image (#87). */
+	const diagramSlate = (ref: BlobRef): number | undefined => (ref.table === 'slate' && ref.variant === 'diagram' && typeof ref.recordRemoteId === 'number' ? ref.recordRemoteId : undefined);
 
 	// ------------------------------------------------------------------ shots
 
@@ -377,13 +425,17 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 				} else if (!found) refuse(o, 'gone');
 				else if (op.kind === 'delete') for (const row of found) request(o, { request_type: 'delete', entity: ATTACHMENT, record_id: row.id });
 				else {
-					const data: Record<string, unknown> = {};
-					for (const [key, edit] of Object.entries(op.changes)) {
-						if (key === 'caption') data.description = text(edit.value) ?? null;
-						else if (key === 'capturedAt') data.display_name = stillDisplayName(text(edit.value));
-						else return { ...out, refusals: [...out.refusals, { entryId: o.entryId, reason: 'invalid', message: `still.${key} cannot change on the server` }] };
+					const stray = Object.keys(op.changes).find((key) => key !== 'caption' && key !== 'capturedAt');
+					if (stray) return { ...out, refusals: [...out.refusals, { entryId: o.entryId, reason: 'invalid', message: `still.${stray} cannot change on the server` }] };
+					// Every file of the still: the photo and its annotated copy, each keeping its own name.
+					for (const row of found) {
+						const data: Record<string, unknown> = {};
+						for (const [key, edit] of Object.entries(op.changes)) {
+							if (key === 'caption') data.description = text(edit.value) ?? null;
+							else data.display_name = stillDisplayName(text(edit.value), variantOf(row.attributes.filename));
+						}
+						request(o, { request_type: 'update', entity: ATTACHMENT, record_id: row.id, data });
 					}
-					request(o, { request_type: 'update', entity: ATTACHMENT, record_id: found[0].id, data });
 				}
 			} else if (isEntityScope(op.table) && res) {
 				const entity = res.entities[op.table];
@@ -474,13 +526,16 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	 * field: the Version is found by client UUID or made first (takeVersions.ts).
 	 */
 	async function begin(ref: BlobRef, signal?: AbortSignal): Promise<UploadSession> {
+		const diagram = diagramSlate(ref);
 		const meta = ref.table === STILL ? decodeStillRemote(ref.recordRemoteId) : undefined;
-		if (!meta) throw new TransportError('failed', `the file ${ref.blobId} has no still on a take the server holds`);
+		if (!meta && diagram === undefined) throw new TransportError('failed', `the file ${ref.blobId} has no still on a take, nor a slate, the server holds`);
 		const res = await resolved(signal);
 		const multipart = isMultipart(ref.size, sizes);
-		let target: UploadTarget = { entityType: res.entities.take, id: meta.take, field: stillsField(res), filename: stillFilename(ref.recordId, ref.blobId, ref.type) };
+		let target: UploadTarget = meta
+			? { entityType: res.entities.take, id: meta.take, field: stillsField(res), filename: stillFilename(ref.recordId, ref.blobId, ref.type, stillVariant(ref)) }
+			: { entityType: res.entities.slate, id: diagram!, field: diagramsField(res), filename: diagramFilename(ref.recordId, ref.blobId) };
 		let version: number | undefined;
-		if (versionKind(ref.type)) {
+		if (meta && versionKind(ref.type)) {
 			const media = mediaOf(ref, meta);
 			version = await versions.ensure(res, media, signal);
 			target = versions.target(version, media);
@@ -723,7 +778,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 			}
 			// `upload_info` is the init reply verbatim; `upload_data` is required. For a photo it sets the
 			// display name; a Version's movie takes it empty, as measured (findings/013, 022).
-			const data = t.version !== undefined ? {} : { display_name: stillDisplayName(t.meta.capturedAt) };
+			const data = t.version !== undefined ? {} : { display_name: t.meta ? stillDisplayName(t.meta.capturedAt, stillVariant(t.ref)) : DIAGRAM_SHOWN };
 			try {
 				await api.post(t.completeUpload, { upload_info: info, upload_data: data }, signal);
 			} catch (error) {
@@ -740,7 +795,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 			try {
 				const [row] = await uploaded(t.target.filename, signal);
 				if (!row) return {};
-				await caption(row, t.meta, signal);
+				if (t.meta) await caption(row, t.meta, signal);
 				return { remoteId: row.id };
 			} catch {
 				return {};
@@ -748,11 +803,13 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 		},
 
 		async verifyUpload(blob: BlobRef, _remoteId?: RemoteId, signal?: AbortSignal): Promise<{ verified: boolean; remoteId?: RemoteId }> {
+			const diagram = diagramSlate(blob);
 			const meta = blob.table === STILL ? decodeStillRemote(blob.recordRemoteId) : undefined;
-			if (!meta) return { verified: false };
+			if (!meta && diagram === undefined) return { verified: false };
 			const res = await resolved(signal);
-			if (versionKind(blob.type)) return versions.verify(res, mediaOf(blob, meta), blob.size, signal);
-			for (const row of await uploaded(stillFilename(blob.recordId, blob.blobId, blob.type), signal)) {
+			if (meta && versionKind(blob.type)) return versions.verify(res, mediaOf(blob, meta), blob.size, signal);
+			const filename = meta ? stillFilename(blob.recordId, blob.blobId, blob.type, stillVariant(blob)) : diagramFilename(blob.recordId, blob.blobId);
+			for (const row of await uploaded(filename, signal)) {
 				// The url is presigned and re-minted on every read: used once, never kept (field_types/url.md).
 				const url = (row.attributes.this_file as { url?: unknown } | null)?.url;
 				if (typeof url !== 'string') continue;
@@ -764,8 +821,12 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 					continue;
 				}
 				if (size !== blob.size) continue;
-				await link(res, meta.take, [row.id], signal);
-				await caption(row, meta, signal);
+				// A slate's diagram, an annotated copy: the record shows the newest one only. A photo: on the
+				// take, whatever else is.
+				if (!meta) await keepNewest(res.entities.slate, diagram!, diagramsField(res), await family(diagramPrefix(blob.recordId), signal), signal);
+				else if (blob.variant === 'annotated') await keepNewestCopy(res, meta.take, blob.recordId, signal);
+				else await link(res, meta.take, [row.id], signal);
+				if (meta) await caption(row, meta, signal);
 				return { verified: true, remoteId: row.id };
 			}
 			return { verified: false };

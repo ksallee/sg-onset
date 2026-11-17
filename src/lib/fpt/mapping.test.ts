@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { endKey, FIELDS } from '$lib/model/catalogue';
 import { linkKeys } from '$lib/store/tables';
-import { CREATED_AT, ENTITY_SCOPES, ENTITY_TYPES, fieldMap, fieldMaps, mappingTable, REFERENCE_SLATES, SHOTS, STILLS, UUID, wantedColumns, type EntityScope } from './mapping';
+import { CREATED_AT, DIAGRAMS, ENTITY_SCOPES, ENTITY_TYPES, fieldMap, fieldMaps, mappingTable, REFERENCE_SLATES, SHOTS, STILLS, UUID, wantedColumns, type EntityScope } from './mapping';
 import { codeName } from './names';
 
 const names = (scope: EntityScope) => wantedColumns(scope).map((c) => c.name);
@@ -135,6 +135,12 @@ describe('wantedColumns', () => {
 		expect(STILLS).toMatchObject({ name: 'sg_photos', dataType: 'multi_entity', target: 'attachment' });
 		expect(names('take')).toContain('sg_photos');
 		expect(names('slate')).not.toContain('sg_photos');
+	});
+
+	it('asks for the setup diagram field on the slate only, Attachments as the photos of a take are', () => {
+		expect(DIAGRAMS).toMatchObject({ name: 'sg_setup_diagram', display: 'Setup Diagram', dataType: 'multi_entity', target: 'attachment' });
+		expect(names('slate')).toContain('sg_setup_diagram');
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'slate')) expect(names(scope)).not.toContain('sg_setup_diagram');
 	});
 
 	// A multi_entity to Shot is created by API, valid_types of one type (corpus findings/116).

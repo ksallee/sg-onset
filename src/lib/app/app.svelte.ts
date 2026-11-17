@@ -6,7 +6,12 @@
 // The snapshotter starts with the store: it only listens until a change, and writes in an idle
 // callback, so neither the first paint nor the take screen waits on it. The browser is asked to
 // protect the data on each open, where that shows no dialog: nothing waits on its answer.
+//
+// The flattener starts with it too: it makes the annotated copy of a photo after its drawing
+// changes (#86, `$lib/draw/flattener`), in the background, never on the capture path.
 import { getContext, setContext } from 'svelte';
+import { createFlattener, type Flattener } from '$lib/draw/flattener';
+import { flattenPhoto } from '$lib/draw/flatten';
 import { persistQuietly } from '$lib/pwa/persist';
 import { openStore, type DexieStore } from '$lib/store/dexieStore';
 import { createSnapshotter, type Snapshotter } from '$lib/store/snapshots';
@@ -24,6 +29,8 @@ export interface App {
 	readonly edit: Editor;
 	/** Automatic snapshots of the store (store/README.md, Snapshots). The editor calls it before risky edits. */
 	readonly snapshotter: Snapshotter;
+	/** Keeps each photo's annotated copy in step with its drawing. A drawing open holds its photo. */
+	readonly flattener: Flattener;
 	readonly canUndo: boolean;
 	readonly canRedo: boolean;
 	/** The last thing the editor did, until dismissed: what a notice shows. */
@@ -44,6 +51,7 @@ let opened: App | undefined;
 // the snapshotter takes its last one as the page hides.
 import.meta.hot?.dispose(() => {
 	opened?.snapshotter.stop();
+	opened?.flattener.stop();
 	opened = undefined;
 });
 
@@ -53,6 +61,7 @@ function open(): App {
 	let last = $state.raw<App['lastEdit']>(null);
 	void persistQuietly();
 	const snapshotter = createSnapshotter({ snapshots: store.snapshots, subscribe: store.subscribe });
+	const flattener = createFlattener({ store, flatten: flattenPhoto });
 	const edit = createEditor(
 		store,
 		(state, event) => {
@@ -71,6 +80,7 @@ function open(): App {
 		store,
 		edit,
 		snapshotter,
+		flattener,
 		get canUndo() {
 			return undo.past.length > 0;
 		},

@@ -10,7 +10,7 @@ import { sameValue } from '$lib/model/value';
 import { resolveConflict } from '$lib/outbox/conflict';
 import { retry } from '$lib/outbox/machine';
 import { settle, type OutboxPort } from '$lib/outbox/port';
-import { enqueue } from '$lib/outbox/queue';
+import { dropUpload, enqueue } from '$lib/outbox/queue';
 import { unsynced } from '$lib/outbox/select';
 import { isActive, isOpen, type Entry, type FieldEdit, type Fresh, type Op, type Queue, type RemoteId } from '$lib/outbox/types';
 import { persistStorage } from '$lib/pwa/persist';
@@ -171,7 +171,9 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 			...(file.name ? { name: file.name } : {}),
 			type: file.blob.type,
 			size: file.blob.size,
-			createdAt: now()
+			createdAt: now(),
+			...(file.variant ? { variant: file.variant } : {}),
+			...(file.source ? { source: file.source } : {})
 		};
 		await blobs.add(info);
 		await blobData.add({ id: info.id, data: file.blob });
@@ -181,7 +183,7 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 
 	function blobOp(info: BlobMeta): QueueOp {
 		return {
-			op: { kind: 'blob', table: info.table, recordId: info.recordId, blobId: info.id, size: info.size, type: info.type },
+			op: { kind: 'blob', table: info.table, recordId: info.recordId, blobId: info.id, size: info.size, type: info.type, ...(info.variant ? { variant: info.variant } : {}) },
 			dependsOn: [info.recordId]
 		};
 	}
@@ -343,6 +345,27 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 			});
 			if (pruned) emit(['blobs']);
 			return pruned;
+		},
+
+		async dropBlob(id) {
+			const result = await write([], async () => {
+				const info = await blobs.get(id);
+				if (!info) return 'none';
+				if (info.verifiedAt !== undefined) return 'kept';
+				let left = false;
+				await editQueue([info.recordId], (q) => {
+					const next = dropUpload(q, id);
+					left = next === undefined;
+					return next ?? q;
+				});
+				if (left) return 'kept';
+				await blobs.delete(id);
+				// Bytes a snapshot names stay until it goes: restoring it brings the file back.
+				if (!(await snapshots.pinned()).has(id)) await blobData.delete(id);
+				return 'dropped';
+			});
+			if (result === 'dropped') emit(['blobs', 'outbox']);
+			return result !== 'kept';
 		},
 
 		outbox: port,

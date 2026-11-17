@@ -3,6 +3,7 @@ import { flatten, selectSlates } from '$lib/export/selection';
 import { day3, day4, input, kindLabel, project, sharedLighting } from '$lib/export/testData';
 import type { PhotoBlob } from '$lib/export/wrapPackage';
 import { defaultChoice } from './choice';
+import { DIAGRAM_BYTES } from '$lib/export/wrapPackage';
 import { packagePlan } from './assembly';
 
 const rows = flatten(input(), { shootDayIds: ['d3'] });
@@ -74,6 +75,33 @@ describe('packagePlan', () => {
 
 	it('leaves out a pruned photo and says which take it was on', () => {
 		expect(plan.pruned).toEqual([{ takeId: 't42A2A', slate: '42A', take: '2', cameraLetter: 'A', count: 1 }]);
+	});
+
+	it('marks the annotated copy of a photo, and does not count a pruned copy as one more photo', () => {
+		const copies: PhotoBlob[] = [
+			...blobs,
+			{ id: 'b2flat', recordId: 'st2', type: 'image/jpeg', size: 500, createdAt: 4, variant: 'annotated' },
+			{ id: 'b3flat', recordId: 'st3', type: 'image/jpeg', size: 500, createdAt: 5, variant: 'annotated', prunedAt: 9 }
+		];
+		const p = packagePlan(rows, defaultChoice(), { ...base, blobs: copies });
+		expect(p.entries.flatMap((e) => (e.kind === 'file' ? [[e.path.split('/').at(-1), e.media]] : []))).toEqual([
+			['42A-A-reference-1.jpg', 'photo'],
+			['42A-A-reference-1-annotated.jpg', 'annotated'],
+			['42A-A-reference-2.jpg', 'photo']
+		]);
+		expect(p.photoBytes).toBe(3500);
+		expect(p.pruned).toEqual([{ takeId: 't42A2A', slate: '42A', take: '2', cameraLetter: 'A', count: 1 }]);
+	});
+
+	it('holds the setup diagram of a slate, sized by guess until it is drawn, photos or not, not counted as photos', () => {
+		const slateId = rows.find((r) => r.slate.slateUID === '42A')!.slate.id;
+		const diagrams = [{ id: 'dg1', slateId }];
+		for (const choice of [defaultChoice(), { ...defaultChoice(), files: defaultChoice().files.filter((f) => f !== 'photos') }]) {
+			const p = packagePlan(rows, choice, { ...base, diagrams });
+			const found = p.entries.filter((e) => e.kind === 'file' && e.media === 'diagram');
+			expect(found).toEqual([{ kind: 'file', media: 'diagram', path: 'Night-Train_2026-11-10-day03/42A/42A-setup-diagram.png', mime: 'image/png', size: DIAGRAM_BYTES, blobId: '', diagramId: 'dg1' }]);
+			expect(p.photoBytes).toBe(choice.files.includes('photos') ? 3000 : 0);
+		}
 	});
 
 	it('lists photos with no file at all', () => {

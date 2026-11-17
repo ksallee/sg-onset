@@ -82,6 +82,12 @@ export const UUID: Column = { name: 'sg_onset_uuid', display: 'Onset UUID', data
 export const STILLS: Column = { name: 'sg_photos', display: 'Photos', dataType: 'multi_entity', target: 'attachment', note: 'Reference photos, as shot.' };
 
 /**
+ * The setup diagram of a slate (#87): its image, an Attachment, as a take's photos are. The slate
+ * shows the newest one: an older image leaves the field when a newer one is verified.
+ */
+export const DIAGRAMS: Column = { name: 'sg_setup_diagram', display: 'Setup Diagram', dataType: 'multi_entity', target: 'attachment', note: 'The setup diagram, from above, as an image.' };
+
+/**
  * Ours on Version, a stock type: a take's videos go up as Versions linked to the take (Kevin,
  * 2026-11-17; versions.ts). The client UUID only, so a create sent twice is refused.
  */
@@ -288,7 +294,7 @@ export function fieldMap(scope: EntityScope, key: string): FieldMap | undefined 
 /** The fields a scope's entity must have that are not stock: ours to find or create. */
 export function wantedColumns(scope: EntityScope): Column[] {
 	const own = MAPS[scope].flatMap((m) => m.columns).filter((c) => !c.stock);
-	return [UUID, ...own, ...(scope === 'take' ? [STILLS] : []), ...(scope === 'slate' ? [SHOTS] : []), ...(scope === 'reference' ? [REFERENCE_SLATES] : [])];
+	return [UUID, ...own, ...(scope === 'take' ? [STILLS] : []), ...(scope === 'slate' ? [SHOTS, DIAGRAMS] : []), ...(scope === 'reference' ? [REFERENCE_SLATES] : [])];
 }
 
 /** The mapping as rows, for the README and for a person checking it. */

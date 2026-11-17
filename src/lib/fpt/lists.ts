@@ -3,10 +3,10 @@
 // syncs with, one field per list, so an edit of one never writes the other. Pure: the reads and
 // writes are in transport.ts.
 //
-// From the corpus: a text field stores the string as sent, newlines kept, with no cap found at
-// 100,000 characters; it strips outer spaces, which JSON never has, and stores "" as null
-// (field_types/text.md). A custom jsonb field is unmeasured: the only two the corpus found are stock,
-// and Note.meta is written on create only (field_types/jsonb.md).
+// From the corpus: a text field on Project keeps 1,000,000 characters of JSON byte for byte,
+// newlines kept, and strips outer spaces and newlines (findings/158); it stores "" as null
+// (field_types/text.md). So what is read back is parsed and compared as values, never as text. A
+// custom jsonb field cannot be created (findings/160).
 
 import { sameValue } from '$lib/model/value';
 import type { CreateOp, DeleteOp, UpdateOp } from '$lib/outbox/types';

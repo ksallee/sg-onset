@@ -203,10 +203,18 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 		return row;
 	};
 	const isRef = (v: unknown): v is Ref => v !== null && typeof v === 'object' && typeof (v as Ref).type === 'string' && typeof (v as Ref).id === 'number';
-	const legal = (type: string, name: string, ref: Ref) => {
+	/**
+	 * A write naming a deleted row is refused as one naming an id that never existed: 400 code 104,
+	 * nothing applied, the create's words wrapped (findings/161).
+	 */
+	const legal = (type: string, name: string, ref: Ref, verb: 'create' | 'update') => {
 		const target = rows.get(`${ref.type}:${ref.id}`);
-		if (!target || target.retired) throw new Refusal(400, `Invalid field value, update failed [5 - Update failed for [${type}.${name}]: Value is not legal.]`);
+		if (target && !target.retired) return;
+		const said = `Update failed for [${type}.${name}]: Value is not legal.`;
+		throw new Refusal(400, verb === 'create' ? `Invalid field value, update failed [5 - ${said}]` : said, 104);
 	};
+	/** A link reads as its target while the target is live; a deleted one reads as none (findings/161). */
+	const liveRef = (value: unknown): Ref | undefined => (isRef(value) && rows.get(`${value.type}:${value.id}`) && !rows.get(`${value.type}:${value.id}`)!.retired ? value : undefined);
 
 	/** A value as the field stores it, or the refusal the data type answers (findings/field_types). */
 	function stored(type: string, name: string, value: unknown, row: FakeRow | undefined, verb: 'create' | 'update'): unknown {
@@ -258,14 +266,14 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			case 'entity': {
 				if (value === null) return null;
 				if (!isRef(value)) throw got('[Hash, NilClass]');
-				legal(type, name, value);
+				legal(type, name, value, verb);
 				return { type: value.type, id: value.id };
 			}
 			case 'multi_entity': {
 				const mode = value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as { multi_entity_update_mode?: string }).multi_entity_update_mode : 'set';
 				const list = Array.isArray(value) ? value : (value as { value?: unknown } | null)?.value;
 				if (!Array.isArray(list) || !list.every(isRef)) throw got('[Array]');
-				list.forEach((ref) => legal(type, name, ref));
+				list.forEach((ref) => legal(type, name, ref, verb));
 				// A bare list replaces the whole set; a mode in the body adds or removes in place (recipes/009).
 				const now = mode === 'add' || mode === 'remove' ? ((row?.values[name] as Ref[] | undefined) ?? []) : [];
 				const same = (a: Ref, b: Ref) => a.type === b.type && a.id === b.id;
@@ -320,8 +328,8 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			const [head, via, leaf] = name.split('.');
 			if (leaf) {
 				// A dotted path reads through a single link, typed (field_types/entity.md).
-				const link = row.values[head] as Ref | null | undefined;
-				const target = isRef(link) && link.type === via ? rows.get(`${link.type}:${link.id}`) : undefined;
+				const link = liveRef(row.values[head]);
+				const target = link && link.type === via ? rows.get(`${link.type}:${link.id}`) : undefined;
 				attributes[name] = target?.values[leaf] ?? null;
 				continue;
 			}
@@ -329,7 +337,7 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			if (!field && name !== 'created_at') continue;
 			const value = row.values[name] ?? null;
 			const dataType = field?.data_type.value;
-			if (dataType === 'entity') relationships[name] = { data: isRef(value) ? { ...value, name: 'x' } : null, links: {} };
+			if (dataType === 'entity') relationships[name] = { data: liveRef(value) ? { ...(value as Ref), name: 'x' } : null, links: {} };
 			else if (dataType === 'multi_entity') {
 				const live = ((value as Ref[] | null) ?? []).filter((r) => rows.get(`${r.type}:${r.id}`) && !rows.get(`${r.type}:${r.id}`)!.retired);
 				// `name` is the target's display name: a Shot's is its code (findings/060, entity_types/Shot.md).
@@ -351,7 +359,8 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			const [path, relation, value] = filter as [string, string, unknown];
 			const have = path === 'id' ? row.id : row.values[path];
 			const text = (v: unknown) => String(v ?? '').toLowerCase();
-			const sameRef = (a: unknown, b: unknown) => isRef(a) && isRef(b) && a.type === b.type && a.id === b.id;
+			// A link to a deleted row matches nothing (findings/161).
+			const sameRef = (a: unknown, b: unknown) => isRef(a) && isRef(b) && a.type === b.type && a.id === b.id && liveRef(a) !== undefined;
 			const hit = (v: unknown) => (Array.isArray(have) ? have.some((h) => sameRef(h, v)) : isRef(have) || isRef(v) ? sameRef(have, v) : typeof have === 'number' ? have === v : text(have) === text(v));
 			// A text filter is case-blind (field_types/text.md).
 			if (relation === 'is') return hit(value);

@@ -1035,6 +1035,61 @@ describe('the shared camera setups', () => {
 		expect(await s.store.get('cameraSetup', 'csC')).toBeUndefined();
 	});
 
+	// findings/161: Flow PT reads a link to a deleted row as none, and refuses any write naming one.
+	// The lens sent back is a new row under the same client UUID: the synced takes and the setup that
+	// hold it are written again with its new id, never the old one.
+	it('links the synced takes and setup again to the new row of a lens another device deleted', async () => {
+		const s = setup();
+		await gear(s);
+		await s.edit.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.edit.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '42A' });
+		await s.edit.create('take', { id: 't1', slateId: 's1', take: '1', cameraSetupId: 'csA', cameraId: 'c1', lensId: 'l1' });
+		await s.edit.create('take', { id: 't2', slateId: 's1', take: '2', cameraSetupId: 'csA', cameraId: 'c1', lensId: 'l1' });
+		await settle(s.engine, s.fpt);
+		const old = s.fpt.byUuid('CustomEntity19', 'l1')!.id;
+		expect(s.fpt.byUuid(TAKE, 't1')!.values.sg_lens).toEqual({ type: 'CustomEntity19', id: old });
+
+		// B deletes the lens. Gear takes it off B's copy of the setup too, as one edit.
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		await b.edit.apply('cameraSetup', [{ id: 'csA', key: 'lensId', from: 'l1', to: undefined }]);
+		await b.edit.remove('lens', 'l1');
+		await settle(b.engine, s.fpt);
+		expect(s.fpt.byUuid('CustomEntity19', 'l1')).toBeUndefined();
+
+		// A: the lens is used by its takes, so it is kept and sent back, and every link to it written again.
+		await settle(s.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		const fresh = s.fpt.byUuid('CustomEntity19', 'l1')!;
+		expect(fresh.id).not.toBe(old);
+		expect(s.fpt.byUuid(TAKE, 't1')!.values.sg_lens).toEqual({ type: 'CustomEntity19', id: fresh.id });
+		expect(s.fpt.byUuid(TAKE, 't2')!.values.sg_lens).toEqual({ type: 'CustomEntity19', id: fresh.id });
+		expect(await s.store.remoteId('l1')).toBe(fresh.id);
+		expect(await s.store.outbox.entries()).toEqual([]);
+		// The setup that uses it here keeps it too, on Flow PT with the new id: the lens is kept because
+		// it is used here (Kevin, #110), and B gets both back at its next sync.
+		expect((await s.store.get('cameraSetup', 'csA'))!.lensId).toBe('l1');
+		expect(s.fpt.byUuid('CustomEntity10', 'csA')!.values.sg_lens).toEqual({ type: 'CustomEntity19', id: fresh.id });
+		await settle(b.engine, s.fpt);
+		expect(await b.store.get('lens', 'l1')).toBeDefined();
+		expect((await b.store.get('cameraSetup', 'csA'))!.lensId).toBe('l1');
+	});
+
+	// Deleted by hand in Flow PT: the setup's link reads as none (findings/161) and is written again.
+	it('links a synced setup again to the new row of a lens deleted in Flow PT', async () => {
+		const s = setup();
+		await gear(s);
+		const old = s.fpt.byUuid('CustomEntity19', 'l1')!.id;
+		s.fpt.rows.get(`CustomEntity19:${old}`)!.retired = true;
+		await settle(s.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		const fresh = s.fpt.byUuid('CustomEntity19', 'l1')!;
+		expect(fresh.id).not.toBe(old);
+		expect(s.fpt.byUuid('CustomEntity10', 'csA')!.values.sg_lens).toEqual({ type: 'CustomEntity19', id: fresh.id });
+		expect((await s.store.get('cameraSetup', 'csA'))!.lensId).toBe('l1');
+		expect(await s.store.outbox.entries()).toEqual([]);
+	});
+
 	it('lists a change made on another device of an entry used here, until it is seen, across a reload', async () => {
 		const s = setup();
 		await gear(s);

@@ -191,9 +191,9 @@ export const NOTE_COLUMNS: readonly Column[] = [NOTE_KEY, NOTE_CAPTURED];
 
 /**
  * The live templates of the project, shared by every device of the show (#110): JSON in a text
- * field of the Project (lists.ts). A text field took 100,000 characters with no cap found, newlines
- * kept (corpus field_types/text.md). Flow PT has no entity for a template, and Kevin wants no new
- * required custom entity.
+ * field of the Project (lists.ts). A text field on Project is created by API (corpus findings/157)
+ * and keeps 1,000,000 characters byte for byte (findings/158); jsonb cannot be created
+ * (findings/160). Flow PT has no entity for a template, and Kevin wants no new required custom entity.
  */
 export const PROJECT_TEMPLATES: Column = {
 	name: 'sg_onset_templates',

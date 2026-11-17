@@ -456,6 +456,13 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 					// The create carries the record as it is: the edits it holds are not sent again.
 					await editQueue([...resend], (q) => q.filter((e) => !(resend.has(e.op.recordId) && e.op.kind === 'update' && (isOpen(e) || e.state === 'needsAttention'))));
 				}
+				// The links to a record sent back, written again: Flow PT reads them as none now. Only where
+				// the record still holds the link; the update resolves to the new row when it is sent.
+				for (const link of p.relink ?? []) {
+					const row = others[link.table]?.find((r) => r.id === link.id);
+					if (row?.[link.key] !== link.value) continue;
+					creates.push({ op: { kind: 'update', table: link.table, recordId: link.id, changes: { [link.key]: { base: undefined, value: link.value } } }, dependsOn: [link.value] });
+				}
 				if (creates.length) queued = await queue(creates);
 				return p;
 			});

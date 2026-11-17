@@ -293,6 +293,21 @@ describe('push, refused', () => {
 		expect(await w.transport.push([table])).toMatchObject({ outcome: 'refused', refusals: [{ entryId: table.entryId, reason: 'invalid' }] });
 	});
 
+	// findings/161: a write naming a deleted row is refused as one naming an id that never existed:
+	// 400 code 104 "Value is not legal.", nothing applied.
+	it('is refused a link to a row deleted on Flow PT, which reads as no link', async () => {
+		const w = world();
+		const ids = await shoot(w);
+		const lens = Object.values(await applied(w, [create('lens', 'l1', { projectId: 'p1', lensModel: 'A' }, { p1: w.projectId })]))[0];
+		await applied(w, [update('take', 't1', ids.t1, { lensId: [undefined, 'l1'] }, { l1: lens })]);
+		w.fpt.rows.get(`CustomEntity19:${lens}`)!.retired = true;
+		expect(await w.transport.read([{ table: 'take', id: 't1', remoteId: ids.t1, keys: ['lensId'] }])).toEqual([{ table: 'take', id: 't1', remoteId: ids.t1, fields: {} }]);
+		const relink = update('take', 't1', ids.t1, { tStop: [2.8, 4], lensId: [undefined, 'l1'] }, { l1: lens });
+		const result = await w.transport.push([relink]);
+		expect(result).toEqual({ outcome: 'refused', refusals: [{ entryId: relink.entryId, reason: 'invalid', message: expect.stringContaining('Value is not legal') }] });
+		expect(w.fpt.byUuid('CustomEntity09', 't1')!.values.sg_t_stop).toBe(2.8);
+	});
+
 	// corpus field_types/entity.md: "Value is not legal" for an id that does not exist.
 	it('names the operations that wrote the field a 400 blames', async () => {
 		const w = world();
@@ -1717,6 +1732,7 @@ describe('the shared lists', () => {
 		expect(project(w).sg_onset_templates).toBe('Day ext, Night int');
 	});
 
+	// findings/159: an Artist in the project reads the field and gets 400 code 104 on a PUT.
 	it('says in plain words when the account may not change the Project, and holds the lists back after', async () => {
 		const w = world();
 		w.fpt.forbidden.add('update:Project');
@@ -1726,6 +1742,26 @@ describe('the shared lists', () => {
 		const puts = w.fpt.count((r) => r.method === 'PUT');
 		await w.transport.push([create('referenceKind', 'k2', { name: 'Sky' })]);
 		expect(w.fpt.count((r) => r.method === 'PUT')).toBe(puts);
+	});
+
+	// findings/159: an Artist outside the project gets 400 code 104 "Entity can not be accessed by this user."
+	it('says the same plain words when the account may not reach the Project at all', async () => {
+		const w = world();
+		w.fpt.failNext((r) => r.method === 'PUT' && r.path.includes('/projects/'), { status: 400, body: { errors: [{ status: 400, code: 104, title: 'Entity can not be accessed by this user.' }] } });
+		const make = create('referenceKind', 'k1', { name: 'Drone scan' });
+		expect(await w.transport.push([make])).toEqual({ outcome: 'refused', refusals: [{ entryId: make.entryId, reason: 'invalid', message: expect.stringContaining("can't change the Project") }] });
+	});
+
+	// findings/158: outer spaces and newlines are stripped, the rest kept byte for byte. A list written
+	// by another serializer reads the same: values are compared parsed, never as strings.
+	it('takes a list another writer formatted, its outer newline stripped by Flow PT, as the same list', async () => {
+		const w = world();
+		project(w).sg_onset_reference_kinds = JSON.stringify({ list: 'referenceKind', version: 1, entries: [{ id: 'k7', name: 'Theirs' }] }, null, 2);
+		await applied(w, [create('referenceKind', 'k1', { name: 'Mine' })]);
+		expect(listOf(w, 'sg_onset_reference_kinds')).toEqual([
+			{ id: 'k7', name: 'Theirs' },
+			{ id: 'k1', name: 'Mine' }
+		]);
 	});
 
 	it('finds an entry by its id, and reads the values the list holds', async () => {

@@ -84,6 +84,11 @@ export type ReconcilePlan = {
 	push: string[];
 	/** Server ids to keep. */
 	remoteIds: Record<string, RemoteId>;
+	/**
+	 * Links to write again on records of the `users` tables: an update of `key` from no link to
+	 * `value`, queued after the creates (findings/161: a link to a deleted row reads as none).
+	 */
+	relink?: { table: TableName; id: string; key: string; value: string }[];
 };
 
 export interface Store {

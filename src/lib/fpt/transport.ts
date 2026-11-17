@@ -19,9 +19,12 @@
 //   429 and 5xx stay `failed`, and the runner's backoff is the answer.
 // - A refusal for want of rights is 400 code 104 naming the type (findings/143_nonadmin_rows.md):
 //   said once in plain words, and that kind of change waits for the session.
-// - A text field keeps a string as sent, newlines kept, with no cap found at 100,000 characters
-//   (field_types/text.md): the shared lists' JSON on the Project (#110, lists.ts). No write is
-//   conditional, `If-Match` is ignored (recipes/005): a list is read again after it is written.
+// - A text field on Project keeps 1,000,000 characters byte for byte, less outer whitespace
+//   (findings/158): the shared lists' JSON (#110, lists.ts). Every read of the Project names its
+//   fields. No write is conditional, `If-Match` is ignored (recipes/005): a list is read again
+//   after it is written and compared parsed.
+// - A write naming a deleted row is 400 code 104 "Value is not legal.", and a link to one reads as
+//   none (findings/161): a record sent back is a new row, and its links are written again.
 
 import type { BatchRequest, EntityRow } from 'sg-widgets-core';
 import {
@@ -41,7 +44,7 @@ import type { RecordRef, RemoteId } from '$lib/outbox/types';
 import { ApiRefusal, createApi, type Filter, type FptOptions } from './api';
 import { resolutionKey } from './cache';
 import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
-import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
+import { blamedField, isPermissionRefusal, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
 import { DIAGRAM_SHOWN, diagramFilename, diagramPrefix } from './diagrams';
 import { DIAGRAMS, ENTITY_SCOPES, ENTITY_TYPES, fieldMaps, isRecordScope, STILLS, REFERENCE_SLATES, type RecordScope } from './mapping';
 import { applyListOps, isListTable, landed, listFields, LIST_KEYS, LIST_TABLES, readList, writeList, type ListEntry, type ListOp, type ListRead, type ListTable } from './lists';
@@ -94,7 +97,10 @@ export type SharedRead = {
 	complete: boolean;
 };
 
-/** The entity tables read back, beside the lists of lists.ts. A camera setup after the gear it links. */
+/**
+ * The entity tables read back, beside the lists of lists.ts. Camera setups after the gear: a lens kept
+ * here writes its setups' links again before the setups merge, so they keep it (findings/161).
+ */
 const SHARED_SCOPES = ['camera', 'lens', 'cameraSetup', 'lightingSetup'] as const;
 
 /** Pages of 500 read of each shared table: 20,000 records. A list that reaches it is not judged whole. */
@@ -470,7 +476,9 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 			await api.update(PROJECT_TYPE, projectId, data, signal);
 		} catch (error) {
 			if (!(error instanceof ApiRefusal)) throw error;
-			const denied = rowRefusal(error.failure);
+			// An Artist in the project: "The field is not editable for this user"; outside it: "Entity can not be
+			// accessed by this user". Both 400 code 104 (findings/159). Said once in plain words; the lists wait.
+			const denied = rowRefusal(error.failure) !== undefined || (error.failure.code === 104 && isPermissionRefusal(error.failure));
 			if (denied) forbidden.add(LISTS);
 			const text = denied ? message('sync.refused.lists') : error.failure.title;
 			return lists.flatMap((l) => l.ops.map((o) => ({ entryId: o.entryId, reason: 'invalid' as const, message: text })));

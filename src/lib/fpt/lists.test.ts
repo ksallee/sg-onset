@@ -42,7 +42,14 @@ describe('readList and writeList', () => {
 		const text = writeList('referenceKind', [{ id: 'k1', name: 'Drone scan', projectId: 'p1' }]);
 		expect(readList('referenceKind', text)).toEqual({ ok: true, entries: [{ id: 'k1', name: 'Drone scan' }] });
 	});
-	it('keeps a long list whole: no cap was found at 100,000 characters (field_types/text.md)', () => {
+	// findings/158: Flow PT strips outer spaces and newlines and keeps the rest byte for byte.
+	it('reads a list another writer formatted, its outer newline stripped, as the same entries', () => {
+		const pretty = JSON.stringify({ list: 'template', version: LIST_VERSION, entries: [dayExt] }, null, '\t');
+		expect(readList('template', pretty.trim())).toEqual({ ok: true, entries: [dayExt] });
+		expect(landed('template', (readList('template', `${pretty}\n`.trim()) as { entries: ListEntry[] }).entries, [op('e1', create('template', 'tp1', dayExt))])).toBe(true);
+	});
+
+	it('keeps a long list whole: a Project text field kept 1,000,000 characters (findings/158)', () => {
 		const many = Array.from({ length: 400 }, (_, i) => ({ ...dayExt, id: `tp${i}`, name: `Template ${i}` }));
 		const text = writeList('template', many);
 		expect(text.length).toBeGreaterThan(30_000);

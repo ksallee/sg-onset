@@ -680,10 +680,23 @@ A push writes a list so (`plan`, `writeLists`):
    `read`, and sends again what did not land, read-modify-write once more.
 
 `lookup` finds an entry by its id in the list; `read` gives its values. The server id of an entry is
-its own id. A text field took 100,000 characters with no cap found, newlines kept
-(field_types/text.md): about 70 templates of 20 fields each, or thousands of kinds. Nothing is cut
-to fit. A refusal of the `PUT` for want of rights says so in plain words, and every later list
-operation waits for the session, as a row write does (How a push goes).
+its own id. A text field on Project kept 1,000,000 characters of JSON byte for byte, with no refusal
+(findings/158): some 700 templates of 20 fields each. Nothing is cut to fit. It strips outer spaces
+and newlines, so what is read back is parsed and compared as values, never as text. Every read of
+the Project names its fields: with none named, a `GET` returns the whole list, and every client of
+the site would pay for it (findings/158).
+
+A refusal of the `PUT` for want of rights says so in plain words, and every later list operation
+waits for the session, as a row write does (How a push goes): an Artist in the project gets 400 code
+104 `The field is not editable for this user`, one outside it `Entity can not be accessed by this
+user` (findings/159). An Admin may; a Manager is unmeasured (gap 22).
+
+A record removed on another device and kept here is sent back as a new row under the same client
+UUID, with a new id (app/sync README, decision 20). Flow PT reads every link to the deleted row as
+none and refuses any write naming it (findings/161). So the synced takes, slates and camera setups
+here that link it are written again, an update from no link to the record, resolved to the new id
+by client UUID when sent, after the record's create (`relink`, app/sync/shared.ts). The old id is
+never written.
 
 ## Decisions
 
@@ -920,17 +933,19 @@ Made by Claude. Kevin can overrule any of them.
 68. **Templates and reference kinds are JSON in two text fields of the Project** (#110). Flow PT has
     no entity for either, and Kevin wants no new required custom entity (#117): a site without the
     fields syncs the rest. The Project is the one the device syncs with, so the list is the show's,
-    and Set Up Fields makes the fields as it makes the others. A text field keeps the string as
-    sent, newlines kept, with no cap at 100,000 characters (field_types/text.md). A custom jsonb
-    field would filter, but none was ever made: the corpus found two stock ones, and Note.meta is
-    written on create only (field_types/jsonb.md). A custom entity per list was weighed: it would
-    give one row per entry and a unique client UUID, but it is one more slot each studio enables.
+    and Set Up Fields makes the fields as it makes the others: a text field on Project is created by
+    API as on any type, an Admin's 201, an Artist's 500 code 105 (findings/157). It kept 1,000,000
+    characters of JSON byte for byte (findings/158). A custom jsonb field cannot be created at all,
+    400 code 103 (findings/160; recipe 028 does the same). A custom entity per list was weighed: it
+    would give one row per entry and a unique client UUID, but it is one more slot each studio
+    enables.
 69. **One field per list,** so an edit of a kind never writes over a template another device saved
     at the same moment, and the reverse.
 70. **A list is written whole, read again, and checked.** No conditional write exists: `If-Match`
     is ignored (recipes/005). Two devices that write one list within a second may lose one write,
     and the check finds it and sends it again. The window is the time between the search and the
-    `PUT`.
+    `PUT`. The check parses what it reads and compares values: Flow PT strips outer spaces and
+    newlines (findings/158), so a list another writer formatted reads as the same list.
 71. **A list holds the keys the device has, but the project:** a template's `name`, `scope` and
     `values`, a kind's `name`. The project is the field's own; a device reading it puts the entry
     under its own project.
@@ -941,6 +956,15 @@ Made by Claude. Kevin can overrule any of them.
     row of the project with a client UUID. A row made by hand in Flow PT has none and is left out:
     matching it to the device's gear by name is not done. Which camera setups a device shoots with
     is its own choice, kept on the device, never in Flow PT (app/sync README, decision 25).
+74. **A record sent back writes its links again, with its new id.** Flow PT reads a link to a deleted
+    row as none and refuses any write naming one, as it refuses an id that never existed
+    (findings/161). The record kept here is a new row; the synced takes, slates and camera setups
+    here that link it each get an update from no link to it, after its create, resolved by client
+    UUID when sent. A camera setup too, though setups are read back: the record is kept because it
+    is used here, and the setup that uses it keeps it, whatever Flow PT reads of its link. Camera
+    setups are read after cameras and lenses for this: the setup's link waits as an unsent edit when
+    the setups merge, so it is not taken for a change made elsewhere. A link a person took off by
+    hand in Flow PT before a sync reads the same and is written again.
 
 ## Where FPT did not fit the contract
 
@@ -980,6 +1004,17 @@ Closed on 2026-11-11 by probes 132–145 (`~/dev/sg-groundtruth`, corpus finding
 | Non-admin rows | Artist may not create, edit or delete custom rows, nor delete an Attachment | 143 |
 | A rate limit | none at 28 requests a second for 10 s | 144 |
 | date_time precision, timecode, duration | whole seconds, rounded or truncated by path; ms; minutes | 145 |
+
+Closed on 2026-11-17 by probes 157 to 161 and recipe 028 (`~/dev/sg-groundtruth`, PR #116), for the
+shared lists (#110):
+
+| was | answer | finding |
+|---|---|---|
+| A custom field on Project: create, and a `PUT` | `POST /schema/Project/fields`, `text`, 201 for an Admin, 500 code 105 for an Artist; `Onset Templates` gives `sg_onset_templates`. Reads like a field on any type | 157 |
+| A text field past 100,000 characters | 1,000,000 characters of JSON stored byte for byte, newlines and tabs kept; outer spaces and newlines stripped. A `GET` of a Project with no `fields` returns the whole value | 158 |
+| Who may update a Project's field | Admin and script 200, member or not; an Artist in the project reads it and gets 400 code 104 `The field is not editable for this user` on a `PUT`; outside it, 404 on the read and 400 code 104 `Entity can not be accessed by this user` | 159 |
+| A custom jsonb field | cannot be created: 400 code 103 `data_type is not valid`, on Project or any type | 160 |
+| A link to a deleted row | reads as null (entity) or drops out (multi_entity), matches no filter; any write naming a deleted row is 400 code 104 `Value is not legal.`, as for an id that never existed | 161 |
 
 Closed on 2026-11-17 by probes 154 and 155 (`~/dev/sg-groundtruth`, PR #108, not merged yet):
 
@@ -1037,20 +1072,9 @@ Still open:
     (probe 156 ran Chrome). The route takes any origin, so only the content type matters.
 21. What `selected_ids` holds when a person runs the item with no row selected, and what
     `selection_required` changes. The route reads an empty or missing value as nothing selected.
-22. A custom field on Project: its create, and a `PUT` of it. Measured on Version, a custom slot
-    and Tag, a type with no `project` field, all alike (findings/118); Project itself is not. The
-    shared lists (#110) assume it answers as Tag did.
-23. Who may update a Project's field: an Admin surely, a Manager, an Artist, a Vendor? The group
-    rights on Project were never read (findings/143 read the custom slots and Attachment). A refusal
-    is said in plain words and the lists wait; the rest syncs.
-24. A text field longer than 100,000 characters (field_types/text.md stopped there), for a show
-    with very many templates.
-25. A custom field of type jsonb: can one be created, and is it editable after create (Note.meta is
-    not)? Not needed: text holds the JSON.
-26. What an entity field that links a deleted row reads back, and whether a write of a link to a
-    deleted row is refused. A lens removed on one device while another's takes use it: the other
-    device sends it back as a new row (app/sync README, decision 20), and its takes already on
-    Flow PT keep a link to the deleted row.
+22. Whether a Manager or a Vendor may update a Project's field (findings/159 read their rights,
+    update allowed for Manager, denied for Vendor, and exercised neither) or create one
+    (findings/157). A refusal is said in plain words and the lists wait; the rest syncs.
 
 ## On the probed site, read 2026-11-11
 

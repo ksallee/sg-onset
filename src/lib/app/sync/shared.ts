@@ -48,6 +48,8 @@ export type LocalState = {
 	trashed: ReadonlySet<string>;
 	/** Records something on this device uses (`usedIds`). */
 	used: ReadonlySet<string>;
+	/** The records of the tables that may use one (`USERS`), for the links to write again. */
+	users?: Partial<Record<TableName, readonly Row[]>>;
 };
 
 export type SharedPlan = {
@@ -67,6 +69,14 @@ export type SharedPlan = {
 	remoteIds: Record<string, RemoteId>;
 	/** Of `change`, the records this device uses, with the keys taken: for the sync sheet. */
 	inUse: { id: string; keys: string[] }[];
+	/**
+	 * The links to write again, on the synced records here that hold a record of `resend`: Flow PT reads
+	 * a link to a deleted row as none and refuses a write naming one (findings/161), and the record
+	 * sent back is a new row. Queued as an update from no link to the record, resolved to its new id
+	 * by client UUID when it is sent. A camera setup too: the record is kept because it is used here,
+	 * and the setup that uses it keeps it, whatever Flow PT reads of its link now.
+	 */
+	relink: { table: TableName; id: string; key: string; value: string }[];
 };
 
 /** The keys of a record edited here and not confirmed: `all` while its create is not. */
@@ -81,7 +91,7 @@ function pendingKeys(entries: readonly Entry[]): Set<string> | 'all' {
 
 /** What to do to bring the device's records of one table in line with what Flow PT holds. */
 export function mergeShared(pulled: PulledTable, local: LocalState): SharedPlan {
-	const plan: SharedPlan = { add: [], change: [], remove: [], kept: [], resend: [], push: [], remoteIds: {}, inUse: [] };
+	const plan: SharedPlan = { add: [], change: [], remove: [], kept: [], resend: [], push: [], remoteIds: {}, inUse: [], relink: [] };
 	const rows = local.rows.filter((r) => r.projectId === local.projectId);
 	const byId = new Map(rows.map((r) => [r.id, r]));
 	const active = new Map<string, Entry[]>();
@@ -132,7 +142,18 @@ export function mergeShared(pulled: PulledTable, local: LocalState): SharedPlan 
 		// An entry under way may land yet: the record is sent back at a later sync.
 		if (entries.every((e) => isOpen(e) || e.state === 'needsAttention')) plan.resend.push(row.id);
 	}
+	plan.relink = relinks(pulled.table, plan.resend, local.users ?? {}, local.remotes);
 	return plan;
+}
+
+/** The synced records here that link a record sent back, by an entity field. A template or kind is text in Flow PT: none. */
+function relinks(table: SharedTable, resend: readonly string[], users: Partial<Record<TableName, readonly Row[]>>, remotes: Readonly<Record<string, RemoteId>>): SharedPlan['relink'] {
+	if (!resend.length || table === 'template' || table === 'referenceKind') return [];
+	const key = HELD_BY[table];
+	const sent = new Set(resend);
+	return USERS[table].flatMap((name) =>
+		(users[name] ?? []).flatMap((r) => (typeof r[key] === 'string' && sent.has(r[key] as string) && remotes[r.id] !== undefined ? [{ table: name, id: r.id, key, value: r[key] as string }] : []))
+	);
 }
 
 /** How many changes to templates and reference kinds wait: on a site without the Project fields, all of them. */

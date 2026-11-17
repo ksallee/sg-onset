@@ -24,7 +24,7 @@ function local(over: Partial<LocalState> = {}): LocalState {
 
 const pending = (op: Parameters<typeof entry>[0], state: EntryState = 'pending'): Entry => entry(op, { state });
 
-const NOTHING = { add: [], change: [], remove: [], kept: [], resend: [], push: [], remoteIds: {}, inUse: [] };
+const NOTHING = { add: [], change: [], remove: [], kept: [], resend: [], push: [], remoteIds: {}, inUse: [], relink: [] };
 
 describe('mergeShared: new', () => {
 	it('adds a record made on another device, under this project, and keeps its server id', () => {
@@ -144,6 +144,56 @@ describe('mergeShared: removed on another device', () => {
 	it('judges nothing removed from a read that did not reach the end of the list', () => {
 		const plan = mergeShared(pulled([], false), local({ rows: [cooke], remotes: { l1: 900 } }));
 		expect(plan).toEqual(NOTHING);
+	});
+});
+
+// findings/161: Flow PT reads a link to a deleted row as no link, and refuses any write naming one.
+// A record sent back is a new row with a new id: every synced entry here that links it is written
+// again, its link resolved by client UUID at push time.
+describe('mergeShared: sent back', () => {
+	const users = {
+		take: [
+			{ id: 't1', lensId: 'l1' },
+			{ id: 't2', lensId: 'l1' },
+			{ id: 't3', lensId: 'l2' }
+		],
+		cameraSetup: [{ id: 'cs1', cameraId: 'c1', lensId: 'l1' }]
+	};
+
+	it('writes the link again on each synced take and camera setup here that holds the record sent back', () => {
+		const plan = mergeShared(pulled([]), local({ rows: [cooke], remotes: { l1: 900, t1: 50, t2: undefined as never, t3: 52, cs1: 60 }, used: new Set(['l1']), users }));
+		expect(plan.resend).toEqual(['l1']);
+		expect(plan.relink).toEqual([
+			{ table: 'take', id: 't1', key: 'lensId', value: 'l1' },
+			{ table: 'cameraSetup', id: 'cs1', key: 'lensId', value: 'l1' }
+		]);
+	});
+
+	it('writes the camera setup again on each synced take of a setup sent back', () => {
+		const setup = { id: 'cs1', projectId: P, cameraLabel: 'A' };
+		const plan = mergeShared(
+			{ table: 'cameraSetup', keys: ['cameraLabel'], complete: true, records: [] },
+			local({ rows: [setup], remotes: { cs1: 60, t1: 50 }, used: new Set(['cs1']), users: { take: [{ id: 't1', cameraSetupId: 'cs1' }] } })
+		);
+		expect(plan.relink).toEqual([{ table: 'take', id: 't1', key: 'cameraSetupId', value: 'cs1' }]);
+	});
+
+	it('writes nothing again for a record kept but not sent back yet', () => {
+		const plan = mergeShared(
+			pulled([]),
+			local({ rows: [cooke], remotes: { l1: 900, t1: 50 }, used: new Set(['l1']), users, entries: [pending(update('lens', 'l1', { focalLength: [35, 32] }), 'inFlight')] })
+		);
+		expect(plan.relink).toEqual([]);
+	});
+
+	it('writes nothing again for a template or a kind: Flow PT holds them as text', () => {
+		const template = { id: 'tp1', projectId: P, name: 'Day ext', scope: 'take', values: {} };
+		const plan = mergeShared(
+			{ table: 'template', keys: ['name', 'scope', 'values'], complete: true, records: [] },
+			local({ rows: [template], remotes: { tp1: 'tp1', t1: 50 }, used: new Set(['tp1']), users: { take: [{ id: 't1', templateId: 'tp1' }] } })
+		);
+		expect(plan.resend).toEqual(['tp1']);
+		expect(plan.relink).toEqual([]);
 	});
 });
 

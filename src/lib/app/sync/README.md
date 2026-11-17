@@ -125,7 +125,10 @@ Made by Claude. Kevin can overrule any of them.
     server id goes, its unsent edits fold into a create of the record as it is, and every device
     gets it again at its next sync. Without it, a take or camera setup that links it could not
     sync. It is listed in the sync sheet under "Kept on this device" for the session, with a row
-    that opens it. A record whose edit is under way is kept and sent back at a later sync.
+    that opens it. A record whose edit is under way is kept and sent back at a later sync. It comes
+    back as a new row with a new id, and Flow PT reads every link to the old row as none
+    (findings/161): the synced takes, slates and camera setups here that hold it get their link
+    written again, resolved to the new id when sent (`relink`; lib/fpt README, decision 74).
 21. **"Used" is what this device holds:** a camera or a lens in a take or a camera setup, a camera
     setup a take is on or this device shoots with, a lighting setup in a slate, a template a slate
     or take was made from, a kind a reference holds by name. What another device's takes use is not

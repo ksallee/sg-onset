@@ -329,6 +329,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 							remotes: local.remotes,
 							entries: local.entries,
 							trashed: local.trashed,
+							users: local.users,
 							used: usedIds(table.table, local.users, local.rows, shotWith ? chosenSetups(local.rows as CameraSetup[], shotWith, projectId) : undefined)
 						})
 					);

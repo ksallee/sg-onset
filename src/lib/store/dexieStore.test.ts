@@ -465,6 +465,30 @@ describe('reconcile', () => {
 		expect(queue[0].dependsOn).toEqual(['p1']);
 	});
 
+	// findings/161: a link to a deleted row reads as none; the record sent back is a new row.
+	it('writes again the links the plan names, from no link to the record, after its create', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.create('cameraSetup', { id: 'cs1', projectId: 'p1', cameraLabel: 'A', lensId: 'l1' });
+		await confirmAll(s);
+		await s.store.reconcile('lens', ['cameraSetup'], () => ({ ...nothing, resend: ['l1'], relink: [{ table: 'cameraSetup', id: 'cs1', key: 'lensId', value: 'l1' }] }));
+		const queue = await s.store.outbox.entries();
+		expect(kinds(queue)).toEqual(['create l1', 'update cs1']);
+		expect(queue[1].op).toEqual({ kind: 'update', table: 'cameraSetup', recordId: 'cs1', changes: { lensId: { base: undefined, value: 'l1' } } });
+		expect(queue[1].dependsOn).toEqual(['l1']);
+		// The setup itself is as it was: only its link goes again.
+		expect((await s.store.get('cameraSetup', 'cs1'))!.lensId).toBe('l1');
+	});
+
+	it('writes no link again on a record that no longer holds it', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.create('cameraSetup', { id: 'cs1', projectId: 'p1', cameraLabel: 'A' });
+		await confirmAll(s);
+		await s.store.reconcile('lens', ['cameraSetup'], () => ({ ...nothing, resend: ['l1'], relink: [{ table: 'cameraSetup', id: 'cs1', key: 'lensId', value: 'l1' }] }));
+		expect(kinds(await s.store.outbox.entries())).toEqual(['create l1']);
+	});
+
 	it('queues a create for a record the server never had', async () => {
 		const s = setup();
 		await s.store.create('project', { id: 'p1', name: 'Show' });

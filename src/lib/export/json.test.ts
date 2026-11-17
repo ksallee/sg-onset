@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EXPORT_FORMAT, EXPORT_FORMAT_VERSION, exportJson, readExportJson, toExportData } from './json';
-import { alexa, camA, camB, dusk, input, prime32, ref42AHdri, s42A, still1, still2, t42A1A, venice, zoom } from './testData';
+import { alexa, camA, camB, dusk, input, prime32, ref42AHdri, s42A, sharedLighting, still1, still2, t42A1A, venice, zoom } from './testData';
 
 const now = '2026-11-11T02:00:00.000Z';
 
@@ -27,6 +27,13 @@ describe('toExportData', () => {
 		expect(toExportData(input(), { now }).references.map((r) => r.name)).toEqual(['Scan 01', 'HDRI_0412', 'Flight 1']);
 		expect(toExportData(input(), { now, filters: { circledOnly: true } }).references.map((r) => r.name)).toEqual(['Scan 01', 'HDRI_0412', 'Flight 1']);
 		expect(toExportData(input(), { now, filters: { shootDayIds: ['d4'] } }).references.map((r) => r.name)).toEqual(['Flight 1']);
+	});
+
+	it('holds a lighting reference once, with the slates of its lighting setup, logged on one of them or not (#107)', () => {
+		expect(toExportData(sharedLighting(), { now }).references.map((r) => r.name)).toEqual(['HDRI_0412', 'Scan 01', 'Flight 1']);
+		// Logged on 42A, day 3: on day 4 it shows on 50, and keeps its slate.
+		const day4 = toExportData(sharedLighting(), { now, filters: { shootDayIds: ['d4'] } }).references;
+		expect(day4).toEqual([ref42AHdri, expect.objectContaining({ name: 'Flight 1' })]);
 	});
 
 	it('keeps a slate with no takes when it is in range', () => {

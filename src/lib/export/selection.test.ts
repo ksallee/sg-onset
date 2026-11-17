@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { flatten, naturalCompare, rowValue } from './selection';
-import { input, t42A1A, t42A1B, t42A2A, t42A2B, t42A10A, t9, t10, t50 } from './testData';
+import { input, sharedLighting, t42A1A, t42A1B, t42A2A, t42A2B, t42A10A, t9, t10, t50 } from './testData';
 
 const ids = (rows: { take: { id: string } }[]) => rows.map((r) => r.take.id);
 
@@ -62,6 +62,15 @@ describe('flatten', () => {
 		const rows = flatten(input());
 		expect(rows.find((r) => r.take.id === t42A1A.id)!.references.map((r) => r.name)).toEqual(['Scan 01', 'HDRI_0412']);
 		expect(rows.find((r) => r.take.id === 't9')!.references).toEqual([]);
+	});
+
+	it('gives a row the lighting references logged on another slate of its lighting setup, that day or another (#107)', () => {
+		const rows = flatten(sharedLighting());
+		const names = (id: string) => rows.find((r) => r.take.id === id)!.references.map((r) => r.name);
+		expect(names(t10.id)).toEqual(['HDRI_0412']);
+		expect(names(t50.id)).toEqual(['HDRI_0412', 'Flight 1']);
+		expect(names(t42A1A.id)).toEqual(['Scan 01', 'HDRI_0412']);
+		expect(names(t9.id)).toEqual([]);
 	});
 
 	it('gives an empty camera letter to a take with no setup', () => {

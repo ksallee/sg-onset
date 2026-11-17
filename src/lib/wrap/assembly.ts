@@ -45,8 +45,10 @@ export type PackageSources = {
 	reportHtml?: string;
 	/** The slates of the days picked, so one with set references and no take gets its folder. */
 	slates?: readonly Slate[];
-	/** Their set references. */
+	/** The set references of the project. */
 	references?: readonly Reference[];
+	/** Every slate of the project: a lighting reference shows on every slate of its lighting setup (#107). */
+	allSlates?: readonly Slate[];
 	/** The project's own reference kinds, in the order added. */
 	projectKinds?: readonly string[];
 	/** A reference kind as the app shows it, for the manifests. */
@@ -64,6 +66,7 @@ export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sourc
 		photos,
 		slates: sources.slates,
 		references: sources.references,
+		allSlates: sources.allSlates,
 		projectKinds: sources.projectKinds,
 		kindLabel: sources.kindLabel
 	});

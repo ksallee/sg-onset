@@ -195,3 +195,11 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
     it another kind, offers Turn Off; the HDRI counts every slate on the lighting setup. A reference
     and a take both hold a switch their kind or type turns on (`takeType.ts`, `KIND_SWITCHES`,
     `planReferenceEdit`). No kind and no take type share a switch today.
+
+### Lighting references (Kevin, 2026-11-17, issue #107)
+
+52. **A reference of kind HDRI 360, 360 video or HDR reference belongs to the lighting setup of its
+    slate,** and shows on every slate of that lighting setup, now or later. It keeps its `slateId`,
+    the slate it was logged on; nothing else is stored. The slates it shows on follow from the
+    lighting setups as they are now (`lib/references/lighting.ts`), so it moves with its slate to
+    another lighting setup, as the switches of decision 51 do. The other kinds stay per slate.

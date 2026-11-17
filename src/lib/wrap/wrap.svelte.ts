@@ -114,6 +114,7 @@ export class Wrap {
 			reportHtml: this.reportHtml,
 			slates: selectSlates(input, made.filters),
 			references: input.references,
+			allSlates: input.slates,
 			projectKinds: this.data.value?.kinds ?? [],
 			kindLabel: plainLabels.kind
 		});

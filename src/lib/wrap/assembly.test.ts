@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { flatten, selectSlates } from '$lib/export/selection';
-import { day3, input, kindLabel, project } from '$lib/export/testData';
+import { day3, day4, input, kindLabel, project, sharedLighting } from '$lib/export/testData';
 import type { PhotoBlob } from '$lib/export/wrapPackage';
 import { defaultChoice } from './choice';
 import { packagePlan } from './assembly';
@@ -63,6 +63,13 @@ describe('packagePlan', () => {
 		const all = input();
 		const p = packagePlan(rows.filter((r) => r.slate.slateUID !== '42A'), { ...defaultChoice(), files: ['crif'] }, { ...base, slates: selectSlates(all), references: all.references, projectKinds: ['Drone survey'] });
 		expect(p.entries.filter((e) => e.kind === 'folder').map((e) => e.path.split('/').slice(1).join('/'))).toEqual(['42A/lidar-scan/Scan-01/', '42A/hdri-360/HDRI_0412/', '50/drone-survey/Flight-1/']);
+	});
+
+	it('lands a lighting reference logged on another day in the folder of its slate (#107)', () => {
+		const all = sharedLighting();
+		const day = { shootDayIds: ['d4'] };
+		const p = packagePlan(flatten(all, day), { ...defaultChoice(), files: ['crif'] }, { ...base, shootDays: [day4], slates: selectSlates(all, day), references: all.references, allSlates: all.slates, projectKinds: ['Drone survey'] });
+		expect(p.entries.filter((e) => e.kind === 'folder').map((e) => e.path.split('/').slice(1).join('/'))).toEqual(['50/drone-survey/Flight-1/', '42A/hdri-360/HDRI_0412/']);
 	});
 
 	it('leaves out a pruned photo and says which take it was on', () => {

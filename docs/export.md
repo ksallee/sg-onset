@@ -9,7 +9,7 @@ caller passes the time, the time zone and the labels.
 
 | module | what it does |
 |---|---|
-| `selection.ts` | `flatten`: one row per take (one camera's take) with the slate, day, lighting setup, camera setup, camera, lens and the slate's set references on it. Filters, order. |
+| `selection.ts` | `flatten`: one row per take (one camera's take) with the slate, day, lighting setup, camera setup, camera, lens and the set references the slate shows on it. Filters, order. |
 | `format.ts` | Numbers, signed angles, feet and inches, metres, CRIF dates and times. |
 | `timecode.ts` | Timecode to frames and back. Drop frame at 29.97 and 59.94. |
 | `uuid.ts` | SHA-1 and name-based UUIDs (version 5), for CRIF's per-camera slate id. |
@@ -36,7 +36,8 @@ caller passes the time, the time zone and the labels.
   as a person counts: 9 before 10, 42A before 42B.
 - Filters: shoot days, a slate range (inclusive, same order), circled only, leave out no good.
 - A take whose slate or day is not in the input is left out.
-- Each row carries the set references of its slate, in the order logged (`row.references`).
+- Each row carries the set references its slate shows, in the order logged (`row.references`):
+  its own, and the lighting references of its lighting setup (below).
 
 ## Set references
 
@@ -47,6 +48,12 @@ A slate's reference log (`src/lib/references/`) goes in every file but the ALE:
 - All fields: one column, **References**, after the slate's fields, one reference per line.
 - JSON: the list `references`, the records as stored.
 - Day report: a line per slate block, after the cameras.
+
+A slate shows its own references and, since #107, every HDRI 360, 360 video and HDR reference
+logged on another slate of its lighting setup, that day or another
+(`src/lib/references/lighting.ts`, `shownBySlate`). Logged on 42A, an HDRI is on the rows of every
+slate on 42A's lighting setup. The day report and Wrap's count show it the same way; Wrap counts it
+once a day.
 
 One reference as text: `<kind>: <name>`, then what else is known in brackets.
 `HDRI 360: HDRI_0412 (Ricoh Theta Z1, A003, ×7, Noon sun)`. The kind as the app shows it; a
@@ -266,8 +273,9 @@ of the body, sensor; typed lengths; one FPS for the whole file; set references.
   the same text.
 - Slates: every slate of the picked days in the slate range, with or without takes. Takes: those
   the filters keep. Gear and lighting setups: those the kept records point at. Photos: their
-  records, not their files. Set references: those of the slates in it, by slate, in the order
-  logged, whatever the take filters.
+  records, not their files. Set references: those the slates in it show, by slate, in the order
+  logged, each once, whatever the take filters. A lighting reference logged on a slate outside the
+  file is in it too, with that slate's id (#107).
 - `readExportJson` refuses text that is not JSON, not ours, newer than the reader, or missing a
   list or an id. A file written before the set references has no `references`: it reads as none.
   `formatVersion` stays 1: an older reader skips the list and misreads nothing. It does not check each value: run the model's `validateRecord` for that.
@@ -304,8 +312,8 @@ render:
 
 ### Layout
 
-`wrapPlan(rows, { project, shootDays, blobs, slates, references, projectKinds })` lists every file
-and empty folder of the package with its path. One folder per slate (#95); it replaced the layout
+`wrapPlan(rows, { project, shootDays, blobs, slates, references, allSlates, projectKinds })` lists
+every file and empty folder of the package with its path. One folder per slate (#95); it replaced the layout
 with a `photos/` tree, and there is no option for that one.
 
 ```
@@ -333,8 +341,16 @@ Night-Train_2026-11-10-day03/
 - In it, its manifest, `<slate folder>_manifest.csv` (below), and the photos of its takes, named as
   CRIF, with no folder per take: the manifest says which take each is from. With the Photos switch
   off the photos are left out; the slate folders, manifests and reference folders stay.
-- For each set reference, an empty folder inside a folder for its kind, in the order logged:
-  `hdri-360/HDRI_0412/`. The files shot on the other device go in it on a laptop.
+- For each set reference logged on the slate, an empty folder inside a folder for its kind, in the
+  order logged: `hdri-360/HDRI_0412/`. The files shot on the other device go in it on a laptop.
+- A lighting reference (#107) has its folder in the slate it was logged on, and no other. The
+  manifest of every other slate of its lighting setup lists it with that folder's path:
+  `42A/hdri-360/HDRI_0412/` in `42B_manifest.csv`.
+- When the slate it was logged on is outside the package (another day, or left out by the slate
+  range), that slate gets a folder too, holding its manifest and the folders of the lighting
+  references shown in the package, and nothing else. So every path in a manifest is in the
+  package. These folders come after the others, in slate order. `allSlates` (every slate of the
+  project) is what finds that slate and its lighting setup.
 - Kind folders: a built-in kind by its English label, fixed, so a folder does not change with the
   app's language: `hdri-360`, `360-video`, `hdr-reference`, `witness-camera`, `lidar-scan`,
   `textured-model`, `photogrammetry`, `splat`, `other`. A project's own kind as a slug in lower
@@ -368,8 +384,9 @@ Reference,,,,,,,Lidar scan,Scan 01,42A/lidar-scan/Scan-01/,,,,
 Reference,,,,,,,HDRI 360,HDRI_0412,42A/hdri-360/HDRI_0412/,Ricoh Theta Z1,A003,7,Noon sun
 ```
 
-- One row per take, per file and per set reference. Each take in order, then its files; the
-  slate's own files; then its references in the order logged.
+- One row per take, per file and per set reference the slate shows. Each take in order, then its
+  files; the slate's own files; then its references in the order logged, the lighting references
+  of its lighting setup among them (#107).
 - A file's row repeats its take's clip, roll and timecode, so each file is linked to its clip on
   its own line. Its name, its path, and a photo's caption in Notes.
 - A reference's row: its kind as the app shows it, its name as logged, the empty folder that

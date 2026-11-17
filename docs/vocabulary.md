@@ -43,7 +43,7 @@ enforces the parts a test can check.
 | Take | | One camera setup's run of one slate, from Start to End. | `take` | CRIF Tk Take; VES scope Take | Take |
 | Photo | | A reference photo taken from the take screen or picked from the photo library or Files, kept on the take. | `still` | VES 1.1 reference | Photos |
 | Video | | A reference video picked from the photo library or Files, kept on the take. "Photos and videos" names both. | `still`, a video file | | Version, linked to the take |
-| Reference | | One thing captured for the slate on another device, logged by name: an HDRI, a scan, a witness clip. The file stays on that device. | `reference` | VES 2.1, 4.2, 5.1 | Set Reference |
+| Reference | | One thing captured for the slate on another device, logged by name: an HDRI, a scan, a witness clip. The file stays on that device. An HDRI 360, a 360 video or an HDR reference shows on every slate of the slate's lighting setup. | `reference` | VES 2.1, 4.2, 5.1 | Set Reference, linked to its slate (Slate) and to the slates it shows on (Slates) |
 | Reference kind | | What a reference is: HDRI 360, 360 video, HDR reference, Witness camera, Lidar scan, Textured model, Photogrammetry, Splat, Other, or a kind the project adds. | `reference.kind` | | Kind |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
 | Change | | One edit waiting to sync. | outbox entry | | |

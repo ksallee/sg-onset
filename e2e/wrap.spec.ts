@@ -1,7 +1,8 @@
 // Wrap on the sample project: the day summary, a missing value opening its take on Shoot, the
 // wrap package built and read back (the exports at the root, a folder per slate with its manifest,
-// an empty folder for a reference logged on the slate), the download and share hand-overs, the
-// print view. Role and label selectors only. Every test starts on an empty device.
+// an empty folder for a reference logged on the slate, listed by the other slates of its lighting
+// setup), the download and share hand-overs, the print view. Role and label selectors only. Every
+// test starts on an empty device.
 import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 import { readZip, entryBlob } from '../src/lib/store/zipRead';
@@ -100,7 +101,7 @@ test.describe('wrap', () => {
 		await expect(page.getByText(/^Exported today \d{2}:\d{2}$/)).toBeVisible();
 	});
 
-	test('a reference logged on a slate is an empty folder in its slate folder, named in the manifest', async ({ page }) => {
+	test('a reference logged on a slate is an empty folder in its slate folder, named in the manifest of every slate of its lighting setup', async ({ page }) => {
 		await noShare(page);
 		await openApp(page, '/slates');
 		await page.getByRole('link', { name: /^42A/ }).tap();
@@ -118,6 +119,10 @@ test.describe('wrap', () => {
 		expect(folder).toMatchObject({ size: 0 });
 		const manifest = await text(`${root}/42A/42A_manifest.csv`);
 		expect(manifest.split('\r\n')).toContain('Reference,,,,,,,HDRI 360,HDRI_0412,42A/hdri-360/HDRI_0412/,,,,');
+		// 42B shares 42A's lighting setup (#107): its manifest points at 42A's folder, and it has none.
+		const other = await text(`${root}/42B/42B_manifest.csv`);
+		expect(other.split('\r\n')).toContain('Reference,,,,,,,HDRI 360,HDRI_0412,42A/hdri-360/HDRI_0412/,,,,');
+		expect(entries.filter((e) => e.name.startsWith(`${root}/42B/hdri-360`))).toEqual([]);
 	});
 
 	test('hands the package to the share sheet where there is one', async ({ page }) => {

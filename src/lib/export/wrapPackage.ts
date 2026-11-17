@@ -1,6 +1,7 @@
 // What a wrap package holds, as data: the four exports at the root, then a folder per slate with
-// its manifest, its files and an empty folder for each set reference shot on another device. No
-// zipping here:
+// its manifest, its files and an empty folder for each set reference shot on another device. A
+// lighting reference (#107) has its folder in the slate it was logged on, and every slate of its
+// lighting setup lists it in its manifest with that folder's path. No zipping here:
 // the UI feeds the plan to the zip writer the backup uses (client-zip), making each text with the
 // export modules and reading each stored file with `store.blob(id)`. Pure.
 //
@@ -10,8 +11,9 @@
 
 import type { Project, Reference, ShootDay, Slate } from '$lib/model/types';
 import type { BlobMeta } from '$lib/store/types';
+import { shownBySlate } from '$lib/references/lighting';
 import { exportFileName, extensionFor, folderName, kindFolders, manifestFileName, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
-import { referencesBySlate, type FlatTake } from './selection';
+import { naturalCompare, referencesBySlate, type FlatTake } from './selection';
 import { slateManifest } from './slateManifest';
 
 /** What the plan needs of a stored file: `BlobMeta` without the sync fields. */
@@ -45,7 +47,8 @@ export type TakeFolder = { row: FlatTake; files: SlateFile[] };
 
 /**
  * A set reference, with the empty folder that waits for its files, from the package root:
- * `42A/hdri-360/HDRI_0412/`. From the root, so another slate's manifest can point at it.
+ * `42A/hdri-360/HDRI_0412/`. From the root, so another slate's manifest can point at it: a
+ * lighting reference's folder is in the slate it was logged on (#107).
  */
 export type ReferenceFolder = { reference: Reference; path: string };
 
@@ -58,7 +61,11 @@ export type SlateFolder = {
 	takes: TakeFolder[];
 	/** The slate's own files, a take's none. None yet: the setup diagram (#87) goes here. */
 	files: SlateFile[];
-	/** Its set references, in the order logged. */
+	/**
+	 * The set references it shows, in the order logged, each with its folder: its own, in this
+	 * folder, and the lighting references of its lighting setup, in the folder of the slate each
+	 * was logged on (#107).
+	 */
 	references: ReferenceFolder[];
 };
 
@@ -93,8 +100,14 @@ export type WrapOptions = {
 	 * and no take in the rows gets its folder too. Absent: the slates of the rows.
 	 */
 	slates?: readonly Slate[];
-	/** The set references of those slates. Absent: those the rows carry. */
+	/** The set references of the project. Absent: those the rows carry. */
 	references?: readonly Reference[];
+	/**
+	 * Every slate of the project, for the lighting setups: a lighting reference logged on a slate
+	 * outside the package shows on the slates of its lighting setup in it (#107). Absent: the
+	 * slates of the package.
+	 */
+	allSlates?: readonly Slate[];
 	/** The project's own reference kinds, in the order added, for their folder names. */
 	projectKinds?: readonly string[];
 	/** A reference kind as the app shows it, for the manifests. Absent: the kind as stored. */
@@ -156,17 +169,40 @@ export function slateFiles(_slate: Slate, _ctx: FileContext): SlateFile[] {
 	return [];
 }
 
-type Group = { slate: Slate; rows: FlatTake[]; references: Reference[] };
+type Group = { slate: Slate; rows: FlatTake[]; logged: Reference[]; shown: Reference[] };
 
-/** The rows and references of each slate, in the order of `slates`, then of the rows. */
+/**
+ * The slate folders, in order: the slates of the package that have a take in the rows or a
+ * reference logged on them, in the order of `slates`, then of the rows; then each slate outside
+ * the package that a lighting reference shown in it was logged on, holding only those (#107).
+ */
 function groupBySlate(rows: readonly FlatTake[], options: WrapOptions): Group[] {
 	const groups = new Map<string, Group>();
-	const group = (slate: Slate) => groups.get(slate.id) ?? groups.set(slate.id, { slate, rows: [], references: [] }).get(slate.id)!;
+	const group = (slate: Slate) => groups.get(slate.id) ?? groups.set(slate.id, { slate, rows: [], logged: [], shown: [] }).get(slate.id)!;
 	for (const slate of options.slates ?? []) group(slate);
 	for (const row of rows) group(row.slate).rows.push(row);
-	const refs = options.references ? referencesBySlate(options.references) : new Map(rows.map((r) => [r.slate.id, r.references]));
-	for (const g of groups.values()) g.references = refs.get(g.slate.id) ?? [];
-	return [...groups.values()].filter((g) => g.rows.length > 0 || g.references.length > 0);
+	const references = options.references ?? [...new Set(rows.flatMap((r) => r.references))];
+	const allSlates = options.allSlates ?? [...new Map([...groups.values()].map((g) => [g.slate.id, g.slate])).values()];
+	const logged = referencesBySlate(references);
+	const shown = shownBySlate(allSlates, references);
+	for (const g of groups.values()) {
+		g.logged = logged.get(g.slate.id) ?? [];
+		g.shown = shown.get(g.slate.id) ?? [];
+	}
+	const kept = [...groups.values()].filter((g) => g.rows.length > 0 || g.logged.length > 0);
+	// A lighting reference shown here and logged on a slate outside the package: that slate gets a
+	// folder for it, holding only such references.
+	const inPackage = new Set(kept.map((g) => g.slate.id));
+	const needed = new Set(kept.flatMap((g) => g.shown).filter((r) => !inPackage.has(r.slateId)));
+	const added = allSlates
+		.filter((slate) => !inPackage.has(slate.id))
+		.map((slate): Group => {
+			const refs = (logged.get(slate.id) ?? []).filter((r) => needed.has(r));
+			return { slate, rows: [], logged: refs, shown: refs };
+		})
+		.filter((g) => g.logged.length > 0)
+		.sort((a, b) => naturalCompare(a.slate.slateUID ?? '', b.slate.slateUID ?? '') || a.slate.id.localeCompare(b.slate.id));
+	return [...kept, ...added];
 }
 
 /**
@@ -182,8 +218,11 @@ function groupBySlate(rows: readonly FlatTake[], options: WrapOptions): Group[] 
  *         <slate>-<camera>-reference-<n>.<ext>
  *         <kind>/<reference>/               empty, for what was shot on another device
  *
- * A slate gets a folder when it has a take in the rows or a set reference. Names come from
- * naming.ts; two that would clash once unzipped on a system that ignores case are stepped `-2`.
+ * A slate gets a folder when it has a take in the rows or a set reference logged on it. A lighting
+ * reference's folder is in the slate it was logged on; every slate of its lighting setup lists it
+ * with that path. When that slate is outside the package it gets a folder too, with only those
+ * references (#107). Names come from naming.ts; two that would clash once unzipped on a system
+ * that ignores case are stepped `-2`.
  */
 export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapPlan {
 	const root = packageName(options.project, options.shootDays);
@@ -197,14 +236,14 @@ export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapP
 	const ctx: FileContext = { photos: options.photos !== false, firstBlob: firstBlobs(options.blobs), counters: new Map(), missing: [] };
 	const groups = groupBySlate(rows, options);
 	const kindFolder = kindFolders(
-		groups.flatMap((g) => g.references.map((r) => r.kind ?? '')),
+		groups.flatMap((g) => g.logged.map((r) => r.kind ?? '')),
 		options.projectKinds ?? []
 	);
+	// First the folder of each slate and of each reference logged on it, so a slate's manifest can
+	// point into the folder of another.
 	const slateNames = new Set<string>();
-	const slates: SlateFolder[] = [];
-	for (const g of groups) {
+	const placed = groups.map((g) => {
 		const name = uniqueName(slateFolderName(g.slate.slateUID), slateNames);
-		const here = `${root}/${name}`;
 		// Names in the slate's folder, and in each kind's folder in it.
 		const taken = new Set<string>();
 		const manifest = uniqueName(manifestFileName(name), taken);
@@ -215,18 +254,28 @@ export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapP
 		const takes = g.rows.map((row) => ({ row, files: takeFiles(row, ctx).map(claim) }));
 		const own = slateFiles(g.slate, ctx).map(claim);
 		const kinds = new Map<string, { name: string; taken: Set<string> }>();
-		const references = g.references.map((reference) => {
+		const folders = g.logged.map((reference) => {
 			const wanted = kindFolder.get(reference.kind ?? '')!;
 			let kind = kinds.get(wanted);
 			if (!kind) kinds.set(wanted, (kind = { name: uniqueName(wanted, taken), taken: new Set() }));
 			return { reference, path: `${name}/${kind.name}/${uniqueName(folderName(reference.name ?? '', 'reference'), kind.taken)}/` };
+		});
+		return { g, name, manifest, takes, own, folders };
+	});
+	const pathOf = new Map(placed.flatMap((p) => p.folders.map((f) => [f.reference.id, f.path] as const)));
+	const slates: SlateFolder[] = [];
+	for (const { g, name, manifest, takes, own, folders } of placed) {
+		const here = `${root}/${name}`;
+		const references = g.shown.flatMap((reference) => {
+			const path = pathOf.get(reference.id);
+			return path ? [{ reference, path }] : [];
 		});
 		const folder: SlateFolder = { slate: g.slate, name, takes, files: own, references };
 		slates.push(folder);
 		entries.push({ kind: 'manifest', path: `${here}/${manifest}`, mime: 'text/csv', slateId: g.slate.id, text: slateManifest(folder, options.kindLabel ?? ((k) => k)) });
 		for (const t of takes) for (const f of t.files) entries.push({ kind: 'file', path: `${here}/${f.name}`, slateId: g.slate.id, takeId: t.row.take.id, ...f });
 		for (const f of own) entries.push({ kind: 'file', path: `${here}/${f.name}`, slateId: g.slate.id, ...f });
-		for (const r of references) entries.push({ kind: 'folder', path: `${root}/${r.path}` });
+		for (const r of folders) entries.push({ kind: 'folder', path: `${root}/${r.path}` });
 	}
 	return { root, entries, slates, missingPhotos: ctx.missing };
 }

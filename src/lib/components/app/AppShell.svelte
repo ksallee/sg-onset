@@ -50,13 +50,15 @@
 	let syncOpen = $state(false);
 	provideShell({ openContext: () => (contextOpen = true), openSync: () => (syncOpen = true) });
 
-	// The last edit, said for a few seconds. Not on a focus page: the capture path shows its own.
+	// The last edit, said for a few seconds, or the offer it raised (app.offer). Not on a focus page:
+	// the capture path shows its own.
 	const NOTICE_MS = 6000;
 	const edit = $derived(active?.focus ? null : app.lastEdit);
 	const what = $derived(edit?.label ? tk(edit.label.key, edit.label.params) : '');
 	const notice = $derived.by(() => {
 		if (!edit) return null;
 		if (edit.kind === 'tooLate') return { text: t('notice.tooLate') };
+		if (edit.offer) return { text: edit.offer.text, action: edit.offer.action, run: edit.offer.run };
 		if (!what) return null;
 		if (edit.kind === 'undone') return { text: t('notice.undone', { what }), action: t('notice.redo'), run: () => app.edit.redo() };
 		if (edit.noSnapshot) return { text: t('notice.noSnapshot', { what }), action: t('notice.undo'), run: () => app.edit.undo() };

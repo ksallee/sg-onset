@@ -38,6 +38,10 @@ describe('fieldMaps', () => {
 		expect(fieldMap('slate', 'vfxShots')!.columns[0]).toMatchObject({ name: 'sg_vfx_shots', dataType: 'text' });
 	});
 
+	it('keeps the take type as text, by its key', () => {
+		expect(fieldMap('take', 'takeType')).toMatchObject({ kind: 'text', columns: [{ name: 'sg_take_type', display: 'Take Type', dataType: 'text' }] });
+	});
+
 	it('stores a length as a number of metres, named with its unit', () => {
 		expect(fieldMap('take', 'focusDistance')).toMatchObject({
 			kind: 'length',

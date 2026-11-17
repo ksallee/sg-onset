@@ -18,6 +18,7 @@ ids and times in. Each module has its test beside it.
 | `template.ts` | Create from a template, preview a template edit, apply it. |
 | `bulkEdit.ts` | Set one field on many records, with the undo patch. |
 | `take.ts` | Next take number, new take as a copy of the last, focal length of a take. |
+| `takeType.ts` | The take type, and the slate and lighting setup switches a type turns on or leaves on. |
 | `csv.ts` | CSV text to rows. |
 | `gearImport.ts` | Cameras and lenses from CSV, with a report per row. |
 
@@ -159,3 +160,17 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
 40. **A camera setup has an `order`, set by hand.** Setups with an order come first, by it; the
     rest follow by the old rule: single letters, then names, each alphabetical. A move numbers
     every setup from 1, so a new setup lands at the end.
+
+### Take type (Kevin, 2026-11-17, issue #92)
+
+41. **`takeType` is an enum on the take:** `main`, `cleanPlate`, `ballsAndChart`, `shadowPlate`,
+    `lightPass`, `atmosphere`, `element`, `other`. No standard names it; the key is ours. Not
+    carried to the next take.
+42. **No value is Main.** The app writes no value for Main, so every Main take reads the same and a
+    take shot before the field existed is Main. A stored `main` (typed in Flow PT) reads as Main.
+43. **A clean plate take turns on the slate's `cleanPlate`; a balls and chart take turns on the
+    lighting setup's `referenceBalls` and `colourChart`.** In the same undo entry. A slate with no
+    lighting setup gets nothing for balls and chart. The switches stay editable by hand.
+44. **The app never turns a switch off.** When a take leaves the type and no take still holds it
+    (for balls and chart, no take of any slate on that lighting setup), and the switch is on, the
+    notice offers Turn Off. Ignored, nothing changes. A bulk edit gives one list, so one notice.

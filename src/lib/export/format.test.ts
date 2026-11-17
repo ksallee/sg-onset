@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { crifDate, crifTime, crifTimestamp, feetInches, metresText, signed, trimNumber } from './format';
+import { crifDate, crifTime, crifTimestamp, feetInches, metresText, signed, takeTypeName, trimNumber } from './format';
 
 describe('trimNumber', () => {
 	it('drops trailing zeros and float noise', () => {
@@ -72,5 +72,13 @@ describe('CRIF dates and times', () => {
 		expect(crifTimestamp('not a time', 'UTC')).toBe('');
 		expect(crifTime('', 'UTC')).toBe('');
 		expect(crifDate('10/11/2026')).toBe('');
+	});
+});
+
+describe('takeTypeName', () => {
+	it('names a take type as the files write it, Main for none', () => {
+		expect(takeTypeName({})).toBe('Main');
+		expect(takeTypeName({ takeType: 'lightPass' })).toBe('Light Pass');
+		expect(takeTypeName({ takeType: 'atmosphere' })).toBe('Atmosphere');
 	});
 });

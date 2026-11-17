@@ -114,6 +114,7 @@ gives.
 | Label | Short | Definition | Key | Standards | FPT |
 |---|---|---|---|---|---|
 | Take | Take | The take as called: 1, 2, 3, PU. | `take` | CRIF Tk Take; OMC SlateUID.hasTake; ALE Take | Name (code) |
+| Type | Type | What the take is for: Main, Clean plate, Balls and chart, Shadow plate, Light pass, Atmosphere (smoke, fog), Element, Other. No value is Main. | `takeType` | ours | Take Type |
 | Start time | Start | When Start was pressed. | `startedAt` | CRIF Tk Start Time Of Take | Start Time |
 | End time | End | When End was pressed. | `endedAt` | | End Time |
 | Circled | Circled | The take is circled: a keeper. | `circleTake` | OMC circleTake; ALE Circled Take | Circled |
@@ -210,6 +211,10 @@ gives.
 - **Scene** is the script scene. **Take** is the take as called, a string: 1, 2, PU.
 - **Circled** and **No good** (short NG). Circled is the crew word and OMC `circleTake`. Print and
   Good are rejected: print is a film-lab word, good reads as a judgement on the shot.
+- **Type** of a take, not element type: Element type is the slate's CRIF field. A take typed
+  **Clean plate** turns on the slate's Clean plate; **Balls and chart** turns on the lighting
+  setup's Grey and chrome balls and Colour chart. The notice says a switch left on "stays on"
+  ("still" is a banned word), with **Turn Off**.
 - **MOS** and **wild track** have no field yet. When they come: "MOS" (flag), "Wild track"
   (flag), both sentence case.
 - **Unit** is the shooting unit. **Shoot day** is one unit's day, named "Day {n}".

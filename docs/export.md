@@ -119,7 +119,8 @@ How it is written:
 
 Our columns, after the spec's: Shoot Date (`shootDay.shootDate`), Setup (`slate.setup`), Lighting
 Setup (`lightingSetup.label`), Camera Model, Camera Serial Num, Tk End Time Of Take
-(`take.endedAt`), Tk Circled, Tk No Good (`Yes` or empty), Tk Timecode End, Tk Lens Make, Tk
+(`take.endedAt`), Tk Circled, Tk No Good (`Yes` or empty), Tk Type (the take type: Main, Clean
+Plate, Balls and Chart, Shadow Plate, Light Pass, Atmosphere, Element, Other; Main for none), Tk Timecode End, Tk Lens Make, Tk
 Anamorphic Squeeze, Tk Subject Distance and End, Tk Photos (the count).
 
 `crifMissing(record)` lists the required columns a row leaves empty. `CRIF_NEVER_FILLED` names the
@@ -149,7 +150,8 @@ Lost in CRIF:
 - Units: inline (`35 mm`, `12°`, `23.976 fps`, lengths as the app shows them, typed text kept), or
   bare numbers with a unit column after each field that has a unit. Lengths there are metres to
   the millimetre, or decimal feet to four places.
-- Enums show their label, booleans yes or no, lists joined with ", ", refs as the UUID.
+- Enums show their label, booleans yes or no, lists joined with ", ", refs as the UUID. A take
+  with no type shows Main.
 - RFC 4180 quoting, CRLF. Option `bom` for Excel. Formula guard on by default: a cell starting with
   `=`, `+`, `-`, `@`, tab or CR gets a `'` in front, unless it is a number with at most a short
   unit (`-5`, `-5°`).
@@ -202,6 +204,7 @@ A001C003	V	14:39:39:09	14:39:59:11	…
 | Shoot Date | `shootDay.shootDate` as YYYYMMDD |
 | FPS | the heading rate |
 | Circled Take | `Yes` or empty |
+| Take Type | the take type as CRIF's Tk Type writes it (ours) |
 | Slate, Description, VFX Shots | `slate.slateUID`, `description`, `vfxShots` (ours) |
 | Comments | `take.notes` |
 | Lens, Lens_sn | `lens.lensModel`, `lensSerialNumber` |
@@ -258,6 +261,8 @@ render:
 - `slates`: one block per slate in order, with its lighting setup, the camera setups its takes
   used (letter, body, lenses run), the takes and the block's totals.
 - `totals`: slates, takes, circled, no good, photos.
+- The printed page (`src/lib/wrap/report.ts`) has a Type column on a day with a take that is not
+  Main; a Main take leaves it empty.
 - `warnings`, per take: `noEndTime`, `noFocalLength` (no prime and none typed),
   `zoomNoFocalLength` (a zoom and none typed).
 

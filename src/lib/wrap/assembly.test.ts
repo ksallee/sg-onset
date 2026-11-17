@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flatten } from '$lib/export/selection';
+import { flatten, selectSlates } from '$lib/export/selection';
 import { day3, input, project } from '$lib/export/testData';
 import type { PhotoBlob } from '$lib/export/wrapPackage';
 import { defaultChoice } from './choice';
@@ -22,23 +22,37 @@ describe('packagePlan', () => {
 		expect(plan.fileName).toBe('Night-Train_2026-11-10-day03.zip');
 	});
 
-	it('lists the table files, the day report and the photos on the device, in that order', () => {
+	it('lists the table files and the day report at the root, then each slate folder: its photos on the device, its reference folders', () => {
 		expect(plan.entries.map((e) => e.path)).toEqual([
 			'Night-Train_2026-11-10-day03/Night-Train_2026-11-10-day03_camera-report.csv',
 			'Night-Train_2026-11-10-day03/Night-Train_2026-11-10-day03_all-fields.csv',
 			'Night-Train_2026-11-10-day03/Night-Train_2026-11-10-day03_editorial.ale',
 			'Night-Train_2026-11-10-day03/Night-Train_2026-11-10-day03_data.json',
 			'Night-Train_2026-11-10-day03/Night-Train_2026-11-10-day03_day-report.html',
-			'Night-Train_2026-11-10-day03/photos/42A/take-1/42A-A-reference-1.jpg',
-			'Night-Train_2026-11-10-day03/photos/42A/take-1/42A-A-reference-2.jpg'
+			'Night-Train_2026-11-10-day03/42A/42A-A-reference-1.jpg',
+			'Night-Train_2026-11-10-day03/42A/42A-A-reference-2.jpg',
+			'Night-Train_2026-11-10-day03/42A/lidar-scan/Scan-01/',
+			'Night-Train_2026-11-10-day03/42A/hdri-360/HDRI_0412/'
 		]);
+		expect(plan.entries[5]).toMatchObject({ kind: 'file', media: 'photo', blobId: 'b2', mime: 'image/jpeg' });
+		expect(plan.entries.at(-1)).toEqual({ kind: 'folder', path: 'Night-Train_2026-11-10-day03/42A/hdri-360/HDRI_0412/', size: 0 });
 	});
 
-	it('sizes text in UTF-8 bytes and photos by their file', () => {
+	it('counts files, not folders', () => {
+		expect(plan.files).toBe(7);
+	});
+
+	it('sizes text in UTF-8 bytes, photos by their file, folders as nothing', () => {
 		expect(plan.entries[1].size).toBe(4);
-		expect(plan.entries.at(-1)?.size).toBe(1000);
+		expect(plan.entries[6].size).toBe(1000);
 		expect(plan.photoBytes).toBe(3000);
 		expect(plan.bytes).toBeGreaterThan(3000 + 5 + 4 + 8 + 2 + 13);
+	});
+
+	it('gives a slate with references and no take in the package its folder, with a project kind named safely', () => {
+		const all = input();
+		const p = packagePlan(rows.filter((r) => r.slate.slateUID !== '42A'), { ...defaultChoice(), files: ['crif'] }, { ...base, slates: selectSlates(all), references: all.references, projectKinds: ['Drone survey'] });
+		expect(p.entries.filter((e) => e.kind === 'folder').map((e) => e.path.split('/').slice(1).join('/'))).toEqual(['42A/lidar-scan/Scan-01/', '42A/hdri-360/HDRI_0412/', '50/drone-survey/Flight-1/']);
 	});
 
 	it('leaves out a pruned photo and says which take it was on', () => {
@@ -52,14 +66,14 @@ describe('packagePlan', () => {
 
 	it('holds only what was picked', () => {
 		const p = packagePlan(rows, { ...defaultChoice(), files: ['ale', 'photos'] }, base);
-		expect(p.entries.map((e) => e.kind)).toEqual(['ale', 'photo', 'photo']);
+		expect(p.entries.map((e) => e.kind)).toEqual(['ale', 'file', 'file', 'folder', 'folder']);
 		const none = packagePlan(rows, { ...defaultChoice(), files: ['crif'] }, base);
-		expect(none.entries.map((e) => e.kind)).toEqual(['crif']);
+		expect(none.entries.map((e) => e.kind)).toEqual(['crif', 'folder', 'folder']);
 		expect(none.pruned).toEqual([]);
 	});
 
 	it('skips a table file whose text was not made', () => {
 		const p = packagePlan(rows, defaultChoice(), { ...base, texts: { crif: 'x' }, reportHtml: undefined });
-		expect(p.entries.filter((e) => e.kind !== 'photo').map((e) => e.kind)).toEqual(['crif']);
+		expect(p.entries.filter((e) => e.kind !== 'file' && e.kind !== 'folder').map((e) => e.kind)).toEqual(['crif']);
 	});
 });

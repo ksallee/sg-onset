@@ -2,8 +2,10 @@
 
 The reference log (#93): what was captured for a slate on other devices, logged by name. 360
 HDRIs, 360 video, HDR references of textures and lights, witness camera clips, lidar scans,
-textured models, photogrammetry sets, splats. The files stay on those devices; the wrap folder
-(#95) is where they land. Pure modules, each with its test beside it.
+textured models, photogrammetry sets, splats. The files stay on those devices. The wrap package
+(#95) gives each reference an empty folder in its slate's folder, inside a folder for its kind,
+where they land on a laptop: `42A/hdri-360/HDRI_0412/` (docs/export.md, "Layout"). Pure modules,
+each with its test beside it.
 
 ## Modules
 
@@ -31,8 +33,10 @@ words `take/typeText.ts`, the Turn Off `take/typeEdit.ts`.
   on the device (store README, decision 26). Schema version 4.
 - Flow PT: one row of the project custom entity "Set Reference" per reference, linked to its
   slate, with its client UUID (fpt README, decisions 26 and 27).
-- Shown on the slate (`components/references/`), in Wrap (the day's count by kind, the day report)
-  and in the exports (docs/export.md).
+- Shown on the slate (`components/references/`), in Wrap (the day's count by kind, the day report),
+  in the exports, and as an empty folder in the wrap package (docs/export.md). The folder names
+  of the kinds and references are `kindFolderName`, `kindFolders` and `folderName` in
+  `export/naming.ts`.
 - Project kinds: Settings, project section, Reference kinds.
 
 ## Decisions

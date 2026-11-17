@@ -83,7 +83,7 @@
 		const plan = wrap.plan;
 		if (!plan || !wrap.choice.files.includes(kind)) return undefined;
 		if (kind === 'photos') {
-			const n = plan.entries.filter((e) => e.kind === 'photo').length;
+			const n = plan.entries.filter((e) => e.kind === 'file' && e.media === 'photo').length;
 			return n ? tk(plural('wrap.note.photos.count', n), { n, size: formatBytes(plan.photoBytes) }) : tk(plural('wrap.note.photos.count', 0), { n: 0, size: formatBytes(0) });
 		}
 		const entry = plan.entries.find((e) => e.kind === kind);

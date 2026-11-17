@@ -40,7 +40,7 @@ async function sent(w: World, o: PushOp): Promise<number> {
  * chart at its tail, an HDRI on 42A, a photo and its annotated copy on take 1. The first Shot's Task
  * is assigned to a person and a Group, the second's to another person.
  */
-async function shoot(w: World) {
+async function shoot(w: World, options: { reference?: boolean } = {}) {
 	const { fpt, projectId } = w;
 	const project = { type: 'Project', id: projectId };
 	const a = fpt.seed('Shot', { code: 'SMP_042_0010', project });
@@ -56,7 +56,7 @@ async function shoot(w: World) {
 	const t1 = await sent(w, create('take', 't1', { slateId: 's1', take: '1' }, { s1 }));
 	await sent(w, create('take', 't2', { slateId: 's1', take: '2', takeType: 'cleanPlate' }, { s1 }));
 	await sent(w, create('take', 't3', { slateId: 's2', take: '1', takeTail: ['ballsAndChart'] }, { s2 }));
-	await sent(w, create('reference', 'r1', { slateId: 's1', kind: 'hdri360', name: 'HDRI_0412' }, { s1 }));
+	if (options.reference !== false) await sent(w, create('reference', 'r1', { slateId: 's1', kind: 'hdri360', name: 'HDRI_0412' }, { s1 }));
 	// A photo and its annotated copy, as the upload leaves them on the take (stills.ts).
 	const photo = fpt.seed('Attachment', { filename: 'onset_ph1_b1.jpg' });
 	const copy = fpt.seed('Attachment', { filename: 'onset_ph1_b2-annotated.jpg' });
@@ -215,6 +215,23 @@ describe('writeNotes', () => {
 		const fresh = createFptTransport({ site: w.fpt.site, bearer: async () => BEARER, fetch: w.fpt.fetch, schemaCache: memoryKeyValue(), projectId: w.projectId, online: () => true });
 		expect(await fresh.writeNotes([s.a])).toBeUndefined();
 		expect(w.fpt.requests.some((r) => r.path.startsWith('/api/v1/entity/notes'))).toBe(false);
+	});
+
+	// Kevin, #117: Set Reference is optional. The Note lists what Flow PT holds: on a site without
+	// it, no references, and Flow PT is asked nothing about them.
+	it('writes the Notes on a site without Set Reference, with no references', async () => {
+		const w = world();
+		delete w.fpt.types.CustomEntity21;
+		const s = await shoot(w, { reference: false });
+		expect(await w.transport.writeNotes([s.a, s.b])).toEqual([
+			{ shot: s.a, outcome: 'created' },
+			{ shot: s.b, outcome: 'created' }
+		]);
+		const content = String(noteOf(w.fpt, s.a).values.content);
+		expect(content).toContain('Slate 42A: takes 1, 2');
+		expect(content).not.toContain('References');
+		expect(String(noteOf(w.fpt, s.a).values.sg_onset_captured)).not.toContain('reference:');
+		expect(w.fpt.requests.some((r) => r.path.includes('custom_entity21'))).toBe(false);
 	});
 
 	it('writes nothing for a Shot of another project', async () => {

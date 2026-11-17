@@ -20,14 +20,16 @@
 		setup: Wrench,
 		offline: WifiOff,
 		syncing: CloudUpload,
-		synced: CloudCheck
+		synced: CloudCheck,
+		// All that can sync is synced; the count beside it says what waits (Kevin, #117).
+		waiting: CloudCheck
 	};
 	const Icon = $derived(ICONS[summary.state]);
 	const text = $derived(t(summary.key, { n: summary.count }));
 	const mark = $derived(safety && safety.level !== 'ok' ? safety.level : undefined);
 	const markMessage = $derived(mark && safety ? lineMessage(safety, deviceOf(navigator)) : undefined);
 	const markText = $derived(markMessage ? ` ${tk(markMessage.key, { ...markMessage.params, span: tk(markMessage.span.key, markMessage.span.params) })}` : '');
-	const label = $derived(summary.count > 0 && summary.state !== 'attention' && summary.state !== 'syncing' ? t('sync.state.open', { status: text, n: summary.count }) : t('sync.open', { status: text }));
+	const label = $derived(t(summary.openKey, { status: text, n: summary.count }));
 </script>
 
 <button type="button" class="sync-status" data-placement={placement} data-state={summary.state} aria-label={label + markText} {onclick}>

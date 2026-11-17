@@ -4,6 +4,7 @@ import {
 	createInput,
 	entityTypesOf,
 	hasNotes,
+	hasScope,
 	parseResolution,
 	planFields,
 	resolveEntities,
@@ -64,12 +65,14 @@ describe('resolveEntities', () => {
 		expect(resolveEntities(rest).find((e) => e.scope === 'take')).toEqual({ scope: 'take', kind: 'custom', displayName: 'Take', status: 'missing' });
 	});
 
-	// A site set up before the reference log: every studio enables one more slot, as for Take.
-	it('asks for a Set Reference entity, and gives no types until there is one', () => {
+	// A site set up before the reference log: a studio enables one more slot, as for Take. Optional
+	// (Kevin, #117): a site without it syncs the rest, and the references wait on the device.
+	it('asks for a Set Reference entity, says it is optional, and gives the other types without it', () => {
 		const { CustomEntity21: _ref, ...before } = SITE;
-		expect(resolveEntities(before).find((e) => e.scope === 'reference')).toEqual({ scope: 'reference', kind: 'custom', displayName: 'Set Reference', status: 'missing' });
-		expect(entityTypesOf(resolveEntities(before))).toBeUndefined();
-		expect(status('reference')).toMatchObject({ status: 'found', entityType: 'CustomEntity21' });
+		expect(resolveEntities(before).find((e) => e.scope === 'reference')).toEqual({ scope: 'reference', kind: 'custom', displayName: 'Set Reference', status: 'missing', optional: true });
+		const { reference: _type, ...rest } = TYPES;
+		expect(entityTypesOf(resolveEntities(before))).toEqual(rest);
+		expect(status('reference')).toMatchObject({ status: 'found', entityType: 'CustomEntity21', optional: true });
 	});
 
 	// Kevin, #102: one more slot, enabled and named by an admin as for Take (findings/122). Optional
@@ -472,6 +475,42 @@ describe('toResolution', () => {
 		expect(res.fields.setShot?.sg_onset_matched).toBe('sg_onset_matched');
 		const { sg_onset_matched: _m, ...older } = res.fields.setShot!;
 		expect(parseResolution(JSON.stringify({ ...res, fields: { ...res.fields, setShot: older } }), 'https://a.example')).toBeUndefined();
+	});
+
+	// Kevin, #117: Set Reference is optional. Until it and every field of it are there, it is left
+	// out, and the rest is ready.
+	it('leaves the Set Reference out while the site lacks it or one of its fields, and the rest is ready', () => {
+		const { CustomEntity21: _slot, ...noSlot } = SITE;
+		const { reference: _type, ...types } = TYPES;
+		const res = toResolution('https://a.example', resolveEntities(noSlot), planFields(types, complete(), VERSION_DONE))!;
+		expect(res.entities.reference).toBeUndefined();
+		expect(res.fields.reference).toBeUndefined();
+		expect(res.entities.slate).toBe('Slate');
+		expect(hasScope(res, 'reference')).toBe(false);
+		expect(hasScope(res, 'setShot')).toBe(true);
+		expect(parseResolution(serializeResolution(res), 'https://a.example')).toEqual(res);
+
+		const half = complete();
+		delete half.reference.sg_slates;
+		const without = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, half, VERSION_DONE))!;
+		expect(without.entities.reference).toBeUndefined();
+		expect(without.fields.reference).toBeUndefined();
+		expect(without.fields.take.sg_onset_uuid).toBe('sg_onset_uuid');
+
+		const whole = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE))!;
+		expect(whole.entities.reference).toBe('CustomEntity21');
+		expect(whole.fields.reference?.sg_slates).toBe('sg_slates');
+	});
+
+	it('is read again from a cache whose Set Reference lacks a field asked for since', () => {
+		const res = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE))!;
+		const { sg_slates: _s, ...older } = res.fields.reference!;
+		expect(parseResolution(JSON.stringify({ ...res, fields: { ...res.fields, reference: older } }), 'https://a.example')).toBeUndefined();
+		// One with no Set Reference at all is good: the references wait for a check.
+		const { reference: _e, ...entities } = res.entities;
+		const { reference: _f, ...fields } = res.fields;
+		const none = { ...res, entities, fields };
+		expect(parseResolution(JSON.stringify(none), 'https://a.example')).toEqual(none);
 	});
 
 	// Notes on Shots (#97) is optional: without the Note fields the rest is ready and the Notes wait.

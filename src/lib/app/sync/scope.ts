@@ -1,14 +1,16 @@
 // The outbox as one project sees it. The runner drains through this port, so only the entries of
 // the linked project go to its FPT project. Without it the transport would answer the linked FPT
 // project's id for every project's create (lib/fpt README, decision 1), and a second project on
-// the device (the sample) would land in it. The edge: it reads the store to find which project a
-// record belongs to.
+// the device (the sample) would land in it. On a site that lacks an optional entity, the runner's
+// port also leaves out what waits for it (`withoutWaiting`). The edge: it reads the store to find
+// which project a record belongs to.
 
 import type { OutboxPort } from '$lib/outbox/port';
 import type { Entry, Queue } from '$lib/outbox/types';
 import type { DexieStore } from '$lib/store/dexieStore';
 import { isTable } from '$lib/store/tables';
 import { entryParent, parentOf, scopedUpdate } from './queue';
+import { waits } from './waiting';
 
 type ScopeStore = Pick<DexieStore, 'get' | 'rows' | 'outbox'>;
 type Parent = { table: string; id: string };
@@ -73,4 +75,19 @@ export function projectScope(store: ScopeStore, projectId: string): ProjectScope
 	};
 
 	return { mine, port };
+}
+
+/**
+ * The outbox without the entries that wait for an entity the site lacks (waiting.ts): the runner
+ * drains through it, so they stay in the queue as they are, never sent, never dropped (Kevin, #117).
+ */
+export function withoutWaiting(port: OutboxPort, tables: readonly string[]): OutboxPort {
+	if (!tables.length) return port;
+	const sendable = (e: Entry) => !waits(e, tables);
+	return {
+		entries: async () => (await port.entries()).filter(sendable),
+		update: async (fn) => (await port.update(scopedUpdate(fn, sendable))).filter(sendable),
+		remoteIds: (ids) => port.remoteIds(ids),
+		blob: (id) => port.blob(id)
+	};
 }

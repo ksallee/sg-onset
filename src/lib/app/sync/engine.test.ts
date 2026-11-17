@@ -15,6 +15,7 @@ import { nextStep, setupReview, type ReviewAction, type ReviewStep } from './rev
 import { syncStatus } from './status';
 
 const TAKE = 'CustomEntity09';
+const SET_SHOT = 'CustomEntity22';
 let n = 0;
 
 function setup(options: { fields?: 'complete' | 'bare' } = {}) {
@@ -327,8 +328,9 @@ describe('a drain through the app wiring', () => {
 	});
 });
 
-// The slate's Shots field, filled from its VFX shot codes at sync (lib/fpt/shots.ts). The codes no
-// Shot has wait on the device, are listed in the sync sheet, and are asked about at later syncs.
+// The slate's Set Shots and Shots fields, filled from its VFX shot codes at sync (lib/fpt/setShots.ts).
+// Every code is a Set Shot; the codes no Shot has wait on the device, and are asked about at later
+// syncs. The codes several Shots have are listed in the sync sheet.
 describe('the Shots of a slate', () => {
 	type Ref = { type: string; id: number };
 	// A retired Shot leaves the field, as Flow PT reads it (field_types/multi_entity.md).
@@ -339,6 +341,8 @@ describe('the Shots of a slate', () => {
 			.sort((a, b) => a - b);
 	const seedShot = (s: S, code: string, project = s.fptProject) => s.fpt.seed('Shot', { code, project: { type: 'Project', id: project } });
 	const owed = (waiting: string[] = [], several: string[] = [], unlink: string[] = []) => ({ waiting, several, unlink });
+	const setShotOf = (s: S, code: string) => s.fpt.live(SET_SHOT).find((r) => r.values.sg_onset_key === `${s.fptProject}:${code.toLowerCase()}`);
+	const linkedIds = (value: unknown) => ((value as Ref[] | undefined) ?? []).map((r) => r.id).sort((a, b) => a - b);
 
 	async function slateWithShots(s: S) {
 		await s.edit.create('project', { id: 'p1', name: 'Show' });
@@ -355,14 +359,60 @@ describe('the Shots of a slate', () => {
 		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
 		expect(shotIds(s)).toEqual([a]);
 		expect(s.engine.state.shots).toEqual({ s1: owed(['SMP_042_0020']) });
+		// Kevin, #102: every code is a Set Shot, linked from the slate, the one a Shot has linked to it.
+		const first = setShotOf(s, 'SMP_042_0010')!;
+		const second = setShotOf(s, 'SMP_042_0020')!;
+		expect(s.fpt.live(SET_SHOT)).toHaveLength(2);
+		expect(linkedIds(s.fpt.byUuid('Slate', 's1')!.values.sg_set_shots)).toEqual([first.id, second.id]);
+		expect(linkedIds(first.values.sg_shots)).toEqual([a]);
+		expect(linkedIds(second.values.sg_shots)).toEqual([]);
 
-		// A coordinator makes the other Shot. The next sync links it.
+		// A coordinator makes the other Shot. The next sync links it, to the Set Shot and the slate.
 		const b = seedShot(s, 'SMP_042_0020');
 		s.fpt.clock.t += 61_000;
 		await settle(s.engine, s.fpt);
 		expect(shotIds(s)).toEqual([a, b]);
+		expect(linkedIds(setShotOf(s, 'SMP_042_0020')!.values.sg_shots)).toEqual([b]);
 		expect(s.engine.state.shots).toEqual({});
 		expect(s.fpt.live('Shot')).toHaveLength(2);
+		expect(s.fpt.live(SET_SHOT)).toHaveLength(2);
+	});
+
+	// Kevin, #102: anyone sets a Set Shot's Shots in Flow PT's grid. The next sync fills the slate.
+	it("links the slate to the Shot someone set on its Set Shot in Flow PT", async () => {
+		const s = setup();
+		await slateWithShots(s);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		const editorial = seedShot(s, 'EDIT_0100');
+		setShotOf(s, 'SMP_042_0010')!.values.sg_shots = [{ type: 'Shot', id: editorial }];
+		s.fpt.clock.t += 61_000;
+		await settle(s.engine, s.fpt);
+		expect(shotIds(s)).toEqual([editorial]);
+		expect(s.engine.state.shots).toEqual({ s1: owed(['SMP_042_0020']) });
+	});
+
+	// Kevin, #96: a Shot a person unlinked is never linked again. The device keeps the Set Shots it saw
+	// holding a Shot, so one a person emptied stays empty.
+	it('never links a Set Shot again once a person emptied it', async () => {
+		const s = setup();
+		const a = seedShot(s, 'SMP_042_0010');
+		await slateWithShots(s);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		const set = setShotOf(s, 'SMP_042_0010')!;
+		expect(linkedIds(set.values.sg_shots)).toEqual([a]);
+		set.values.sg_shots = [];
+		await s.edit.create('slate', { id: 's2', shootDayId: 'd1', slateUID: '43', vfxShots: ['SMP_042_0010'] });
+		s.fpt.clock.t += 61_000;
+		await settle(s.engine, s.fpt);
+		expect(s.fpt.byUuid('Slate', 's2')).toBeDefined();
+		expect(linkedIds(set.values.sg_shots)).toEqual([]);
+		expect(linkedIds(s.fpt.byUuid('Slate', 's2')!.values.sg_set_shots)).toEqual([set.id]);
+		expect(linkedIds(s.fpt.byUuid('Slate', 's2')!.values.sg_shots)).toEqual([]);
+		expect(s.engine.state.shots?.s2).toEqual(owed(['SMP_042_0010']));
 	});
 
 	it('asks Flow PT again at most once a minute on its own, and at once on Sync Now', async () => {
@@ -427,12 +477,13 @@ describe('the Shots of a slate', () => {
 		s.world.visible = true;
 		await settle(s.engine, s.fpt);
 		expect(shotIds(s)).toEqual([a, b]);
-		// The push's unlink fails, and so does the try at the end of that drain.
-		s.fpt.failNext((r) => r.method === 'PUT' && JSON.stringify(r.body).includes('"remove"'), { status: 503 }, 2);
+		// The push's unlink fails, and so does the try at the end of that drain: each time a remove of
+		// the Set Shot, then of the Shot.
+		s.fpt.failNext((r) => r.method === 'PUT' && JSON.stringify(r.body).includes('"remove"'), { status: 503 }, 4);
 		const slate = (await s.store.get('slate', 's1'))!;
 		await s.edit.set('slate', slate, 'vfxShots', ['SMP_042_0020']);
 		await vi.waitFor(async () => expect(await s.store.outbox.entries()).toEqual([]));
-		await vi.waitFor(() => expect(s.fpt.count((r) => r.method === 'PUT' && JSON.stringify(r.body).includes('"remove"'))).toBe(2));
+		await vi.waitFor(() => expect(s.fpt.count((r) => r.method === 'PUT' && JSON.stringify(r.body).includes('"remove"'))).toBe(4));
 		await vi.waitFor(() => expect(s.engine.state.shots).toEqual({ s1: owed([], [], ['SMP_042_0010']) }));
 		expect(shotIds(s)).toEqual([a, b]);
 		await settle(s.engine, s.fpt);

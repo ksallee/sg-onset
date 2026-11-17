@@ -39,20 +39,21 @@ import { ApiRefusal, createApi, type Filter, type FptOptions } from './api';
 import { resolutionKey } from './cache';
 import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
 import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
-import { ENTITY_SCOPES, isEntityScope, SHOTS, STILLS, type EntityScope } from './mapping';
+import { ENTITY_SCOPES, isEntityScope, SET_SHOT_KEY, SET_SHOT_SHOTS, SET_SHOTS, SHOTS, STILLS, type EntityScope } from './mapping';
 import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, type Resolution } from './schema';
 import { loadResolution } from './setup';
-import { codeKey, codesOf, linkValue, SHOT, shotChange, shotCodes, shotFilter, shotPlan, shotsOf, type ShotRow, type ShotWork } from './shots';
+import { heldIds, missingCodes, setShotData, setShotFilter, setShotKey, setShotMatches, setShotsOf, slateLinks, type SetShotRow } from './setShots';
+import { codesOf, linkValue, SHOT, shotChange, shotCodes, shotFilter, shotsOf, type ShotRow, type ShotWork } from './shots';
 import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, type StillRemote } from './stills';
 import { completionInfo, isMultipart, partLink, UPLOAD_SIZES, URL_LIFE_MS, type UploadSizes } from './uploadPlan';
 
 /**
- * What is owed on one slate's Shots field:
- * - `waiting`: codes not linked yet: no Shot had them, or the write failed.
+ * What is owed on one slate's Set Shots and Shots fields:
+ * - `waiting`: codes not linked yet: no Set Shot yet, a Set Shot with no Shot yet, or a write failed.
  * - `several`: codes more than one Shot has. All of them are linked; someone cleans up in Flow PT.
- * - `unlink`: codes taken off whose Shots are still linked: the unlink failed, or its turn has not come.
+ * - `unlink`: codes taken off whose links stay: the unlink failed, or its turn has not come.
  */
 export type ShotResult = { slate: string; waiting: string[]; several: string[]; unlink: string[] };
 
@@ -71,11 +72,19 @@ export type FptTransportOptions = FptOptions & {
 	 * answer leaves the first word standing, and a later sync makes them (`linkShots`).
 	 */
 	onShots?: (results: ShotResult[]) => unknown;
+	/**
+	 * The Set Shots this device saw holding a Shot. None is linked to Shots again: one seen holding a
+	 * Shot and now empty was emptied by a person, and a Shot a person unlinked is never linked again
+	 * (Kevin, #96).
+	 */
+	matched?: () => readonly number[] | Promise<readonly number[]>;
+	/** Told, at each sync of Shot links, the Set Shots seen holding a Shot. */
+	onMatched?: (ids: number[]) => unknown;
 };
 
 /** The transport, and the Shot links of slates the server already holds. */
 export interface FptTransport extends Transport {
-	/** Makes what is owed on these slates' Shots fields (`ShotWork`). Never throws. */
+	/** Makes what is owed on these slates' Set Shots and Shots fields (`ShotWork`). Never throws. */
 	linkShots(items: ({ slate: string; remoteId: number } & ShotWork)[], signal?: AbortSignal): Promise<ShotResult[]>;
 }
 
@@ -217,50 +226,115 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 		}
 	}
 
+	/** The Set Shots seen holding a Shot, as the app keeps them. Nothing, if it cannot say. */
+	async function matched(): Promise<Set<number>> {
+		try {
+			return new Set((await options.matched?.()) ?? []);
+		} catch {
+			return new Set();
+		}
+	}
+
+	/** The Set Shots of these codes, by key, in the project. */
+	async function readSetShots(res: Resolution, codes: readonly string[], signal?: AbortSignal): Promise<SetShotRow[]> {
+		const key = fieldName(res, 'setShot', SET_SHOT_KEY);
+		const shots = fieldName(res, 'setShot', SET_SHOT_SHOTS);
+		return setShotsOf(await api.searchAll(res.entities.setShot, setShotFilter(projectId, key, codes), [key, 'code', shots], signal), key, shots);
+	}
+
 	/**
-	 * Brings each slate's Shots field in line with its codes: one search for the Shots of every code,
-	 * in the project; then per slate a `remove` of the Shots of the codes taken off and an `add` of
-	 * the Shots of the codes it holds, each a PUT with the mode in the body (corpus
+	 * Files each code as a new Set Shot, in one `_batch`, with the project and the key. The key is
+	 * unique: if another device filed one of the codes since the lookup, the batch is refused whole
+	 * (findings/127, recipes/002); a batch with no answer may have landed (findings/127). Either way
+	 * the codes are looked up again, never sent blind. What is still missing waits for a later
+	 * sync. Never throws.
+	 */
+	async function fileSetShots(res: Resolution, codes: readonly string[], signal?: AbortSignal): Promise<SetShotRow[]> {
+		if (!codes.length) return [];
+		const key = fieldName(res, 'setShot', SET_SHOT_KEY);
+		const requests: BatchRequest[] = codes.map((code) => ({ request_type: 'create', entity: res.entities.setShot, data: setShotData(projectId, code, key) }));
+		try {
+			const rows = await api.batch(requests, signal);
+			// One row per request, in request order (recipes/002).
+			return rows.flatMap((row, i) => (row.request_type === 'create' ? [{ id: row.data.id, key: setShotKey(projectId, codes[i]), code: codes[i].trim(), shots: [] }] : []));
+		} catch {
+			return readSetShots(res, codes, signal).catch(() => []);
+		}
+	}
+
+	/**
+	 * Brings each slate's Set Shots and Shots fields in line with its codes (setShots.ts):
+	 * 1. One search for the Shots of every code, in the project, and one for the Set Shots, by key.
+	 * 2. Every code to link that has no Set Shot is filed as one, in one batch. Never two for a code.
+	 * 3. A Set Shot of those codes with no Shot, never seen with one, is linked to the Shots of its
+	 *    code. The app is told which Set Shots hold a Shot (`onMatched`).
+	 * 4. Per slate, a `remove` of the Set Shots, then of the Shots, of the codes taken off, then an
+	 *    `add` of the Set Shots, then of the Shots, of the codes it holds.
+	 * Each write is a PUT with the mode in the body, one field at a time (corpus
 	 * recipes/009_multi_entity_safely.md: a bare list would replace the field, the query-string mode
-	 * replaces it too). A `_batch` is not used for these: the mode inside a batch update is not
-	 * measured. Never throws: what did not land is owed, and a later sync makes it. A Shot is
-	 * never created.
+	 * replaces it too). Neither a `_batch` update with the mode nor two fields with it in one PUT is
+	 * measured. Never throws: what did not land is owed, and a later sync makes it. A Shot is never
+	 * created or changed; a Set Shot is never deleted.
 	 */
 	async function writeShots(work: readonly SlateWork[], signal?: AbortSignal): Promise<ShotResult[]> {
-		const codes = [...new Map(work.flatMap((w) => [...w.link, ...w.unlink, ...w.check]).map((c) => [codeKey(c), c.trim()])).values()];
+		const codes = shotCodes(work.flatMap((w) => [...w.link, ...w.unlink, ...w.check]));
 		if (!codes.length) return work.map((w) => ({ slate: w.slate, waiting: [], several: [], unlink: [] }));
 		let res: Resolution;
 		let shots: ShotRow[];
+		let setShots: SetShotRow[];
 		try {
 			res = await resolved(signal);
 			shots = shotsOf(await api.searchAll(SHOT, shotFilter(projectId, codes), ['code'], signal));
+			setShots = await readSetShots(res, codes, signal);
 		} catch {
 			return work.map(owedAll);
 		}
-		const field = fieldName(res, 'slate', SHOTS);
-		const out: ShotResult[] = [];
+		const linking = work.flatMap((w) => w.link);
+		setShots = [...setShots, ...(await fileSetShots(res, missingCodes(projectId, linking, setShots), signal))];
+
 		let reachable = true;
+		/** One PUT. False when it did not land. No answer, or no session: the rest would fare the same. */
+		const write = async (entityType: string, id: number, field: string, value: unknown): Promise<boolean> => {
+			if (!reachable) return false;
+			try {
+				await api.update(entityType, id, { [field]: value }, signal);
+				return true;
+			} catch (error) {
+				// A refusal is this row's alone.
+				if (error instanceof TransportError && error.kind !== 'failed') reachable = false;
+				return false;
+			}
+		};
+
+		const setShotShots = fieldName(res, 'setShot', SET_SHOT_SHOTS);
+		for (const match of setShotMatches(projectId, linking, setShots, shots, await matched())) {
+			if (!(await write(res.entities.setShot, match.id, setShotShots, linkValue('add', match.shots.map((s) => s.id))))) continue;
+			setShots = setShots.map((s) => (s.id === match.id ? { ...s, shots: match.shots } : s));
+		}
+		const held = heldIds(setShots);
+		if (held.length && options.onMatched) {
+			try {
+				await options.onMatched(held);
+			} catch {
+				// Kept or not, the Set Shot holds its Shots on the server.
+			}
+		}
+
+		const setShotsField = fieldName(res, 'slate', SET_SHOTS);
+		const shotsField = fieldName(res, 'slate', SHOTS);
+		const out: ShotResult[] = [];
 		for (const w of work) {
-			const plan = shotPlan(w, shots);
 			if (!reachable || typeof w.remoteId !== 'number') {
 				out.push(owedAll(w));
 				continue;
 			}
-			const write = async (mode: 'add' | 'remove', ids: number[]): Promise<boolean> => {
-				if (!ids.length) return true;
-				if (!reachable) return false;
-				try {
-					await api.update(res.entities.slate, w.remoteId as number, { [field]: linkValue(mode, ids) }, signal);
-					return true;
-				} catch (error) {
-					// No answer, or no session: the rest would fare the same. A refusal is this slate's alone.
-					if (error instanceof TransportError && error.kind !== 'failed') reachable = false;
-					return false;
-				}
-			};
-			const removed = await write('remove', plan.remove);
-			const added = await write('add', plan.add);
-			out.push({ slate: w.slate, waiting: added ? plan.waiting : shotCodes(w.link), several: plan.several, unlink: removed ? [] : plan.removing });
+			const slate = w.remoteId;
+			const plan = slateLinks(projectId, w, setShots, shots);
+			const put = (field: string, mode: 'add' | 'remove', ids: number[], type?: string) =>
+				ids.length ? write(res.entities.slate, slate, field, linkValue(mode, ids, type)) : Promise.resolve(true);
+			const removed = [await put(setShotsField, 'remove', plan.setShots.remove, res.entities.setShot), await put(shotsField, 'remove', plan.shots.remove)].every(Boolean);
+			const added = [await put(setShotsField, 'add', plan.setShots.add, res.entities.setShot), await put(shotsField, 'add', plan.shots.add)].every(Boolean);
+			out.push({ slate: w.slate, waiting: added ? plan.waiting : shotCodes([...w.link, ...plan.waiting]), several: plan.several, unlink: removed ? [] : plan.removing });
 		}
 		return out;
 	}

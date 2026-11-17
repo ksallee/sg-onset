@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { mergeOwed, parseOwed, pruneOwed, retryDue, retryItems, serializeOwed, shotsKey, waitingRows, type SlateOwed } from './shots';
+import {
+	addMatched,
+	matchedKey,
+	mergeOwed,
+	parseMatched,
+	parseOwed,
+	pruneOwed,
+	retryDue,
+	retryItems,
+	serializeMatched,
+	serializeOwed,
+	severalRows,
+	shotsKey,
+	type SlateOwed
+} from './shots';
 
 const slates = [
 	{ id: 's1', slateUID: '12A', vfxShots: ['SMP_012_0010', 'SMP_012_0030'] },
@@ -65,16 +79,30 @@ describe('retryDue', () => {
 	});
 });
 
-describe('waitingRows', () => {
-	it('lists each slate with codes no Shot has or several Shots have, in slate order', () => {
-		const list = { s1: owed(['SMP_012_0030'], ['SMP_012_0010']), s2: owed(['SMP_009_0010']), s3: owed(['SMP_042_0010']) };
-		expect(waitingRows(list, slates)).toEqual([
-			{ slateId: 's2', slate: '9', none: ['SMP_009_0010'], several: [] },
-			{ slateId: 's1', slate: '12A', none: ['SMP_012_0030'], several: ['SMP_012_0010'] }
+describe('severalRows', () => {
+	it('lists each slate with codes several Shots have, in slate order', () => {
+		const list = { s1: owed(['SMP_012_0030'], ['SMP_012_0010']), s2: owed([], ['SMP_009_0010']), s3: owed(['SMP_042_0010']) };
+		expect(severalRows(list, slates)).toEqual([
+			{ slateId: 's2', slate: '9', several: ['SMP_009_0010'] },
+			{ slateId: 's1', slate: '12A', several: ['SMP_012_0010'] }
 		]);
 	});
-	it('leaves out an unlink owed: it is made at a later sync and needs no one', () => {
-		expect(waitingRows({ s3: owed([], [], ['SMP_042_0010']) }, slates)).toEqual([]);
-		expect(waitingRows({}, slates)).toEqual([]);
+	// Kevin, #102: a code with no Shot is filed as a Set Shot, which is expected. Nobody need look.
+	it('leaves out a code no Shot has yet, and an unlink owed: later syncs make them', () => {
+		expect(severalRows({ s1: owed(['SMP_012_0030']), s3: owed([], [], ['SMP_042_0010']) }, slates)).toEqual([]);
+		expect(severalRows({}, slates)).toEqual([]);
+	});
+});
+
+describe('the matched Set Shots', () => {
+	it('are kept per project', () => {
+		expect(matchedKey('p1')).toBe('setShots:p1');
+	});
+	it('survive being kept, each once, and anything unreadable is none', () => {
+		expect(parseMatched(serializeMatched(addMatched([300], [302, 300, 301])))).toEqual([300, 301, 302]);
+		expect(parseMatched(undefined)).toEqual([]);
+		expect(parseMatched('{nope')).toEqual([]);
+		expect(parseMatched(JSON.stringify({ v: 1, ids: [300, 'x', 1.5, 301] }))).toEqual([300, 301]);
+		expect(parseMatched(JSON.stringify({ v: 2, ids: [300] }))).toEqual([]);
 	});
 });

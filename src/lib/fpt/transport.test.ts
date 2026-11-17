@@ -9,6 +9,9 @@ import { createFptTransport, readShotCodes, type ShotResult } from './transport'
 
 type World = ReturnType<typeof world>;
 
+/** The Set Shot entity of the fake site (testkit.ts). */
+const SET_SHOT = 'CustomEntity22';
+
 function world(options: { fields?: 'complete' | 'bare'; upload?: { singlePutMax: number; partSize: number } } = {}) {
 	const fpt = fakeFpt({ fields: options.fields });
 	const projectId = fpt.seed('Project', { name: 'Show' });
@@ -16,6 +19,8 @@ function world(options: { fields?: 'complete' | 'bare'; upload?: { singlePutMax:
 	const auth = { bearer: async (_request?: { renew?: boolean }): Promise<string> => BEARER };
 	/** What the transport said about each slate's codes, in order. */
 	const shotNews: ShotResult[][] = [];
+	/** The Set Shots seen holding a Shot, as the app keeps them. */
+	const matched = new Set<number>();
 	const make = () =>
 		createFptTransport({
 			site: fpt.site,
@@ -26,9 +31,11 @@ function world(options: { fields?: 'complete' | 'bare'; upload?: { singlePutMax:
 			now: () => fpt.clock.t,
 			online: () => fpt.online,
 			onShots: (results) => void shotNews.push(results),
+			matched: () => [...matched],
+			onMatched: (ids) => ids.forEach((id) => matched.add(id)),
 			...(options.upload ? { upload: options.upload } : {})
 		});
-	return { fpt, projectId, cache, auth, make, shotNews, transport: make() };
+	return { fpt, projectId, cache, auth, make, shotNews, matched, transport: make() };
 }
 
 let n = 0;
@@ -159,14 +166,14 @@ describe('push', () => {
 		const w = world();
 		await applied(w, [create('camera', 'c1', { projectId: 'p1', cameraModel: 'A' }, { p1: w.projectId })]);
 		const reads = () => w.fpt.count((r) => r.path.startsWith('/api/v1/schema'));
-		// /schema, the eight types, Attachment and Shot, where the photos and Shots fields add one each (findings/142).
-		expect(reads()).toBe(11);
+		// /schema, the nine types, Attachment and Shot, where the photos and Shots fields add one each (findings/142).
+		expect(reads()).toBe(12);
 		await applied(w, [create('camera', 'c2', { projectId: 'p1', cameraModel: 'B' }, { p1: w.projectId })]);
-		expect(reads()).toBe(11);
+		expect(reads()).toBe(12);
 		expect(await w.cache.get(resolutionKey(w.fpt.site))).toBeDefined();
 		// Another session on the same device starts from the cache.
 		await w.make().push([create('camera', 'c3', { projectId: 'p1', cameraModel: 'C' }, { p1: w.projectId })]);
-		expect(reads()).toBe(11);
+		expect(reads()).toBe(12);
 	});
 
 	it('does not send to a site that is not set up, and says what is missing', async () => {
@@ -454,9 +461,10 @@ describe('push, no answer', () => {
 	});
 });
 
-// The slate's Shots field, filled from its VFX shot codes (lib/fpt/shots.ts). Shot codes are not
-// unique and Shot reads need a project filter (entity_types/Shot.md); writes add and remove in
-// place, never a bare list (recipes/009_multi_entity_safely.md).
+// The slate's Shots field, filled from its VFX shot codes (lib/fpt/shots.ts), through the Set Shot
+// of each code (setShots.ts). Shot codes are not unique and Shot reads need a project filter
+// (entity_types/Shot.md); writes add and remove in place, never a bare list
+// (recipes/009_multi_entity_safely.md).
 describe('push, the Shots of a slate', () => {
 	type Ref = { type: string; id: number };
 	async function day(w: World): Promise<number> {
@@ -472,9 +480,14 @@ describe('push, the Shots of a slate', () => {
 			elsewhere: w.fpt.seed('Shot', { code: 'SMP_099_0010', project: { type: 'Project', id: other } })
 		};
 	}
-	const shotsField = (w: World, uuid: string) => ((w.fpt.byUuid('Slate', uuid)!.values.sg_shots as Ref[] | undefined) ?? []).map((r) => r.id).sort((x, y) => x - y);
+	const ids = (value: unknown) => ((value as Ref[] | undefined) ?? []).map((r) => r.id).sort((x, y) => x - y);
+	const shotsField = (w: World, uuid: string) => ids(w.fpt.byUuid('Slate', uuid)!.values.sg_shots);
+	const setShotsField = (w: World, uuid: string) => ids(w.fpt.byUuid('Slate', uuid)!.values.sg_set_shots);
+	const setShotOf = (w: World, code: string) => w.fpt.live(SET_SHOT).find((r) => r.values.sg_onset_key === `${w.projectId}:${code.trim().toLowerCase()}`);
 	const writes = (w: World) => w.fpt.requests.filter((r) => r.method === 'PUT' && r.path.startsWith('/api/v1/entity/slates/'));
+	const setShotWrites = (w: World) => w.fpt.requests.filter((r) => r.method === 'PUT' && r.path.startsWith('/api/v1/entity/custom_entity22s/'));
 	const shotSearches = (w: World) => w.fpt.requests.filter((r) => r.path === '/api/v1/entity/shots/_search');
+	const setShotSearches = (w: World) => w.fpt.requests.filter((r) => r.path === '/api/v1/entity/custom_entity22s/_search');
 	/** What the transport says of a slate's codes: those to link, those several Shots share, those to unlink. */
 	const owed = (slate: string, waiting: string[] = [], several: string[] = [], unlink: string[] = []): ShotResult => ({ slate, waiting, several, unlink });
 
@@ -496,34 +509,47 @@ describe('push, the Shots of a slate', () => {
 		expect(w.fpt.requests.some((r) => r.path === '/api/v1/entity/_batch' && JSON.stringify(r.body).includes('"Shot"'))).toBe(false);
 	});
 
-	it('adds in place: the mode goes in the body, never a bare list', async () => {
+	it('adds in place: the mode goes in the body, never a bare list, one field a write', async () => {
 		const w = world();
 		const d1 = await day(w);
-		shots(w);
+		const s = shots(w);
 		await applied(w, [create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010'] }, { d1 })]);
-		expect(writes(w).map((r) => r.body)).toEqual([{ sg_shots: { multi_entity_update_mode: 'add', value: [{ type: 'Shot', id: expect.any(Number) }] } }]);
-		expect(writes(w)[0].query.toString()).toBe('');
+		const set = setShotOf(w, 'SMP_012_0010')!;
+		expect(setShotWrites(w).map((r) => r.body)).toEqual([{ sg_shots: { multi_entity_update_mode: 'add', value: [{ type: 'Shot', id: s.a }] } }]);
+		expect(writes(w).map((r) => r.body)).toEqual([
+			{ sg_set_shots: { multi_entity_update_mode: 'add', value: [{ type: SET_SHOT, id: set.id }] } },
+			{ sg_shots: { multi_entity_update_mode: 'add', value: [{ type: 'Shot', id: s.a }] } }
+		]);
+		expect([...writes(w), ...setShotWrites(w)].every((r) => r.query.toString() === '')).toBe(true);
 	});
 
-	it('on an edit, unlinks only the Shots of the codes taken off, and keeps a link made in Flow PT', async () => {
+	it('on an edit, unlinks only the Set Shot and Shots of the codes taken off, and keeps a link made in Flow PT', async () => {
 		const w = world();
 		const d1 = await day(w);
 		const s = shots(w);
 		const slate = create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010'] }, { d1 });
 		const s1 = Number((await applied(w, [slate]))[slate.entryId]);
+		const old = setShotOf(w, 'SMP_012_0010')!;
 		// Someone links the slate from the Shot's side, in Flow PT (findings/142: the field is editable).
 		const row = w.fpt.byUuid('Slate', 's1')!;
 		row.values.sg_shots = [...(row.values.sg_shots as Ref[]), { type: 'Shot', id: s.c }];
 		await applied(w, [update('slate', 's1', s1, { vfxShots: [['SMP_012_0010'], ['SMP_012_0020']] })]);
+		const next = setShotOf(w, 'SMP_012_0020')!;
 		expect(shotsField(w, 's1')).toEqual([s.b, s.c]);
+		expect(setShotsField(w, 's1')).toEqual([next.id]);
 		expect(w.fpt.byUuid('Slate', 's1')!.values.sg_vfx_shots).toBe('SMP_012_0020');
-		expect(writes(w).slice(1).map((r) => r.body)).toEqual([
+		expect(writes(w).slice(2).map((r) => r.body)).toEqual([
+			{ sg_set_shots: { multi_entity_update_mode: 'remove', value: [{ type: SET_SHOT, id: old.id }] } },
 			{ sg_shots: { multi_entity_update_mode: 'remove', value: [{ type: 'Shot', id: s.a }] } },
+			{ sg_set_shots: { multi_entity_update_mode: 'add', value: [{ type: SET_SHOT, id: next.id }] } },
 			{ sg_shots: { multi_entity_update_mode: 'add', value: [{ type: 'Shot', id: s.b }] } }
 		]);
+		// The old Set Shot stays, and keeps its Shot: another slate may list the code.
+		expect(setShotOf(w, 'SMP_012_0010')).toMatchObject({ id: old.id, values: { sg_shots: [{ type: 'Shot', id: s.a }] } });
+		expect(w.fpt.requests.some((r) => r.method === 'DELETE' || (r.path === '/api/v1/entity/_batch' && JSON.stringify(r.body).includes('"delete"')))).toBe(false);
 	});
 
-	it('unlinks every Shot of the codes when the codes are cleared', async () => {
+	it('unlinks every Set Shot and Shot of the codes when the codes are cleared', async () => {
 		const w = world();
 		const d1 = await day(w);
 		shots(w);
@@ -531,6 +557,7 @@ describe('push, the Shots of a slate', () => {
 		const s1 = Number((await applied(w, [slate]))[slate.entryId]);
 		await applied(w, [update('slate', 's1', s1, { vfxShots: [['SMP_012_0010', 'SMP_042_0010'], undefined] })]);
 		expect(shotsField(w, 's1')).toEqual([]);
+		expect(setShotsField(w, 's1')).toEqual([]);
 		expect(w.shotNews.at(-1)).toEqual([owed('s1')]);
 	});
 
@@ -541,6 +568,7 @@ describe('push, the Shots of a slate', () => {
 		const s1 = Number((await applied(w, [slate]))[slate.entryId]);
 		await applied(w, [update('slate', 's1', s1, { notes: [undefined, 'Wire work'] })]);
 		expect(shotSearches(w)).toEqual([]);
+		expect(setShotSearches(w)).toEqual([]);
 		expect(writes(w)).toEqual([]);
 		expect(w.shotNews).toEqual([]);
 	});
@@ -577,7 +605,10 @@ describe('push, the Shots of a slate', () => {
 		const results = await w.transport.linkShots([{ slate: 's1', remoteId: s1, link: ['SMP_012_0010', 'SMP_042_0010'], unlink: [], check: [] }]);
 		expect(results).toEqual([owed('s1', ['SMP_042_0010'])]);
 		expect(shotsField(w, 's1')).toEqual([a]);
-		expect(writes(w).every((r) => (r.body as { sg_shots: { multi_entity_update_mode: string } }).sg_shots.multi_entity_update_mode === 'add')).toBe(true);
+		expect(ids(setShotOf(w, 'SMP_012_0010')!.values.sg_shots)).toEqual([a]);
+		expect(w.fpt.live(SET_SHOT)).toHaveLength(2);
+		const modes = [...writes(w), ...setShotWrites(w)].map((r) => Object.values(r.body as Record<string, { multi_entity_update_mode: string }>)[0].multi_entity_update_mode);
+		expect(new Set(modes)).toEqual(new Set(['add']));
 	});
 
 	// Shot codes are not unique (entity_types/Shot.md). Kevin, #96: link them all, and name the code.
@@ -588,6 +619,7 @@ describe('push, the Shots of a slate', () => {
 		const twin = w.fpt.seed('Shot', { code: 'smp_012_0010', project: { type: 'Project', id: w.projectId } });
 		await applied(w, [create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010', 'SMP_042_0010'] }, { d1 })]);
 		expect(shotsField(w, 's1')).toEqual([s.a, s.c, twin]);
+		expect(ids(setShotOf(w, 'SMP_012_0010')!.values.sg_shots)).toEqual([s.a, twin]);
 		expect(w.shotNews.at(-1)).toEqual([owed('s1', [], ['SMP_012_0010'])]);
 	});
 
@@ -601,11 +633,11 @@ describe('push, the Shots of a slate', () => {
 		// Someone cleans up: unlinks the twin from the slate, then retires it.
 		const row = w.fpt.byUuid('Slate', 's1')!;
 		row.values.sg_shots = (row.values.sg_shots as Ref[]).filter((r) => r.id !== twin);
-		const writes0 = writes(w).length;
+		const writes0 = writes(w).length + setShotWrites(w).length;
 		expect(await w.transport.linkShots([{ slate: 's1', remoteId: s1, link: [], unlink: [], check: ['SMP_012_0010'] }])).toEqual([owed('s1', [], ['SMP_012_0010'])]);
 		w.fpt.rows.get(`Shot:${twin}`)!.retired = true;
 		expect(await w.transport.linkShots([{ slate: 's1', remoteId: s1, link: [], unlink: [], check: ['SMP_012_0010'] }])).toEqual([owed('s1')]);
-		expect(writes(w).length).toBe(writes0);
+		expect(writes(w).length + setShotWrites(w).length).toBe(writes0);
 		expect(shotsField(w, 's1')).toEqual([s.a]);
 	});
 
@@ -616,12 +648,16 @@ describe('push, the Shots of a slate', () => {
 		const s = shots(w);
 		const slate = create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010'] }, { d1 });
 		const s1 = Number((await applied(w, [slate]))[slate.entryId]);
-		w.fpt.failNext((r) => r.method === 'PUT' && JSON.stringify(r.body).includes('"remove"'), { status: 503 });
+		const old = setShotOf(w, 'SMP_012_0010')!.id;
+		w.fpt.failNext((r) => r.method === 'PUT' && JSON.stringify(r.body).includes('"remove"'), { status: 503 }, 2);
 		await applied(w, [update('slate', 's1', s1, { vfxShots: [['SMP_012_0010'], ['SMP_012_0020']] })]);
+		const next = setShotOf(w, 'SMP_012_0020')!.id;
 		expect(shotsField(w, 's1')).toEqual([s.a, s.b]);
+		expect(setShotsField(w, 's1')).toEqual([old, next]);
 		expect(w.shotNews.at(-1)).toEqual([owed('s1', [], [], ['SMP_012_0010'])]);
 		expect(await w.transport.linkShots([{ slate: 's1', remoteId: s1, link: [], unlink: ['SMP_012_0010'], check: [] }])).toEqual([owed('s1')]);
 		expect(shotsField(w, 's1')).toEqual([s.b]);
+		expect(setShotsField(w, 's1')).toEqual([next]);
 	});
 
 	it('owes the unlinks and the links of an edit whose batch answer was lost', async () => {
@@ -651,6 +687,171 @@ describe('push, the Shots of a slate', () => {
 		expect(codes[0]).toBe('SH0000');
 		expect(codes).not.toContain('ELSEWHERE');
 		expect(shotSearches(w).length).toBe(2);
+	});
+
+	// Kevin, #102: a Set Shot per on-set code, made at sync even when a Shot has the code, never two
+	// for one code in a project. Looked up by key before it is made; the key is unique (findings/127).
+	describe('Set Shots', () => {
+		it('files a Set Shot per code typed, in the project, named as typed, with its key, in one batch', async () => {
+			const w = world();
+			const d1 = await day(w);
+			const s = shots(w);
+			const batches0 = batches(w).length;
+			await applied(w, [create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['smp_012_0010', 'SMP_099_0010'] }, { d1 })]);
+			const a = setShotOf(w, 'SMP_012_0010')!;
+			const none = setShotOf(w, 'SMP_099_0010')!;
+			expect(a.values).toMatchObject({ project: { type: 'Project', id: w.projectId }, code: 'smp_012_0010', sg_onset_key: `${w.projectId}:smp_012_0010` });
+			expect(none.values).toMatchObject({ code: 'SMP_099_0010', sg_onset_key: `${w.projectId}:smp_099_0010` });
+			expect(w.fpt.live(SET_SHOT)).toHaveLength(2);
+			// The slate's batch, then one batch for both Set Shots. Looked up first, by key, in the project.
+			expect(batches(w).length - batches0).toBe(2);
+			expect(batches(w).at(-1)!.body).toEqual({
+				requests: [
+					{ request_type: 'create', entity: SET_SHOT, data: { project: { type: 'Project', id: w.projectId }, code: 'smp_012_0010', sg_onset_key: `${w.projectId}:smp_012_0010` } },
+					{ request_type: 'create', entity: SET_SHOT, data: { project: { type: 'Project', id: w.projectId }, code: 'SMP_099_0010', sg_onset_key: `${w.projectId}:smp_099_0010` } }
+				]
+			});
+			expect(setShotSearches(w)[0].body).toMatchObject({
+				filters: { logical_operator: 'and', conditions: [['project', 'is', { type: 'Project', id: w.projectId }], ['sg_onset_key', 'in', [`${w.projectId}:smp_012_0010`, `${w.projectId}:smp_099_0010`]]] }
+			});
+			// Linked from the slate. The one a Shot has links it at once; the other holds the code.
+			expect(setShotsField(w, 's1')).toEqual([a.id, none.id]);
+			expect(ids(a.values.sg_shots)).toEqual([s.a]);
+			expect(ids(none.values.sg_shots)).toEqual([]);
+			expect(w.matched).toEqual(new Set([a.id]));
+		});
+
+		it('never files a second Set Shot for a code: another slate, another case, the same push', async () => {
+			const w = world();
+			const d1 = await day(w);
+			shots(w);
+			await applied(w, [create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010'] }, { d1 })]);
+			const set = setShotOf(w, 'SMP_012_0010')!.id;
+			await applied(w, [
+				create('slate', 's2', { shootDayId: 'd1', slateUID: '12B', vfxShots: [' smp_012_0010', 'SMP_042_0010'] }, { d1 }),
+				create('slate', 's3', { shootDayId: 'd1', slateUID: '12C', vfxShots: ['SMP_042_0010'] }, { d1 })
+			]);
+			expect(w.fpt.live(SET_SHOT)).toHaveLength(2);
+			const other = setShotOf(w, 'SMP_042_0010')!.id;
+			expect(setShotsField(w, 's2')).toEqual([set, other]);
+			expect(setShotsField(w, 's3')).toEqual([other]);
+		});
+
+		it('keeps the Set Shots of each project apart', async () => {
+			const w = world();
+			const d1 = await day(w);
+			const other = w.fpt.seed('Project', { name: 'Other' });
+			const theirs = w.fpt.seed(SET_SHOT, { project: { type: 'Project', id: other }, code: 'SMP_012_0010', sg_onset_key: `${other}:smp_012_0010` });
+			await applied(w, [create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010'] }, { d1 })]);
+			const ours = setShotOf(w, 'SMP_012_0010')!;
+			expect(ours.id).not.toBe(theirs);
+			expect(ours.values.project).toEqual({ type: 'Project', id: w.projectId });
+		});
+
+		it('links the Set Shot another device filed meanwhile, refused as not unique, with no second row', async () => {
+			const w = world();
+			const d1 = await day(w);
+			const s = shots(w);
+			// Between the lookup and the create, another device files the code.
+			const real = w.fpt.fetch;
+			let theirs = 0;
+			w.fpt.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+				if (!theirs && String(input).endsWith('/entity/_batch') && String(init?.body).includes(SET_SHOT)) {
+					theirs = w.fpt.seed(SET_SHOT, { project: { type: 'Project', id: w.projectId }, code: 'SMP_012_0010', sg_onset_key: `${w.projectId}:smp_012_0010` });
+				}
+				return real(input, init);
+			}) as typeof fetch;
+			const transport = w.make();
+			const slate = create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010'] }, { d1 });
+			expect((await transport.push([slate])).outcome).toBe('applied');
+			expect(w.fpt.live(SET_SHOT).map((r) => r.id)).toEqual([theirs]);
+			expect(setShotsField(w, 's1')).toEqual([theirs]);
+			expect(ids(setShotOf(w, 'SMP_012_0010')!.values.sg_shots)).toEqual([s.a]);
+			expect(shotsField(w, 's1')).toEqual([s.a]);
+		});
+
+		// A batch with no answer may have committed (findings/127): looked up, never sent blind.
+		it('finds the Set Shots of a create whose answer was lost, and files no second one', async () => {
+			const w = world();
+			const d1 = await day(w);
+			const s = shots(w);
+			w.fpt.failNext((r) => r.path === '/api/v1/entity/_batch' && JSON.stringify(r.body).includes(SET_SHOT), { after: 'network' });
+			await applied(w, [create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010'] }, { d1 })]);
+			expect(w.fpt.live(SET_SHOT)).toHaveLength(1);
+			expect(setShotsField(w, 's1')).toEqual([setShotOf(w, 'SMP_012_0010')!.id]);
+			expect(shotsField(w, 's1')).toEqual([s.a]);
+			expect(w.shotNews.at(-1)).toEqual([owed('s1')]);
+		});
+
+		it('links the Shots of a code by its code while its Set Shot cannot be filed, and files it at a later sync', async () => {
+			const w = world();
+			const d1 = await day(w);
+			const s = shots(w);
+			w.fpt.failNext((r) => r.path === '/api/v1/entity/_batch' && JSON.stringify(r.body).includes(SET_SHOT), { status: 503 });
+			const slate = create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010'] }, { d1 });
+			const s1 = Number((await applied(w, [slate]))[slate.entryId]);
+			expect(w.fpt.live(SET_SHOT)).toHaveLength(0);
+			expect(shotsField(w, 's1')).toEqual([s.a]);
+			expect(w.shotNews.at(-1)).toEqual([owed('s1', ['SMP_012_0010'])]);
+			expect(await w.transport.linkShots([{ slate: 's1', remoteId: s1, link: ['SMP_012_0010'], unlink: [], check: [] }])).toEqual([owed('s1')]);
+			const set = setShotOf(w, 'SMP_012_0010')!;
+			expect(setShotsField(w, 's1')).toEqual([set.id]);
+			expect(ids(set.values.sg_shots)).toEqual([s.a]);
+		});
+
+		// Kevin, #102: anyone sets a Set Shot's Shots in Flow PT's grid, which covers the time after wrap.
+		it("links the slate to the Shots someone set on its Set Shot in Flow PT, whatever their codes", async () => {
+			const w = world();
+			const d1 = await day(w);
+			const slate = create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010'] }, { d1 });
+			const s1 = Number((await applied(w, [slate]))[slate.entryId]);
+			const set = setShotOf(w, 'SMP_012_0010')!;
+			// Editorial cut the shot in two, under new codes. Someone sets both on the Set Shot.
+			const left = w.fpt.seed('Shot', { code: 'SMP_012_0010A', project: { type: 'Project', id: w.projectId } });
+			const right = w.fpt.seed('Shot', { code: 'SMP_012_0010B', project: { type: 'Project', id: w.projectId } });
+			set.values.sg_shots = [
+				{ type: 'Shot', id: left },
+				{ type: 'Shot', id: right }
+			];
+			const writes0 = setShotWrites(w).length;
+			expect(await w.transport.linkShots([{ slate: 's1', remoteId: s1, link: ['SMP_012_0010'], unlink: [], check: [] }])).toEqual([owed('s1')]);
+			expect(shotsField(w, 's1')).toEqual([left, right]);
+			expect(setShotWrites(w).length).toBe(writes0);
+			expect(w.matched.has(set.id)).toBe(true);
+		});
+
+		// Kevin, #96: a Shot a person unlinked is never linked again.
+		it('never links a Set Shot again once a person emptied it', async () => {
+			const w = world();
+			const d1 = await day(w);
+			const s = shots(w);
+			await applied(w, [create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010'] }, { d1 })]);
+			const set = setShotOf(w, 'SMP_012_0010')!;
+			expect(w.matched.has(set.id)).toBe(true);
+			// The match was wrong: someone empties the Set Shot. The next slate with the code leaves it so.
+			set.values.sg_shots = [];
+			const writes0 = setShotWrites(w).length;
+			await applied(w, [create('slate', 's2', { shootDayId: 'd1', slateUID: '12B', vfxShots: ['SMP_012_0010'] }, { d1 })]);
+			expect(setShotWrites(w).length).toBe(writes0);
+			expect(ids(set.values.sg_shots)).toEqual([]);
+			expect(setShotsField(w, 's2')).toEqual([set.id]);
+			expect(shotsField(w, 's2')).toEqual([]);
+			expect(w.shotNews.at(-1)).toEqual([owed('s2', ['SMP_012_0010'])]);
+			expect(shotsField(w, 's1')).toEqual([s.a]);
+		});
+
+		it('finds a Set Shot renamed in Flow PT by its key: renaming moves nothing', async () => {
+			const w = world();
+			const d1 = await day(w);
+			const s = shots(w);
+			await applied(w, [create('slate', 's1', { shootDayId: 'd1', slateUID: '12A', vfxShots: ['SMP_012_0010'] }, { d1 })]);
+			const set = setShotOf(w, 'SMP_012_0010')!;
+			set.values.code = 'Hero plate';
+			await applied(w, [create('slate', 's2', { shootDayId: 'd1', slateUID: '12B', vfxShots: ['SMP_012_0010'] }, { d1 })]);
+			expect(w.fpt.live(SET_SHOT)).toHaveLength(1);
+			expect(setShotsField(w, 's2')).toEqual([set.id]);
+			expect(shotsField(w, 's2')).toEqual([s.a]);
+		});
 	});
 });
 

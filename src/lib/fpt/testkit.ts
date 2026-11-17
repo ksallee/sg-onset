@@ -21,6 +21,7 @@ export function siteTypes(): SchemaTypes {
 		CustomEntity11: type('Lighting Setup'),
 		CustomEntity19: type('Lens'),
 		CustomEntity21: type('Set Reference'),
+		CustomEntity22: type('Set Shot'),
 		CustomEntity29: type('Location'),
 		CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection')
 	};
@@ -34,7 +35,8 @@ export const TYPES: Record<EntityScope, string> = {
 	cameraSetup: 'CustomEntity10',
 	lightingSetup: 'CustomEntity11',
 	lens: 'CustomEntity19',
-	reference: 'CustomEntity21'
+	reference: 'CustomEntity21',
+	setShot: 'CustomEntity22'
 };
 
 export function rawField(dataType: string, display: string, extra: { unique?: boolean; validTypes?: string[]; editable?: boolean } = {}): RawField {

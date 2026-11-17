@@ -1,14 +1,15 @@
-// What is owed on the Flow PT Shots field of a project's slates: VFX shot codes not linked to a
-// Shot yet, codes several Shots share, and unlinks not made yet. Kept on the device per project,
-// made at later syncs, listed in the sync sheet. The transport writes (lib/fpt/shots.ts,
-// transport.ts); this keeps the list. Pure.
+// What is owed on the Flow PT Set Shots and Shots fields of a project's slates: VFX shot codes not
+// linked to a Shot yet, codes several Shots share, and unlinks not made yet. Kept on the device per
+// project, made at later syncs; the codes several Shots share are listed in the sync sheet. Also
+// the Set Shots this device saw holding a Shot, which are never matched again. The transport writes
+// (lib/fpt/setShots.ts, transport.ts); this keeps the lists. Pure.
 
 import { codeKey, shotCodes } from '$lib/fpt/shots';
 import type { RemoteId } from '$lib/outbox/types';
 
 /**
  * One slate's share:
- * - `waiting`: codes to link. No Shot had them, or the write failed.
+ * - `waiting`: codes to link. No Set Shot yet, a Set Shot with no Shot yet, or a write failed.
  * - `several`: codes more than one Shot has. All are linked; listed so someone cleans up.
  * - `unlink`: codes taken off whose Shots are still linked. Made at a later sync, until Flow PT
  *   matches the slate (Kevin, #96).
@@ -113,16 +114,47 @@ export function retryDue(lastAt: number | undefined, now: number, asked = false)
 	return asked || lastAt === undefined || now - lastAt >= RETRY_MS;
 }
 
-/** A row of the sync sheet: one slate, its codes no Shot has, its codes several Shots have. */
-export type WaitingRow = { slateId: string; slate: string; none: string[]; several: string[] };
+/** A row of the sync sheet: one slate, its codes several Shots have. */
+export type SeveralRow = { slateId: string; slate: string; several: string[] };
 
-const bySlate = (a: WaitingRow, b: WaitingRow) => a.slate.localeCompare(b.slate, undefined, { numeric: true, sensitivity: 'base' });
+const bySlate = (a: SeveralRow, b: SeveralRow) => a.slate.localeCompare(b.slate, undefined, { numeric: true, sensitivity: 'base' });
 
-/** The sync sheet's rows, in slate order. An unlink owed needs no one, and is left out. */
-export function waitingRows(owed: Owed, slates: readonly SlateLike[]): WaitingRow[] {
+/**
+ * The sync sheet's rows, in slate order. A code no Shot has yet is filed as a Set Shot, which is
+ * expected (Kevin, #102), and an unlink owed needs no one: both are left out.
+ */
+export function severalRows(owed: Owed, slates: readonly SlateLike[]): SeveralRow[] {
 	const pruned = pruneOwed(owed, slates);
 	return slates
-		.filter((s) => pruned[s.id] && (pruned[s.id].waiting.length || pruned[s.id].several.length))
-		.map((s) => ({ slateId: s.id, slate: s.slateUID ?? '', none: pruned[s.id].waiting, several: pruned[s.id].several }))
+		.filter((s) => pruned[s.id]?.several.length)
+		.map((s) => ({ slateId: s.id, slate: s.slateUID ?? '', several: pruned[s.id].several }))
 		.sort(bySlate);
+}
+
+/** The key the Set Shots a project's device saw holding a Shot are kept under. */
+export function matchedKey(localProjectId: string): string {
+	return `setShots:${localProjectId}`;
+}
+
+const byId = (a: number, b: number) => a - b;
+
+/** The list with more ids, each once, in order. */
+export function addMatched(ids: readonly number[], more: readonly number[]): number[] {
+	return [...new Set([...ids, ...more])].sort(byId);
+}
+
+export function serializeMatched(ids: readonly number[]): string {
+	return JSON.stringify({ v: VERSION, ids });
+}
+
+/** What was kept. Unreadable is none: a Set Shot a person emptied may then be matched once more. */
+export function parseMatched(raw: string | undefined): number[] {
+	if (!raw) return [];
+	try {
+		const kept = JSON.parse(raw) as { v?: unknown; ids?: unknown } | null;
+		if (!kept || kept.v !== VERSION || !Array.isArray(kept.ids)) return [];
+		return addMatched([], kept.ids.filter((id): id is number => Number.isInteger(id)));
+	} catch {
+		return [];
+	}
 }

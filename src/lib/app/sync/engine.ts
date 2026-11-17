@@ -7,9 +7,10 @@
 // any stops holding, and when the page is hidden (`runInForeground`). Capture never waits on it:
 // the store and the editor never call here.
 //
-// The Shots of a slate are linked by the transport as the slate's codes sync. What is owed on the
-// field (codes no Shot has yet, codes several Shots share, unlinks not made) is kept on the device
-// per project (shots.ts), and made when a drain ends: at most once a minute, at once on Sync Now.
+// The Set Shots and Shots of a slate are linked by the transport as the slate's codes sync. What is
+// owed on the fields (codes no Shot has yet, codes several Shots share, unlinks not made) is kept on
+// the device per project (shots.ts), and made when a drain ends: at most once a minute, at once on
+// Sync Now. So are the Set Shots seen holding a Shot, which the transport never matches again.
 
 import { checkSetup, createFptTransport, readShotCodes, type FptTransport, type KeyValue, type SetupReport, type ShotResult } from '$lib/fpt';
 import { createApi, type FptOptions } from '$lib/fpt/api';
@@ -24,7 +25,21 @@ import { linkOn, linkProblem, type ProjectLink } from './link';
 import { linkStore, type LinkStore } from './links';
 import { PROJECT_FILTER, projectChoices, type ProjectChoice } from './projects';
 import { projectScope, type ProjectScope } from './scope';
-import { CODES_MS, mergeOwed, parseOwed, pruneOwed, retryDue, retryItems, serializeOwed, shotsKey, type Owed } from './shots';
+import {
+	addMatched,
+	CODES_MS,
+	matchedKey,
+	mergeOwed,
+	parseMatched,
+	parseOwed,
+	pruneOwed,
+	retryDue,
+	retryItems,
+	serializeMatched,
+	serializeOwed,
+	shotsKey,
+	type Owed
+} from './shots';
 
 export interface SyncDeps {
 	store: Pick<DexieStore, 'get' | 'rows' | 'outbox' | 'remoteId' | 'subscribe'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
@@ -169,6 +184,19 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		return shotWrites;
 	}
 
+	/** One write of the matched Set Shots at a time, each adding to the last. */
+	let matchedWrites: Promise<void> = Promise.resolve();
+	function recordMatched(projectId: string, ids: readonly number[]): Promise<void> {
+		matchedWrites = matchedWrites
+			.then(async () => {
+				const kept = parseMatched(await deps.kv.get(matchedKey(projectId)));
+				const next = addMatched(kept, ids);
+				if (next.length !== kept.length) await deps.kv.set(matchedKey(projectId), serializeMatched(next));
+			})
+			.catch(() => undefined);
+		return matchedWrites;
+	}
+
 	/** When each project last made what it owed. */
 	const askedAt = new Map<string, number>();
 	let retrying: Promise<void> = Promise.resolve();
@@ -227,7 +255,12 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			...fptOptions(site!),
 			projectId: link!.projectId,
 			now: deps.page.now,
-			onShots: (results) => recordShots(projectId!, results)
+			onShots: (results) => recordShots(projectId!, results),
+			matched: async () => {
+				await matchedWrites;
+				return parseMatched(await deps.kv.get(matchedKey(projectId!)));
+			},
+			onMatched: (ids) => recordMatched(projectId!, ids)
 		});
 		const runner = createRunner({
 			port: runScope.port,

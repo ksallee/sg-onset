@@ -33,7 +33,7 @@ describe('checkSetup', () => {
 	});
 
 	// corpus endpoints/get_schema.md: /schema is cheap and /fields is not. One read per type.
-	it('reads the type list once and the fields of each of the seven types, Attachment and Shot once', async () => {
+	it('reads the type list once and the fields of each of the nine types, Attachment and Shot once', async () => {
 		const { fpt, check } = world();
 		await check();
 		expect(fpt.requests.map((r) => r.path).sort()).toEqual(
@@ -169,6 +169,45 @@ describe('checkSetup', () => {
 		expect(field(report, 'slate', 'sg_shots').status).toBe('created');
 		expect(fpt.fields.Slate.sg_shots.properties?.valid_types?.value).toEqual(['Shot']);
 		expect(fpt.fields.Shot.slate_sg_shots_slates).toMatchObject({ data_type: { value: 'multi_entity' }, properties: { valid_types: { value: ['Slate'] } } });
+	});
+
+	// Kevin, #102: the Set Shot gets its unique key and its Shots, the slate its Set Shots. Each link
+	// adds a field on the type it links (findings/142).
+	it('creates the Set Shot fields and the Set Shots link of the slate, and says what Flow PT adds', async () => {
+		const { fpt, check } = world('bare');
+		const before = await check({ createFields: false });
+		expect(field(before, 'setShot', 'sg_onset_key')).toMatchObject({ status: 'missing', entityType: 'CustomEntity22', dataType: 'text', unique: true });
+		expect(field(before, 'setShot', 'sg_shots')).toMatchObject({ status: 'missing', dataType: 'multi_entity', validTypes: ['Shot'] });
+		expect(field(before, 'slate', 'sg_set_shots')).toMatchObject({ status: 'missing', dataType: 'multi_entity', validTypes: ['CustomEntity22'] });
+		expect(before.reverseFields).toContainEqual({
+			entityType: 'CustomEntity22',
+			name: 'slate_sg_set_shots_slates',
+			displayName: 'Slates <-> Set Shots',
+			source: 'Slate.sg_set_shots',
+			status: 'willAppear'
+		});
+		expect(before.reverseFields).toContainEqual({
+			entityType: 'Shot',
+			name: 'custom_entity22_sg_shots_custom_entity22s',
+			displayName: 'Set Shots <-> Shots',
+			source: 'CustomEntity22.sg_shots',
+			status: 'willAppear'
+		});
+		const report = await check();
+		expect(report.ready).toBe(true);
+		expect(fpt.fields.CustomEntity22.sg_onset_key.unique?.value).toBe(true);
+		expect(fpt.fields.Shot.custom_entity22_sg_shots_custom_entity22s).toMatchObject({ properties: { valid_types: { value: ['CustomEntity22'] } } });
+		expect(fpt.fields.CustomEntity22.slate_sg_set_shots_slates).toMatchObject({ properties: { valid_types: { value: ['Slate'] } } });
+	});
+
+	it('is not ready until an admin enables the Set Shot entity, and says so', async () => {
+		const { fpt, cache, check } = world();
+		delete fpt.types.CustomEntity22;
+		const report = await check();
+		expect(report.ready).toBe(false);
+		expect(report.entities.find((e) => e.scope === 'setShot')).toEqual({ scope: 'setShot', kind: 'custom', displayName: 'Set Shot', status: 'missing' });
+		expect(field(report, 'slate', 'sg_set_shots')).toMatchObject({ status: 'blocked' });
+		expect(await cache.get(resolutionKey(fpt.site))).toBeUndefined();
 	});
 
 	it('does not create the Shots link when Shot already has the field it would add', async () => {

@@ -26,6 +26,7 @@ const SITE: SchemaTypes = {
 	CustomEntity11: type('Lighting Setup'),
 	CustomEntity19: type('Lens'),
 	CustomEntity21: type('Set Reference'),
+	CustomEntity22: type('Set Shot'),
 	CustomEntity29: type('Location'),
 	CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection')
 };
@@ -65,6 +66,14 @@ describe('resolveEntities', () => {
 		expect(resolveEntities(before).find((e) => e.scope === 'reference')).toEqual({ scope: 'reference', kind: 'custom', displayName: 'Set Reference', status: 'missing' });
 		expect(entityTypesOf(resolveEntities(before))).toBeUndefined();
 		expect(status('reference')).toMatchObject({ status: 'found', entityType: 'CustomEntity21' });
+	});
+
+	// Kevin, #102: one more slot, enabled and named by an admin as for Take (findings/122).
+	it('asks for a Set Shot entity, and gives no types until there is one', () => {
+		const { CustomEntity22: _setShot, ...before } = SITE;
+		expect(resolveEntities(before).find((e) => e.scope === 'setShot')).toEqual({ scope: 'setShot', kind: 'custom', displayName: 'Set Shot', status: 'missing' });
+		expect(entityTypesOf(resolveEntities(before))).toBeUndefined();
+		expect(status('setShot')).toMatchObject({ status: 'found', entityType: 'CustomEntity22' });
 	});
 
 	// findings/122: a hidden built-in type is absent from /schema.
@@ -264,6 +273,31 @@ describe('planFields: reverse fields', () => {
 			validTypes: ['Shot'],
 			reverse: { entityType: 'Shot', name: 'slate_sg_shots_slates', displayName: 'Slates <-> Shots' }
 		});
+	});
+
+	// Kevin, #102. A multi_entity on a slot adds `<slug>_<field>_<slug>s` on its target (findings/142).
+	it('says the Set Shot links add a field on Set Shot that lists the slates, and one on Shot that lists the Set Shots', () => {
+		const fields = complete();
+		delete fields.slate.sg_set_shots;
+		delete fields.setShot.sg_shots;
+		const plans = planFields(TYPES, fields, { names: { ...NAMES, CustomEntity22: 'Set Shot' }, others: { Shot: { code: raw('text', 'Shot Code') } } });
+		expect(one(plans, 'slate', 'sg_set_shots')).toMatchObject({
+			status: 'create',
+			validTypes: ['CustomEntity22'],
+			reverse: { entityType: 'CustomEntity22', name: 'slate_sg_set_shots_slates', displayName: 'Slates <-> Set Shots' }
+		});
+		expect(one(plans, 'setShot', 'sg_shots')).toMatchObject({
+			status: 'create',
+			validTypes: ['Shot'],
+			reverse: { entityType: 'Shot', name: 'custom_entity22_sg_shots_custom_entity22s', displayName: 'Set Shots <-> Shots' }
+		});
+	});
+
+	it('does not create the Set Shots link of the slate until the site has the Set Shot entity', () => {
+		const { setShot: _setShot, ...types } = TYPES;
+		const fields = complete();
+		delete fields.slate.sg_set_shots;
+		expect(one(planFields(types, fields), 'slate', 'sg_set_shots')).toMatchObject({ status: 'blocked', reason: 'links Set Shot, which the site does not have yet' });
 	});
 
 	it('does not create the Shots link when Shot already has the name it would add', () => {

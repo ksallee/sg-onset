@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { endKey, FIELDS } from '$lib/model/catalogue';
-import { linkKeys } from '$lib/store/tables';
-import { CREATED_AT, ENTITY_SCOPES, ENTITY_TYPES, fieldMap, fieldMaps, mappingTable, SHOTS, STILLS, UUID, wantedColumns, type EntityScope } from './mapping';
+import { isTable, linkKeys } from '$lib/store/tables';
+import { CREATED_AT, ENTITY_SCOPES, ENTITY_TYPES, fieldMap, fieldMaps, mappingTable, SET_SHOT_KEY, SET_SHOT_SHOTS, SET_SHOTS, SHOTS, STILLS, UUID, wantedColumns, type EntityScope } from './mapping';
 import { codeName } from './names';
 
 const names = (scope: EntityScope) => wantedColumns(scope).map((c) => c.name);
@@ -17,6 +17,8 @@ describe('fieldMaps', () => {
 
 	it('maps every key the store links records by', () => {
 		for (const scope of ENTITY_SCOPES) {
+			// A Set Shot is no record on the device: the transport makes it from the slate's codes.
+			if (!isTable(scope)) continue;
 			for (const link of linkKeys(scope)) expect(fieldMap(scope, link.key), `${scope}.${link.key}`).toMatchObject({ kind: 'ref' });
 		}
 	});
@@ -126,8 +128,8 @@ describe('fieldMaps', () => {
 });
 
 describe('wantedColumns', () => {
-	it('asks for the client UUID on every entity, unique', () => {
-		for (const scope of ENTITY_SCOPES) expect(wantedColumns(scope)).toContainEqual(UUID);
+	it('asks for the client UUID on every entity the device holds, unique', () => {
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'setShot')) expect(wantedColumns(scope)).toContainEqual(UUID);
 		expect(UUID).toMatchObject({ name: 'sg_onset_uuid', dataType: 'text', unique: true });
 	});
 
@@ -138,12 +140,28 @@ describe('wantedColumns', () => {
 	});
 
 	// A multi_entity to Shot is created by API, valid_types of one type (corpus findings/116).
-	it('asks for the Shots field on the slate only, a link the codes fill at sync', () => {
+	it('asks for the Shots field on the slate and the Set Shot only, a link the codes fill at sync', () => {
 		expect(SHOTS).toMatchObject({ name: 'sg_shots', display: 'Shots', dataType: 'multi_entity', target: 'shot' });
 		expect(names('slate')).toContain('sg_shots');
-		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'slate')) expect(names(scope)).not.toContain('sg_shots');
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'slate' && s !== 'setShot')) expect(names(scope)).not.toContain('sg_shots');
 		// The typed codes keep their own text field: a code with no Shot stays there.
 		expect(fieldMap('slate', 'vfxShots')!.columns[0]).toMatchObject({ name: 'sg_vfx_shots', dataType: 'text' });
+	});
+
+	// Kevin, #102: one Set Shot per code typed on set, linked from the slate, linking the real
+	// Shots. A multi_entity to a custom slot is created by API (findings/116, 142).
+	it('asks for the Set Shots field on the slate, a link to the Set Shot entity', () => {
+		expect(SET_SHOTS).toMatchObject({ name: 'sg_set_shots', display: 'Set Shots', dataType: 'multi_entity', target: 'setShot' });
+		expect(names('slate')).toContain('sg_set_shots');
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'slate')) expect(names(scope)).not.toContain('sg_set_shots');
+	});
+
+	// The key guards the create: a text field made unique refuses a second row (findings/127).
+	it('asks of a Set Shot a unique key and its Shots, and nothing of the device', () => {
+		expect(wantedColumns('setShot')).toEqual([SET_SHOT_KEY, SET_SHOT_SHOTS]);
+		expect(SET_SHOT_KEY).toMatchObject({ name: 'sg_onset_key', display: 'Onset Key', dataType: 'text', unique: true });
+		expect(SET_SHOT_SHOTS).toMatchObject({ name: 'sg_shots', display: 'Shots', dataType: 'multi_entity', target: 'shot' });
+		expect(fieldMaps('setShot').map((m) => m.key)).toEqual(['projectId']);
 	});
 
 	it('leaves out the stock fields', () => {
@@ -173,7 +191,7 @@ describe('wantedColumns', () => {
 });
 
 describe('ENTITY_TYPES', () => {
-	it('names the three built-in types and the five display names to find', () => {
+	it('names the three built-in types and the six display names to find', () => {
 		expect(ENTITY_TYPES).toEqual({
 			shootDay: { kind: 'builtin', entityType: 'ShootDay', displayName: 'Shoot Day' },
 			slate: { kind: 'builtin', entityType: 'Slate', displayName: 'Slate' },
@@ -182,7 +200,8 @@ describe('ENTITY_TYPES', () => {
 			lens: { kind: 'custom', displayName: 'Lens', aliases: ['Lenses'] },
 			cameraSetup: { kind: 'custom', displayName: 'Camera Setup' },
 			lightingSetup: { kind: 'custom', displayName: 'Lighting Setup' },
-			reference: { kind: 'custom', displayName: 'Set Reference' }
+			reference: { kind: 'custom', displayName: 'Set Reference' },
+			setShot: { kind: 'custom', displayName: 'Set Shot' }
 		});
 	});
 });

@@ -29,8 +29,11 @@ words `take/typeText.ts`, the Turn Off `take/typeEdit.ts`.
 - Model: the `reference` scope of the catalogue, under the slate (`slateId`). Fields: kind,
   name (the file or folder), device, card or roll, count, notes, and `loggedAt` for the order.
   Model README, decisions 45 to 50.
-- Store: the `reference` table, synced; the `referenceKind` table, `{ id, projectId, name }`, kept
-  on the device (store README, decision 26). Schema version 4.
+- Store: the `reference` table, synced; the `referenceKind` table, `{ id, projectId, name }`,
+  synced too since #110 (store README, decision 26). Schema version 4.
+- Project kinds in Flow PT: JSON in the Project's "Onset Reference Kinds" field, shared by every
+  device of the show and read back at each sync (#110; fpt README, "The shared lists"). A reference
+  keeps its kind as text on its own row.
 - Flow PT: one row of the project custom entity "Set Reference" per reference, linked to its
   slate, with its client UUID (fpt README, decisions 26 and 27).
 - Shown on the slate (`components/references/`), in Wrap (the day's count by kind, the day report),

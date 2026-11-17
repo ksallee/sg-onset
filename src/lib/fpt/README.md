@@ -24,6 +24,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `shotNote.ts` | yes | The Note on a Shot (#97) from the records as Flow PT holds them: what was captured, as text and as ids, and the reply with what a sync added. |
 | `notePlan.ts` | yes | The Note's key and lookup, who it is to, and what a sync writes: the Note, a rewrite and a reply, or nothing. |
 | `shotNotes.ts` | no | `writeShotNotes`: the reads and writes of the Notes on Shots. Reads Flow PT only, so #106 runs it from a desktop. |
+| `lists.ts` | yes | The shared lists (#110): templates and reference kinds as JSON in a text field of the Project. Read, write, apply a push's operations, check they landed. |
 | `errors.ts` | yes | What a refusal or a missing answer means. |
 | `token.ts` | yes | The bearer's `exp`, and when to renew it. |
 | `uploadPlan.ts` | yes | Upload sizes, URL life, the completion body. |
@@ -77,6 +78,7 @@ if (report.ready) {
 | (none) | Note, one per Shot, with Notes on Shots on (#97) | `sg_onset_key`, in the project. Optional |
 | (none) | Reply, on that Note, when a sync adds to it | written, never read |
 | (none) | Task, of the Shot: who is assigned | read only |
+| `template`, `referenceKind` | Project, JSON in `sg_onset_templates` and `sg_onset_reference_kinds` | the entry's client UUID, in the list. Optional |
 
 Custom entities are matched trimmed and whatever the case, among `CustomEntityNN` types only.
 Never by slot number.
@@ -336,6 +338,17 @@ Set Shots, and from them the slates (findings/142).
 Set Up Fields makes the two Note fields on every site. They are optional: a site without them syncs
 the rest, and the Notes wait.
 
+**Project** (the shared lists, #110; the Project is the one the device syncs with, never created)
+
+| what | field | type | note |
+|---|---|---|---|
+| the templates of the project | `sg_onset_templates`, "Onset Templates" | text | JSON: `{"list":"template","version":1,"entries":[{"id","name","scope","values"}]}` |
+| the kinds of set reference it adds | `sg_onset_reference_kinds`, "Onset Reference Kinds" | text | JSON: `{"list":"referenceKind","version":1,"entries":[{"id","name"}]}` |
+
+A template's values are in our field form, as on the device: a length in metres, a rational as
+`{num, den}`. Only SG OnSet reads them. Set Up Fields makes both fields on every site. They are
+optional: a site without them syncs the rest, and templates and kinds wait on the device.
+
 **still** (an Attachment)
 
 | key | field | note |
@@ -537,6 +550,41 @@ HDRI 360: HDRI_0414
 
 The words are in the message catalogue, `sync.note.*`, always English.
 
+## The shared lists
+
+At each sync the app reads back the lists a show shares and merges them with the device's (#110,
+app/sync README): `readShared` reads them, nothing else. Slates, takes and references are not read.
+
+| list | read from | one search |
+|---|---|---|
+| cameras | Camera, `project is <the project>` | every page, every mapped field and the client UUID |
+| lenses | Lens | the same |
+| lighting setups | Lighting Setup | the same |
+| templates, reference kinds | the Project's two fields | one search of the Project, both fields |
+
+A row with no client UUID was made in Flow PT, not by a device: it is left out. A read of 40 full
+pages (20,000 rows) is not judged whole, so nothing is judged removed from it. A list whose field
+holds text this version cannot read (typed by hand, or written by a later version) is left out.
+
+A push writes a list so (`plan`, `writeLists`):
+
+1. One search of the Project for the field. The push's operations are applied to the entries in
+   order (`applyListOps`): a create whose id is there is `duplicate`, an update or a delete of an
+   entry not there is `gone`, a key the list has no place for is `invalid`. Any refusal sends
+   nothing, as for a batch.
+2. One `PUT` of the Project with the whole list, before the push's batch. Both lists of a push go
+   in the one `PUT`.
+3. One search again: the list must hold every operation (`landed`). Flow PT has no conditional
+   write (recipes/005), so another device may have written the field between our read and our
+   write. If so the push answers `timeout`: the runner checks every entry of it, by `lookup` and
+   `read`, and sends again what did not land, read-modify-write once more.
+
+`lookup` finds an entry by its id in the list; `read` gives its values. The server id of an entry is
+its own id. A text field took 100,000 characters with no cap found, newlines kept
+(field_types/text.md): about 70 templates of 20 fields each, or thousands of kinds. Nothing is cut
+to fit. A refusal of the `PUT` for want of rights says so in plain words, and every later list
+operation waits for the session, as a row write does (How a push goes).
+
 ## Decisions
 
 Made by Claude. Kevin can overrule any of them.
@@ -725,6 +773,30 @@ Made by Claude. Kevin can overrule any of them.
     change of its time keeps the word. The kind comes from the type the device stored, never from
     the Version's `content_type`: the server reads an Opus WebM as `video/webm` (findings/152).
 
+58. **Templates and reference kinds are JSON in two text fields of the Project** (#110). Flow PT has
+    no entity for either, and Kevin wants no new required custom entity (#117): a site without the
+    fields syncs the rest. The Project is the one the device syncs with, so the list is the show's,
+    and Set Up Fields makes the fields as it makes the others. A text field keeps the string as
+    sent, newlines kept, with no cap at 100,000 characters (field_types/text.md). A custom jsonb
+    field would filter, but none was ever made: the corpus found two stock ones, and Note.meta is
+    written on create only (field_types/jsonb.md). A custom entity per list was weighed: it would
+    give one row per entry and a unique client UUID, but it is one more slot each studio enables.
+59. **One field per list,** so an edit of a kind never writes over a template another device saved
+    at the same moment, and the reverse.
+60. **A list is written whole, read again, and checked.** No conditional write exists: `If-Match`
+    is ignored (recipes/005). Two devices that write one list within a second may lose one write,
+    and the check finds it and sends it again. The window is the time between the search and the
+    `PUT`.
+61. **A list holds the keys the device has, but the project:** a template's `name`, `scope` and
+    `values`, a kind's `name`. The project is the field's own; a device reading it puts the entry
+    under its own project.
+62. **A list this version cannot read is never written over.** Its entries need a person, with the
+    field named, until an admin empties it in Flow PT. It is left out of a read too, so nothing on
+    the device is judged removed from it.
+63. **Cameras, lenses and lighting setups are read back from their entities,** every row of the
+    project with a client UUID. A row made by hand in Flow PT has none and is left out: matching it
+    to the device's gear by name is not done.
+
 ## Where FPT did not fit the contract
 
 1. **A checkbox has no null.** An unticked box reads as a missing value. Settled in the model:
@@ -810,6 +882,20 @@ Still open:
 16. Whether the Shot's reverse field of `Set Shot.sg_shots`, or `Slate.sg_shots`, shows on a Shot's
     page in the web interface by default, so an artist finds the slates from the Note. Not needed by
     the app.
+17. A custom field on Project: its create, and a `PUT` of it. Measured on Version, a custom slot
+    and Tag, a type with no `project` field, all alike (findings/118); Project itself is not. The
+    shared lists (#110) assume it answers as Tag did.
+18. Who may update a Project's field: an Admin surely, a Manager, an Artist, a Vendor? The group
+    rights on Project were never read (findings/143 read the custom slots and Attachment). A refusal
+    is said in plain words and the lists wait; the rest syncs.
+19. A text field longer than 100,000 characters (field_types/text.md stopped there), for a show
+    with very many templates.
+20. A custom field of type jsonb: can one be created, and is it editable after create (Note.meta is
+    not)? Not needed: text holds the JSON.
+21. What an entity field that links a deleted row reads back, and whether a write of a link to a
+    deleted row is refused. A lens removed on one device while another's takes use it: the other
+    device sends it back as a new row (app/sync README, decision 17), and its takes already on
+    Flow PT keep a link to the deleted row.
 
 ## On the probed site, read 2026-11-11
 
@@ -833,3 +919,7 @@ Set Up Fields makes its two fields, `sg_onset_key` and `sg_shots`, and the slate
 
 Notes on Shots came after too (#97). Set Up Fields makes `sg_onset_key` (unique) and
 `sg_onset_captured` on Note, a stock type. Until then the rest syncs and no Note is written.
+
+The shared lists came after too (#110). Set Up Fields makes `sg_onset_templates` and
+`sg_onset_reference_kinds` on Project, a stock type. Until then the rest syncs and templates and
+kinds wait on the device.

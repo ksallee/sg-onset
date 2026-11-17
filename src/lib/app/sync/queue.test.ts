@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Entry, Op } from '$lib/outbox/types';
 import { tk } from '$lib/i18n/messages';
-import { conflictLines, entryParent, parentOf, pendingByKind, scopedUpdate } from './queue';
+import { memoryPort } from '$lib/outbox/port';
+import { conflictLines, entryParent, heldBack, parentOf, pendingByKind, scopedUpdate } from './queue';
 
 const entry = (id: string, seq: number, op: Op, extra: Partial<Entry> = {}): Entry => ({ id, seq, op, dependsOn: [], state: 'pending', attempts: 0, createdAt: seq, ...extra });
 const create = (table: string, recordId: string, fields: Record<string, unknown> = {}): Op => ({ kind: 'create', table, recordId, fields });
@@ -29,6 +30,22 @@ describe('pendingByKind', () => {
 	});
 	it('says nothing on an empty queue', () => {
 		expect(pendingByKind([])).toEqual([]);
+	});
+});
+
+// Templates and reference kinds wait on the device while the site lacks the Project fields (#110):
+// the runner does not see them, and they are never dropped.
+describe('heldBack', () => {
+	it('hides the entries held back from the runner, and keeps them as they are through its changes', async () => {
+		const port = memoryPort([entry('a', 1, create('template', 'tp1')), entry('b', 2, create('take', 't1'))]);
+		const held = heldBack(port, (e) => e.op.table === 'template');
+		expect((await held.entries()).map((e) => e.id)).toEqual(['b']);
+		const after = await held.update((q) => q.map((e) => ({ ...e, state: 'inFlight' as const })));
+		expect(after.map((e) => e.id)).toEqual(['b']);
+		expect(port.queue.map((e) => [e.id, e.state])).toEqual([
+			['a', 'pending'],
+			['b', 'inFlight']
+		]);
 	});
 });
 
@@ -93,6 +110,17 @@ describe('conflictLines', () => {
 			{ key: 'lensHeight', label: tk('field.take.lensHeight'), mine: '1.5 m', theirs: tk('sync.conflict.empty') },
 			{ key: 'circleTake', label: tk('field.take.circleTake'), mine: tk('common.yes'), theirs: tk('common.no') },
 			{ key: 'focalLengthEnd', label: tk('field.end', { field: tk('field.take.focalLength') }), mine: '75 mm', theirs: '85 mm' }
+		]);
+	});
+	// Templates sync since #110: two devices may change one template, its name or its values.
+	it('shows a template’s name, and its values field by field', () => {
+		const lines = conflictLines('template', [
+			{ key: 'name', base: 'Day ext', local: 'Day ext A', server: 'Day ext B' },
+			{ key: 'values', base: {}, local: { tStop: 4, sceneNumber: '42' }, server: {} }
+		], 'metric');
+		expect(lines).toEqual([
+			{ key: 'name', label: tk('sync.conflict.template.name'), mine: 'Day ext A', theirs: 'Day ext B' },
+			{ key: 'values', label: tk('sync.conflict.template.values'), mine: `${tk('field.take.tStop')} 4, ${tk('field.slate.sceneNumber')} 42`, theirs: tk('sync.conflict.empty') }
 		]);
 	});
 	it('shows a key the catalogue does not know as it is', () => {

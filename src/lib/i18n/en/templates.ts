@@ -32,7 +32,7 @@ export const templates = {
 	'templates.deleted': '{name} deleted',
 	'templates.saved': '{name} saved',
 	'templates.missing': 'Template Not Found',
-	'templates.missing.message': 'It may have been deleted on this device.',
+	'templates.missing.message': 'It may have been deleted, here or on another device of the show.',
 
 	'templates.edit.name': 'Name',
 	'templates.edit.kind.slate': 'Slate template',

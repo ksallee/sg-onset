@@ -28,7 +28,7 @@ export const references = {
 	'references.kinds.title': 'Reference Kinds',
 	'references.kinds.builtIn': 'Built in',
 	'references.kinds.project': 'This project',
-	'references.kinds.project.footer': 'Kinds this project adds, for this device. A reference keeps its kind when the kind is deleted.',
+	'references.kinds.project.footer': 'Kinds this project adds. Every device linked to the same Flow PT project gets them at sync. A reference keeps its kind when the kind is deleted.',
 	'references.kinds.new': 'New kind',
 	'references.kinds.new.placeholder': 'Drone survey',
 	'references.kinds.add': 'Add',

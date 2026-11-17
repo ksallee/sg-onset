@@ -143,6 +143,16 @@ Use a test project on the site, never a show.
   (`.webm` from a browser with no AAC) in **Uploaded Movie**, no thumbnail (findings/152). Note
   whether the web player plays it once transcoded, and the type Safari wrote (the file's
   extension). Lock the screen while one runs: say whether it was kept.
+- **Two devices on one show (#110).** Set Up Fields first: it adds **Onset Templates** and
+  **Onset Reference Kinds** on Project. On device A, add a camera, two lenses, a lighting setup, a
+  template and a reference kind, and sync. On device B (another browser, or the laptop), make a
+  project, link it to the same Flow PT project and sync: B has all of them, and no slate or take
+  of A. Rename a lens on B and sync B, then **Sync Now** on A: A shows the new name. On B delete
+  the other lens and the kind, sync B, then A: both are gone on A. Give A a camera setup with the
+  first lens, delete that lens on B, sync B then A: A keeps it under **Kept on this device** in the
+  sync sheet, and after one more sync on A it is back in Flow PT and on B. In Flow PT, open the
+  Project's fields: the two hold JSON. Say whether a Manager account may write them (fpt README,
+  gap 18), and what Flow PT shows for A's takes of the lens B deleted (gap 21).
 
 ## What to send back
 

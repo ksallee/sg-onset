@@ -23,7 +23,11 @@ function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: De
 	const fptProject = fpt.seed('Project', { name: 'Show', is_template: false, is_demo: false, archived: false });
 	fpt.seed('Project', { name: 'Template', is_template: true, is_demo: false, archived: false });
 	const other = fpt.seed('Project', { name: 'Other Show', is_template: false, is_demo: false, archived: false });
+	return { fpt, fptProject, other, ...device(fpt, options) };
+}
 
+/** One device: its store, editor, page, session and sync engine, on the site given. */
+function device(fpt: FakeFpt, options: { beforeDrain?: (store: DexieStore) => Promise<void> } = {}) {
 	const store = openStore({ name: `sync-${++n}`, indexedDB: new IDBFactory(), IDBKeyRange, now: () => fpt.clock.t });
 	const edit = createEditor(store, () => undefined);
 
@@ -66,7 +70,7 @@ function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: De
 		page,
 		...(options.beforeDrain ? { beforeDrain: () => options.beforeDrain!(store) } : {})
 	});
-	return { fpt, fptProject, other, store, edit, world, emit, auth, kv, engine };
+	return { store, edit, world, emit, auth, kv, engine };
 }
 
 type S = ReturnType<typeof setup>;
@@ -625,5 +629,161 @@ describe('Notes on Shots', () => {
 		await later(s);
 		expect(notes(s)).toHaveLength(1);
 		expect((notes(s)[0].values.note_links as Ref[])[0].type).toBe('Shot');
+	});
+});
+
+// Two devices on one show (#110): the lists a show shares are read back at each sync. Slates and
+// takes stay with the device that made them.
+describe('the shared lists', () => {
+	type D = ReturnType<typeof device>;
+
+	/** A second device, its own project linked to the same Flow PT project. */
+	async function second(s: S): Promise<D> {
+		const b = device(s.fpt);
+		await b.edit.create('project', { id: 'pB', name: 'Show on B' });
+		await b.engine.setProject('pB');
+		expect(await b.engine.link({ id: s.fptProject, name: 'Show' })).toBe('linked');
+		b.world.visible = true;
+		return b;
+	}
+
+	/** The first device's lists, synced. */
+	async function lists(s: S) {
+		await s.edit.create('project', { id: 'p1', name: 'Show' });
+		await s.edit.create('camera', { id: 'c1', projectId: 'p1', cameraModel: 'Alexa 35' });
+		await s.edit.create('lens', { id: 'l1', projectId: 'p1', lensModel: 'S4/i 32mm', focalLength: 32 });
+		await s.edit.create('lens', { id: 'l2', projectId: 'p1', lensModel: 'Supreme 50mm', focalLength: 50 });
+		await s.edit.create('lightingSetup', { id: 'ls1', projectId: 'p1', label: 'Day ext' });
+		await s.edit.create('template', { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } });
+		await s.edit.create('referenceKind', { id: 'k1', projectId: 'p1', name: 'Drone scan' });
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+	}
+
+	const ids = async (store: DexieStore, table: string) => ((await store.rows(table)) as { id: string }[]).map((r) => r.id).sort();
+
+	it('starts a new device with every list of the show, under its own project, and sends nothing back', async () => {
+		const s = setup();
+		await lists(s);
+		const b = await second(s);
+		const writes = s.fpt.count((r) => r.method !== 'GET' && !r.path.endsWith('/_search'));
+		await settle(b.engine, s.fpt);
+		expect(await ids(b.store, 'camera')).toEqual(['c1']);
+		expect(await ids(b.store, 'lens')).toEqual(['l1', 'l2']);
+		expect(await ids(b.store, 'lightingSetup')).toEqual(['ls1']);
+		expect(await b.store.get('template', 'tp1')).toEqual({ id: 'tp1', projectId: 'pB', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } });
+		expect(await b.store.get('referenceKind', 'k1')).toEqual({ id: 'k1', projectId: 'pB', name: 'Drone scan' });
+		expect(await b.store.get('lens', 'l1')).toEqual({ id: 'l1', projectId: 'pB', lensModel: 'S4/i 32mm', focalLength: 32 });
+		expect(await b.store.remoteId('l1')).toBe(s.fpt.byUuid('CustomEntity19', 'l1')!.id);
+		expect((await b.store.outbox.entries()).length).toBe(0);
+		// B's project create sends nothing (lib/fpt README, decision 1): nothing was written.
+		expect(s.fpt.count((r) => r.method !== 'GET' && !r.path.endsWith('/_search'))).toBe(writes);
+	});
+
+	it('takes an edit made on another device, and never a slate or a take', async () => {
+		const s = setup();
+		await lists(s);
+		await s.edit.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.edit.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '42A' });
+		await settle(s.engine, s.fpt);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		expect(await b.store.rows('slate')).toEqual([]);
+
+		await b.edit.apply('lens', [{ id: 'l1', key: 'lensModel', from: 'S4/i 32mm', to: 'S4/i 32 mm T2' }]);
+		await b.edit.apply('template', [{ id: 'tp1', key: 'values', from: { tStop: 2.8 }, to: { tStop: 4 } }]);
+		await settle(b.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		expect((await s.store.get('lens', 'l1'))!.lensModel).toBe('S4/i 32 mm T2');
+		expect((await s.store.get('template', 'tp1'))!.values).toEqual({ tStop: 4 });
+		expect((await s.store.outbox.entries()).length).toBe(0);
+	});
+
+	it('never overwrites an edit made here and not yet synced: both edits of one field wait for a person', async () => {
+		const s = setup();
+		await lists(s);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		await b.edit.apply('lens', [
+			{ id: 'l1', key: 'lensModel', from: 'S4/i 32mm', to: 'Theirs' },
+			{ id: 'l1', key: 'focalLength', from: 32, to: 35 }
+		]);
+		await settle(b.engine, s.fpt);
+		// The model edited here too: it stays, and the focal length edited there only is taken.
+		await s.edit.apply('lens', [{ id: 'l1', key: 'lensModel', from: 'S4/i 32mm', to: 'Mine' }]);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.get('lens', 'l1')).toMatchObject({ lensModel: 'Mine', focalLength: 35 });
+		const [waiting] = await s.store.outbox.entries();
+		expect(waiting).toMatchObject({ state: 'needsAttention', attention: { reason: 'conflict' } });
+	});
+
+	it('removes here what another device removed, when nothing here uses it', async () => {
+		const s = setup();
+		await lists(s);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		await b.edit.remove('lens', 'l2');
+		await b.edit.remove('referenceKind', 'k1');
+		await settle(b.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		expect(await ids(s.store, 'lens')).toEqual(['l1']);
+		expect(await s.store.rows('referenceKind')).toEqual([]);
+		expect(await s.store.remoteId('l2')).toBeUndefined();
+		expect(s.engine.state.kept ?? []).toEqual([]);
+	});
+
+	it('keeps one used here, lists it, and sends it back so every device has it again', async () => {
+		const s = setup();
+		await lists(s);
+		await s.edit.create('cameraSetup', { id: 'cs1', projectId: 'p1', cameraLabel: 'A', cameraId: 'c1', lensId: 'l1' });
+		await settle(s.engine, s.fpt);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		await b.edit.remove('lens', 'l1');
+		await settle(b.engine, s.fpt);
+		expect(s.fpt.byUuid('CustomEntity19', 'l1')).toBeUndefined();
+
+		await settle(s.engine, s.fpt);
+		expect(await s.store.get('lens', 'l1')).toBeDefined();
+		expect(s.engine.state.kept).toEqual([{ table: 'lens', id: 'l1' }]);
+		// Sent back as a new row under the same client UUID (findings/136), and the setup links it.
+		await settle(s.engine, s.fpt);
+		const row = s.fpt.byUuid('CustomEntity19', 'l1')!;
+		expect(row.values.code).toBe('S4/i 32mm');
+		expect(await s.store.remoteId('l1')).toBe(row.id);
+		await settle(b.engine, s.fpt);
+		expect(await b.store.get('lens', 'l1')).toBeDefined();
+	});
+
+	it('sends the templates and kinds a device kept before they were shared', async () => {
+		const s = setup();
+		await s.edit.create('project', { id: 'p1', name: 'Show' });
+		await s.store.putRows('template', [{ id: 'tp0', projectId: 'p1', name: 'Older', scope: 'slate', values: {} }]);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		const held = JSON.parse(String(s.fpt.rows.get(`Project:${s.fptProject}`)!.values.sg_onset_templates));
+		expect(held.entries.map((e: { id: string }) => e.id)).toEqual(['tp0']);
+	});
+
+	// The Project fields are optional (#117's rule): without them templates and kinds wait, and the rest syncs.
+	it('holds templates and kinds back on a site without the Project fields, and sends them once it is set up', async () => {
+		const s = setup();
+		delete s.fpt.fields.Project.sg_onset_templates;
+		delete s.fpt.fields.Project.sg_onset_reference_kinds;
+		await lists(s);
+		expect(s.engine.state.listsMissing).toBe(true);
+		const left = await s.store.outbox.entries();
+		expect(left.map((e) => e.op.table).sort()).toEqual(['referenceKind', 'template']);
+		expect(left.every((e) => e.state === 'pending' && e.attempts === 0)).toBe(true);
+		expect(s.fpt.byUuid('CustomEntity19', 'l1')).toBeDefined();
+
+		expect((await s.engine.check(true))?.ready).toBe(true);
+		expect(s.engine.state.listsMissing).toBe(false);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.outbox.entries()).toEqual([]);
+		expect(s.fpt.rows.get(`Project:${s.fptProject}`)!.values.sg_onset_reference_kinds).toContain('Drone scan');
 	});
 });

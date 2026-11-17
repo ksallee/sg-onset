@@ -2,7 +2,7 @@
 // Capacitor store (SQLite, files) can replace it later without the app noticing. Types only.
 
 import type { Patch } from '$lib/model/patch';
-import type { FieldConflict, RemoteId } from '$lib/outbox/types';
+import type { Entry, FieldConflict, RemoteId } from '$lib/outbox/types';
 import type { OutboxPort } from '$lib/outbox/port';
 import type { Unsynced } from '$lib/outbox/select';
 import type { Snapshots } from './snapshots/snapshots';
@@ -54,6 +54,38 @@ export type StoreEvent = { tables: readonly string[] };
 
 export type NewBlob = { blob: Blob; id?: string; name?: string; variant?: BlobVariant; source?: string };
 
+type AnyRow = { id: string } & Record<string, unknown>;
+
+/** What `reconcile` reads, in its transaction, for the plan to decide from. */
+export type ReconcileState = {
+	/** Every record of the table. */
+	rows: AnyRow[];
+	/** Every record of the tables that may use one of them. */
+	users: Partial<Record<TableName, AnyRow[]>>;
+	/** The server ids known, by client UUID. */
+	remotes: Record<string, RemoteId>;
+	/** The whole queue. */
+	entries: Entry[];
+	/** The ids of the table's records in the trash. */
+	trashed: Set<string>;
+};
+
+/** What `reconcile` applies (app/sync/shared.ts makes it). */
+export type ReconcilePlan = {
+	/** Records to put, nothing queued. */
+	add: AnyRow[];
+	/** Values to set, nothing queued. `undefined` clears the field. */
+	change: { id: string; set: Record<string, unknown> }[];
+	/** Records to take off the device, with their server id. Nothing queued. */
+	remove: string[];
+	/** Records whose server copy is gone: their server id and their unsent edits go, and a create of the record as it is is queued. */
+	resend: string[];
+	/** Records the server never had: a create is queued. */
+	push: string[];
+	/** Server ids to keep. */
+	remoteIds: Record<string, RemoteId>;
+};
+
 export interface Store {
 	// Reads. Plain promises.
 	get<T extends TableName>(table: T, id: string): Promise<RowOf<T> | undefined>;
@@ -99,6 +131,13 @@ export interface Store {
 	/** Sends an entry that needed attention again. */
 	retry(entryId: string): Promise<void>;
 	remoteId(id: string): Promise<RemoteId | undefined>;
+	/**
+	 * Brings the records of `table` in line with what the server holds (#110), in one transaction:
+	 * reads the table, the `users` tables, the queue, the server ids and the trash, and applies what
+	 * `plan` returns from them. Puts, changes and removes records without queueing; queues a create
+	 * only for `resend` and `push`. Returns the plan.
+	 */
+	reconcile<P extends ReconcilePlan>(table: TableName, users: readonly TableName[], plan: (state: ReconcileState) => P): Promise<P>;
 
 	/** Rolling snapshots of the whole store but the photo bytes: `snapshots/`. */
 	snapshots: Snapshots;

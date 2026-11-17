@@ -8,7 +8,7 @@ interface. The implementation here is IndexedDB through Dexie. A Capacitor store
 | module | pure | what it does |
 |---|---|---|
 | `types.ts` | types | `Store`, `BlobMeta`, `StorageStatus`, `BackupSource`, `BackupTarget`. |
-| `tables.ts` | yes | The tables, from the model: one per scope, `still`, `template` and `referenceKind`. Parent keys, link keys, `dependsOn`, `LOCAL_TABLES`. |
+| `tables.ts` | yes | The tables, from the model: one per scope, `still`, `template`, `referenceKind`, `markup` and `diagram`. Parent keys, link keys, `dependsOn`, `LOCAL_TABLES`. |
 | `schema.ts` | yes | The IndexedDB schema by version. How to add a version. |
 | `storage.ts` | yes | `storageStatus`, `prunable`, `BLOB_KEEP_MS`. |
 | `dexieStore.ts` | no | `openStore`: the `Store` on Dexie. |
@@ -49,6 +49,7 @@ interface Store {
 	resolve(entryId, pick): Promise<void>;
 	retry(entryId): Promise<void>;
 	remoteId(id): Promise<RemoteId | undefined>;
+	reconcile(table, users, plan): Promise<Plan>;
 	snapshots: Snapshots;
 
 	subscribe(listener: (event: { tables: readonly string[] }) => void): () => void;
@@ -62,6 +63,11 @@ interface Store {
   its queue entry.
 - `apply` takes a model patch and returns it as applied, with the stored values as `from`.
   Undo is `apply(table, invertPatch(returned))`. It is queued like any edit.
+- `reconcile` brings a table in line with what Flow PT holds (#110), in one transaction: it reads
+  the table, the tables whose records may use one of its records, the queue, the server ids and
+  the trash, hands them to the plan (pure, `app/sync/shared.ts`), and applies it. Records put,
+  changed or removed so are not queued, and are not on the undo stack: they came from Flow PT. Only
+  a record sent back, or one Flow PT never had, gets a create queued.
 - Reads are plain promises. `subscribe` fires after each committed change with the names of the
   tables touched, plus `outbox`, `blobs`, `trash`, `snapshots`, `meta`. The UI wraps it in runes.
 - `persist()` asks through `$lib/pwa/persist`. `storage()` gives `persisted`, `usage`, `quota`,
@@ -83,15 +89,16 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
 - One per scope (`project`, `shootDay`, `lightingSetup`, `cameraSetup`, `slate`, `take`,
   `camera`, `lens`, `reference`), `still`, `template`, `referenceKind`, `markup` and `diagram`. Key
   `id`, index on the parent key.
-- `template`: a live template, under its project (schema version 3). Kept on the device: it is in
-  the backup and on the undo stack, and nothing is queued for it (`LOCAL_TABLES`).
+- `template`: a live template, under its project (schema version 3). Synced since #110, as JSON on
+  the Project (fpt README, "The shared lists"); kept on the device only before.
 - `reference`: a set reference, under its slate (schema version 4). Synced like a take.
 - `referenceKind`: a kind of set reference the project added, `{ id, projectId, name }` (schema
-  version 4). Kept on the device, as a template is.
-- `markup`: the drawing on a photo, under its still (schema version 5, #86). Kept on the device
-  like a template. It reaches Flow PT as the still's annotated copy (below).
+  version 4). Synced as a template is, since #110.
+- `markup`: the drawing on a photo, under its still (schema version 5, #86). Kept on the device:
+  it is in the backup and on the undo stack, and nothing is queued for it (`LOCAL_TABLES`). It
+  reaches Flow PT as the still's annotated copy (below).
 - `diagram`: a slate's setup diagram, under its slate (schema version 6, #87). Kept on the device
-  like a template. The wrap package holds it as an image.
+  like a drawing. The wrap package holds it as an image.
 - `blobs`: one row per file, without the bytes. `blobData`: the bytes. A file may be one the app
   made: `variant: 'annotated'`, a still's photo with its drawing flattened on it, or `variant:
   'diagram'`, a slate's setup diagram as an image; `source` is the key of the drawing it was made
@@ -275,19 +282,23 @@ Made by Claude. Kevin can overrule any of them.
     and the restore, the restore starts again, three times, then refuses as `busy`.
 24. **Every write transaction reads `snapshots`** to know which photo bytes to keep. A snapshot's
     own short write can then delay an edit by a few milliseconds.
-25. **Templates stay on the device.** Flow PT has no place for them; a slate or take keeps its
-    template's id as text. The store skips the outbox for a table in `LOCAL_TABLES`. A backup
-    made under schema an older version is refused (decision 13).
-26. **A project's own kinds of set reference stay on the device, as templates do.** Flow PT has no
-    place for the list; each reference carries its kind as text, so Flow PT sees every kind used.
-    Schema version 4 adds them with the references: a backup made before it is refused
-    (decision 13), a snapshot from before it needs `acceptOlderSchema`.
+25. **Templates sync, since #110.** They stayed on the device until then, as Flow PT had no place
+    for them; now each project's list is JSON in a text field of its Project (fpt README, "The
+    shared lists"). A slate or take keeps its template's id as text. No schema change: only
+    `LOCAL_TABLES` changed, so a backup or snapshot from before still restores, and the first sync
+    after sends the templates no queue entry names (`app/sync/shared.ts`, `push`).
+26. **A project's own kinds of set reference sync as templates do, since #110.** Each reference
+    still carries its kind as text, so Flow PT sees every kind used. Schema version 4 adds them with
+    the references: a backup made before it is refused (decision 13), a snapshot from before it
+    needs `acceptOlderSchema`.
 27. **A drawing stays on the device; its flattened copy is a file of the still.** The photo is
     never touched. The flattener (`$lib/draw/flattener.ts`) makes the copy after the drawing
     changes, and drops the copies that no longer match while they are unsent. A copy already
     sent is not deleted (there is no file delete in the queue, 21, and an Artist may not delete an
     Attachment, corpus findings/143): once the new copy is verified, the old one is taken off the
     take's photos field instead (fpt README).
+28. **A record taken in from Flow PT is not on the undo stack** (#110). Undo takes back what this
+    device did; a list read back is what another device did. `reconcile` writes past the editor.
 
 ## What a real iPad must still prove
 

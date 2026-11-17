@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The sync detail: the state and Sync Now, what waits by kind, what needs attention, the VFX
-	// shots no Shot has yet, the Flow PT project, Notes on Shots, the site's setup, the account, the
-	// backup. The work is in app/sync; this lays it out.
+	// shots no Shot has yet, the shared lists kept here or waiting, the Flow PT project, Notes on
+	// Shots, the site's setup, the account, the backup. The work is in app/sync; this lays it out.
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Sheet from '$lib/components/ios/Sheet.svelte';
@@ -19,6 +19,7 @@
 	import PrototypeNote from './sync/PrototypeNote.svelte';
 	import QueueSections from './sync/QueueSections.svelte';
 	import SetupSections from './sync/SetupSections.svelte';
+	import SharedSection from './sync/SharedSection.svelte';
 	import ShotSection from './sync/ShotSection.svelte';
 
 	let { open = $bindable(false), safety }: { open?: boolean; safety?: Safety } = $props();
@@ -56,6 +57,8 @@
 	<QueueSections elsewhere={sync.elsewhere} />
 
 	<ShotSection onnavigate={() => (open = false)} />
+
+	<SharedSection onnavigate={() => (open = false)} />
 
 	<LinkSection />
 

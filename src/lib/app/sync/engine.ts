@@ -14,11 +14,18 @@
 //
 // With Notes on Shots on for the project (#97, notes.ts), the same step then writes the Note of
 // every Shot those slates reach, from what Flow PT holds. Nothing about the Notes is kept here.
+//
+// Then the lists a show shares are read back from Flow PT and merged with this device's (#110,
+// shared.ts): cameras, lenses, lighting setups, templates and reference kinds. At most once a
+// minute, at once on Sync Now. No drain runs while they are merged, and they are not read while a
+// drain runs: a change confirmed between the read and the merge would look like a change made
+// elsewhere.
 
 import { checkSetup, createFptTransport, readShotCodes, type FptTransport, type KeyValue, type SetupReport, type ShotResult } from '$lib/fpt';
 import { createApi, type FptOptions } from '$lib/fpt/api';
 import { resolutionKey } from '$lib/fpt/cache';
-import { hasNotes, hasScope, parseResolution } from '$lib/fpt/schema';
+import { isListTable } from '$lib/fpt/lists';
+import { hasLists, hasNotes, hasScope, parseResolution } from '$lib/fpt/schema';
 import { browserEnv, runInForeground, type Foreground, type Page } from '$lib/outbox/foreground';
 import { createRunner, type DrainReport, type Progress, type Runner, type StopReason } from '$lib/outbox/runner';
 import { unsynced, type Unsynced } from '$lib/outbox/select';
@@ -29,10 +36,12 @@ import { linkStore, type LinkStore } from './links';
 import { notesKey, readNotesOn, shotsToNote, writeNotesOn } from './notes';
 import { PROJECT_FILTER, projectChoices, type ProjectChoice } from './projects';
 import { projectScope, type ProjectScope } from './scope';
+import { heldBack } from './queue';
+import { keepKept, mergeShared, usedIds, USERS, type Kept } from './shared';
 import { CODES_MS, legacyKeys, linkDue, linkItems, mergeSeveral, projectSlates, type Several } from './shots';
 
 export interface SyncDeps {
-	store: Pick<DexieStore, 'get' | 'rows' | 'outbox' | 'remoteId' | 'subscribe'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
+	store: Pick<DexieStore, 'get' | 'rows' | 'outbox' | 'remoteId' | 'subscribe' | 'reconcile'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
 	/** The signed-in site, or null. */
 	site(): string | null;
 	/** A live session (`auth.canSync`). */
@@ -79,6 +88,10 @@ export interface SyncState {
 	notesOnShots: boolean;
 	/** The site is ready, without the Note fields: the Notes on Shots wait for Set Up Fields (#97). */
 	notesMissing?: boolean;
+	/** The site is ready, without the Project fields: templates and reference kinds wait on the device (#110). */
+	listsMissing?: boolean;
+	/** Records removed on another device and kept here, used or edited here, this session (#110). */
+	kept?: Kept[];
 	error?: SyncError;
 }
 
@@ -161,10 +174,15 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		deps.page.listen('offline', () => set({ online: false }))
 	];
 
-	/** The site passed the check, and whether it has Set Shot and the Note fields: from the resolution kept on the device. */
-	async function readSetup(site: string | null): Promise<{ ready: boolean; setShotsMissing: boolean; notesMissing: boolean }> {
+	/** The site passed the check, and whether it has Set Shot, the Note fields and the Project fields: from the resolution kept on the device. */
+	async function readSetup(site: string | null): Promise<{ ready: boolean; setShotsMissing: boolean; notesMissing: boolean; listsMissing: boolean }> {
 		const res = site ? parseResolution(await deps.schemaCache.get(resolutionKey(site)), site) : undefined;
-		return { ready: res !== undefined, setShotsMissing: res !== undefined && !hasScope(res, 'setShot'), notesMissing: res !== undefined && !hasNotes(res) };
+		return {
+			ready: res !== undefined,
+			setShotsMissing: res !== undefined && !hasScope(res, 'setShot'),
+			notesMissing: res !== undefined && !hasNotes(res),
+			listsMissing: res !== undefined && !hasLists(res)
+		};
 	}
 
 	function stopRunner(): void {
@@ -210,6 +228,42 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		return linking;
 	}
 
+	// ------------------------------------------------------------------ the shared lists
+
+	/** When each project last read its lists back. */
+	const pulledAt = new Map<string, number>();
+	/** A merge under way: a drain waits for it. */
+	let pulling: Promise<void> | undefined;
+
+	/**
+	 * Reads the lists a show shares back from Flow PT and merges them with this device's (#110),
+	 * table by table, each in one transaction of the store. Skipped while a drain runs: its end pulls.
+	 * Never throws.
+	 */
+	function pullShared(projectId: string, transport: FptTransport, asked: boolean, draining: () => boolean): Promise<void> {
+		if (pulling || draining() || !linkDue(pulledAt.get(projectId), deps.page.now(), asked)) return Promise.resolve();
+		pulledAt.set(projectId, deps.page.now());
+		pulling = (async () => {
+			try {
+				const read = await transport.readShared();
+				if (!read || state.projectId !== projectId) return;
+				const kept: Kept[] = [];
+				for (const table of read) {
+					const plan = await deps.store.reconcile(table.table, USERS[table.table], (local) =>
+						mergeShared(table, { projectId, rows: local.rows, remotes: local.remotes, entries: local.entries, trashed: local.trashed, used: usedIds(table.table, local.users, local.rows) })
+					);
+					kept.push(...plan.kept.map((id) => ({ table: table.table, id })));
+				}
+				if (state.projectId === projectId) set({ kept: keepKept(state.kept ?? [], kept) });
+			} catch {
+				// Read again at the next sync.
+			}
+		})().finally(() => {
+			pulling = undefined;
+		});
+		return pulling;
+	}
+
 	let codes: { key: string; at: number; codes: string[] } | undefined;
 
 	async function onReport(projectId: string, report: DrainReport): Promise<void> {
@@ -237,6 +291,9 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		stopRunner();
 		if (!allowed) return;
 		const runScope = scopeOf(projectId!);
+		// Without the Project fields, templates and reference kinds wait on the device: the runner
+		// does not see them, the count does (#110).
+		const port = state.listsMissing ? heldBack(runScope.port, (e) => isListTable(e.op.table)) : runScope.port;
 		const transport = createFptTransport({
 			...fptOptions(site!),
 			projectId: link!.projectId,
@@ -244,7 +301,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			onShots: (results) => recordShots(projectId!, results)
 		});
 		const runner = createRunner({
-			port: runScope.port,
+			port,
 			transport,
 			env: browserEnv(deps.page),
 			onProgress: (p) => {
@@ -257,13 +314,22 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		// a person tapped Sync Now, so the slates' links are brought in line at once.
 		const drain = runner.drain.bind(runner);
 		const before = () => (deps.beforeDrain ? deps.beforeDrain().catch(() => undefined) : Promise.resolve());
+		// A merge of the shared lists under way ends first. The check and the start are one step, so a
+		// merge never starts between them (`pullShared` checks `runner.running` as it starts).
+		const drainAlone = async () => {
+			while (pulling) await pulling;
+			return drain();
+		};
 		const reported = (asked: boolean) =>
 			before()
-				.then(() => drain())
+				.then(drainAlone)
 				.then(
 					async (report) => {
 						await onReport(projectId!, report);
-						if (report.stopped === 'idle' || report.stopped === 'waiting') await linkSlates(projectId!, transport, asked);
+						if (report.stopped === 'idle' || report.stopped === 'waiting') {
+							await linkSlates(projectId!, transport, asked);
+							await pullShared(projectId!, transport, asked, () => runner.running);
+						}
 						return report;
 					},
 					(error) => {
@@ -314,7 +380,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		async setProject(projectId) {
 			if (state.projectId === projectId) return load();
 			stopRunner();
-			set({ projectId, link: undefined, scoped: undefined, several: undefined, stopped: undefined, lastSyncAt: undefined, error: undefined });
+			set({ projectId, link: undefined, scoped: undefined, several: undefined, kept: undefined, stopped: undefined, lastSyncAt: undefined, error: undefined });
 			recount();
 			await load();
 		},

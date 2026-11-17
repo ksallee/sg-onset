@@ -29,13 +29,13 @@ export function isTable(name: string): name is TableName {
 }
 
 /**
- * The tables kept on the device and never synced: nothing is queued for them. Flow PT has no
- * place for a template; a slate or take keeps the id of its template as text. Nor for a project's
- * own kinds of set reference; a reference keeps its kind as text. A photo's drawing reaches Flow
- * PT as the photo's annotated copy, a file of the still (`$lib/draw/markup`). A slate's setup
- * diagram reaches it as an image, a file of the slate (`$lib/draw/diagram`).
+ * The tables kept on the device and never synced: nothing is queued for them. A photo's drawing
+ * reaches Flow PT as the photo's annotated copy, a file of the still (`$lib/draw/markup`). A slate's
+ * setup diagram reaches it as an image, a file of the slate (`$lib/draw/diagram`). Templates and a
+ * project's own kinds of set reference were kept here too, until they were shared (#110): they sync
+ * now, as JSON on the Project (lib/fpt/lists.ts).
  */
-export const LOCAL_TABLES = ['template', 'referenceKind', 'markup', 'diagram'] as const satisfies readonly TableName[];
+export const LOCAL_TABLES = ['markup', 'diagram'] as const satisfies readonly TableName[];
 
 export function isLocal(name: string): boolean {
 	return (LOCAL_TABLES as readonly string[]).includes(name);

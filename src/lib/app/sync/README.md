@@ -12,12 +12,13 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `links.ts` | port | `linkStore`: the links over a key-value port. |
 | `report.ts` | yes | `setupView`: `checkSetup`'s report as the sheet shows it. |
 | `review.ts` | yes | `setupReview`, `nextStep`: the review before Set Up Fields; `prototypeNote`. |
-| `queue.ts` | yes | `pendingByKind`, `scopedUpdate`, `parentOf`, `conflictLines`. |
+| `queue.ts` | yes | `pendingByKind`, `scopedUpdate`, `heldBack`, `parentOf`, `conflictLines`. |
 | `projects.ts` | yes | `PROJECT_FILTER`, `projectChoices`: the FPT projects a person picks from. |
 | `errors.ts` | yes | `syncError`, `syncErrorText`. |
 | `clock.ts` | yes | `toSecond`: `app.now()` stamps to the second. |
 | `shots.ts` | yes | Which slates to bring in line, when, and what the sync sheet lists of their Set Shots. Nothing kept. |
 | `notes.ts` | yes | Notes on Shots (#97): the setting per project, what the sheet shows, which Shots get a Note. |
+| `shared.ts` | yes | The lists a show shares (#110): `mergeShared`, what a list read back from Flow PT does to the device's; `usedIds`; the sheet's kept list. |
 | `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. |
 | `engine.ts` | no | `createSyncEngine`: link, check, runner. No runes. |
 | `controller.svelte.ts` | no | `provideSync`, `useSync`: the engine on the real page, as runes. |
@@ -81,6 +82,38 @@ Made by Claude. Kevin can overrule any of them.
     reach through their Set Shots (lib/fpt README, Notes on Shots). A site without Set Shot writes
     none. A site without the Note fields writes none, and the sheet says an admin runs Set Up
     Fields; turning the setting on then runs the setup check again, which only reads.
+
+14. **The lists a show shares are read back when a drain ends** (#110): cameras, lenses, lighting
+    setups, templates and the kinds of set reference the project adds. At most once a minute, at
+    once on Sync Now, after the slates' links. A new device starts with them at its first sync.
+    Slates, takes and references are not read back: they stay with the device that made them
+    (Kevin, 2026-11-17).
+15. **The merge is `mergeShared`, table by table, inside one store transaction** (`reconcile`):
+    matched by client UUID; a record made elsewhere is added; a field changed elsewhere is taken,
+    unless it was edited here and the edit is not confirmed, in any state; a record removed elsewhere
+    is removed here, unless something here uses it or an edit of it waits. Nothing taken in is
+    queued or put on the undo stack.
+16. **No drain runs while the lists are merged, and they are not read while a drain runs.** A
+    change confirmed between the read and the merge would look like a change made elsewhere and be
+    put back. A drain waits for a merge under way; a drain that ends while another runs skips the
+    read, and the last one reads.
+17. **A record removed elsewhere and kept here is sent back** (Claude, to confirm with Kevin): its
+    server id goes, its unsent edits fold into a create of the record as it is, and every device
+    gets it again at its next sync. Without it, a take or camera setup that links it could not
+    sync. It is listed in the sync sheet under "Kept on this device" for the session, with a row
+    that opens it. A record whose edit is under way is kept and sent back at a later sync.
+18. **"Used" is what this device holds:** a camera or a lens in a take or a camera setup, a
+    lighting setup in a slate, a template a slate or take was made from, a kind a reference holds by
+    name. What another device's takes use is not known here.
+19. **A record never on Flow PT and with nothing queued is sent.** That is a template or kind kept
+    on the device before #110. Two devices that each made one send both: the list keeps both.
+20. **A pulled change to an item in use changes the item only.** A take keeps the lens it has, and
+    its own focal length; a slate keeps the values its template gave it. What a person sees then
+    is open (#110): nothing is shown today.
+21. **On a site without the Project fields, templates and kinds wait** (#117's rule): the runner
+    does not see their changes (`heldBack`), the count does, and the sync sheet says an admin runs
+    Set Up Fields, then Check Setup on each device. Cameras, lenses and lighting setups are shared
+    already: they are entities every site has.
 
 ## Not tested without a real site
 

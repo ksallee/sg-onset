@@ -355,29 +355,131 @@ describe('remove and restore', () => {
 });
 
 describe('a table kept on the device', () => {
-	const template = { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take' as const, values: { tStop: 2.8 } };
+	const markup = { id: 'mk1', stillId: 'ph1', shapes: [] };
 
-	it('stores, edits, removes and restores a template, and queues nothing for it', async () => {
+	it('stores, removes and restores a drawing, and queues nothing for it', async () => {
 		const s = setup();
-		await s.store.create('project', { id: 'p1', name: 'Show' });
+		await shoot(s);
+		await s.store.create('still', { id: 'ph1', takeId: 't1', capturedAt: 'x' });
 		const before = await s.store.outbox.entries();
 		const events: StoreEvent[] = [];
 		s.store.subscribe((e) => events.push(e));
 
-		await s.store.create('template', template);
-		expect(await s.store.list('template', 'p1')).toEqual([template]);
-		const applied = await s.store.apply('template', [{ id: 'tp1', key: 'values', from: template.values, to: { tStop: 4 } }]);
-		expect(applied).toEqual([{ id: 'tp1', key: 'values', from: { tStop: 2.8 }, to: { tStop: 4 } }]);
-		await s.store.apply('template', invertPatch(applied));
-		expect((await s.store.get('template', 'tp1'))!.values).toEqual({ tStop: 2.8 });
-		await s.store.remove('template', 'tp1');
-		expect(await s.store.get('template', 'tp1')).toBeUndefined();
-		expect(await s.store.restore('template', 'tp1')).toBe(true);
-		expect(await s.store.get('template', 'tp1')).toEqual(template);
+		await s.store.create('markup', markup as never);
+		expect(await s.store.list('markup', 'ph1')).toEqual([markup]);
+		await s.store.remove('markup', 'mk1');
+		expect(await s.store.get('markup', 'mk1')).toBeUndefined();
+		expect(await s.store.restore('markup', 'mk1')).toBe(true);
 
 		expect(await s.store.outbox.entries()).toEqual(before);
 		expect(events.flatMap((e) => e.tables)).not.toContain('outbox');
-		expect(events.every((e) => e.tables.includes('template'))).toBe(true);
+	});
+});
+
+// Templates and the kinds a project adds are shared by every device of the show now (#110): they
+// sync as any record does.
+describe('templates', () => {
+	const template = { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take' as const, values: { tStop: 2.8 } };
+
+	it('queues a template’s create, edits and delete, and undo of an unsent edit sends nothing', async () => {
+		const s = setup();
+		await s.store.create('project', { id: 'p1', name: 'Show' });
+		await confirmAll(s);
+		await s.store.create('template', template);
+		const applied = await s.store.apply('template', [{ id: 'tp1', key: 'values', from: template.values, to: { tStop: 4 } }]);
+		expect(kinds(await s.store.outbox.entries())).toEqual(['create tp1']);
+		expect((await s.store.outbox.entries())[0].op).toMatchObject({ kind: 'create', fields: { name: 'Day ext', values: { tStop: 4 } } });
+		await s.store.apply('template', invertPatch(applied));
+		await confirmAll(s);
+		await s.store.remove('template', 'tp1');
+		expect(kinds(await s.store.outbox.entries())).toEqual(['delete tp1']);
+		expect(await s.store.restore('template', 'tp1')).toBe(true);
+		expect(await s.store.outbox.entries()).toEqual([]);
+	});
+});
+
+describe('reconcile', () => {
+	const lens = { id: 'l1', projectId: 'p1', lensModel: 'S4/i 32mm', focalLength: 32 };
+	const nothing = { add: [], change: [], remove: [], resend: [], push: [], remoteIds: {} };
+
+	async function synced(s: S) {
+		await s.store.create('project', { id: 'p1', name: 'Show' });
+		await s.store.create('lens', lens);
+		await confirmAll(s);
+	}
+
+	it('gives the plan the table, its users, the queue, the server ids and the trash', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.create('cameraSetup', { id: 'cs1', projectId: 'p1', cameraLabel: 'A', lensId: 'l1' });
+		await s.store.create('lens', { id: 'l2', projectId: 'p1', lensModel: 'Gone' });
+		await s.store.remove('lens', 'l2');
+		let seen: unknown;
+		await s.store.reconcile('lens', ['cameraSetup'], (state) => {
+			seen = state;
+			return nothing;
+		});
+		expect(seen).toMatchObject({
+			rows: [lens],
+			users: { cameraSetup: [{ id: 'cs1', lensId: 'l1' }] },
+			remotes: { p1: expect.any(Number), l1: expect.any(Number) },
+			trashed: new Set(['l2'])
+		});
+		expect(kinds((seen as { entries: Entry[] }).entries)).toEqual(['create cs1']);
+	});
+
+	it('puts, changes and removes records, keeps server ids, and queues nothing for them', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.create('lens', { id: 'l3', projectId: 'p1', lensModel: 'Leaving' });
+		await confirmAll(s);
+		const before = await s.store.outbox.entries();
+		const events: StoreEvent[] = [];
+		s.store.subscribe((e) => events.push(e));
+		await s.store.reconcile('lens', [], () => ({
+			...nothing,
+			add: [{ id: 'l2', projectId: 'p1', lensModel: 'Supreme 50mm' }],
+			change: [{ id: 'l1', set: { lensModel: 'S4/i 32 mm', focalLength: undefined } }],
+			remove: ['l3'],
+			remoteIds: { l2: 777 }
+		}));
+		expect(await s.store.get('lens', 'l1')).toEqual({ id: 'l1', projectId: 'p1', lensModel: 'S4/i 32 mm' });
+		expect(await s.store.get('lens', 'l2')).toEqual({ id: 'l2', projectId: 'p1', lensModel: 'Supreme 50mm' });
+		expect(await s.store.get('lens', 'l3')).toBeUndefined();
+		expect(await s.store.remoteId('l2')).toBe(777);
+		expect(await s.store.remoteId('l3')).toBeUndefined();
+		expect(await s.store.outbox.entries()).toEqual(before);
+		expect(events.flatMap((e) => e.tables)).toContain('lens');
+		expect(events.flatMap((e) => e.tables)).not.toContain('outbox');
+	});
+
+	it('sends back a record whose server copy is gone: its server id and unsent edits go, a create of it as it is comes', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.apply('lens', [{ id: 'l1', key: 'focalLength', from: 32, to: 35 }]);
+		await s.store.reconcile('lens', [], () => ({ ...nothing, resend: ['l1'] }));
+		expect(await s.store.remoteId('l1')).toBeUndefined();
+		const queue = await s.store.outbox.entries();
+		expect(kinds(queue)).toEqual(['create l1']);
+		expect(queue[0].op).toMatchObject({ fields: { projectId: 'p1', lensModel: 'S4/i 32mm', focalLength: 35 } });
+		expect(queue[0].dependsOn).toEqual(['p1']);
+	});
+
+	it('queues a create for a record the server never had', async () => {
+		const s = setup();
+		await s.store.create('project', { id: 'p1', name: 'Show' });
+		await confirmAll(s);
+		await s.store.putRows('template', [{ id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take', values: {} }]);
+		await s.store.reconcile('template', [], () => ({ ...nothing, push: ['tp1'] }));
+		expect(kinds(await s.store.outbox.entries())).toEqual(['create tp1']);
+	});
+
+	it('changes nothing for a record no longer there, and never puts over one that is', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.reconcile('lens', [], () => ({ ...nothing, add: [{ id: 'l1', projectId: 'p1', lensModel: 'Other' }], change: [{ id: 'l9', set: { lensModel: 'x' } }] }));
+		expect(await s.store.get('lens', 'l1')).toEqual(lens);
+		expect(await s.store.get('lens', 'l9')).toBeUndefined();
 	});
 });
 

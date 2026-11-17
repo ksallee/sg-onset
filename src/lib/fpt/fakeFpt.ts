@@ -12,7 +12,7 @@
 
 import { codeName, reverseField, slugOf } from './names';
 import type { RawField, RawFields, SchemaTypes } from './schema';
-import { completeFields, noteFields, rawField, siteTypes, SITE_URL, stockFields, TYPES, versionFields } from './testkit';
+import { completeFields, noteFields, projectFields, rawField, siteTypes, SITE_URL, stockFields, TYPES, versionFields } from './testkit';
 
 type Ref = { type: string; id: number };
 export type FakeRow = { type: string; id: number; values: Record<string, unknown>; retired?: boolean };
@@ -62,7 +62,8 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 		attachment_links: { name: { value: 'Links' }, data_type: { value: 'multi_entity' }, editable: { value: false } },
 		this_file: { name: { value: 'File' }, data_type: { value: 'url' }, editable: { value: false } }
 	};
-	fields.Project = { name: { name: { value: 'Project Name' }, data_type: { value: 'text' } } };
+	// A bare site lacks our two lists on Project (#110).
+	fields.Project = projectFields(options.fields !== 'bare');
 	// A take's videos go up as Versions (entity_types/Version.md). A bare site lacks our client UUID there.
 	fields.Version = versionFields(options.fields !== 'bare');
 	// Notes on Shots (#97): a Note, its Replies, a Shot's Tasks and who they are assigned to

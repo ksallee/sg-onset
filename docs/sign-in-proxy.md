@@ -120,32 +120,35 @@ SvelteKit answers two cases before the proxy runs: 405 for any method but `POST`
 
 ## Settings
 
-One setting, `FPT_EXTRA_HOSTS`. The server reads it from its environment. The browser never sees
-it.
+Two settings, `FPT_HOSTS` and `FPT_EXTRA_HOSTS`. The server reads them from its environment. The
+browser never sees them. Both take exact hosts or `*.domain`, separated by commas or spaces. A
+wildcard matches one label: `*.shotgrid.autodesk.com` passes `studio.shotgrid.autodesk.com`, and
+refuses `a.studio.shotgrid.autodesk.com`.
 
-The allowlist holds Autodesk-hosted Flow PT by default:
+| setting | empty | set |
+|---|---|---|
+| `FPT_HOSTS` | Autodesk-hosted Flow PT: `*.shotgrid.autodesk.com`, `*.shotgunstudio.com` | these hosts only, in place of Autodesk's |
+| `FPT_EXTRA_HOSTS` | nothing added | these hosts, added to the list |
 
-- `*.shotgrid.autodesk.com`
-- `*.shotgunstudio.com`
+To allow your own site only:
 
-A wildcard matches one label: `studio.shotgrid.autodesk.com` passes,
-`a.studio.shotgrid.autodesk.com` does not.
+    FPT_HOSTS=yourstudio.shotgrid.autodesk.com
 
-`FPT_EXTRA_HOSTS` adds hosts: exact hosts or `*.domain`, separated by commas or spaces.
+Both Autodesk domains resolve any name, so naming your own site is safer than naming the domain
+(`findings/129_hosted_domains.md`).
+
+To allow a self-hosted site beside Autodesk's:
 
     FPT_EXTRA_HOSTS=fpt.studio.com
 
 The same rules as the site apply to each entry. An IP, a port, a local name such as
-`fpt.studio.internal`, a bare `*` or `*.com` is dropped without a word, so check the result (see
-Check it).
-
-The Autodesk hosts stay allowed whatever you set. To allow your own site only, edit
-`DEFAULT_HOST_PATTERNS` in `src/lib/auth/site.ts` in your fork.
+`fpt.studio.internal`, a bare `*` or `*.com` is dropped without a word. If every `FPT_HOSTS` entry
+is dropped, the list holds only `FPT_EXTRA_HOSTS`: it never falls back to Autodesk's. Check the
+result (see Check it).
 
 A change takes effect when the server restarts: a new deploy on Vercel, a restart on Node. The
 app needs no new build: the browser checks only the form of the site, and the allowlist is on the
-server. A person who types a site off the list reads: "This app signs in to Autodesk-hosted Flow
-PT sites only. A self-hosted deploy can allow others."
+server. A site off the list is refused before anything is sent to it.
 
 If your Flow PT is self-hosted:
 
@@ -157,21 +160,20 @@ If your Flow PT is self-hosted:
 ## Deploy to Vercel from a fork
 
 The repo is set up for Vercel: `vite.config.ts` uses `@sveltejs/adapter-vercel`, and `vercel.json`
-holds the build. Vercel's free Hobby plan is for personal, non-commercial use, so a studio needs a
-paid plan.
+holds the build. For the plans, see [Vercel's pricing page](https://vercel.com/pricing).
 
 1. Fork `ksallee/sg-onset` on GitHub, into your studio's account.
 2. In Vercel, add a new project and import the fork. Vercel reads `vercel.json`: framework
    SvelteKit, install `pnpm install --frozen-lockfile`, build `pnpm run build`. Leave those.
-3. If your site is not Autodesk-hosted, add the environment variable `FPT_EXTRA_HOSTS`, on the
-   import screen or later under the project's Settings, Environment Variables.
+3. Add the settings you want (see Settings), on the import screen or later under the project's
+   Settings, Environment Variables. To allow your own site only, set `FPT_HOSTS` to it.
 4. Deploy. Vercel builds `main` only: the `ignoreCommand` in `vercel.json` skips every other
    branch. Keep `main` as the production branch.
 5. Add your own domain under the project's Settings, Domains, if you want one.
 6. Run the checks under Check it.
 
-Vercel applies a changed variable to new deploys only: redeploy after you change
-`FPT_EXTRA_HOSTS`. To take new versions of the app, sync your fork's `main` with
+Vercel applies a changed variable to new deploys only: redeploy after you change a setting. To
+take new versions of the app, sync your fork's `main` with
 `ksallee/sg-onset`; Vercel builds it.
 
 ## Deploy to any Node host
@@ -205,8 +207,10 @@ Node 22 or 24 and pnpm.
 
        ORIGIN=https://onset.studio.com
        PORT=3000
+       FPT_HOSTS=yourstudio.shotgrid.autodesk.com
        FPT_EXTRA_HOSTS=
 
+   Put your site in `FPT_HOSTS`, or leave it empty for every Autodesk-hosted site (see Settings).
    `ORIGIN` is the exact address people open: scheme and host, no path. Set it. Without it the
    server builds its address from the request's `Host` header and assumes https. If that differs
    from the address in the browser, every sign-in answers 403 `cross-origin`. `HOST` sets the
@@ -261,6 +265,14 @@ A call from another origin is refused:
 
 Expect 403 and `{"error":"cross-origin"}`.
 
+With `FPT_HOSTS` set to your site, another Autodesk site is refused:
+
+    curl -i -X POST https://onset.studio.com/auth/session-request \
+      -H 'content-type: application/json' \
+      -d '{"site": "https://other.shotgrid.autodesk.com"}'
+
+Expect 403 and `{"error":"not-allowed"}`.
+
 Your site is reached:
 
     curl -i -X POST https://onset.studio.com/auth/session-request \
@@ -286,5 +298,5 @@ your fork if search engines should not be sent there from your deploy.
 | `src/lib/server/launcher-proxy.ts` | the proxy and its checks |
 | `src/lib/auth/launcher.ts` | the two calls, and how their answers are read |
 | `src/lib/auth/site.ts` | the site check and the allowlist |
-| `src/routes/auth/session-request/+server.ts`, `src/routes/auth/session-poll/+server.ts` | the two routes, and where `FPT_EXTRA_HOSTS` is read |
+| `src/routes/auth/session-request/+server.ts`, `src/routes/auth/session-poll/+server.ts` | the two routes, and where `FPT_HOSTS` and `FPT_EXTRA_HOSTS` are read |
 | `src/lib/auth/sign-in.ts` | the browser's half |

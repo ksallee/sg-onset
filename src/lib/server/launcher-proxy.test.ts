@@ -96,6 +96,16 @@ describe('session request', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
+	it('allows only the hosts FPT_HOSTS names when it is set, with no fetch for the rest', async () => {
+		fetchMock.mockResolvedValue(answer(200, { sessionRequestId: ID, url: approval }));
+		const hosts = 'studio.shotgrid.autodesk.com';
+		const allowed = await proxySessionRequest(ask({ site: SITE }), opts({ hosts }));
+		expect(allowed.status).toBe(200);
+		const refused = await proxySessionRequest(ask({ site: 'other.shotgrid.autodesk.com' }), opts({ hosts }));
+		expect(await read(refused)).toEqual({ status: 403, body: { error: 'not-allowed' } });
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
 	it('refuses a call from another origin, a body that is not JSON, and a large one', async () => {
 		const site = 'studio.shotgrid.autodesk.com';
 		expect((await read(await proxySessionRequest(ask({ site }, { origin: 'https://evil.example' }), opts()))).body).toEqual({ error: 'cross-origin' });

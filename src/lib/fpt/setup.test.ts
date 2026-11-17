@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { TransportError } from '$lib/outbox/transport';
+import { createApi } from './api';
 import { memoryKeyValue, resolutionKey } from './cache';
 import { BEARER, fakeFpt, type FakeFpt } from './fakeFpt';
 import { ENTITY_SCOPES, NOTE_COLUMNS, VERSION_COLUMNS, wantedColumns } from './mapping';
+import type { Naming } from './naming';
 import { parseResolution } from './schema';
-import { checkSetup, type SetupReport } from './setup';
+import { checkSetup, loadResolution, type SetupReport } from './setup';
 import { rawField, TYPES } from './testkit';
 
 function world(fields: 'complete' | 'bare' = 'complete') {
@@ -513,6 +515,49 @@ describe('checkSetup: the Action Menu Item', () => {
 		const report = await check();
 		expect(report.action).toBeUndefined();
 		expect(fpt.requests.some((r) => r.path.includes('action_menu_items'))).toBe(false);
+	});
+});
+
+// #111: the names an admin picked. Every test above runs on the default.
+describe('checkSetup and loadResolution: the names an admin picked', () => {
+	const naming: Naming = { entities: { take: 'Shot Take', setShot: 'Shot Code' }, fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' }, 'take.sg_circled': { field: 'sg_circle' } } };
+	const options = (fpt: FakeFpt, cache = memoryKeyValue()) => ({ site: fpt.site, bearer: async () => BEARER, fetch: fpt.fetch, schemaCache: cache, online: () => fpt.online });
+
+	it('says each entity under its chosen name, and creates the fields under theirs', async () => {
+		const fpt = fakeFpt({ fields: 'bare' });
+		fpt.types.CustomEntity09 = { name: { value: 'Shot Take' } };
+		delete fpt.types.CustomEntity22;
+		fpt.fields.CustomEntity09.sg_circle = rawField('checkbox', 'Circle');
+		const report = await checkSetup({ ...options(fpt), naming, createFields: true });
+		expect(report.ready).toBe(true);
+		expect(report.entities.find((e) => e.scope === 'take')).toMatchObject({ displayName: 'Shot Take', status: 'found' });
+		expect(report.entities.find((e) => e.scope === 'setShot')).toMatchObject({ displayName: 'Shot Code', status: 'missing', optional: true });
+		expect(field(report, 'take', 'sg_studio_t_stop')).toMatchObject({ displayName: 'Studio T-Stop', status: 'created' });
+		expect(field(report, 'take', 'sg_circle')).toMatchObject({ displayName: 'Circle', status: 'present' });
+		expect(creates(fpt).some((r) => JSON.stringify(r.body).includes('"Circled"'))).toBe(false);
+	});
+
+	it('names a missing custom entity under its chosen name when the site is not ready', async () => {
+		const fpt = fakeFpt();
+		await expect(loadResolution(createApi(options(fpt)), { ...options(fpt), naming })).rejects.toMatchObject({ kind: 'failed', message: expect.stringContaining('the Shot Take entity') });
+	});
+
+	it('uses a schema kept under other names when none is asked for, and reads it again when other names are', async () => {
+		const fpt = fakeFpt({ fields: 'bare' });
+		fpt.types.CustomEntity09 = { name: { value: 'Shot Take' } };
+		fpt.fields.CustomEntity09.sg_circle = rawField('checkbox', 'Circle');
+		const cache = memoryKeyValue();
+		await checkSetup({ ...options(fpt, cache), naming, createFields: true });
+		const reads = () => fpt.count((r) => r.path === '/api/v1/schema');
+		const before = reads();
+		const kept = await loadResolution(createApi(options(fpt, cache)), options(fpt, cache));
+		expect(kept.naming).toEqual(naming);
+		expect(reads()).toBe(before);
+		expect((await loadResolution(createApi(options(fpt, cache)), { ...options(fpt, cache), naming })).fields.take.sg_t_stop).toBe('sg_studio_t_stop');
+		expect(reads()).toBe(before);
+		// Asked for the default names, it is read again: the site has no entity named Take.
+		await expect(loadResolution(createApi(options(fpt, cache)), { ...options(fpt, cache), naming: {} })).rejects.toMatchObject({ kind: 'failed' });
+		expect(reads()).toBe(before + 1);
 	});
 });
 

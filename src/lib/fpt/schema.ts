@@ -18,11 +18,13 @@ import {
 	wantedColumns,
 	type Column,
 	type EntityScope,
+	type FieldPlace,
 	type FptDataType,
 	type OptionalScope,
 	type RequiredScope,
 	type Target
 } from './mapping';
+import { DEFAULT_NAMING, entityName, entityNames, fieldChoice, parseNaming, sameNaming, type CustomScope, type Naming } from './naming';
 import { codeName, reverseField } from './names';
 import { VERSION } from './versions';
 
@@ -30,7 +32,7 @@ import { VERSION } from './versions';
  * Where a planned field is: one of our scopes' entities, Version, where a take's videos go, or
  * Note, where the Note on a Shot is kept (#97).
  */
-export type PlanScope = EntityScope | 'version' | 'note';
+export type PlanScope = FieldPlace;
 
 /** Note, a stock type. */
 export const NOTE = 'Note';
@@ -75,22 +77,22 @@ const CUSTOM_ENTITY = /^CustomEntity\d+$/;
 // Display names are free text and may hold outer spaces (corpus findings/008_custom_entities.md).
 const loose = (text: string) => text.trim().toLowerCase();
 
-/** Finds the entity type of each scope in a site's type list. */
-export function resolveEntities(types: SchemaTypes): EntityResolution[] {
+/** Finds the entity type of each scope in a site's type list, a custom one under the name the naming gives it (#111). */
+export function resolveEntities(types: SchemaTypes, naming: Naming = DEFAULT_NAMING): EntityResolution[] {
 	const customs = Object.keys(types).filter((name) => CUSTOM_ENTITY.test(name));
-	return ENTITY_SCOPES.map((scope): EntityResolution => ({ ...resolveOne(scope, types, customs), ...(isOptionalScope(scope) ? { optional: true as const } : {}) }));
+	return ENTITY_SCOPES.map((scope): EntityResolution => ({ ...resolveOne(scope, types, customs, naming), ...(isOptionalScope(scope) ? { optional: true as const } : {}) }));
 }
 
-function resolveOne(scope: EntityScope, types: SchemaTypes, customs: string[]): EntityResolution {
+function resolveOne(scope: EntityScope, types: SchemaTypes, customs: string[], naming: Naming): EntityResolution {
 	const want = ENTITY_TYPES[scope];
 	if (want.kind === 'builtin') {
 		// Presence in /schema is the enablement test (findings/008, findings/122).
 		const there = types[want.entityType];
 		return { scope, kind: 'builtin', displayName: there?.name.value.trim() || want.displayName, status: there ? 'found' : 'missing', entityType: want.entityType };
 	}
-	const accepted = [want.displayName, ...(want.aliases ?? [])].map(loose);
+	const accepted = entityNames(naming, scope as CustomScope).map(loose);
 	const found = customs.filter((name) => accepted.includes(loose(types[name].name.value))).sort();
-	const base = { scope, kind: 'custom' as const, displayName: want.displayName };
+	const base = { scope, kind: 'custom' as const, displayName: entityName(naming, scope) };
 	if (found.length === 1) return { ...base, status: 'found', entityType: found[0] };
 	if (found.length === 0) return { ...base, status: 'missing' };
 	return { ...base, status: 'ambiguous', candidates: found };
@@ -177,11 +179,19 @@ function mismatch(column: Column, field: RawField, valid: string | undefined): s
  * by something else, ours steps aside to `sg_onset_<name>`, display name "Onset <name>". A display
  * name already shown by another field is avoided too: the server would answer 201 for a silent
  * `<name>_1` (corpus endpoints/post_schema_type_fields.md).
+ *
+ * Each field goes by the naming (#111): the display name chosen in place of ours, or a field of the
+ * site, used as it is and never created. The default naming plans what the app always did.
  */
-export function planFields(types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>, site: SiteContext = {}): FieldPlan[] {
-	const version = site.version ? VERSION_COLUMNS.map((column) => planColumn('version', VERSION, column, site.version!, types)) : [];
-	const note = site.note ? NOTE_COLUMNS.map((column) => planColumn('note', NOTE, column, site.note!, types)) : [];
-	return planReverses([...planOwn(types, fields), ...version, ...note], types, fields, site);
+export function planFields(
+	types: Partial<Record<EntityScope, string>>,
+	fields: Partial<Record<EntityScope, RawFields>>,
+	site: SiteContext = {},
+	naming: Naming = DEFAULT_NAMING
+): FieldPlan[] {
+	const version = site.version ? VERSION_COLUMNS.map((column) => planColumn('version', VERSION, column, site.version!, types, naming)) : [];
+	const note = site.note ? NOTE_COLUMNS.map((column) => planColumn('note', NOTE, column, site.note!, types, naming)) : [];
+	return planReverses([...planOwn(types, fields, naming), ...version, ...note], types, fields, site, naming);
 }
 
 /**
@@ -191,7 +201,7 @@ export function planFields(types: Partial<Record<EntityScope, string>>, fields: 
  * then is unmeasured, and a wrong guess cannot be undone by deleting, since deleting the added
  * field deletes the link too. A link already there is matched with the field it added.
  */
-function planReverses(plans: FieldPlan[], types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>, site: SiteContext): FieldPlan[] {
+function planReverses(plans: FieldPlan[], types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>, site: SiteContext, naming: Naming): FieldPlan[] {
 	const scopeOf = new Map(ENTITY_SCOPES.filter((s) => types[s]).map((s) => [types[s]!, s]));
 	const fieldsOf = (type: string): RawFields | undefined => {
 		const scope = scopeOf.get(type);
@@ -208,7 +218,7 @@ function planReverses(plans: FieldPlan[], types: Partial<Record<EntityScope, str
 	return plans.map((plan) => {
 		const target = plan.validTypes?.[0];
 		if (!target || plan.column.stock || plan.scope === 'version' || plan.scope === 'note' || (plan.dataType !== 'entity' && plan.dataType !== 'multi_entity') || plan.status === 'blocked') return plan;
-		const source = site.names?.[plan.entityType]?.trim() || ENTITY_TYPES[plan.scope].displayName;
+		const source = site.names?.[plan.entityType]?.trim() || entityName(naming, plan.scope);
 		const predicted = { entityType: target, ...reverseField(plan.entityType, source, plan.name, plan.displayName, plan.dataType) };
 		const have = fieldsOf(target);
 		if (plan.status === 'present') {
@@ -234,7 +244,7 @@ const linksType = (field: RawField, type: string): boolean => {
 	return Array.isArray(valid) && valid.includes(type);
 };
 
-function planOwn(types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>): FieldPlan[] {
+function planOwn(types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>, naming: Naming): FieldPlan[] {
 	const plans: FieldPlan[] = [];
 	for (const scope of ENTITY_SCOPES) {
 		const entityType = types[scope];
@@ -243,24 +253,35 @@ function planOwn(types: Partial<Record<EntityScope, string>>, fields: Partial<Re
 		for (const column of wantedColumns(scope)) {
 			// A link to an optional entity the site lacks waits for it, and blocks nothing (Kevin, #117).
 			if (column.target && isOptionalScope(column.target) && !types[column.target]) continue;
-			plans.push(planColumn(scope, entityType, column, have, types));
+			plans.push(planColumn(scope, entityType, column, have, types, naming));
 		}
 	}
 	return plans;
 }
 
-/** What to do about one field we want on a type, given the fields the type has. */
-function planColumn(scope: PlanScope, entityType: string, column: Column, have: RawFields, types: Partial<Record<EntityScope, string>>): FieldPlan {
-	const shown = new Set(Object.values(have).map((f) => loose(f.name.value)));
+/** What to do about one field we want on a type, given the fields the type has and the naming. */
+function planColumn(scope: PlanScope, entityType: string, column: Column, have: RawFields, types: Partial<Record<EntityScope, string>>, naming: Naming): FieldPlan {
+	const choice = fieldChoice(naming, scope, column);
 	const base = { scope, entityType, column, dataType: column.dataType, ...(column.unique ? { unique: true as const } : {}) };
 	const valid = column.target ? targetType(column.target, types) : undefined;
 	if (column.target && !valid) {
-		const missing = ENTITY_TYPES[column.target as EntityScope].displayName;
-		return { ...base, name: column.name, displayName: column.display, status: 'blocked', reason: `links ${missing}, which the site does not have yet` };
+		const missing = entityName(naming, column.target as EntityScope);
+		const asked = 'field' in choice ? { name: choice.field, displayName: choice.field } : { name: codeName(choice.display), displayName: choice.display };
+		return { ...base, ...asked, status: 'blocked', reason: `links ${missing}, which the site does not have yet` };
 	}
 	const links = valid ? { validTypes: [valid] } : {};
-	const aside = column.display.startsWith('Onset ') ? [] : [`Onset ${column.display}`];
-	const candidates = [column.display, ...aside].map((display) => ({ display, name: codeName(display) }));
+	if ('field' in choice) {
+		// A field of the site the admin picked: used as it is, or not at all. Never created.
+		const name = choice.field;
+		const field = have[name];
+		const wrong = field ? mismatch(column, field, valid) : 'is not on the site';
+		if (!wrong && field) return { ...base, ...links, name, displayName: field.name.value, status: 'present' };
+		return { ...base, ...links, name, displayName: field?.name.value ?? name, status: 'blocked', reason: `${entityType}.${name} ${wrong}` };
+	}
+	const display = choice.display;
+	const shown = new Set(Object.values(have).map((f) => loose(f.name.value)));
+	const aside = display.startsWith('Onset ') ? [] : [`Onset ${display}`];
+	const candidates = [display, ...aside].map((d) => ({ display: d, name: codeName(d) }));
 
 	const usable = candidates.find((c) => have[c.name] && !mismatch(column, have[c.name], valid));
 	if (usable) return { ...base, ...links, name: usable.name, displayName: have[usable.name].name.value, status: 'present' };
@@ -270,7 +291,7 @@ function planColumn(scope: PlanScope, entityType: string, column: Column, have: 
 	});
 	const at = why.findIndex((w) => w === undefined);
 	const reason = why.filter((w): w is string => w !== undefined).join('; ');
-	if (at < 0) return { ...base, ...links, name: column.name, displayName: column.display, status: 'blocked', reason };
+	if (at < 0) return { ...base, ...links, name: codeName(display), displayName: display, status: 'blocked', reason };
 	return { ...base, ...links, name: candidates[at].name, displayName: candidates[at].display, status: 'create', ...(reason ? { reason } : {}) };
 }
 
@@ -307,6 +328,11 @@ export type Resolution = {
 	 * Note lists. Here only once both are there; until then the Notes wait.
 	 */
 	note?: { key: string; captured: string };
+	/**
+	 * The names an admin picked that it was resolved with (#111, naming.ts). Absent: the default,
+	 * the names the app always used, as in a resolution kept before names could be picked.
+	 */
+	naming?: Naming;
 };
 
 /** The fields of an optional scope and the fields that link it, by scope. */
@@ -317,9 +343,10 @@ function optionalColumns(optional: OptionalScope): { scope: EntityScope; column:
 /**
  * The resolution, once every required entity is found and every field of theirs is present.
  * Otherwise nothing. An optional entity is in it only with all its fields and the fields that link
- * it; until then it is left out, and what needs it waits (Kevin, #117).
+ * it; until then it is left out, and what needs it waits (Kevin, #117). The fields are keyed by the
+ * name the mapping gives them, whatever the naming calls them on the site, and the naming is kept.
  */
-export function toResolution(site: string, entities: readonly EntityResolution[], plans: readonly FieldPlan[]): Resolution | undefined {
+export function toResolution(site: string, entities: readonly EntityResolution[], plans: readonly FieldPlan[], naming: Naming = DEFAULT_NAMING): Resolution | undefined {
 	const types: Partial<Record<EntityScope, string>> | undefined = entityTypesOf(entities);
 	if (!types) return undefined;
 	const nameOf = (scope: EntityScope, column: Column) => {
@@ -356,8 +383,14 @@ export function toResolution(site: string, entities: readonly EntityResolution[]
 		entities: types as Resolution['entities'],
 		fields: fields as Resolution['fields'],
 		versionUuid: uuid.name,
-		...(key && captured ? { note: { key, captured } } : {})
+		...(key && captured ? { note: { key, captured } } : {}),
+		...(sameNaming(naming, DEFAULT_NAMING) ? {} : { naming })
 	};
+}
+
+/** The names a resolution was made with: the default when it keeps none. */
+export function namingOf(resolution: Resolution): Naming {
+	return resolution.naming ?? DEFAULT_NAMING;
 }
 
 /** Whether the site has the Note fields of the Notes on Shots (#97). */
@@ -380,8 +413,11 @@ export function serializeResolution(resolution: Resolution): string {
 	return JSON.stringify(resolution);
 }
 
-/** What the cache held, if it is a resolution of this site and still names every field we want. */
-export function parseResolution(raw: string | undefined | null, site: string): Resolution | undefined {
+/**
+ * What the cache held, if it is a resolution of this site and still names every field we want.
+ * With `naming`, only one made with those names (#111): another is read again.
+ */
+export function parseResolution(raw: string | undefined | null, site: string, naming?: Naming): Resolution | undefined {
 	if (!raw) return undefined;
 	let value: unknown;
 	try {
@@ -395,6 +431,9 @@ export function parseResolution(raw: string | undefined | null, site: string): R
 	if (r.version !== 1 || r.site !== site || !r.entities || !r.fields || typeof r.versionUuid !== 'string') return undefined;
 	// Without `note`: the Notes on Shots wait, the rest syncs. A `note` kept must name both fields.
 	if (r.note !== undefined && (r.note === null || typeof r.note.key !== 'string' || typeof r.note.captured !== 'string')) return undefined;
+	// Without `naming`: the default names. A `naming` kept must be one, and the one asked for.
+	if (r.naming !== undefined && !parseNaming(r.naming)) return undefined;
+	if (naming !== undefined && !sameNaming(r.naming, naming)) return undefined;
 	const entities: Partial<Record<EntityScope, unknown>> = r.entities;
 	const fields: Partial<Record<EntityScope, Record<string, unknown>>> = r.fields;
 	for (const scope of ENTITY_SCOPES) {

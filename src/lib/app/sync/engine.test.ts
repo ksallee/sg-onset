@@ -3,8 +3,10 @@
 
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { describe, expect, it, vi } from 'vitest';
+import { checkSetup } from '$lib/fpt';
 import { memoryKeyValue } from '$lib/fpt/cache';
 import { BEARER, fakeFpt, type FakeFpt } from '$lib/fpt/fakeFpt';
+import { DEFAULT_NAMING, entityName, type Naming } from '$lib/fpt/naming';
 import type { Page, PageEvent } from '$lib/outbox/foreground';
 import type { DrainReport } from '$lib/outbox/runner';
 import { openStore, type DexieStore } from '$lib/store/dexieStore';
@@ -55,19 +57,20 @@ function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: De
 	};
 
 	const kv = memoryKeyValue();
+	const schemaCache = memoryKeyValue();
 	const engine = createSyncEngine({
 		store,
 		site: () => fpt.site,
 		canSync: () => auth.token !== null,
 		bearer,
 		fetch: ((input, init) => fpt.fetch(input, init)) as typeof fetch,
-		schemaCache: memoryKeyValue(),
+		schemaCache,
 		kv,
 		page,
 		...(options.beforeDrain ? { beforeDrain: () => options.beforeDrain!(store) } : {}),
 		...(options.origin ? { origin: options.origin } : {})
 	});
-	return { fpt, fptProject, other, store, edit, world, emit, auth, kv, engine };
+	return { fpt, fptProject, other, store, edit, world, emit, auth, kv, schemaCache, engine };
 }
 
 type S = ReturnType<typeof setup>;
@@ -793,5 +796,34 @@ describe('Notes on Shots', () => {
 		await later(s);
 		expect(notes(s)).toHaveLength(1);
 		expect((notes(s)[0].values.note_links as Ref[])[0].type).toBe('Shot');
+	});
+});
+
+// #111: the names an admin picked. The schema kept on the device holds them: the check keeps them,
+// the transport writes under them, and the sheet names the entities to enable by them.
+describe('the names an admin picked (#111)', () => {
+	const naming: Naming = { entities: { take: 'Shot Take', reference: 'Set Ref', setShot: 'Shot Code' }, fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' }, 'take.sg_photos': { display: 'Stills' } } };
+
+	it('syncs under the names the schema on the device was set up with, and keeps them through a check', async () => {
+		const s = setup({ fields: 'bare' });
+		s.fpt.types.CustomEntity09 = { name: { value: 'Shot Take' } };
+		delete s.fpt.types.CustomEntity21;
+		delete s.fpt.types.CustomEntity22;
+		expect(s.engine.state.naming).toEqual(DEFAULT_NAMING);
+		const report = await checkSetup({ site: s.fpt.site, bearer: async () => BEARER, fetch: s.fpt.fetch, schemaCache: s.schemaCache, naming, createFields: true });
+		expect(report.ready).toBe(true);
+		await shoot(s);
+		await linked(s);
+		expect(s.engine.state.naming).toEqual(naming);
+		expect(s.engine.state.referencesMissing).toBe(true);
+		expect(s.engine.state.setShotsMissing).toBe(true);
+		expect(entityName(s.engine.state.naming, 'reference')).toBe('Set Ref');
+		s.world.visible = true;
+		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
+		const take = s.fpt.byUuid(TAKE, 't1')!;
+		expect(take.values).toMatchObject({ code: '1', sg_studio_t_stop: 2.8 });
+		expect((take.values.sg_stills as { id: number }[]).length).toBe(1);
+		expect(take.values.sg_t_stop).toBeUndefined();
+		expect(s.fpt.fields[TAKE].sg_photos).toBeUndefined();
 	});
 });

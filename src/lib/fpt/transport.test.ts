@@ -3,6 +3,8 @@ import { TransportError, type BlobRef, type PushOp, type SentPart, type UploadSe
 import type { Op, RemoteId } from '$lib/outbox/types';
 import { memoryKeyValue, resolutionKey } from './cache';
 import { BEARER, fakeFpt, STORAGE } from './fakeFpt';
+import type { Naming } from './naming';
+import { checkSetup } from './setup';
 import { encodeStillRemote } from './stills';
 import { jwtWith } from './testkit';
 import { createFptTransport, readShotCodes, type ShotResult } from './transport';
@@ -12,7 +14,7 @@ type World = ReturnType<typeof world>;
 /** The Set Shot entity of the fake site (testkit.ts). */
 const SET_SHOT = 'CustomEntity22';
 
-function world(options: { fields?: 'complete' | 'bare'; upload?: { singlePutMax: number; partSize: number } } = {}) {
+function world(options: { fields?: 'complete' | 'bare'; upload?: { singlePutMax: number; partSize: number }; naming?: Naming } = {}) {
 	const fpt = fakeFpt({ fields: options.fields });
 	const projectId = fpt.seed('Project', { name: 'Show' });
 	const cache = memoryKeyValue();
@@ -29,7 +31,8 @@ function world(options: { fields?: 'complete' | 'bare'; upload?: { singlePutMax:
 			now: () => fpt.clock.t,
 			online: () => fpt.online,
 			onShots: (results) => void shotNews.push(results),
-			...(options.upload ? { upload: options.upload } : {})
+			...(options.upload ? { upload: options.upload } : {}),
+			...(options.naming ? { naming: options.naming } : {})
 		});
 	return { fpt, projectId, cache, auth, make, shotNews, transport: make() };
 }
@@ -1633,5 +1636,54 @@ describe('an audio note', () => {
 		expect(await w.transport.lookup([{ table: 'still', id: 'a1' }])).toEqual([
 			{ table: 'still', id: 'a1', remoteId: encodeStillRemote({ take: a.take, capturedAt: '2026-11-11T09:30:00.000Z' }) }
 		]);
+	});
+});
+
+// ---------------------------------------------------------------------------------- names (#111)
+
+describe('the names an admin picked (#111)', () => {
+	const naming: Naming = { entities: { take: 'Shot Take', reference: 'Set Ref' }, fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' } } };
+
+	/** A site whose take is named Shot Take, set up under `naming`, its schema kept on the device. */
+	async function named(w: World) {
+		w.fpt.types.CustomEntity09 = { name: { value: 'Shot Take' } };
+		w.fpt.types.CustomEntity21 = { name: { value: 'Set Ref' } };
+		const report = await checkSetup({ site: w.fpt.site, bearer: async () => BEARER, fetch: w.fpt.fetch, schemaCache: w.cache, online: () => w.fpt.online, naming, createFields: true });
+		expect(report.ready).toBe(true);
+	}
+
+	it('writes the fields under the names the schema on the device was set up with', async () => {
+		const w = world({ fields: 'bare' });
+		await named(w);
+		await shoot(w);
+		expect(w.fpt.byUuid('CustomEntity09', 't1')!.values).toMatchObject({ code: '1', sg_studio_t_stop: 2.8 });
+		expect(w.fpt.fields.CustomEntity09.sg_t_stop).toBeUndefined();
+	});
+
+	it('reads a stale schema again under the same names', async () => {
+		const w = world({ fields: 'bare' });
+		await named(w);
+		const ids = await shoot(w);
+		// An admin deleted a field since: the write is refused, and the schema is read again.
+		delete w.fpt.fields.CustomEntity09.sg_studio_t_stop;
+		const refused = await w.transport.push([update('take', 't1', ids.t1, { tStop: [2.8, 4] })]);
+		expect(refused.outcome).toBe('refused');
+		expect(await w.cache.get(resolutionKey(w.fpt.site))).toBeUndefined();
+		// Read again under the names it was made with: the renamed field is what is missing.
+		await expect(w.transport.push([update('take', 't1', ids.t1, { tStop: [2.8, 4] })])).rejects.toMatchObject({
+			kind: 'failed',
+			message: expect.stringContaining('CustomEntity09.sg_studio_t_stop')
+		});
+	});
+
+	it('says which entity to enable under its chosen name', async () => {
+		const w = world({ naming: { entities: { reference: 'Set Ref' } } });
+		delete w.fpt.types.CustomEntity21;
+		const ids = await shoot(w);
+		const r1 = create('reference', 'r1', { slateId: 's1', kind: 'hdri360', name: 'HDRI_0412' }, { s1: ids.s1 });
+		expect(await w.transport.push([r1])).toEqual({
+			outcome: 'refused',
+			refusals: [{ entryId: r1.entryId, reason: 'invalid', message: 'This Flow PT site has no Set Ref entity yet. Once an admin enables it and runs Set Up Fields, tap Try Again.' }]
+		});
 	});
 });

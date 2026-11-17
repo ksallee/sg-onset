@@ -9,6 +9,7 @@ import { ApiRefusal, createApi, type Api, type FptOptions } from './api';
 import { resolutionKey } from './cache';
 import { isFieldCreateRefusal, isPermissionRefusal } from './errors';
 import { ENTITY_SCOPES, isOptionalColumn, type EntityScope, type FptDataType } from './mapping';
+import { DEFAULT_NAMING, type Naming } from './naming';
 import { SHOT } from './shots';
 import {
 	createInput,
@@ -109,9 +110,9 @@ const siteOf = (options: FptOptions) => options.site.replace(/\/+$/, '');
 /** Linked types outside our scopes: a link field of ours adds a field on each (findings/142). */
 const OTHERS = ['Attachment', SHOT];
 
-async function inspect(api: Api, signal?: AbortSignal): Promise<{ entities: EntityResolution[]; plans: FieldPlan[] }> {
+async function inspect(api: Api, naming: Naming, signal?: AbortSignal): Promise<{ entities: EntityResolution[]; plans: FieldPlan[] }> {
 	const listed = await api.types(signal);
-	const entities = resolveEntities(listed);
+	const entities = resolveEntities(listed, naming);
 	const types = foundTypes(entities);
 	const fields: Partial<Record<EntityScope, RawFields>> = {};
 	const others: Record<string, RawFields> = {};
@@ -145,7 +146,7 @@ async function inspect(api: Api, signal?: AbortSignal): Promise<{ entities: Enti
 			: [])
 	]);
 	const names = Object.fromEntries(Object.entries(listed).map(([type, t]) => [type, t.name.value]));
-	return { entities, plans: planFields(types, fields, { names, others, version, note }) };
+	return { entities, plans: planFields(types, fields, { names, others, version, note }, naming) };
 }
 
 const reportOf = (plan: FieldPlan, status: FieldReport['status'], reason = plan.reason): FieldReport => ({
@@ -165,7 +166,8 @@ const reportOf = (plan: FieldPlan, status: FieldReport['status'], reason = plan.
  * and says what is left for a person to do. Field creation needs admin rights: at the first
  * refusal it stops creating and marks every field left `needsAdmin`. A link field whose added
  * field would clash with one already there is `blocked`, never created. No field is ever
- * deleted or changed: deleting a field a link added deletes the link too (findings/142).
+ * deleted or changed: deleting a field a link added deletes the link too (findings/142). Every
+ * entity and field is looked for, and made, under the names of `naming` (#111).
  *
  * Throws a `TransportError` when the site cannot be asked: `unreachable`, `unauthorized`, `failed`.
  */
@@ -180,7 +182,8 @@ export async function checkSetup(
 	const api = createApi(options);
 	const site = siteOf(options);
 	const { signal } = options;
-	const { entities, plans } = await inspect(api, signal);
+	const naming = options.naming ?? DEFAULT_NAMING;
+	const { entities, plans } = await inspect(api, naming, signal);
 
 	const fields: FieldReport[] = [];
 	const settled: FieldPlan[] = [];
@@ -220,7 +223,7 @@ export async function checkSetup(
 		settled.push(plan);
 	}
 
-	const resolution = toResolution(site, entities, settled);
+	const resolution = toResolution(site, entities, settled, naming);
 	if (resolution) await options.schemaCache.set(resolutionKey(site), serializeResolution(resolution));
 	else await options.schemaCache.delete(resolutionKey(site));
 	const action = options.actionMenu ? await actionMenu(api, entities, options.actionMenu, options.createFields !== false, signal) : undefined;
@@ -305,13 +308,17 @@ function missing(entities: EntityResolution[], plans: FieldPlan[]): string {
  * The site's schema as the transport needs it: from the cache, or read from the site. It never
  * creates anything: that is `checkSetup`, which the app runs after sign-in. A site that is not
  * ready throws `failed` and names what is missing.
+ *
+ * With `naming`, one kept under other names is read again under those (#111). Without, one kept is
+ * used whatever its names, and one read is read under the default names.
  */
 export async function loadResolution(api: Api, options: FptOptions, signal?: AbortSignal): Promise<Resolution> {
 	const site = siteOf(options);
-	const cached = parseResolution(await options.schemaCache.get(resolutionKey(site)), site);
+	const cached = parseResolution(await options.schemaCache.get(resolutionKey(site)), site, options.naming);
 	if (cached) return cached;
-	const { entities, plans } = await inspect(api, signal);
-	const resolution = toResolution(site, entities, plans);
+	const naming = options.naming ?? DEFAULT_NAMING;
+	const { entities, plans } = await inspect(api, naming, signal);
+	const resolution = toResolution(site, entities, plans, naming);
 	if (!resolution) throw new TransportError('failed', `Flow Production Tracking is not set up for SG OnSet. Missing: ${missing(entities, plans)}.`);
 	await options.schemaCache.set(resolutionKey(site), serializeResolution(resolution));
 	return resolution;

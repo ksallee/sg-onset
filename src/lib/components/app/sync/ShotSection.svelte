@@ -8,6 +8,7 @@
 	import { live } from '$lib/app/live.svelte';
 	import { useSync } from '$lib/app/sync/controller.svelte';
 	import { projectSlates, severalRows, waitingForSetShot, type SeveralRow } from '$lib/app/sync/shots';
+	import { entityName } from '$lib/fpt/naming';
 	import { t } from '$lib/i18n/messages';
 	import type { ShootDay, Slate } from '$lib/model/types';
 
@@ -29,7 +30,7 @@
 </script>
 
 {#if sync.state.setShotsMissing}
-	<Section header={t('sync.setShots.header')} footer={t('sync.setShots.footer')}>
+	<Section header={t('sync.setShots.header')} footer={t('sync.setShots.footer', { name: entityName(sync.state.naming, 'setShot') })}>
 		<Row title={t('sync.setShots.waiting')} detail={String(view.value.waiting)} />
 	</Section>
 {/if}

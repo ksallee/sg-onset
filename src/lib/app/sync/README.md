@@ -105,6 +105,11 @@ Made by Claude. Kevin can overrule any of them.
     missing, Set Up Fields is offered and runs with no review: the item changes no schema and an
     admin deletes it in Flow PT. When fields are missing too, the review lists it. A dev server on
     localhost makes one pointing at localhost: that is the deploy it runs on.
+17. **The names a site was set up under are those of the schema kept on the device** (#111, lib/fpt
+    README, "The names an admin picks"): `state.naming`, the default while none is kept. A check
+    reads under them, so it never changes them, and the sync sheet names the entities to enable by
+    them ("a custom entity named Set Shot"). Until Set Up Fields can pick names, the second part of
+    #111, they are always the default.
 
 ## Not tested without a real site
 

@@ -13,6 +13,7 @@ import {
 	type RawFields,
 	type SchemaTypes
 } from './schema';
+import { DEFAULT_NAMING, type Naming } from './naming';
 import { completeFields as complete, noteFields, rawField as raw, TYPES, versionFields } from './testkit';
 
 /** What a site holds on Version: its stock fields, and our client UUID once Set Up Fields ran. */
@@ -540,5 +541,111 @@ describe('toResolution', () => {
 	it('is read again from a cache written before Versions', () => {
 		const { versionUuid: _v, ...before } = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE))!;
 		expect(parseResolution(JSON.stringify(before), 'https://a.example')).toBeUndefined();
+	});
+});
+
+// #111: an admin picks the names. The default is the app's own; every test above runs on it.
+describe('a naming', () => {
+	const naming: Naming = {
+		entities: { take: 'Shot Take', setShot: 'Shot Code' },
+		fields: {
+			'take.sg_focal_length': { display: 'Studio Focal Length' },
+			'take.sg_circled': { field: 'sg_circle' },
+			'take.sg_photos': { display: 'Stills' },
+			'note.sg_onset_key': { display: 'Studio Key' }
+		}
+	};
+	const site: SchemaTypes = { ...SITE, CustomEntity09: type('Shot Take'), CustomEntity22: type('Shot Code') };
+	const one = (plans: ReturnType<typeof planFields>, scope: string, column: string) => plans.find((p) => p.scope === scope && p.column.name === column)!;
+	/** A site where the fields chosen are there. */
+	const named = (): Partial<Record<EntityScope, RawFields>> => {
+		const fields = complete();
+		fields.take.sg_studio_focal_length = raw('float', 'Studio Focal Length');
+		fields.take.sg_circle = raw('checkbox', 'Circle');
+		fields.take.sg_stills = raw('multi_entity', 'Stills', { validTypes: ['Attachment'] });
+		return fields;
+	};
+	const note = () => ({ ...noteFields(true), sg_studio_key: raw('text', 'Studio Key', { unique: true }) });
+
+	it('finds each custom entity under its chosen name alone, and says that name', () => {
+		expect(entityTypesOf(resolveEntities(site, naming))).toEqual(TYPES);
+		expect(resolveEntities(site, naming).find((e) => e.scope === 'take')).toMatchObject({ displayName: 'Shot Take', status: 'found', entityType: 'CustomEntity09' });
+		// Named Shot Take, an entity called Take is not it.
+		expect(resolveEntities(SITE, naming).find((e) => e.scope === 'take')).toEqual({ scope: 'take', kind: 'custom', displayName: 'Shot Take', status: 'missing' });
+		expect(resolveEntities(SITE, naming).find((e) => e.scope === 'setShot')).toMatchObject({ displayName: 'Shot Code', status: 'missing', optional: true });
+	});
+
+	it('plans a renamed field under its name, and steps aside from it as from the default', () => {
+		const fields = complete();
+		fields.take = { code: raw('text', 'Take Name') };
+		const plans = planFields(TYPES, fields, {}, naming);
+		expect(one(plans, 'take', 'sg_focal_length')).toMatchObject({ status: 'create', name: 'sg_studio_focal_length', displayName: 'Studio Focal Length', dataType: 'float' });
+		expect(one(plans, 'take', 'sg_tilt')).toMatchObject({ status: 'create', name: 'sg_tilt', displayName: 'Tilt' });
+		fields.take.sg_studio_focal_length = raw('text', 'Studio Focal Length');
+		expect(one(planFields(TYPES, fields, {}, naming), 'take', 'sg_focal_length')).toMatchObject({ status: 'create', name: 'sg_onset_studio_focal_length', displayName: 'Onset Studio Focal Length' });
+		fields.take.sg_studio_focal_length = raw('float', 'Lens mm');
+		expect(one(planFields(TYPES, fields, {}, naming), 'take', 'sg_focal_length')).toMatchObject({ status: 'present', name: 'sg_studio_focal_length', displayName: 'Lens mm' });
+	});
+
+	it('uses a field mapped to one the site has, and never creates it', () => {
+		const fields = complete();
+		delete fields.take.sg_circled;
+		expect(one(planFields(TYPES, fields, {}, naming), 'take', 'sg_circled')).toMatchObject({ status: 'blocked', name: 'sg_circle', reason: 'CustomEntity09.sg_circle is not on the site' });
+		fields.take.sg_circle = raw('text', 'Circle');
+		expect(one(planFields(TYPES, fields, {}, naming), 'take', 'sg_circled')).toMatchObject({ status: 'blocked', name: 'sg_circle', reason: 'CustomEntity09.sg_circle is a text field, not checkbox' });
+		fields.take.sg_circle = raw('checkbox', 'Circle');
+		expect(one(planFields(TYPES, fields, {}, naming), 'take', 'sg_circled')).toMatchObject({ status: 'present', name: 'sg_circle', displayName: 'Circle' });
+	});
+
+	it('names the field a renamed link adds from its new name and the entity’s', () => {
+		const fields = complete();
+		delete fields.take.sg_photos;
+		expect(one(planFields(TYPES, fields, { names: { CustomEntity09: 'Shot Take' } }, naming), 'take', 'sg_photos').reverse).toEqual({
+			entityType: 'Attachment',
+			name: 'custom_entity09_sg_stills_custom_entity09s',
+			displayName: 'Shot Takes <-> Stills'
+		});
+	});
+
+	it('names the chosen entity a link waits for', () => {
+		const types: Partial<Record<EntityScope, string>> = { ...TYPES };
+		delete types.lens;
+		const fields = complete();
+		delete fields.take.sg_lens;
+		expect(one(planFields(types, fields, {}, { entities: { lens: 'Glass' } }), 'take', 'sg_lens')).toMatchObject({ status: 'blocked', reason: 'links Glass, which the site does not have yet' });
+	});
+
+	it('plans the Version and Note fields under their chosen names', () => {
+		const plans = planFields(TYPES, complete(), { version: versionFields(true), note: noteFields(false) }, naming);
+		expect(one(plans, 'note', 'sg_onset_key')).toMatchObject({ status: 'create', name: 'sg_studio_key', displayName: 'Studio Key', unique: true });
+		expect(one(plans, 'note', 'sg_onset_captured')).toMatchObject({ status: 'create', name: 'sg_onset_captured' });
+	});
+
+	it('makes a resolution keyed by the default names, holding the chosen ones and the naming', () => {
+		const res = toResolution('https://a.example', resolveEntities(site, naming), planFields(TYPES, named(), { version: versionFields(true), note: note() }, naming), naming)!;
+		expect(res.entities.take).toBe('CustomEntity09');
+		expect(res.fields.take.sg_focal_length).toBe('sg_studio_focal_length');
+		expect(res.fields.take.sg_circled).toBe('sg_circle');
+		expect(res.fields.take.sg_photos).toBe('sg_stills');
+		expect(res.fields.take.sg_tilt).toBe('sg_tilt');
+		expect(res.note).toEqual({ key: 'sg_studio_key', captured: 'sg_onset_captured' });
+		expect(res.naming).toEqual(naming);
+	});
+
+	it('keeps no naming in a resolution of the default names, as before', () => {
+		const res = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE), DEFAULT_NAMING)!;
+		expect('naming' in res).toBe(false);
+	});
+
+	it('survives the cache with its naming; asked for another naming, it is read again', () => {
+		const res = toResolution('https://a.example', resolveEntities(site, naming), planFields(TYPES, named(), VERSION_DONE, naming), naming)!;
+		const text = serializeResolution(res);
+		expect(parseResolution(text, 'https://a.example')).toEqual(res);
+		expect(parseResolution(text, 'https://a.example', naming)).toEqual(res);
+		expect(parseResolution(text, 'https://a.example', DEFAULT_NAMING)).toBeUndefined();
+		const plain = serializeResolution(toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE))!);
+		expect(parseResolution(plain, 'https://a.example', DEFAULT_NAMING)).toBeDefined();
+		expect(parseResolution(plain, 'https://a.example', naming)).toBeUndefined();
+		expect(parseResolution(JSON.stringify({ ...res, naming: { entities: { slate: 'Plate' } } }), 'https://a.example')).toBeUndefined();
 	});
 });

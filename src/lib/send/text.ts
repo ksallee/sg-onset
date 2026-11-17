@@ -1,6 +1,7 @@
 // The words of the page of "Send set data to artists" (#106), from the `send` area of the catalogue.
 // Pure.
 
+import { DEFAULT_NAMING, entityName } from '$lib/fpt/naming';
 import type { SendKind, ShotReport } from '$lib/fpt/sendPlan';
 import { t } from '$lib/i18n/messages';
 import type { SendFailure, SessionNeed } from './flow';
@@ -43,8 +44,9 @@ export function signInText(need: Exclude<SessionNeed, 'ready'>, host: string, ot
 /** A request the page cannot run: from the route, or found on reading the site. */
 export type PageProblem = RequestProblem | 'none' | 'type' | 'noSetShot';
 
-export function problemText(problem: PageProblem, entityType = ''): string {
-	return t(`send.problem.${problem}`, { max: MAX_ROWS, type: entityType });
+/** `setShot`: what the site calls its Set Shot entity, as it was set up (#111). */
+export function problemText(problem: PageProblem, entityType = '', setShot = entityName(DEFAULT_NAMING, 'setShot')): string {
+	return t(`send.problem.${problem}`, { max: MAX_ROWS, type: entityType, name: setShot });
 }
 
 export function failureText(failure: SendFailure): string {

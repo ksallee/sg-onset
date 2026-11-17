@@ -10,6 +10,7 @@
 	import { ago } from '$lib/app/format';
 	import { useSync } from '$lib/app/sync/controller.svelte';
 	import { syncErrorText } from '$lib/app/sync/errors';
+	import { entityName } from '$lib/fpt/naming';
 	import { t } from '$lib/i18n/messages';
 	import type { Safety } from '$lib/app/safety';
 	import BackupRows from './BackupRows.svelte';
@@ -59,7 +60,7 @@
 
 	{#if sync.state.referencesMissing}
 		<!-- Kevin, #117: a site without Set Reference syncs the rest; the references wait on the device. -->
-		<Section header={t('sync.references.header')} footer={t('sync.references.footer')}>
+		<Section header={t('sync.references.header')} footer={t('sync.references.footer', { name: entityName(sync.state.naming, 'reference') })}>
 			<Row title={t('sync.references.waiting')} detail={String(sync.state.waiting?.records ?? 0)} />
 		</Section>
 	{/if}

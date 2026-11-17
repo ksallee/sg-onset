@@ -49,4 +49,12 @@ describe('problemText and failureText', () => {
 		for (const f of ['offline', 'unreachable', 'session', 'setup', 'refused'] as const) expect(failureText(f)).not.toMatch(/^send\./);
 		expect(problemText('too-many')).toBe('That is more than 500 rows. Select fewer, then run it again.');
 	});
+
+	// #111: the Set Shot entity is named by the admin.
+	it('names the Set Shot entity as the site was set up', () => {
+		expect(problemText('noSetShot')).toBe('This site has no Set Shot entity. An admin enables a custom entity named Set Shot, then runs Set Up Fields in SG OnSet.');
+		expect(problemText('noSetShot', 'CustomEntity09', 'Shot Code')).toBe(
+			'This site has no Shot Code entity. An admin enables a custom entity named Shot Code, then runs Set Up Fields in SG OnSet.'
+		);
+	});
 });

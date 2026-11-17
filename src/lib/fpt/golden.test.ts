@@ -2,7 +2,8 @@
 // every key of every scope, the uploads, the lookups and reads, the links of slates and set
 // references, the Notes on Shots, the action of #106, and the deletes. `golden.requests.json` was
 // written from the code before the names became an admin's choice (#111): with the default names,
-// the app must send exactly that.
+// the app must send exactly that. With every name changed, it sends the same requests under the
+// names chosen, and creates no field an admin mapped to one the site has.
 
 import { describe, expect, it } from 'vitest';
 import type { BlobRef, PushOp, UploadSession } from '$lib/outbox/transport';
@@ -10,9 +11,12 @@ import type { Op, RemoteId } from '$lib/outbox/types';
 import { createApi, type FptOptions } from './api';
 import { memoryKeyValue } from './cache';
 import { BEARER, fakeFpt, type FakeFpt } from './fakeFpt';
-import { fieldMaps, type EntityScope } from './mapping';
+import { fieldMaps, wantedFields, type EntityScope } from './mapping';
+import { codeName } from './names';
+import { fieldChoice, fieldKey, parseNaming, type FieldChoice, type Naming } from './naming';
 import { previewSend, sendSetData } from './sendSetData';
 import { checkSetup, loadResolution } from './setup';
+import { rawField } from './testkit';
 import { createFptTransport } from './transport';
 
 /** The record of each scope, by its id on the device. */
@@ -156,9 +160,87 @@ export async function goldenRun(fpt: FakeFpt, extra: Partial<FptOptions> = {}): 
 	return logOf(fpt);
 }
 
+/**
+ * Every field renamed "Studio …", and every custom entity. Four fields go to fields the site has:
+ * names one entity alone holds, so the default log can be renamed whatever the entity.
+ */
+export const STUDIO: Naming = (() => {
+	const fields: Record<string, FieldChoice> = Object.fromEntries(wantedFields().map(({ place, column }) => [fieldKey(place, column), { display: `Studio ${column.display}` }]));
+	fields['take.sg_circled'] = { field: 'sg_circle' };
+	fields['lens.sg_focal_length_long_end'] = { field: 'sg_long_end_mm' };
+	fields['setShot.sg_onset_matched'] = { field: 'sg_matched' };
+	fields['note.sg_onset_captured'] = { field: 'sg_note_list' };
+	return { entities: { take: 'Shot Take', lens: 'Glass', cameraSetup: 'Camera Rig', lightingSetup: 'Lighting Rig', reference: 'Set Ref', setShot: 'Shot Code' }, fields };
+})();
+
+/** A bare site whose custom entities have the names STUDIO looks for, with the four fields it maps. */
+export function studioSite(): FakeFpt {
+	const fpt = fakeFpt({ fields: 'bare' });
+	const names: Record<string, string> = { CustomEntity09: 'Shot Take', CustomEntity19: 'Glass', CustomEntity10: 'Camera Rig', CustomEntity11: 'Lighting Rig', CustomEntity21: 'Set Ref', CustomEntity22: 'Shot Code' };
+	for (const [type, name] of Object.entries(names)) fpt.types[type] = { name: { value: name } };
+	fpt.fields.CustomEntity09.sg_circle = rawField('checkbox', 'Circle');
+	fpt.fields.CustomEntity19.sg_long_end_mm = rawField('float', 'Long End mm');
+	fpt.fields.CustomEntity22.sg_matched = rawField('checkbox', 'Matched');
+	fpt.fields.Note.sg_note_list = rawField('text', 'Note List');
+	return fpt;
+}
+
+/**
+ * The default log as the naming would have it: each field's name and display name changed, and no
+ * create of a field mapped to one the site has.
+ */
+function renamed(log: unknown[], naming: Naming): unknown[] {
+	const names = new Map<string, string>();
+	const displays = new Map<string, string>();
+	const mapped = new Set<string>();
+	for (const { place, column } of wantedFields()) {
+		const choice = fieldChoice(naming, place, column);
+		const name = 'field' in choice ? choice.field : codeName(choice.display);
+		// One name for every entity, or the log could not be renamed without knowing which.
+		if (names.has(column.name) && names.get(column.name) !== name) throw new Error(`${column.name} is named two ways`);
+		names.set(column.name, name);
+		if ('field' in choice) mapped.add(column.display);
+		else displays.set(column.display, choice.display);
+	}
+	type Logged = { method: string; path: string; body?: { properties?: { property_name: string; value: unknown }[] } };
+	const displayOf = (r: Logged) => r.body?.properties?.find((p) => p.property_name === 'name')?.value as string | undefined;
+	const isCreate = (r: Logged) => r.method === 'POST' && /^\/api\/v1\/schema\/[^/]+\/fields$/.test(r.path);
+	const text = (s: string) =>
+		s
+			.split(/([.,/])/)
+			.map((t) => names.get(t) ?? t)
+			.join('');
+	const walk = (v: unknown): unknown => {
+		if (typeof v === 'string') return text(v);
+		if (Array.isArray(v)) return v.map(walk);
+		if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [names.get(k) ?? k, walk(x)]));
+		return v;
+	};
+	return (log as Logged[])
+		.filter((r) => !(isCreate(r) && mapped.has(displayOf(r) ?? '')))
+		.map((r) => {
+			if (!isCreate(r)) return walk(r);
+			const body = { ...r.body, properties: r.body!.properties!.map((p) => (p.property_name === 'name' ? { ...p, value: displays.get(p.value as string) ?? p.value } : p)) };
+			return walk({ ...r, body });
+		});
+}
+
 describe('the requests the app sends', () => {
 	it('are the requests it sent before the names were an admin’s choice', async () => {
 		const log = await goldenRun(fakeFpt({ fields: 'bare' }));
 		await expect(JSON.stringify(log, null, 1)).toMatchFileSnapshot('./golden.requests.json');
+	});
+
+	it('are the same requests under the names an admin chose, everywhere', async () => {
+		expect(parseNaming(STUDIO)).toEqual(STUDIO);
+		const plain = await goldenRun(fakeFpt({ fields: 'bare' }));
+		const fpt = studioSite();
+		const studio = await goldenRun(fpt, { naming: STUDIO });
+		expect(studio).toEqual(renamed(plain, STUDIO));
+		// No default name of ours is asked for, and the fields mapped are never created.
+		const sent = JSON.stringify(studio);
+		for (const name of ['sg_onset_uuid', 'sg_focal_length', 'sg_photos', 'sg_set_shots', 'sg_onset_key', 'sg_circled', 'sg_onset_captured']) expect(sent).not.toMatch(new RegExp(`\\b${name}\\b`));
+		expect(fpt.fields.CustomEntity09.sg_studio_focal_length).toBeDefined();
+		expect(fpt.fields.CustomEntity09.sg_focal_length).toBeUndefined();
 	});
 });

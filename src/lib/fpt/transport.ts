@@ -40,11 +40,12 @@ import { resolutionKey } from './cache';
 import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
 import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
 import { DIAGRAM_SHOWN, diagramFilename, diagramPrefix } from './diagrams';
-import { DIAGRAMS, ENTITY_SCOPES, ENTITY_TYPES, isRecordScope, STILLS, REFERENCE_SLATES, type RecordScope } from './mapping';
+import { DIAGRAMS, ENTITY_SCOPES, isRecordScope, STILLS, REFERENCE_SLATES, type RecordScope } from './mapping';
+import { entityName, type Naming } from './naming';
 import { referenceSlatesWrite, type ReferenceSlates } from './referenceSlates';
 import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
-import { fieldName, type Resolution } from './schema';
+import { fieldName, namingOf, type Resolution } from './schema';
 import { loadResolution } from './setup';
 import { derivedShots, linkIdsOf, missingCodes, setShotData, setShotKey, severalCodes, slateSetShots, type SetShotRow } from './setShots';
 import { matchSetShots, readSetShots, setShotFields, slateLinks, writeSlateLinks, type SetShotFields, type SlateLinks } from './setShotLinks';
@@ -152,10 +153,12 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	const { projectId } = options;
 	const versions = takeVersions(api, projectId);
 	let resolution: Resolution | undefined;
+	/** The names to read the schema under (#111): those given, or after a stale one, the names it had. */
+	let naming: Naming | undefined = options.naming;
 
 	/** The site's schema: from memory, the device, or the site. Throws `failed` while the site is not set up. */
 	async function resolved(signal?: AbortSignal): Promise<Resolution> {
-		resolution ??= await loadResolution(api, options, signal);
+		resolution ??= await loadResolution(api, { ...options, ...(naming ? { naming } : {}) }, signal);
 		return resolution;
 	}
 
@@ -178,13 +181,14 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 		return message(`sync.refused.${action}`, { things });
 	}
 
-	/** Why a record of an optional entity the site lacks is not sent: an admin enables it (Kevin, #117). */
-	function missingText(scope: RecordScope): string {
-		return message('sync.refused.missing', { entity: ENTITY_TYPES[scope].displayName });
+	/** Why a record of an optional entity the site lacks is not sent: an admin enables it (Kevin, #117), under the name chosen (#111). */
+	function missingText(res: Resolution, scope: RecordScope): string {
+		return message('sync.refused.missing', { entity: entityName(namingOf(res), scope) });
 	}
 
-	/** A field the site no longer has: the schema on the device is stale. The next call reads it again. */
+	/** A field the site no longer has: the schema on the device is stale. The next call reads it again, under the same names. */
 	async function forget(): Promise<void> {
+		if (resolution) naming = namingOf(resolution);
 		resolution = undefined;
 		await options.schemaCache.delete(resolutionKey(options.site.replace(/\/+$/, '')));
 	}
@@ -479,7 +483,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 				const entity = res.entities[op.table];
 				// An optional entity the site lacks: the engine keeps its records waiting on the device
 				// (app/sync/waiting.ts). Should one get here all the same, it is never sent blind.
-				if (!entity) refuse(o, 'invalid', missingText(op.table));
+				if (!entity) refuse(o, 'invalid', missingText(res, op.table));
 				else if (op.kind === 'create') {
 					const built = createData(res, op.table, op.recordId, op.fields, o.links, projectId);
 					if (built.ok) request(o, { request_type: 'create', entity, data: built.data });

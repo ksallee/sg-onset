@@ -7,10 +7,11 @@
 
 import { createApi, type FptOptions } from '$lib/fpt/api';
 import { memoryKeyValue } from '$lib/fpt/cache';
+import { entityName } from '$lib/fpt/naming';
+import { namingOf, type Resolution } from '$lib/fpt/schema';
 import { sendKind } from '$lib/fpt/sendPlan';
 import { previewSend, sendSetData, type SendPreview, type SendResult } from '$lib/fpt/sendSetData';
 import { loadResolution } from '$lib/fpt/setup';
-import type { Resolution } from '$lib/fpt/schema';
 import { failureOf, type SendFailure } from './flow';
 import type { SendRequest } from './request';
 import type { PageProblem } from './text';
@@ -19,7 +20,7 @@ export type SendState =
 	/** Not read yet: waits for a session on the site. */
 	| { step: 'idle' }
 	| { step: 'reading' }
-	| { step: 'problem'; problem: PageProblem }
+	| { step: 'problem'; problem: PageProblem; setShot: string }
 	| { step: 'failed'; failure: SendFailure; preview?: SendPreview }
 	| { step: 'preview'; preview: SendPreview }
 	| { step: 'sending'; preview: SendPreview }
@@ -62,7 +63,9 @@ export class SendDriver {
 		}
 		const kind = sendKind(this.request.entityType, this.#res);
 		if (!kind) {
-			this.state = { step: 'problem', problem: this.request.entityType !== 'Shot' && !this.#res.entities.setShot ? 'noSetShot' : 'type' };
+			const problem = this.request.entityType !== 'Shot' && !this.#res.entities.setShot ? 'noSetShot' : 'type';
+			// The Set Shot entity under the name the site was set up with (#111).
+			this.state = { step: 'problem', problem, setShot: entityName(namingOf(this.#res), 'setShot') };
 			return;
 		}
 		try {

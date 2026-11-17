@@ -43,12 +43,19 @@ export function projectInput(projectId: string, all: AllTables): ExportInput | u
 }
 
 /**
- * The input with its audio notes (#89) held apart from the photos and videos: a still whose first
- * stored file is audio. The camera report counts photos, the wrap package names each its own way.
+ * The input with each still's kind known from its first stored file (#89): the audio notes held
+ * apart from the photos and videos, and the videos named. The camera report counts photos and
+ * videos, the day report and the wrap package each kind as itself (Kevin, 2026-11-17).
  * `blobs`: the stills' files, as `store.blobsOf` gives them.
  */
-export function withAudioNotes(input: ExportInput, blobs: readonly PhotoBlob[]): ExportInput {
+export function withMediaKinds(input: ExportInput, blobs: readonly PhotoBlob[]): ExportInput {
 	const first = firstBlobs(blobs);
-	const audio = (id: string) => isAudio(first.get(id)?.type ?? '');
-	return { ...input, stills: input.stills.filter((s) => !audio(s.id)), audioNotes: input.stills.filter((s) => audio(s.id)) };
+	const type = (id: string) => (first.get(id)?.type ?? '').trim().toLowerCase();
+	const audio = (id: string) => isAudio(type(id));
+	return {
+		...input,
+		stills: input.stills.filter((s) => !audio(s.id)),
+		audioNotes: input.stills.filter((s) => audio(s.id)),
+		videos: input.stills.filter((s) => type(s.id).startsWith('video/')).map((s) => s.id)
+	};
 }

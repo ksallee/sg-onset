@@ -348,10 +348,11 @@ Night-Train_2026-11-10-day03/
 - Each kind is counted as itself (`wrap/mediaCount.ts`): the switch's row says "2 photos, 1 video
   · 12 MB", the list of what is in Flow PT only says it per take with the audio notes, and the
   note on files with none on the device names them photos or videos: a still's kind is read from
-  its file. The day summary and the day report still count videos among the photos.
-- An audio note is a still whose first file is audio. `withAudioNotes` (`wrap/input.ts`) holds
-  them apart in `ExportInput.audioNotes`, so the camera report, the day report and the day summary
-  count photos only, and the JSON lists them with the photos of their take.
+  its file. The day report's totals and the day summary count them the same way: "3 slates · 7
+  takes · 2 circled · 1 no good · 2 photos, 1 video, 1 audio note".
+- A still's kind is its first file's. `withMediaKinds` (`wrap/input.ts`) holds the audio notes
+  apart in `ExportInput.audioNotes` and names the videos in `ExportInput.videos`. The camera
+  report counts photos and videos; the JSON lists the audio notes with the photos of their take.
 - For each set reference, an empty folder inside a folder for its kind, in the order logged:
   `hdri-360/HDRI_0412/`. The files shot on the other device go in it on a laptop.
 - Kind folders: a built-in kind by its English label, fixed, so a folder does not change with the

@@ -135,6 +135,10 @@ test.describe('audio notes', () => {
 
 		await page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Wrap' }).tap();
 		await expect(page.getByRole('heading', { name: 'Wrap', level: 1 })).toBeVisible();
+		// The day counts it as an audio note, not a photo.
+		const day = page.locator('dl[aria-label="The day"]');
+		await expect(day.locator('div').filter({ hasText: /^\s*Audio notes\s*1\s*$/ })).toBeVisible();
+		await expect(day.locator('div').filter({ hasText: /^\s*Photos\s*0\s*$/ })).toBeVisible();
 		await page.getByRole('switch', { name: 'Photos and videos' }).uncheck();
 		await page.getByRole('button', { name: 'Make Wrap Package' }).tap();
 		const download = page.getByRole('button', { name: 'Download Wrap Package' });

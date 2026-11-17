@@ -5,6 +5,7 @@
 import type { DayReport, DayReportWarning } from '$lib/export/dayReport';
 import type { Take } from '$lib/model/types';
 import { countByKind } from '$lib/references/log';
+import type { MediaCounts } from './mediaCount';
 
 export type TodoItem = {
 	takeId: string;
@@ -22,7 +23,8 @@ export type DaySummary = {
 	takes: number;
 	circled: number;
 	noGood: number;
-	photos: number;
+	/** Photos, videos and audio notes, each counted as itself. */
+	media: MediaCounts;
 	/** The time any camera ran, overlaps counted once. Takes with no end are left out. */
 	runningMs: number;
 	cameras: CameraUse[];
@@ -78,7 +80,7 @@ export function daySummary(report: DayReport, projectKinds: readonly string[] = 
 		takes: report.totals.takes,
 		circled: report.totals.circled,
 		noGood: report.totals.noGood,
-		photos: report.totals.photos,
+		media: report.totals.media,
 		runningMs: runningTime(rows.map((r) => r.take)),
 		cameras: [...cameras.values()].sort((a, b) => a.letter.localeCompare(b.letter, 'en', { numeric: true })),
 		references: countByKind(

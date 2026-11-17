@@ -36,8 +36,17 @@ describe('dayReport', () => {
 	});
 
 	it('counts slates, takes, circled, no good and photos', () => {
-		expect(report()!.totals).toEqual({ slates: 3, takes: 7, circled: 2, noGood: 1, photos: 3 });
-		expect(report()!.slates[2].totals).toEqual({ takes: 5, circled: 1, noGood: 1, photos: 3 });
+		expect(report()!.totals).toEqual({ slates: 3, takes: 7, circled: 2, noGood: 1, media: { photo: 3 } });
+		expect(report()!.slates[2].totals).toEqual({ takes: 5, circled: 1, noGood: 1, media: { photo: 3 } });
+		expect(report()!.slates[0].totals.media).toEqual({});
+	});
+
+	// Kevin, 2026-11-17 (#89): each kind counted as itself, a video never as a photo.
+	it('counts videos and audio notes each as itself', () => {
+		const data = { ...input(), videos: ['st1'], audioNotes: [{ id: 'an1', takeId: t42A1A.id, capturedAt: '2026-11-10T22:30:00.000Z' }] };
+		const r = dayReport(data, 'd3')!;
+		expect(r.totals.media).toEqual({ photo: 2, video: 1, audio: 1 });
+		expect(r.slates[2].totals.media).toEqual({ photo: 2, video: 1, audio: 1 });
 	});
 
 	it('warns of takes without an end time, a focal length, or a typed focal length on a zoom', () => {

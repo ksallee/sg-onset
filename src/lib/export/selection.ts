@@ -20,8 +20,10 @@ export type ExportInput = {
 	takes: Take[];
 	/** The photos and videos. */
 	stills: Still[];
-	/** The audio notes (#89): stills whose file is audio, held apart by `withAudioNotes` (wrap/input.ts). */
+	/** The audio notes (#89): stills whose file is audio, held apart by `withMediaKinds` (wrap/input.ts). */
 	audioNotes?: Still[];
+	/** The ids of the stills whose file is a video (#94), by `withMediaKinds`: counted as videos. */
+	videos?: string[];
 	references: Reference[];
 };
 

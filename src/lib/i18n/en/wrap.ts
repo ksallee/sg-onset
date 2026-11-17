@@ -17,6 +17,8 @@ export const wrap = {
 	'wrap.summary.circled': 'Circled',
 	'wrap.summary.noGood': 'No good',
 	'wrap.summary.photos': 'Photos',
+	'wrap.summary.videos': 'Videos',
+	'wrap.summary.audio': 'Audio notes',
 	'wrap.summary.running': 'Running time',
 	'wrap.summary.cameras': 'Cameras',
 	'wrap.summary.camera': 'Camera {letter}',
@@ -163,7 +165,8 @@ export const wrap = {
 	'wrap.report.unit': 'Unit',
 	'wrap.report.location': 'Location',
 	'wrap.report.wrangler': 'Wrangler',
-	'wrap.report.totals': '{slates} slates · {takes} takes · {circled} circled · {noGood} no good · {photos} photos',
+	/** `{media}`: "2 photos, 1 video, 1 audio note" (wrap/mediaCount.ts). */
+	'wrap.report.totals': '{slates} slates · {takes} takes · {circled} circled · {noGood} no good · {media}',
 	'wrap.report.slate': 'Slate {slate}',
 	'wrap.report.scene': 'Scene {scene}',
 	'wrap.report.vfx': 'VFX {shots}',

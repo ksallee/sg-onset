@@ -24,7 +24,7 @@ import { memorySink, opfsSink, removeExport } from '$lib/store/backup';
 import { packagePlan, type PackageEntry } from './assembly';
 import { defaultChoice, pickedDays, readiness, setSpan, toggleDay, toggleFile, type FileKind, type Span, type TextKind, type WrapChoice } from './choice';
 import { sizeVerdict } from './estimate';
-import { projectInput, withAudioNotes } from './input';
+import { projectInput, withMediaKinds } from './input';
 import { exportedLine, lastExport, LOG_KEY, noteExport, parseLog, type ExportLog } from './lastExport';
 import { makeTexts } from './make';
 import { defaultPaper, reportBody, reportDocument } from './report';
@@ -162,8 +162,8 @@ export class Wrap {
 				const blobs = currentFiles(files, markups);
 				// A slate's setup diagram goes as an image when something is drawn on it (#87).
 				const diagrams = (await Promise.all(all.slates.map((s) => store.list('diagram', s.id)))).flat().filter((d) => !isBlank(d));
-				// An audio note is a still whose file is audio (#89): the exports read it apart.
-				return { input: withAudioNotes(all, blobs), blobs, kinds: kinds.map((k) => k.name), diagrams };
+				// A still's kind is its file's (#89): the exports read each as itself.
+				return { input: withMediaKinds(all, blobs), blobs, kinds: kinds.map((k) => k.name), diagrams };
 			},
 			undefined
 		);

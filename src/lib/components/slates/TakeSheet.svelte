@@ -9,6 +9,10 @@
 	import { settings } from '$lib/app/settings.svelte';
 	import { t } from '$lib/i18n/messages';
 	import { fieldLabel } from '$lib/i18n/modelText';
+	import { change } from '$lib/model/patch';
+	import { takeTypeOf } from '$lib/model/takeType';
+	import type { Take } from '$lib/model/types';
+	import { applyTakeEdit } from '$lib/take/typeEdit';
 	import { fieldRefs } from '$lib/slates/fields';
 	import { diverged } from '$lib/templates/divergence';
 	import FieldRow from './FieldRow.svelte';
@@ -31,8 +35,11 @@
 		const tk = take;
 		if (!tk) return;
 		const f = FIELDS.find((x) => x.key === key)!;
-		await app.edit.set('take', tk, key, value, { key: 'edit.changed', params: { field: fieldLabel(f.def, f.end) } });
+		// A change of take type turns its switches on, and offers to turn off what it leaves on.
+		await applyTakeEdit(app, [change(tk, key, value)], { key: 'edit.changed', params: { field: fieldLabel(f.def, f.end) } });
 	}
+	/** As stored, but a take with no type shows Main. */
+	const shown = (tk: Take, key: string) => (key === 'takeType' ? takeTypeOf(tk) : (tk as Record<string, unknown>)[key]);
 </script>
 
 <Sheet bind:open {title} done>
@@ -43,7 +50,7 @@
 				<FieldRow
 					scope="take"
 					field={f}
-					value={(take as Record<string, unknown>)[f.key]}
+					value={shown(take, f.key)}
 					units={settings.value.units}
 					options={refs.options(f.def.key)}
 					marker={changed.has(f.key)}

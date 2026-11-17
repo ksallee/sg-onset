@@ -125,6 +125,8 @@ export const FIELDS = [
 
 	// Take: identity and time
 	{ scope: 'take', key: 'take', type: 'string', labelKey: 'field.take.take', required: true, carry: false, names: { crif: 'Tk Take', omc: 'SlateUID.hasTake', ale: { avid: 'Take', arri: 'Take', silverstack: 'Take' } } },
+	// What the take is for. No value is Main: see takeType.ts.
+	{ scope: 'take', key: 'takeType', type: 'enum', options: ['main', 'cleanPlate', 'ballsAndChart', 'shadowPlate', 'lightPass', 'atmosphere', 'element', 'other'], labelKey: 'field.take.takeType', carry: false },
 	{ scope: 'take', key: 'startedAt', type: 'timestamp', labelKey: 'field.take.startedAt', carry: false, names: { crif: 'Tk Start Time Of Take' } },
 	{ scope: 'take', key: 'endedAt', type: 'timestamp', labelKey: 'field.take.endedAt', carry: false },
 	{ scope: 'take', key: 'circleTake', type: 'boolean', labelKey: 'field.take.circleTake', carry: false, names: { omc: 'circleTake', ale: { silverstack: 'Circled Take' } } },

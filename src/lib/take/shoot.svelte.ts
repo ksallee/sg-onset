@@ -10,8 +10,9 @@ import { live, liveList } from '$lib/app/live.svelte';
 import { settings } from '$lib/app/settings.svelte';
 import type { Label } from '$lib/app/undo';
 import { fieldLabel, issueText } from '$lib/i18n/modelText';
-import { t } from '$lib/i18n/messages';
+import { t, tk } from '$lib/i18n/messages';
 import type { FieldDef } from '$lib/model/catalogue';
+import { groupType, typePatch, type TakeType } from '$lib/model/takeType';
 import type { FieldValue, Lens, Still, Take } from '$lib/model/types';
 import { sameValue } from '$lib/model/value';
 import { sortTemplates } from '$lib/templates/list';
@@ -24,6 +25,7 @@ import { nextSecondIn } from './record';
 import { recentValues } from './recent';
 import { addCameraTake, nextTakes, pressTarget, shownGroup, startEndPlan } from './startEnd';
 import { groupChanged, groupLink, groupLinkPatch, groupResetPatch, groupUnlinkPatch, type GroupLink } from './template';
+import { applyTakeEdit } from './typeEdit';
 
 /** The field in the keypad: whose, which, start or end value. */
 export interface OpenField {
@@ -92,6 +94,8 @@ export class Shoot {
 	readonly circled = $derived(this.group ? groupMark(this.group, 'circleTake') : false);
 	readonly noGood = $derived(this.group ? groupMark(this.group, 'noGood') : false);
 	readonly note = $derived(this.group ? groupNote(this.group) : '');
+	/** The type every camera of the take on screen has; undefined when they differ. */
+	readonly type = $derived(this.group ? groupType(this.group.takes) : undefined);
 	/** The take templates to pick from, by name. */
 	readonly takeTemplates = $derived.by(() => sortTemplates(this.templates.value.filter((tp) => tp.scope === 'take')));
 	/** The template the take on screen follows. */
@@ -276,6 +280,15 @@ export class Shoot {
 		const group = this.group;
 		if (!group) return;
 		void this.#app.edit.apply('take', notePatch(group, text), this.#label('take.edit.note', { take: group.number }));
+	}
+
+	/** Types every camera of the take on screen. A clean plate or balls and chart turns its switches on (typeEdit.ts). */
+	setType(type: TakeType) {
+		const group = this.group;
+		if (!group) return;
+		const patch = typePatch(group.takes, type);
+		if (!patch.length) return;
+		void applyTakeEdit(this.#app, patch, this.#label('take.edit.type', { take: group.number, type: tk(`field.take.takeType.${type}`) }));
 	}
 
 	/** Links every camera of the take on screen to a take template and fills its values. */

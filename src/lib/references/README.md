@@ -44,7 +44,8 @@ exports and in Flow PT. Every other kind stays on its slate. The rule is `lighti
 - Wrap package: its empty folder stays in the slate it was logged on; the manifest of every other
   slate of the setup lists it with that folder's path (docs/export.md, "Layout").
 - Flow PT: the Set Reference keeps `sg_slate`, the slate it was logged on, and links every slate
-  it shows on in `sg_slates` (fpt README, "The slates of a set reference").
+  it shows on in `sg_slates`, set at each sync as a slate's Shots are; a link made by hand there is
+  overwritten (fpt README, "The slates of a set reference").
 
 ## Where it lives
 
@@ -55,7 +56,7 @@ exports and in Flow PT. Every other kind stays on its slate. The rule is `lighti
   on the device (store README, decision 26). Schema version 4.
 - Flow PT: one row of the project custom entity "Set Reference" per reference, linked to its
   slate, with its client UUID (fpt README, decisions 26 and 27), and to the slates it shows on
-  (decision 36).
+  in `sg_slates`, derived at each sync (decisions 46 and 47).
 - Shown on the slate (`components/references/`), in Wrap (the day's count by kind, the day report),
   in the exports, and as an empty folder in the wrap package (docs/export.md). The folder names
   of the kinds and references are `kindFolderName`, `kindFolders` and `folderName` in

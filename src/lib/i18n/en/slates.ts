@@ -126,6 +126,9 @@ export const slates = {
 	'slates.bulk.template.none': 'No take template yet.',
 	'slates.bulk.search': 'Find a field',
 	'slates.bulk.mixed': 'Mixed',
+	/** Each plate at the tail of a take, a yes or no of its own in bulk edit. */
+	'slates.bulk.tail.cleanPlate': 'Clean plate at the tail',
+	'slates.bulk.tail.ballsAndChart': 'Balls and chart at the tail',
 	'slates.bulk.set': 'Set',
 	'slates.bulk.clear': 'Clear',
 	'slates.bulk.value': 'Value',

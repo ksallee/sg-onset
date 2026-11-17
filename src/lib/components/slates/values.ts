@@ -24,6 +24,10 @@ export function valueText(ref: FieldRef, value: unknown, units: UnitSystem, name
 			return value ? t('slates.field.yes') : t('slates.field.no');
 		case 'enum':
 			return optionLabel(def, String(value));
+		case 'stringList':
+			// A list of options, the plates at a take's tail: by their labels.
+			if (def.options && Array.isArray(value)) return value.map((v) => optionLabel(def, String(v))).join(', ');
+			return formatField(def, value, units);
 		case 'ref':
 			return names?.get(String(value)) ?? '';
 		case 'length':

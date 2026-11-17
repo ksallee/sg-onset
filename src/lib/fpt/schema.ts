@@ -4,7 +4,22 @@
 //
 // Shapes are the corpus's: endpoints/get_schema.md, endpoints/get_schema_type_fields.md.
 
-import { ENTITY_SCOPES, ENTITY_TYPES, UUID, VERSION_COLUMNS, wantedColumns, type Column, type EntityScope, type FptDataType, type Target } from './mapping';
+import {
+	ENTITY_SCOPES,
+	ENTITY_TYPES,
+	isOptionalColumn,
+	isOptionalScope,
+	OPTIONAL_SCOPES,
+	UUID,
+	VERSION_COLUMNS,
+	wantedColumns,
+	type Column,
+	type EntityScope,
+	type FptDataType,
+	type OptionalScope,
+	type RequiredScope,
+	type Target
+} from './mapping';
 import { codeName, reverseField } from './names';
 import { VERSION } from './versions';
 
@@ -41,6 +56,8 @@ export type EntityResolution = {
 	/** The schema name. For a built-in type, also when missing: it is what to switch on. */
 	entityType?: string;
 	candidates?: string[];
+	/** The site syncs without it: what needs it waits (Kevin, #117). */
+	optional?: true;
 };
 
 /** A project custom entity. Connection types are `CustomEntity29_sg_scene_Connection`. */
@@ -52,27 +69,29 @@ const loose = (text: string) => text.trim().toLowerCase();
 /** Finds the entity type of each scope in a site's type list. */
 export function resolveEntities(types: SchemaTypes): EntityResolution[] {
 	const customs = Object.keys(types).filter((name) => CUSTOM_ENTITY.test(name));
-	return ENTITY_SCOPES.map((scope): EntityResolution => {
-		const want = ENTITY_TYPES[scope];
-		if (want.kind === 'builtin') {
-			// Presence in /schema is the enablement test (findings/008, findings/122).
-			const there = types[want.entityType];
-			return { scope, kind: 'builtin', displayName: there?.name.value.trim() || want.displayName, status: there ? 'found' : 'missing', entityType: want.entityType };
-		}
-		const accepted = [want.displayName, ...(want.aliases ?? [])].map(loose);
-		const found = customs.filter((name) => accepted.includes(loose(types[name].name.value))).sort();
-		const base = { scope, kind: 'custom' as const, displayName: want.displayName };
-		if (found.length === 1) return { ...base, status: 'found', entityType: found[0] };
-		if (found.length === 0) return { ...base, status: 'missing' };
-		return { ...base, status: 'ambiguous', candidates: found };
-	});
+	return ENTITY_SCOPES.map((scope): EntityResolution => ({ ...resolveOne(scope, types, customs), ...(isOptionalScope(scope) ? { optional: true as const } : {}) }));
 }
 
-/** The entity type of every scope, or nothing when one is not found. */
-export function entityTypesOf(entities: readonly EntityResolution[]): Record<EntityScope, string> | undefined {
+function resolveOne(scope: EntityScope, types: SchemaTypes, customs: string[]): EntityResolution {
+	const want = ENTITY_TYPES[scope];
+	if (want.kind === 'builtin') {
+		// Presence in /schema is the enablement test (findings/008, findings/122).
+		const there = types[want.entityType];
+		return { scope, kind: 'builtin', displayName: there?.name.value.trim() || want.displayName, status: there ? 'found' : 'missing', entityType: want.entityType };
+	}
+	const accepted = [want.displayName, ...(want.aliases ?? [])].map(loose);
+	const found = customs.filter((name) => accepted.includes(loose(types[name].name.value))).sort();
+	const base = { scope, kind: 'custom' as const, displayName: want.displayName };
+	if (found.length === 1) return { ...base, status: 'found', entityType: found[0] };
+	if (found.length === 0) return { ...base, status: 'missing' };
+	return { ...base, status: 'ambiguous', candidates: found };
+}
+
+/** The entity type of every scope, those optional when found, or nothing when a required one is not. */
+export function entityTypesOf(entities: readonly EntityResolution[]): Resolution['entities'] | undefined {
 	const out: Partial<Record<EntityScope, string>> = {};
 	for (const e of entities) if (e.status === 'found' && e.entityType) out[e.scope] = e.entityType;
-	return ENTITY_SCOPES.every((s) => out[s]) ? (out as Record<EntityScope, string>) : undefined;
+	return ENTITY_SCOPES.every((s) => isOptionalScope(s) || out[s]) ? (out as Resolution['entities']) : undefined;
 }
 
 /** The entity types found, whatever is missing. */
@@ -209,7 +228,11 @@ function planOwn(types: Partial<Record<EntityScope, string>>, fields: Partial<Re
 		const entityType = types[scope];
 		const have = fields[scope];
 		if (!entityType || !have) continue;
-		for (const column of wantedColumns(scope)) plans.push(planColumn(scope, entityType, column, have, types));
+		for (const column of wantedColumns(scope)) {
+			// A link to an optional entity the site lacks waits for it, and blocks nothing (Kevin, #117).
+			if (column.target && isOptionalScope(column.target) && !types[column.target]) continue;
+			plans.push(planColumn(scope, entityType, column, have, types));
+		}
 	}
 	return plans;
 }
@@ -262,33 +285,64 @@ export function createInput(plan: FieldPlan): CreateInput {
 export type Resolution = {
 	version: 1;
 	site: string;
-	entities: Record<EntityScope, string>;
-	fields: Record<EntityScope, Record<string, string>>;
+	/** An optional entity is here only once it and every field of it, and every link to it, are there. */
+	entities: Record<RequiredScope, string> & Partial<Record<OptionalScope, string>>;
+	fields: Record<RequiredScope, Record<string, string>> & Partial<Record<OptionalScope, Record<string, string>>>;
 	/** The name on the site of the client UUID field of Version, where a take's videos go. */
 	versionUuid: string;
 };
 
-/** The resolution, once every entity is found and every field is present. Otherwise nothing. */
+/** The fields of an optional scope and the fields that link it, by scope. */
+function optionalColumns(optional: OptionalScope): { scope: EntityScope; column: Column }[] {
+	return ENTITY_SCOPES.flatMap((scope) => wantedColumns(scope).filter((c) => isOptionalColumn(scope, c) && (scope === optional || c.target === optional)).map((column) => ({ scope, column })));
+}
+
+/**
+ * The resolution, once every required entity is found and every field of theirs is present.
+ * Otherwise nothing. An optional entity is in it only with all its fields and the fields that link
+ * it; until then it is left out, and what needs it waits (Kevin, #117).
+ */
 export function toResolution(site: string, entities: readonly EntityResolution[], plans: readonly FieldPlan[]): Resolution | undefined {
-	const types = entityTypesOf(entities);
+	const types: Partial<Record<EntityScope, string>> | undefined = entityTypesOf(entities);
 	if (!types) return undefined;
-	const fields = {} as Record<EntityScope, Record<string, string>>;
+	const nameOf = (scope: EntityScope, column: Column) => {
+		const plan = plans.find((p) => p.scope === scope && p.column.name === column.name);
+		return plan?.status === 'present' ? plan.name : undefined;
+	};
+	const fields: Partial<Record<EntityScope, Record<string, string>>> = {};
 	for (const scope of ENTITY_SCOPES) {
+		if (isOptionalScope(scope)) continue;
 		fields[scope] = {};
 		for (const column of wantedColumns(scope)) {
-			const plan = plans.find((p) => p.scope === scope && p.column.name === column.name);
-			if (plan?.status !== 'present') return undefined;
-			fields[scope][column.name] = plan.name;
+			if (isOptionalColumn(scope, column)) continue;
+			const name = nameOf(scope, column);
+			if (!name) return undefined;
+			fields[scope]![column.name] = name;
 		}
+	}
+	for (const optional of OPTIONAL_SCOPES) {
+		const wanted = optionalColumns(optional);
+		const names = wanted.map(({ scope, column }) => nameOf(scope, column));
+		if (!types[optional] || names.some((name) => !name)) {
+			delete types[optional];
+			continue;
+		}
+		wanted.forEach(({ scope, column }, i) => ((fields[scope] ??= {})[column.name] = names[i]!));
 	}
 	const uuid = plans.find((p) => p.scope === 'version' && p.column.name === UUID.name);
 	if (uuid?.status !== 'present') return undefined;
-	return { version: 1, site, entities: types, fields, versionUuid: uuid.name };
+	return { version: 1, site, entities: types as Resolution['entities'], fields: fields as Resolution['fields'], versionUuid: uuid.name };
+}
+
+/** Whether the site has an optional entity, with its fields and the fields that link it. */
+export function hasScope(resolution: Resolution, scope: OptionalScope): boolean {
+	return typeof resolution.entities[scope] === 'string';
 }
 
 /** The name on the site of a mapped field. A stock field is its own name. */
 export function fieldName(resolution: Resolution, scope: EntityScope, column: Column): string {
-	return column.stock ? column.name : (resolution.fields[scope][column.name] ?? column.name);
+	const fields: Partial<Record<EntityScope, Record<string, string>>> = resolution.fields;
+	return column.stock ? column.name : (fields[scope]?.[column.name] ?? column.name);
 }
 
 export function serializeResolution(resolution: Resolution): string {
@@ -308,10 +362,19 @@ export function parseResolution(raw: string | undefined | null, site: string): R
 	const r = value as Partial<Resolution>;
 	// Without `versionUuid`: written before videos went up as Versions. Resolve again.
 	if (r.version !== 1 || r.site !== site || !r.entities || !r.fields || typeof r.versionUuid !== 'string') return undefined;
+	const entities: Partial<Record<EntityScope, unknown>> = r.entities;
+	const fields: Partial<Record<EntityScope, Record<string, unknown>>> = r.fields;
 	for (const scope of ENTITY_SCOPES) {
-		if (typeof r.entities[scope] !== 'string' || !r.fields[scope]) return undefined;
+		if (isOptionalScope(scope)) continue;
+		if (typeof entities[scope] !== 'string' || !fields[scope]) return undefined;
 		// A catalogue field added since the cache was written has no name here: resolve again.
-		for (const column of wantedColumns(scope)) if (typeof r.fields[scope][column.name] !== 'string') return undefined;
+		for (const column of wantedColumns(scope)) if (!isOptionalColumn(scope, column) && typeof fields[scope]![column.name] !== 'string') return undefined;
+	}
+	// An optional entity left out is fine. One kept must still name every field it needs.
+	for (const optional of OPTIONAL_SCOPES) {
+		if (entities[optional] === undefined) continue;
+		if (typeof entities[optional] !== 'string') return undefined;
+		for (const { scope, column } of optionalColumns(optional)) if (typeof fields[scope]?.[column.name] !== 'string') return undefined;
 	}
 	return r as Resolution;
 }

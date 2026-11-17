@@ -1,9 +1,9 @@
-// A take edit that may change the take type, run on the store. The switches the new type turns on
-// are set in the same undo entry, and the label says so. A switch the old type leaves on with no
-// take of its type is offered to turn off, in the notice in place of Undo; ignored, nothing
-// changes. The rules are pure (model/takeType.ts, typeText.ts); this reads what they need and
-// writes through the editor. Every take edit that can set the type goes through here: the take
-// sheet, a take opened from a slate, bulk edit.
+// A take edit that may change the take type or the plates at its tail, run on the store. The
+// switches the new type or plate turns on are set in the same undo entry, and the label says so. A
+// switch the old one leaves on with no take holding it is offered to turn off, in the notice in
+// place of Undo; ignored, nothing changes. The rules are pure (model/takeType.ts, typeText.ts);
+// this reads what they need and writes through the editor. Every take edit that can set the type
+// or the tail goes through here: the take sheet, a take opened from a slate, bulk edit.
 
 import type { App } from '$lib/app/app.svelte';
 import type { Label } from '$lib/app/undo';
@@ -36,9 +36,9 @@ export const namesOf = (around: Pick<Around, 'slates' | 'lightingSetups'>): Swit
 	lightingSetup: (id) => around.lightingSetups.find((l) => l.id === id)?.label ?? ''
 });
 
-/** Applies a take patch as one undo entry, with what a change of take type does to the switches. */
+/** Applies a take patch as one undo entry, with what a change of take type or tail does to the switches. */
 export async function applyTakeEdit(app: App, patch: Patch, label: Label): Promise<void> {
-	const typed = [...new Set(patch.filter((c) => c.key === 'takeType').map((c) => c.id))];
+	const typed = [...new Set(patch.filter((c) => c.key === 'takeType' || c.key === 'takeTail').map((c) => c.id))];
 	if (!typed.length) {
 		await app.edit.apply('take', patch, label);
 		return;

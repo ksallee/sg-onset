@@ -41,6 +41,14 @@ describe('setupView: entities', () => {
 		]);
 		expect(view.entitiesToFix).toBe(3);
 	});
+
+	// Kevin, #117: a missing optional entity is a note, not something to fix before syncing.
+	it('says an optional entity the site lacks is optional, and does not count it to fix', () => {
+		const view = setupView(report({ entities: [{ scope: 'setShot', kind: 'custom', displayName: 'Set Shot', status: 'missing', optional: true }] }));
+		expect(view.entities).toEqual([{ scope: 'setShot', displayName: 'Set Shot', action: 'enable', optional: true }]);
+		expect(view.entitiesToFix).toBe(0);
+		expect(view.notes).toBe(1);
+	});
 });
 
 describe('setupView: fields', () => {

@@ -146,6 +146,39 @@ describe('importBackup', () => {
 		expect(await target.get('project', 'mine')).toBeDefined();
 	});
 
+	it('refuses a cut backup, or one with a byte bent outside the files, before it asks to replace (#123)', async () => {
+		const { store } = await filled();
+		const zip = await zipOf(store);
+		const data = new Uint8Array(await zip.arrayBuffer());
+		const entries = await readZip(zip);
+		const at = (name: string) => {
+			const entry = entries.find((e) => e.name === name)!;
+			const data = entry.offset + 30 + new TextEncoder().encode(name).length;
+			return { header: entry.offset, name: entry.offset + 34, data, descriptor: data + entry.compressedSize };
+		};
+		const manifest = await (await entryBlob(zip, entries.at(-1)!)).text();
+		const bend = (i: number) => {
+			const bent = data.slice();
+			bent[i] ^= 0xff;
+			return new Blob([bent]);
+		};
+		const target = open('b').store;
+		await target.create('project', { id: 'mine', name: 'Local' });
+		const refused = async (file: Blob, reason: string) => {
+			await expect(importBackup(target, file)).rejects.toMatchObject({ reason });
+			expect(await target.get('project', 'mine')).toBeDefined();
+		};
+
+		await refused(zip.slice(0, Math.floor(zip.size / 2)), 'notBackup');
+		// Where the flip landed in #123: a table's name in its header, the start of its descriptor.
+		await refused(bend(at('tables/lens.ndjson').descriptor), 'corrupt');
+		await refused(bend(at('tables/reference.ndjson').name), 'corrupt');
+		await refused(bend(at('tables/take.ndjson').descriptor + 4), 'corrupt');
+		await refused(bend(at('tables/take.ndjson').header + 10), 'corrupt');
+		// The manifest is checked too: here a bent digit of its date still reads as JSON.
+		await refused(bend(at(MANIFEST_PATH).data + manifest.indexOf('.000Z') - 1), 'corrupt');
+	});
+
 	it('refuses a file that is not a backup', async () => {
 		const target = open('b').store;
 		await expect(importBackup(target, new Blob(['nope']))).rejects.toMatchObject({ reason: 'notBackup' });

@@ -26,6 +26,16 @@ describe('exportAle', () => {
 		expect(t.cell(row('1', 'B'), 'Take Type')).toBe('Main');
 	});
 
+	it('writes the plates at the tail after the type, empty for none', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, takeTail: ['ballsAndChart', 'cleanPlate'] } : t));
+		const t = parse(exportAle(flatten(shoot), { fps: { num: 24, denom: 1 }, withoutTimecode: 'keep' }).text);
+		const row = (take: string, cam: string) => t.data.findIndex((_, i) => t.cell(i, 'Take') === take && t.cell(i, 'Camera') === cam && t.cell(i, 'Slate') === '42A');
+		expect(t.cell(row('1', 'A'), 'Take Tail')).toBe('Clean Plate, Balls and Chart');
+		expect(t.cell(row('1', 'B'), 'Take Tail')).toBe('');
+		expect(t.head.indexOf('Take Tail')).toBe(t.head.indexOf('Take Type') + 1);
+	});
+
 	it('writes the heading block, then Column and Data', () => {
 		const { text } = exportAle(rows(), { fps: { num: 24000, denom: 1001 } });
 		expect(lines(text).slice(0, 6)).toEqual(['Heading', 'FIELD_DELIM\tTABS', 'VIDEO_FORMAT\t1080', 'FPS\t23.976', '', 'Column']);

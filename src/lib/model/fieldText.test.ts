@@ -78,6 +78,12 @@ describe('parseField', () => {
 		expect(value('slate', 'vfxShots', 'ABC_010, ABC_020;ABC_030\vABC_040,,')).toEqual(['ABC_010', 'ABC_020', 'ABC_030', 'ABC_040']);
 	});
 
+	it('reads a list of options by their keys, whatever the case and spaces', () => {
+		expect(value('take', 'takeTail', 'Balls and chart, clean plate')).toEqual(['ballsAndChart', 'cleanPlate']);
+		expect(value('take', 'takeTail', 'cleanPlate')).toEqual(['cleanPlate']);
+		expect(value('take', 'takeTail', 'clean plate, witness')).toBe('validation.option');
+	});
+
 	it('reads dimensions as width by height', () => {
 		expect(value('camera', 'activeSensorResolution', '4608 x 3164')).toEqual({ width: 4608, height: 3164 });
 		expect(value('camera', 'activeSensorResolution', '4608×3164')).toEqual({ width: 4608, height: 3164 });
@@ -134,7 +140,7 @@ describe('formatField', () => {
 			stringList: ['a', 'b']
 		};
 		for (const d of FIELDS as readonly FieldDef[]) {
-			const sample = d.type === 'enum' ? d.options![0] : samples[d.type];
+			const sample = d.type === 'enum' ? d.options![0] : d.type === 'stringList' && d.options ? [...d.options] : samples[d.type];
 			expect(validateValue(d, sample), `${d.scope}.${d.key}`).toEqual([]);
 			const back = parseField(d, formatField(d, sample, 'metric'), 'metric');
 			expect(back.ok && formatField(d, back.value, 'metric'), `${d.scope}.${d.key}`).toBe(formatField(d, sample, 'metric'));

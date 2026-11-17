@@ -6,7 +6,7 @@
 
 import type { UnitSystem } from '$lib/model/length';
 import { formatRational, type Rational } from '$lib/model/rational';
-import { lengthNumber, takeTypeName, trimNumber } from './format';
+import { lengthNumber, takeTailNames, takeTypeName, trimNumber } from './format';
 import type { FlatTake } from './selection';
 import { formatTimecode, isDropFrameRate, parseTimecode, timecodeBase } from './timecode';
 
@@ -25,6 +25,7 @@ export const ALE_COLUMNS = [
 	'FPS',
 	'Circled Take',
 	'Take Type',
+	'Take Tail',
 	'Slate',
 	'Description',
 	'Comments',
@@ -158,6 +159,7 @@ export function exportAle(rows: readonly FlatTake[], options: AleOptions): AleRe
 			FPS: fpsText,
 			'Circled Take': take.circleTake ? 'Yes' : '',
 			'Take Type': takeTypeName(take),
+			'Take Tail': takeTailNames(take).join(', '),
 			Slate: clean(slate.slateUID),
 			Description: clean(slate.description),
 			Comments: clean(take.notes),

@@ -18,7 +18,9 @@ ids and times in. Each module has its test beside it.
 | `template.ts` | Create from a template, preview a template edit, apply it. |
 | `bulkEdit.ts` | Set one field on many records, with the undo patch. |
 | `take.ts` | Next take number, new take as a copy of the last, focal length of a take. |
-| `takeType.ts` | The take type, and the slate and lighting setup switches a type turns on or leaves on. |
+| `takeType.ts` | The take type, and the slate and lighting setup switches a type or a plate at the tail turns on or leaves on. |
+| `takeTail.ts` | The plates at the tail of a take: clean plate, balls and chart, either or both. |
+| `takeElements.ts` | The takes shot for an element, by type, with the takes that have that plate at the tail. |
 | `csv.ts` | CSV text to rows. |
 | `gearImport.ts` | Cameras and lenses from CSV, with a report per row. |
 
@@ -196,10 +198,34 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
     and a take both hold a switch their kind or type turns on (`takeType.ts`, `KIND_SWITCHES`,
     `planReferenceEdit`). No kind and no take type share a switch today.
 
+### Take tail (Kevin, 2026-11-17, issue #108)
+
+52. **`takeTail` is a list on the take: `cleanPlate`, `ballsAndChart`, either or both.** A
+    `stringList` with `options`, so each item is one of them. The take keeps its one type
+    (decision 41); the tail is what the camera caught after the action. No standard names it; the
+    key is ours. Not carried to the next take.
+53. **No value is no tail.** An empty list is stored as no value. The plates are stored once each,
+    in the catalogue's order. A plate this version does not know stays as it was and reads as none.
+54. **A plate at the tail counts as a take of that type for the switches** (decisions 43 and 44): a
+    clean plate at the tail turns on the slate's `cleanPlate`, balls and chart turn on the lighting
+    setup's `referenceBalls` and `colourChart`, in the same undo entry. The plate an edit adds turns
+    its switches on, as a new type does. Turn Off is offered only when no take holds the switch as
+    its type or at its tail (`takeSwitches`).
+55. **`takeElements` lists the takes shot for an element, by type, each take with that plate at its
+    tail among them.** A take typed so is listed once. For the Note on a Shot (#97).
+56. **In bulk edit each plate at the tail is a yes or no of its own** (Kevin, 2026-11-17): Clean
+    plate at the tail, Balls and chart at the tail. Yes puts the plate on every chosen take, No or
+    Clear takes it off, and the other plate stays as it is, as on the take sheet. The switch rule
+    and its one notice apply (`slates/bulk.ts`).
+
 ### Lighting references (Kevin, 2026-11-17, issue #107)
 
-52. **A reference of kind HDRI 360, 360 video or HDR reference belongs to the lighting setup of its
+57. **A reference of kind HDRI 360, 360 video or HDR reference belongs to the lighting setup of its
     slate,** and shows on every slate of that lighting setup, now or later. It keeps its `slateId`,
     the slate it was logged on; nothing else is stored. The slates it shows on follow from the
     lighting setups as they are now (`lib/references/lighting.ts`), so it moves with its slate to
     another lighting setup, as the switches of decision 51 do. The other kinds stay per slate.
+58. **Deleting the slate a lighting reference was logged on first moves it to another slate of the
+    lighting setup** (Kevin, 2026-11-17): the first left in slate order, shoot day then slate as a
+    person counts, in the same undo entry as the delete. The other kinds go with the slate. With no
+    other slate on the setup, it goes with the slate too (`lib/references/lighting.ts`, `heirOf`).

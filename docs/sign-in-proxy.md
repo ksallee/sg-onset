@@ -148,7 +148,9 @@ result (see Check it).
 
 A change takes effect when the server restarts: a new deploy on Vercel, a restart on Node. The
 app needs no new build: the browser checks only the form of the site, and the allowlist is on the
-server. A site off the list is refused before anything is sent to it.
+server. A site off the list is refused before anything is sent to it. The person reads: "This
+copy of SG OnSet does not sign in to that site. Whoever runs it chooses the sites. By default,
+Autodesk-hosted sites only."
 
 If your Flow PT is self-hosted:
 

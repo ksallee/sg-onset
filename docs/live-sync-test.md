@@ -137,6 +137,18 @@ Use a test project on the site, never a show.
   Reply says what was added; the Artists see the Note unread again and the Reply in the stream.
   Assign a third person to a Task and capture another take: they are added to **To**, nobody is
   taken off. Turn the setting off: no Note is written or changed.
+- **Send set data to artists (#106).** Needs the app on an address Flow PT's browser can reach:
+  the deploy, or `pnpm dev` on the laptop that runs the browser. Link the project, tap **Set Up
+  Fields**: **Flow PT action** says **Added** on Shot and Set Shot, and names the address. In Flow
+  PT, sync a slate with the code `TST_040_0010` while no Shot has it, then make that Shot and give
+  it a Task assigned to an Artist. Select the Shot, open the menu (right-click), pick **Send set
+  data to artists**. A tab opens on SG OnSet's **Send Set Data**: its address holds the site, the
+  project, the type and the ids only. Signed out, it asks to sign in to that site first. It names
+  the project and the Shot and says what Send will do; nothing changes in Flow PT until **Send**.
+  After Send: the Set Shot holds the Shot, the slate's **Shots** holds it, the Shot has its Note,
+  to the Artist, and the page says so per Shot. Run it again: nothing new. Select the Set Shot
+  instead and run it: the same, from the other side. Note which browser you used, and try Safari:
+  the corpus measured Chrome only (README gap 20).
 - A photo: in Flow PT, open the file's link in a new tab. It shows as an image, not a download
   of `binary/octet-stream`. Two photos on one take: **Photos** holds both.
 - **Videos (#94).** Once the probe of a Version on a custom entity row has reported (fpt README,

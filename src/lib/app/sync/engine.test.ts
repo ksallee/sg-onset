@@ -18,7 +18,7 @@ const TAKE = 'CustomEntity09';
 const SET_SHOT = 'CustomEntity22';
 let n = 0;
 
-function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: DexieStore) => Promise<void> } = {}) {
+function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: DexieStore) => Promise<void>; origin?: string } = {}) {
 	const fpt = fakeFpt(options);
 	const fptProject = fpt.seed('Project', { name: 'Show', is_template: false, is_demo: false, archived: false });
 	fpt.seed('Project', { name: 'Template', is_template: true, is_demo: false, archived: false });
@@ -64,7 +64,8 @@ function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: De
 		schemaCache: memoryKeyValue(),
 		kv,
 		page,
-		...(options.beforeDrain ? { beforeDrain: () => options.beforeDrain!(store) } : {})
+		...(options.beforeDrain ? { beforeDrain: () => options.beforeDrain!(store) } : {}),
+		...(options.origin ? { origin: options.origin } : {})
 	});
 	return { fpt, fptProject, other, store, edit, world, emit, auth, kv, engine };
 }
@@ -188,6 +189,43 @@ describe('the setup check gates the runner', () => {
 		const created = s.fpt.count((r) => r.method === 'POST' && /\/schema\/\w+\/fields$/.test(r.path));
 		expect(created).toBe(review.total);
 		expect(s.engine.state.ready).toBe(true);
+	});
+});
+
+// #106: the Action Menu Item "Send set data to artists", for the linked Flow PT project, pointing at
+// this deploy. Linking only looks; Set Up Fields adds it.
+describe('the Action Menu Item', () => {
+	const ORIGIN = 'https://onset.example';
+	const items = (s: S) => s.fpt.live('ActionMenuItem');
+
+	it('linking only looks for it; Set Up Fields adds it on Shot and Set Shot for the linked project', async () => {
+		const s = setup({ origin: ORIGIN });
+		await s.engine.setProject('p1');
+		await s.engine.link({ id: s.fptProject, name: 'Show' });
+		expect(s.engine.state.report?.action?.items.map((i) => [i.entityType, i.status])).toEqual([
+			['Shot', 'missing'],
+			[SET_SHOT, 'missing']
+		]);
+		expect(items(s)).toEqual([]);
+		// Every field is there: Set Up Fields is offered for the item alone, and runs with no review.
+		const view = setupView(s.engine.state.report!);
+		expect(view.canSetUpFields).toBe(true);
+		const review = setupReview(view, { site: s.fpt.site, project: 'Show' });
+		expect(nextStep('closed', 'request', review)).toEqual({ step: 'closed', run: true });
+
+		await s.engine.check(true);
+		expect(s.engine.state.report?.action?.items.map((i) => i.status)).toEqual(['added', 'added']);
+		expect(items(s).map((r) => [r.values.entity_type, r.values.url, r.values.projects])).toEqual([
+			['Shot', `${ORIGIN}/action/send-set-data`, [{ type: 'Project', id: s.fptProject }]],
+			[SET_SHOT, `${ORIGIN}/action/send-set-data`, [{ type: 'Project', id: s.fptProject }]]
+		]);
+	});
+
+	it('nothing about it before a project is linked', async () => {
+		const s = setup({ origin: ORIGIN });
+		await s.engine.setProject('p1');
+		await s.engine.check(false);
+		expect(s.engine.state.report?.action).toBeUndefined();
 	});
 });
 

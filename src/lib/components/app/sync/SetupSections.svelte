@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The setup check's report in words: entities found or what an admin must do, with the exact
 	// name to give them; fields there, created, to create or waiting for an admin; permission
-	// trouble; the fields Flow PT adds for our links. Fields are made only on Set Up Fields, a tap
+	// trouble; the Action Menu Item of the linked project (#106); the fields Flow PT adds for our links. Fields are made only on Set Up Fields, a tap
 	// of the person, after the review that says what it will change (SetupReview).
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
@@ -77,6 +77,15 @@
 				{/if}
 			{/each}
 		</Section>
+
+		{#if view.action}
+			<!-- #106: "Send set data to artists" on Shot and Set Shot, pointing at this deploy (lib/fpt/actionMenu.ts). -->
+			<Section header={t('sync.setup.action')} footer={t('sync.setup.action.footer', { title: view.action.title, url: view.action.url })}>
+				{#each view.action.lines as line (line.entityType)}
+					<Row title={line.entity} subtitle={line.reason} detail={t(`sync.setup.action.${line.status}`)} />
+				{/each}
+			</Section>
+		{/if}
 
 		{#if view.reverse.length}
 			<!-- corpus findings/142: each link field adds one on the entity it links; deleting it deletes the link. -->

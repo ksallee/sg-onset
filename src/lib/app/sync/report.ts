@@ -2,7 +2,7 @@
 // what an admin must do and with which exact name, which fields are there, made, or wait for an
 // admin. Pure.
 
-import type { FieldReport, ReverseReport, SetupReport } from '$lib/fpt';
+import type { ActionReport, FieldReport, ReverseReport, SetupReport } from '$lib/fpt';
 import type { EntityScope } from '$lib/fpt';
 
 /**
@@ -55,6 +55,18 @@ export interface SetupView {
 	reverse: ReverseLine[];
 	/** How many will appear when Set Up Fields runs. */
 	reverseToCome: number;
+	/** The Action Menu Item "Send set data to artists" (#106). Absent when no project was given. */
+	action?: { title: string; url: string; lines: ActionLine[] };
+	/** How many entity types still lack it. */
+	actionToAdd: number;
+}
+
+export interface ActionLine {
+	/** The entity's name as the site shows it: Shot, Set Shot. */
+	entity: string;
+	entityType: string;
+	status: ActionReport['status'];
+	reason?: string;
 }
 
 export interface ReverseLine {
@@ -96,6 +108,14 @@ export function setupView(report: SetupReport): SetupView {
 	}
 	const counts = Object.fromEntries(STATUSES.map((s) => [s, fields[s].length])) as Record<FieldStatus, number>;
 	const typeName = new Map(report.entities.filter((e) => e.entityType).map((e) => [e.entityType!, e.displayName]));
+	const action = report.action
+		? {
+				title: report.action.title,
+				url: report.action.url,
+				lines: report.action.items.map((i): ActionLine => ({ entity: typeName.get(i.entityType) ?? i.entityType, entityType: i.entityType, status: i.status, ...(i.reason ? { reason: i.reason } : {}) }))
+			}
+		: undefined;
+	const actionToAdd = action?.lines.filter((l) => l.status === 'missing').length ?? 0;
 	const reverse: ReverseLine[] = [...(report.reverseFields ?? [])]
 		.sort((a, b) => Number(a.status === 'present') - Number(b.status === 'present'))
 		.map((r) => ({ entity: typeName.get(r.entityType) ?? r.entityType, name: r.name, displayName: r.displayName, status: r.status }));
@@ -106,9 +126,11 @@ export function setupView(report: SetupReport): SetupView {
 		notes: entities.filter((e) => e.action !== 'found' && e.optional).length,
 		counts,
 		fields,
-		permission: report.canCreateFields === false || counts.needsAdmin > 0,
-		canSetUpFields: counts.missing > 0 && report.canCreateFields !== false,
+		permission: report.canCreateFields === false || counts.needsAdmin > 0 || !!action?.lines.some((l) => l.status === 'needsAdmin'),
+		canSetUpFields: (counts.missing > 0 || actionToAdd > 0) && report.canCreateFields !== false,
 		reverse,
-		reverseToCome: reverse.filter((r) => r.status === 'willAppear').length
+		reverseToCome: reverse.filter((r) => r.status === 'willAppear').length,
+		...(action ? { action } : {}),
+		actionToAdd
 	};
 }

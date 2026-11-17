@@ -55,7 +55,7 @@ export const sync = {
 	'sync.setup.unknown': 'Not checked yet',
 	'sync.setup.fields': 'Set Up Fields',
 	'sync.setup.creating': 'Creating fields…',
-	'sync.setup.fields.footer': 'Creates the fields listed as to create. Nothing else is changed.',
+	'sync.setup.fields.footer': 'Creates what is listed as to create. Nothing else is changed.',
 	'sync.setup.permission': 'This Flow PT account cannot create fields. An Admin must run Set Up Fields.',
 	'sync.setup.reverse': 'Fields Flow PT Adds',
 	'sync.setup.reverse.footer': 'Each link field makes Flow PT add a field on the entity it links. Leave them: deleting one also deletes the link field.',
@@ -77,6 +77,15 @@ export const sync = {
 	'sync.setup.field.failed': 'Failed',
 	'sync.setup.field.line': '{entity}: {field}',
 	'sync.setup.field.unique': 'unique',
+	// The Action Menu Item of #106, in the setup check.
+	'sync.setup.action': 'Flow PT action',
+	'sync.setup.action.footer':
+		'Set Up Fields adds “{title}” to the menu of each, in this Flow PT project. Select Shots or Set Shots in Flow PT and pick it. It opens {url}. A tap on Send there links their slates and writes the Notes on Shots.',
+	'sync.setup.action.present': 'There',
+	'sync.setup.action.added': 'Added',
+	'sync.setup.action.missing': 'To create',
+	'sync.setup.action.needsAdmin': 'Needs an admin',
+	'sync.setup.action.failed': 'Failed',
 
 	'sync.review.header': 'Before setting up fields',
 	'sync.review.site': 'Site',
@@ -85,6 +94,8 @@ export const sync = {
 	'sync.review.fields.footer': 'Tap an entity to see its fields.',
 	'sync.review.reverse': 'Fields Flow PT adds',
 	'sync.review.reverse.footer': 'Flow PT adds these by itself, one for each link field.',
+	'sync.review.action': 'Flow PT action to add',
+	'sync.review.action.footer': 'Changes no field. An admin can delete it in Flow PT.',
 	'sync.review.schema': "This changes the schema of {site}. SG OnSet cannot undo it. Do it on a test site, or with the agreement of the site's admin.",
 	'sync.review.confirm': 'Set Up Fields',
 	'sync.review.notNow': 'Not Now',
@@ -140,5 +151,9 @@ export const sync = {
 	'sync.note.photos': 'Photos: {n}',
 	'sync.note.reply': 'Added since the last update:',
 	'sync.note.reply.photos.one': '{n} more photo',
-	'sync.note.reply.photos.other': '{n} more photos'
+	'sync.note.reply.photos.other': '{n} more photos',
+
+	// The Action Menu Item Set Up Fields adds on Shot and Set Shot (#106, lib/fpt/actionMenu.ts).
+	// The title is written to Flow PT and found again by it: always English, never reworded lightly.
+	'sync.action.title': 'Send set data to artists'
 } as const;

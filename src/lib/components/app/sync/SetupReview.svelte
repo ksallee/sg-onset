@@ -45,6 +45,14 @@
 		</Section>
 	{/if}
 
+	{#if review.actions.length}
+		<Section header={t('sync.review.action')} footer={t('sync.review.action.footer')}>
+			{#each review.actions as a (a.entityType)}
+				<Row title={t('sync.action.title')} subtitle={a.entity} />
+			{/each}
+		</Section>
+	{/if}
+
 	<div class="actions">
 		<Button variant="filled" size="large" full onclick={onconfirm}>{t('sync.review.confirm')}</Button>
 		<Button variant="plain" size="large" full onclick={onnotnow}>{t('sync.review.notNow')}</Button>

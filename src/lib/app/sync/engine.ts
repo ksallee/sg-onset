@@ -20,6 +20,7 @@
 // when what the device holds asks for other slates than the last time. Nothing is kept on the device.
 
 import { checkSetup, createFptTransport, readShotCodes, type FptTransport, type KeyValue, type SetupReport, type ShotResult } from '$lib/fpt';
+import { actionUrl } from '$lib/fpt/actionMenu';
 import { createApi, type FptOptions } from '$lib/fpt/api';
 import { resolutionKey } from '$lib/fpt/cache';
 import { hasNotes, hasScope, parseResolution } from '$lib/fpt/schema';
@@ -55,6 +56,11 @@ export interface SyncDeps {
 	 * queued, so this drain sends it. It never stops the drain: a failure is its own to tell.
 	 */
 	beforeDrain?: () => Promise<void>;
+	/**
+	 * This deploy's origin, `location.origin`: the Action Menu Item of the linked project points at
+	 * it (#106, lib/fpt/actionMenu.ts). Without it the item is neither looked for nor made.
+	 */
+	origin?: string;
 }
 
 export interface SyncState {
@@ -387,7 +393,10 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			if (!site || state.checking) return undefined;
 			set({ checking: true, creatingFields: createFields, error: undefined });
 			try {
-				const report = await checkSetup({ ...fptOptions(site), createFields });
+				// The Action Menu Item is for the linked project, on this deploy (#106).
+				const link = state.link;
+				const actionMenu = link && deps.origin ? { projectId: link.projectId, url: actionUrl(deps.origin) } : undefined;
+				const report = await checkSetup({ ...fptOptions(site), createFields, ...(actionMenu ? { actionMenu } : {}) });
 				set({ report, ...(await readSetup(site)) });
 				// A new transport reads the resolution the check kept: an entity enabled since, and its
 				// fields, are synced at once (Kevin, #117).

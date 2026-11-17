@@ -88,6 +88,12 @@ Made by Claude. Kevin can overrule any of them.
     at once when the device asks for other slates than the last time (a reference logged, a slate
     made or moved). That last ask is in memory only. Nothing is kept on the device; an earlier
     build's list, `sg-onset:sync:referenceSlates:<id>`, is removed when the project loads.
+15. **The setup check looks for the Action Menu Item of the linked project, and Set Up Fields makes
+    it** (#106, lib/fpt README, "Send set data to artists"). It points at this deploy:
+    `location.origin`, passed to the engine as `origin`. With every field there and the item
+    missing, Set Up Fields is offered and runs with no review: the item changes no schema and an
+    admin deletes it in Flow PT. When fields are missing too, the review lists it. A dev server on
+    localhost makes one pointing at localhost: that is the deploy it runs on.
 
 ## Not tested without a real site
 

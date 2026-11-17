@@ -77,6 +77,16 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 	};
 	fields.HumanUser = { name: rawField('text', 'Name') };
 	fields.Group = { code: rawField('text', 'Group Name'), users: rawField('multi_entity', 'Users', { validTypes: ['HumanUser'] }) };
+	// The Action Menu Item of #106 (findings/156_action_menu_item.md): a site type with no project
+	// field. An Artist may not create one: `forbidden.add('create:ActionMenuItem')`.
+	types.ActionMenuItem = { name: { value: 'Action Menu Item' } };
+	fields.ActionMenuItem = {
+		title: rawField('text', 'Title'),
+		url: rawField('text', 'URL'),
+		entity_type: rawField('entity_type', 'Entity Type'),
+		projects: rawField('multi_entity', 'Projects', { validTypes: ['Project'] }),
+		selection_required: rawField('checkbox', 'Selection Required')
+	};
 	// Shot: `code` is "Shot Code", not unique; `project` is required (findings/entity_types/Shot.md).
 	fields.Shot = {
 		code: { name: { value: 'Shot Code' }, data_type: { value: 'text' } },
@@ -231,6 +241,12 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			}
 			case 'checkbox':
 				if (typeof value !== 'boolean') throw got('[String, FalseClass, TrueClass]');
+				return value;
+			case 'entity_type':
+				// A bare type name, case-sensitive, from the built-in table: any CustomEntityNN slot passes (field_types/entity_type.md).
+				if (value === null || value === '') return null;
+				if (typeof value !== 'string') throw got('[String, NilClass]');
+				if (!/^(?:Shot|Asset|Sequence|Version|Task|CustomEntity\d{2})$/.test(value)) throw new Refusal(400, `Update failed for [${type}.${name}]: '${value}' is not a valid entity type.`);
 				return value;
 			case 'date':
 				if (value === null) return null;

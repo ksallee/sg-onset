@@ -167,13 +167,14 @@ describe('writeNotes', () => {
 		expect(await w.make().writeNotes([s.a])).toEqual([{ shot: s.a, outcome: 'unchanged' }]);
 	});
 
-	it('writes no Note for a Shot with nothing captured yet', async () => {
+	// `empty`, apart from `unchanged`: the page of #106 says which (nothing shot yet, or nothing new).
+	it('writes no Note for a Shot with nothing captured yet, and says it is empty', async () => {
 		const w = world();
 		const project = { type: 'Project', id: w.projectId };
 		const shot = w.fpt.seed('Shot', { code: 'SMP_050_0010', project });
 		const d1 = await sent(w, create('shootDay', 'd1', { projectId: 'p1', shootDate: '2026-11-11' }, { p1: w.projectId }));
 		await sent(w, create('slate', 's1', { shootDayId: 'd1', slateUID: '50', vfxShots: ['SMP_050_0010'] }, { d1 }));
-		expect(await w.transport.writeNotes([shot])).toEqual([{ shot, outcome: 'unchanged' }]);
+		expect(await w.transport.writeNotes([shot])).toEqual([{ shot, outcome: 'empty' }]);
 		expect(notes(w.fpt)).toEqual([]);
 	});
 

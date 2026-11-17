@@ -5,4 +5,4 @@ import { proxySessionRequest } from '$lib/server/launcher-proxy';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = ({ request }) =>
-	proxySessionRequest(request, { fetch: globalThis.fetch, extraHosts: env.FPT_EXTRA_HOSTS });
+	proxySessionRequest(request, { fetch: globalThis.fetch, hosts: env.FPT_HOSTS, extraHosts: env.FPT_EXTRA_HOSTS });

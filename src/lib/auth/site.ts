@@ -14,7 +14,9 @@
  * Hosts allowed by default: Autodesk's hosted domains. The corpus holds no entry
  * that lists them; these two are the ones sg-notes and sg-task-templates
  * recognise (their site bars trim `.shotgrid.autodesk.com` and
- * `.shotgunstudio.com`). A deploy adds its own hosts with `FPT_EXTRA_HOSTS`.
+ * `.shotgunstudio.com`). A deploy replaces them with `FPT_HOSTS`, so it can
+ * allow its own site only (corpus findings/129_hosted_domains.md: allowlist the
+ * configured host, not a suffix), and adds hosts with `FPT_EXTRA_HOSTS`.
  *
  * Pure: no I/O.
  */
@@ -92,7 +94,7 @@ export function normalizeSite(input: string): SiteCheck {
 }
 
 /**
- * The hosts a deploy adds, from `FPT_EXTRA_HOSTS`: exact hosts or `*.domain`,
+ * Hosts from `FPT_HOSTS` or `FPT_EXTRA_HOSTS`: exact hosts or `*.domain`,
  * separated by commas or spaces. An entry that would match an IP, a local name,
  * a bare TLD or more than one label per wildcard is refused, not widened.
  */
@@ -118,10 +120,29 @@ export function hostAllowed(host: string, patterns: readonly string[]): boolean 
 	});
 }
 
-/** The site, checked and on the allowlist: the defaults plus what the deploy adds. */
-export function checkSite(input: string, extraHosts?: string): SiteCheck {
+/** A deploy's host settings, as the environment holds them. */
+export interface HostSettings {
+	/** `FPT_HOSTS`: when set, the allowed hosts, in place of Autodesk's. */
+	hosts?: string;
+	/** `FPT_EXTRA_HOSTS`: hosts added to the list. */
+	extraHosts?: string;
+}
+
+/**
+ * The allowlist: `FPT_HOSTS` when it holds anything, else the Autodesk-hosted
+ * domains, plus `FPT_EXTRA_HOSTS`. A set `FPT_HOSTS` whose entries are all
+ * refused leaves `FPT_EXTRA_HOSTS` alone: it never falls back to the defaults.
+ */
+export function allowedHostPatterns({ hosts, extraHosts }: HostSettings): string[] {
+	// Empty, or only separators, is unset.
+	const unset = /^[\s,]*$/.test(hosts ?? '');
+	const base = unset ? [...DEFAULT_HOST_PATTERNS] : parseHostPatterns(hosts).patterns;
+	return [...base, ...parseHostPatterns(extraHosts).patterns];
+}
+
+/** The site, checked and on the deploy's allowlist. */
+export function checkSite(input: string, settings: HostSettings = {}): SiteCheck {
 	const site = normalizeSite(input);
 	if (!site.ok) return site;
-	const patterns = [...DEFAULT_HOST_PATTERNS, ...parseHostPatterns(extraHosts).patterns];
-	return hostAllowed(site.host, patterns) ? site : fail('not-allowed');
+	return hostAllowed(site.host, allowedHostPatterns(settings)) ? site : fail('not-allowed');
 }

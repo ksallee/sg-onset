@@ -10,7 +10,7 @@ import { endKey, FIELDS, type FieldDef, type Unit } from '$lib/model/catalogue';
 import { codeName, displayOf } from './names';
 
 /** The scopes that are records on the server. The project is not ours to write. */
-export const ENTITY_SCOPES = ['shootDay', 'lightingSetup', 'cameraSetup', 'slate', 'take', 'camera', 'lens'] as const;
+export const ENTITY_SCOPES = ['shootDay', 'lightingSetup', 'cameraSetup', 'slate', 'take', 'camera', 'lens', 'reference'] as const;
 export type EntityScope = (typeof ENTITY_SCOPES)[number];
 
 export function isEntityScope(name: string): name is EntityScope {
@@ -70,7 +70,9 @@ export const ENTITY_TYPES: Record<
 	take: { kind: 'custom', displayName: 'Take' },
 	lens: { kind: 'custom', displayName: 'Lens', aliases: ['Lenses'] },
 	cameraSetup: { kind: 'custom', displayName: 'Camera Setup' },
-	lightingSetup: { kind: 'custom', displayName: 'Lighting Setup' }
+	lightingSetup: { kind: 'custom', displayName: 'Lighting Setup' },
+	// One row per set reference, linked to its slate. Each studio enables the slot, as for Take.
+	reference: { kind: 'custom', displayName: 'Set Reference' }
 };
 
 /** The client UUID, on every entity we write. A create sent twice is refused on it. */
@@ -86,7 +88,7 @@ export const STILLS: Column = { name: 'sg_photos', display: 'Photos', dataType: 
 export const VERSION_COLUMNS: readonly Column[] = [UUID];
 
 /** The key whose value a new record takes as `created_at` (corpus findings/070_authored_timestamps.md). */
-export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt' };
+export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt', reference: 'loggedAt' };
 
 const STOCK: Record<'code' | 'description' | 'project', Column> = {
 	code: { name: 'code', display: 'Name', dataType: 'text', stock: true },
@@ -116,6 +118,7 @@ const OVERRIDES: Record<string, Override> = {
 	'take.take': { stock: 'code' },
 	'camera.cameraModel': { stock: 'code' },
 	'lens.lensModel': { stock: 'code' },
+	'reference.name': { stock: 'code' },
 	'slate.description': { stock: 'description' },
 	// A shoot day is named by its date, and keeps the date as a date too.
 	'shootDay.shootDate': { alsoCode: true },
@@ -141,6 +144,7 @@ const OVERRIDES: Record<string, Override> = {
 	'lightingSetup.referenceBalls': { display: 'Grey and Chrome Balls' },
 	'lens.focalLengthMax': { display: 'Focal Length Long End' },
 	'cameraSetup.order': { display: 'Sort Order' },
+	'reference.cardOrRoll': { display: 'Card or Roll' },
 	'camera.activeSensorPhysicalDimensions': { displays: ['Sensor Width mm', 'Sensor Height mm'] },
 	'camera.activeSensorResolution': { displays: ['Sensor Resolution Width', 'Sensor Resolution Height'] }
 };
@@ -242,7 +246,8 @@ const RECORD_KEYS: Record<EntityScope, FieldMap[]> = (() => {
 		camera: [project('camera')],
 		lens: [project('lens')],
 		slate: [parent('slate', 'shootDayId', 'shootDay'), template('slate')],
-		take: [parent('take', 'slateId', 'slate'), template('take')]
+		take: [parent('take', 'slateId', 'slate'), template('take')],
+		reference: [parent('reference', 'slateId', 'slate')]
 	};
 })();
 

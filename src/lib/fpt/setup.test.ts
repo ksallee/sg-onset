@@ -17,7 +17,7 @@ function world(fields: 'complete' | 'bare' = 'complete') {
 
 const creates = (fpt: FakeFpt) => fpt.requests.filter((r) => r.method === 'POST' && r.path.includes('/schema/'));
 const field = (report: SetupReport, scope: string, name: string) => report.fields.find((f) => f.scope === scope && f.name === name)!;
-/** Every field of ours: on the seven entities, and the client UUID on Version, where videos go. */
+/** Every field of ours: on the eight entities, and the client UUID on Version, where videos go. */
 const WANTED = ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length;
 
 describe('checkSetup', () => {
@@ -34,7 +34,7 @@ describe('checkSetup', () => {
 	});
 
 	// corpus endpoints/get_schema.md: /schema is cheap and /fields is not. One read per type.
-	it('reads the type list once and the fields of each of the seven types, Attachment and Version once', async () => {
+	it('reads the type list once and the fields of each of the eight types, Attachment and Version once', async () => {
 		const { fpt, check } = world();
 		await check();
 		expect(fpt.requests.map((r) => r.path).sort()).toEqual(

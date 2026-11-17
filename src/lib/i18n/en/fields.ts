@@ -15,8 +15,10 @@ export const fields = {
 	'scope.take': 'Take',
 	'scope.camera': 'Camera',
 	'scope.lens': 'Lens',
+	'scope.reference': 'Reference',
 	'scope.still': 'Photo',
 	'scope.template': 'Template',
+	'scope.referenceKind': 'Reference kind',
 
 	'unit.mm': 'mm',
 	'unit.m': 'm',
@@ -72,6 +74,16 @@ export const fields = {
 
 	'field.take.take': 'Take',
 	'field.take.take.short': 'Take',
+	'field.take.takeType': 'Type',
+	'field.take.takeType.short': 'Type',
+	'field.take.takeType.main': 'Main',
+	'field.take.takeType.cleanPlate': 'Clean plate',
+	'field.take.takeType.ballsAndChart': 'Balls and chart',
+	'field.take.takeType.shadowPlate': 'Shadow plate',
+	'field.take.takeType.lightPass': 'Light pass',
+	'field.take.takeType.atmosphere': 'Atmosphere',
+	'field.take.takeType.element': 'Element',
+	'field.take.takeType.other': 'Other',
 	'field.take.startedAt': 'Start time',
 	'field.take.startedAt.short': 'Start',
 	'field.take.endedAt': 'End time',
@@ -129,5 +141,13 @@ export const fields = {
 	'field.lens.lensSerialNumber': 'Serial number',
 	'field.lens.focalLength': 'Focal length',
 	'field.lens.focalLengthMax': 'Long end',
-	'field.lens.anamorphicSqueeze': 'Anamorphic squeeze'
+	'field.lens.anamorphicSqueeze': 'Anamorphic squeeze',
+
+	'field.reference.kind': 'Kind',
+	'field.reference.name': 'File or folder',
+	'field.reference.device': 'Device',
+	'field.reference.cardOrRoll': 'Card or roll',
+	'field.reference.count': 'Count',
+	'field.reference.notes': 'Notes',
+	'field.reference.loggedAt': 'Logged at'
 } as const;

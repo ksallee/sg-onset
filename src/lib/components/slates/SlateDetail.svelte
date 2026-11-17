@@ -1,6 +1,6 @@
 <script lang="ts">
-	// One slate: Shoot This Slate, its takes as a table (selectable for bulk edit), every slate
-	// field typed and checked, where it stands against its template, and Duplicate, New Template
+	// One slate: Shoot This Slate, its takes as a table (selectable for bulk edit), its reference
+	// log, every slate field typed and checked, where it stands against its template, and Duplicate, New Template
 	// from Slate and Delete. Everything is read live from the store, so what shows is what is
 	// stored, an undo included. A Page of its own: beside the list on an iPad, alone on a phone.
 	import { Clapperboard, Ellipsis } from '@lucide/svelte';
@@ -12,6 +12,7 @@
 	import Page from '$lib/components/ios/Page.svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
+	import ReferenceList from '$lib/components/references/ReferenceList.svelte';
 	import { useApp } from '$lib/app/app.svelte';
 	import { useCurrent } from '$lib/app/current.svelte';
 	import { dayName } from '$lib/app/context';
@@ -134,6 +135,8 @@
 				<Row title={t('slates.detail.takes.none')} class="quiet" />
 			</Section>
 		{/if}
+
+		<ReferenceList {slate} />
 
 		<TemplateLink table="slate" record={slate} what={name} />
 

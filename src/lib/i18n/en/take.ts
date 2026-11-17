@@ -107,6 +107,19 @@ export const take = {
 	'take.edit.note': 'Note on take {take} changed',
 	'take.edit.cameraAdded': 'Cam {camera} added to take {take}',
 	'take.edit.cameraRemoved': 'Cam {camera} taken off take {take}',
+	'take.edit.type': 'Take {take} set to {type}',
+
+	/** The take type turns switches of the slate and its lighting setup on, never off: the notice offers it. */
+	'take.type.done': '{what}. {then}',
+	'take.type.on': '{where}: {switches} on',
+	'take.type.stays.one': '{where}: {switches} stays on',
+	'take.type.stays.many': '{where}: {switches} stay on',
+	'take.type.off': '{where}: {switches} turned off',
+	'take.type.turnOff': 'Turn Off',
+	'take.type.where.slate': 'Slate {name}',
+	'take.type.where.slates': '{n} slates',
+	'take.type.where.lightingSetup': 'Lighting setup {name}',
+	'take.type.where.lightingSetups': '{n} lighting setups',
 
 	'shoot.title': 'Shoot',
 	'shoot.heading': 'Shoot, slate {slate}',

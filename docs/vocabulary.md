@@ -43,6 +43,8 @@ enforces the parts a test can check.
 | Take | | One camera setup's run of one slate, from Start to End. | `take` | CRIF Tk Take; VES scope Take | Take |
 | Photo | | A reference photo taken from the take screen or picked from the photo library or Files, kept on the take. | `still` | VES 1.1 reference | Photos |
 | Video | | A reference video picked from the photo library or Files, kept on the take. "Photos and videos" names both. | `still`, a video file | | Version, linked to the take |
+| Reference | | One thing captured for the slate on another device, logged by name: an HDRI, a scan, a witness clip. The file stays on that device. | `reference` | VES 2.1, 4.2, 5.1 | Set Reference |
+| Reference kind | | What a reference is: HDRI 360, 360 video, HDR reference, Witness camera, Lidar scan, Textured model, Photogrammetry, Splat, Other, or a kind the project adds. | `reference.kind` | | Kind |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
 | Change | | One edit waiting to sync. | outbox entry | | |
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
@@ -110,11 +112,24 @@ gives.
 | Clean plate | A clean plate was shot. | `cleanPlate` | CRIF Set Media "Clean Plate" | Clean Plate |
 | Notes | Free text. | `notes` | CRIF Notes | Set Notes |
 
+### Reference
+
+| Label | Definition | Key | Standards | FPT |
+|---|---|---|---|---|
+| Kind | HDRI 360, Lidar scan, or a kind the project adds. | `kind` | | Kind |
+| File or folder | The name of the file or folder on the device. | `name` | | Name (code) |
+| Device | What captured it: Ricoh Theta Z1, iPhone 15 Pro. | `device` | | Device |
+| Card or roll | The card or roll it is on. | `cardOrRoll` | | Card or Roll |
+| Count | How many files, frames or brackets. | `count` | | Count |
+| Notes | Free text. | `notes` | | Set Notes |
+| Logged at | When it was added. Orders the list. Not a form field. | `loggedAt` | | Logged At |
+
 ### Take
 
 | Label | Short | Definition | Key | Standards | FPT |
 |---|---|---|---|---|---|
 | Take | Take | The take as called: 1, 2, 3, PU. | `take` | CRIF Tk Take; OMC SlateUID.hasTake; ALE Take | Name (code) |
+| Type | Type | What the take is for: Main, Clean plate, Balls and chart, Shadow plate, Light pass, Atmosphere (smoke, fog), Element, Other. No value is Main. | `takeType` | ours | Take Type |
 | Start time | Start | When Start was pressed. | `startedAt` | CRIF Tk Start Time Of Take | Start Time |
 | End time | End | When End was pressed. | `endedAt` | | End Time |
 | Circled | Circled | The take is circled: a keeper. | `circleTake` | OMC circleTake; ALE Circled Take | Circled |
@@ -212,10 +227,17 @@ gives.
 - **Scene** is the script scene. **Take** is the take as called, a string: 1, 2, PU.
 - **Circled** and **No good** (short NG). Circled is the crew word and OMC `circleTake`. Print and
   Good are rejected: print is a film-lab word, good reads as a judgement on the shot.
+- **Type** of a take, not element type: Element type is the slate's CRIF field. A take typed
+  **Clean plate** turns on the slate's Clean plate; **Balls and chart** turns on the lighting
+  setup's Grey and chrome balls and Colour chart. The notice says a switch left on "stays on"
+  ("still" is a banned word), with **Turn Off**.
 - **MOS** and **wild track** have no field yet. When they come: "MOS" (flag), "Wild track"
   (flag), both sentence case.
 - **Unit** is the shooting unit. **Shoot day** is one unit's day, named "Day {n}".
 - **Entry** for a stored thing. "Item" is vague; "record" means to shoot.
+- **Reference** is a set reference: one thing captured on another device, logged by name. A
+  **Photo** is taken in the app and kept on the take. "Set Reference" is the Flow PT entity.
+- **Lidar scan** for the kind of reference, as for the slate's switch. Flow PT shows "LiDAR".
 - **Photo**, not still. On set, "stills" means the unit stills photographer.
 - **Wrap** names the destination, the crew word for the end of the shooting day. Rejected: Export
   (a verb, and the Backup uses it), Handover, Deliver. Three zips, three words: a **Wrap package**

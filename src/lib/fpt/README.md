@@ -61,6 +61,7 @@ if (report.ready) {
 | `lens` | custom, "Lens" or "Lenses" | display name |
 | `cameraSetup` | custom, "Camera Setup" | display name |
 | `lightingSetup` | custom, "Lighting Setup" | display name |
+| `reference` | custom, "Set Reference" | display name |
 | `still` | Attachment, in `sg_photos` on the take | file name |
 | `still` with a video file | Version, `entity` the take, the file in `sg_uploaded_movie` | client UUID |
 | `project` | Project | given: `projectId` |
@@ -158,7 +159,7 @@ names follow `docs/vocabulary.md` (its FPT column): Dutch Angle, Start Time, Cir
 
 Every entity also gets `sg_onset_uuid` (text, unique): the record id on the device. So does
 Version, where a take's videos go. The take gets `sg_photos` (multi-entity to Attachment).
-`created_at` of a take is its `startedAt`.
+`created_at` of a take is its `startedAt`, of a set reference its `loggedAt`.
 
 **shootDay**
 
@@ -220,6 +221,7 @@ Version, where a take's videos go. The take gets `sg_photos` (multi-entity to At
 | `slateId` | `sg_slate` | entity | |
 | `templateId` | `sg_onset_template` | text | |
 | `take` | `code` | text | |
+| `takeType` | `sg_take_type` | text | the key: `cleanPlate`; empty is Main |
 | `startedAt` | `sg_start_time` | date_time | |
 | `endedAt` | `sg_end_time` | date_time | |
 | `circleTake` | `sg_circled` | checkbox | |
@@ -268,6 +270,22 @@ Version, where a take's videos go. The take gets `sg_photos` (multi-entity to At
 | `focalLengthMax` | `sg_focal_length_long_end` | float | mm |
 | `anamorphicSqueeze` | `sg_anamorphic_squeeze` | text | num/denom |
 
+**reference** (a set reference, one row each)
+
+| key | field | type | unit |
+|---|---|---|---|
+| `slateId` | `sg_slate` | entity | |
+| `kind` | `sg_kind` | text | |
+| `name` | `code` | text | |
+| `device` | `sg_device` | text | |
+| `cardOrRoll` | `sg_card_or_roll` | text | |
+| `count` | `sg_count` | number | |
+| `notes` | `sg_set_notes` | text | |
+| `loggedAt` | `sg_logged_at`, and `created_at` on create | date_time | |
+
+`Set Reference.sg_slate` adds `Slate.sg_set_references`, shown "Set Reference <-> Slate"
+(findings/142), so a slate in Flow PT lists its references.
+
 **still** (an Attachment)
 
 | key | field | note |
@@ -278,7 +296,7 @@ Version, where a take's videos go. The take gets `sg_photos` (multi-entity to At
 | the still id and the blob id | `filename` | `onset_<still>_<blob>.jpg`, lowercase, no space. Read-only after upload |
 | the take, found back | `attachment_links` | set by the upload |
 
-**still with a video file** (a Version, decision 26)
+**still with a video file** (a Version, decision 28)
 
 | key | field | note |
 |---|---|---|
@@ -404,21 +422,29 @@ Made by Claude. Kevin can overrule any of them.
     custom field through an `sg_` entity field (findings/138), so a take's slate comes back as its
     client UUID with no second request. A photo's take comes from its `attachment_links`
     (findings/134), also with no second request.
-26. **A video goes up as a Version linked to its take** (Kevin, 2026-11-17, #94), for Flow PT's
+26. **A set reference is a row of the project custom entity "Set Reference", linked to its slate**
+    (Kevin, 2026-11-17). Each studio enables the slot and names it in the web interface, as for
+    Take: no call does (findings/114, findings/122, 400 code 111). Until it is there the setup check
+    is not ready and nothing syncs; the sync sheet names it. A site set up before the reference log
+    needs it too: a cached resolution without it is read again.
+27. **The kind of a set reference is text:** a built-in key (`hdri360`), as an enum keeps its key
+    (decision 7), or a project's own kind as typed. No list field: a project adds kinds, and a list
+    would need an admin for each.
+28. **A video goes up as a Version linked to its take** (Kevin, 2026-11-17, #94), for Flow PT's
     player and transcode. A photo stays an Attachment. On the device both are stills; the file's
     type decides, so nothing changes in the store or the outbox. The still's create sends nothing,
     as for a photo; the Version is made when its file starts to go up, so an empty Version waits
     only as long as an upload does. `versions.ts` lists the kinds: an audio note (#89) is one line
     there and goes through the same calls.
-27. **Version gets our client UUID field** (`sg_onset_uuid`, unique), made by Set Up Fields like
+29. **Version gets our client UUID field** (`sg_onset_uuid`, unique), made by Set Up Fields like
     every other: `code` is not unique (entity_types/Version.md), and a retried create must be
     refused, not made twice (findings/127). A site whose resolution was cached before this reads
     its schema again and is not ready until an admin runs Set Up Fields once more.
-28. **A still is looked for as an Attachment first, then as a Version.** A photo costs no more
+30. **A still is looked for as an Attachment first, then as a Version.** A photo costs no more
     requests than before. The Version's file name starts `onset_video_`, never as a photo's
     `onset_<id>_`, so a photo's lookup by file name never finds a video's file, nor the two
     Attachments the server adds after it (findings/123).
-29. **Deleting a video deletes its Version only.** The movie and the server's transcodes are
+31. **Deleting a video deletes its Version only.** The movie and the server's transcodes are
     Attachments of the Version; what Flow PT does with them then is not measured.
 
 ## Where FPT did not fit the contract
@@ -487,8 +513,11 @@ All seven entities resolve. ShootDay, Slate and Camera are on. Take, Lens, Camer
 Lighting Setup are each one custom entity with that display name; the lens entity is shown as
 "Lens". Take, Camera Setup and Lighting Setup have no field of the site's own yet.
 
-Of the 76 fields we want, five are already there with a fitting type and are used as they are:
+Of the 76 fields we wanted then (77 with `sg_take_type`, #92), five are already there with a fitting type and are used as they are:
 `ShootDay.sg_shoot_date`, `Slate.sg_shoot_day`, `Slate.sg_set_notes`,
 `Camera.sg_camera_serial_number`, `Lens.sg_lens_serial_number`. Two names are held by a field of
 another type, so ours step aside: `ShootDay.sg_onset_location` and `Lens.sg_onset_focal_length`.
 The other 69 are created under their plain names.
+
+Set Reference came after this read (#93). The probed site needs that slot enabled and named before
+sync goes on; Set Up Fields then makes its eight fields.

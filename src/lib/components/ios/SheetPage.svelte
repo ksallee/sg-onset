@@ -61,7 +61,8 @@
 				requestAnimationFrame(() => {
 					if (phase !== 'entering') return;
 					phase = 'open';
-					el?.focus({ preventScroll: true });
+					// Focus into the page, unless a field in it has it already: what was typed stays.
+					if (el && !el.contains(document.activeElement)) el.focus({ preventScroll: true });
 				})
 			);
 		} else if (!open && (phase === 'open' || phase === 'entering')) {

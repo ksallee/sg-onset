@@ -8,7 +8,7 @@ caller passes the time, the time zone and the labels.
 
 | module | what it does |
 |---|---|
-| `selection.ts` | `flatten`: one row per take (one camera's take) with the slate, day, lighting setup, camera setup, camera and lens on it. Filters, order. |
+| `selection.ts` | `flatten`: one row per take (one camera's take) with the slate, day, lighting setup, camera setup, camera, lens and the slate's set references on it. Filters, order. |
 | `format.ts` | Numbers, signed angles, feet and inches, metres, CRIF dates and times. |
 | `timecode.ts` | Timecode to frames and back. Drop frame at 29.97 and 59.94. |
 | `uuid.ts` | SHA-1 and name-based UUIDs (version 5), for CRIF's per-camera slate id. |
@@ -34,6 +34,21 @@ caller passes the time, the time zone and the labels.
   as a person counts: 9 before 10, 42A before 42B.
 - Filters: shoot days, a slate range (inclusive, same order), circled only, leave out no good.
 - A take whose slate or day is not in the input is left out.
+- Each row carries the set references of its slate, in the order logged (`row.references`).
+
+## Set references
+
+A slate's reference log (`src/lib/references/`) goes in every file but the ALE:
+
+- Camera report: our column **Set References**, one reference per value split by vertical tabs, on
+  every row of the slate.
+- All fields: one column, **References**, after the slate's fields, one reference per line.
+- JSON: the list `references`, the records as stored.
+- Day report: a line per slate block, after the cameras.
+
+One reference as text: `<kind>: <name>`, then what else is known in brackets.
+`HDRI 360: HDRI_0412 (Ricoh Theta Z1, A003, ×7, Noon sun)`. The kind as the app shows it; a
+project's own kind as typed. Line breaks become spaces.
 
 ## CRIF: VES camera report
 
@@ -118,8 +133,9 @@ How it is written:
 | Tk Creation Date, Tk Modification Date | | none |
 
 Our columns, after the spec's: Shoot Date (`shootDay.shootDate`), Setup (`slate.setup`), Lighting
-Setup (`lightingSetup.label`), Camera Model, Camera Serial Num, Tk End Time Of Take
-(`take.endedAt`), Tk Circled, Tk No Good (`Yes` or empty), Tk Timecode End, Tk Lens Make, Tk
+Setup (`lightingSetup.label`), Set References (the slate's, see above), Camera Model, Camera Serial Num, Tk End Time Of Take
+(`take.endedAt`), Tk Circled, Tk No Good (`Yes` or empty), Tk Type (the take type: Main, Clean
+Plate, Balls and Chart, Shadow Plate, Light Pass, Atmosphere, Element, Other; Main for none), Tk Timecode End, Tk Lens Make, Tk
 Anamorphic Squeeze, Tk Subject Distance and End, Tk Photos (the count).
 
 `crifMissing(record)` lists the required columns a row leaves empty. `CRIF_NEVER_FILLED` names the
@@ -135,6 +151,7 @@ Lost in CRIF:
 - Seconds are the finest time. Times are local, with no zone in the file.
 - Sensor size and resolution, colour chart and lidar outside Set Media, template links, gear ids.
 - Photos only as the Photos flag and a count.
+- Set references of a slate with no take in the file: CRIF has no row for them.
 
 ## Plain CSV: every field
 
@@ -149,14 +166,18 @@ Lost in CRIF:
 - Units: inline (`35 mm`, `12°`, `23.976 fps`, lengths as the app shows them, typed text kept), or
   bare numbers with a unit column after each field that has a unit. Lengths there are metres to
   the millimetre, or decimal feet to four places.
-- Enums show their label, booleans yes or no, lists joined with ", ", refs as the UUID.
+- Enums show their label, booleans yes or no, lists joined with ", ", refs as the UUID. A take
+  with no type shows Main.
 - RFC 4180 quoting, CRLF. Option `bom` for Excel. Formula guard on by default: a cell starting with
   `=`, `+`, `-`, `@`, tab or CR gets a `'` in front, unless it is a number with at most a short
   unit (`-5`, `-5°`).
 
+- The slate's set references share one column, **References**, after the slate's fields: one per
+  line. The reference fields have no column of their own: a slate has many.
+
 Lost: the take's focal length column shows the focal length shot at, so a value left on a take
 that ran a prime does not show. Record ids other than refs. Photos. Labels are in the app's
-language.
+language. A reference's logged time, and the references of a slate with no take in the file.
 
 ## ALE: editorial
 
@@ -202,6 +223,7 @@ A001C003	V	14:39:39:09	14:39:59:11	…
 | Shoot Date | `shootDay.shootDate` as YYYYMMDD |
 | FPS | the heading rate |
 | Circled Take | `Yes` or empty |
+| Take Type | the take type as CRIF's Tk Type writes it (ours) |
 | Slate, Description, VFX Shots | `slate.slateUID`, `description`, `vfxShots` (ours) |
 | Comments | `take.notes` |
 | Lens, Lens_sn | `lens.lensModel`, `lensSerialNumber` |
@@ -216,7 +238,7 @@ A001C003	V	14:39:39:09	14:39:59:11	…
 | Filter | `take.filter` (ours) |
 
 Lost: takes without timecode by default; lighting, flags, location, wrangler, gear make and serial
-of the body, sensor; typed lengths; one FPS for the whole file.
+of the body, sensor; typed lengths; one FPS for the whole file; set references.
 
 ## JSON: lossless
 
@@ -231,7 +253,7 @@ of the body, sensor; typed lengths; one FPS for the whole file.
 	"filters": {},
 	"project": {},
 	"shootDays": [], "lightingSetups": [], "cameraSetups": [], "cameras": [], "lenses": [],
-	"slates": [], "takes": [], "stills": []
+	"slates": [], "takes": [], "stills": [], "references": []
 }
 ```
 
@@ -242,9 +264,11 @@ of the body, sensor; typed lengths; one FPS for the whole file.
   the same text.
 - Slates: every slate of the picked days in the slate range, with or without takes. Takes: those
   the filters keep. Gear and lighting setups: those the kept records point at. Photos: their
-  records, not their files.
+  records, not their files. Set references: those of the slates in it, by slate, in the order
+  logged, whatever the take filters.
 - `readExportJson` refuses text that is not JSON, not ours, newer than the reader, or missing a
-  list or an id. It does not check each value: run the model's `validateRecord` for that.
+  list or an id. A file written before the set references has no `references`: it reads as none.
+  `formatVersion` stays 1: an older reader skips the list and misreads nothing. It does not check each value: run the model's `validateRecord` for that.
 - `formatVersion` goes up when an old reader would misread the new file.
 
 Not in it: gear no kept record points at, templates, the sync queue, Flow PT ids, file bytes.
@@ -256,8 +280,10 @@ render:
 
 - `header`: project, date, day number, unit, location, wrangler.
 - `slates`: one block per slate in order, with its lighting setup, the camera setups its takes
-  used (letter, body, lenses run), the takes and the block's totals.
+  used (letter, body, lenses run), the takes, its set references and the block's totals.
 - `totals`: slates, takes, circled, no good, photos.
+- The printed page (`src/lib/wrap/report.ts`) has a Type column on a day with a take that is not
+  Main; a Main take leaves it empty.
 - `warnings`, per take: `noEndTime`, `noFocalLength` (no prime and none typed),
   `zoomNoFocalLength` (a zoom and none typed).
 

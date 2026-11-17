@@ -1,12 +1,15 @@
 // The "everything" CSV, for spreadsheets: one row per take, a column for every catalogue field and
-// every end value, headed by the app's labels, the model keys, or both. Labels come in from the
-// caller (the i18n helpers), so this stays pure.
+// every end value, headed by the app's labels, the model keys, or both. A slate's set references
+// share one column, one per line. Labels come in from the caller (the i18n helpers), so this stays
+// pure.
 
 import { endKey, FIELDS, type FieldDef, type Scope, type Unit } from '$lib/model/catalogue';
 import { formatField } from '$lib/model/fieldText';
 import type { Length, UnitSystem } from '$lib/model/length';
 import { formatRational, type Rational } from '$lib/model/rational';
+import { takeTypeOf } from '$lib/model/takeType';
 import type { Dimensions } from '$lib/model/types';
+import { referenceLine } from '$lib/references/log';
 import { csvText } from './csvWrite';
 import { lengthNumber, trimNumber } from './format';
 import { rowValue, type FlatTake } from './selection';
@@ -20,6 +23,10 @@ export type PlainLabels = {
 	unit(unit: Unit | 'ft'): string;
 	yes: string;
 	no: string;
+	/** The header of the set references column. */
+	references: string;
+	/** A kind of set reference as shown. */
+	kind(kind: string): string;
 	/** The header of a unit column. Default: "<header> (unit)". */
 	unitHeader?(header: string): string;
 };
@@ -38,7 +45,10 @@ export type PlainOptions = {
 	guardFormulas?: boolean;
 };
 
-/** Scopes in the order a person reads a take: where, what, then the gear. */
+/** Stands in as the `def` of the references column, which reads no field. */
+const REFERENCE_DEF = (FIELDS as readonly FieldDef[]).find((d) => d.scope === 'reference')!;
+
+/** Scopes in the order a person reads a take: where, what, then the gear. A slate's references follow it. */
 const SCOPE_ORDER: Scope[] = ['project', 'shootDay', 'slate', 'lightingSetup', 'cameraSetup', 'take', 'camera', 'lens'];
 
 export type PlainColumn = {
@@ -48,7 +58,12 @@ export type PlainColumn = {
 	end: boolean;
 	/** A unit column: holds the unit of the column before it. */
 	unitOf?: string;
+	/** The column of the slate's set references: `def` is then the first reference field, unused. */
+	references?: true;
 };
+
+/** The key of the set references column. */
+export const REFERENCES_KEY = 'slate.references';
 
 /** The unit a value of this field shows in, under these options. */
 function unitOf(def: FieldDef, lengths: UnitSystem): Unit | 'ft' | undefined {
@@ -73,19 +88,22 @@ export function plainColumns(options: Pick<PlainOptions, 'labels' | 'units' | 'l
 	const unitHeader = labels.unitHeader ?? ((h: string) => `${h} (unit)`);
 
 	const columns: PlainColumn[] = [];
-	for (const f of fields) {
+	for (const [i, f] of fields.entries()) {
 		const key = `${f.def.scope}.${f.end ? endKey(f.def.key) : f.def.key}`;
 		const header = counts.get(label(f))! > 1 ? `${labels.scope(f.def.scope)}: ${label(f)}` : label(f);
 		columns.push({ key, header, def: f.def, end: f.end });
 		if (options.units === 'columns' && unitOf(f.def, options.lengths)) columns.push({ key: `${key}.unit`, header: unitHeader(header), def: f.def, end: f.end, unitOf: key });
+		// A slate has many set references: one column for all, after the slate's own fields.
+		if (f.def.scope === 'slate' && fields[i + 1]?.def.scope !== 'slate') columns.push({ key: REFERENCES_KEY, header: labels.references, def: REFERENCE_DEF, end: false, references: true });
 	}
 	return columns;
 }
 
-/** The stored value of a column on a row. Take focal length is the one the take was shot at. */
+/** The stored value of a column on a row. Take focal length is the one the take was shot at; a take with no type is Main. */
 function valueOf(row: FlatTake, column: PlainColumn): unknown {
 	const { def, end } = column;
 	if (def.scope === 'take' && def.key === 'focalLength') return end ? row.focalLength?.end : row.focalLength?.start;
+	if (def.scope === 'take' && def.key === 'takeType') return takeTypeOf(row.take);
 	return rowValue(row, def.scope, end ? endKey(def.key) : def.key);
 }
 
@@ -133,6 +151,7 @@ export function plainCsv(rows: readonly FlatTake[], options: PlainOptions): stri
 	if (options.header !== 'labels') head.push(columns.map((c) => c.key));
 	const body = rows.map((row) =>
 		columns.map((c) => {
+			if (c.references) return row.references.map((r) => referenceLine(r, options.labels.kind)).join('\n');
 			const value = valueOf(row, c);
 			if (c.unitOf) return value == null ? '' : options.labels.unit(unitOf(c.def, options.lengths)!);
 			return cellText(c.def, value, options);

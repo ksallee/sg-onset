@@ -25,7 +25,16 @@ export type BlobMeta = {
 	remoteId?: RemoteId;
 	/** When the local bytes were freed. The file is then on the server only. */
 	prunedAt?: number;
+	/**
+	 * A file made by the app: `annotated`, a photo with its drawing flattened on it, a file of the
+	 * still; `diagram`, a slate's setup diagram as an image, a file of the slate.
+	 */
+	variant?: BlobVariant;
+	/** What it was made from: the key of the drawing (`$lib/draw/markup`, `$lib/draw/diagram`). */
+	source?: string;
 };
+
+export type BlobVariant = 'annotated' | 'diagram';
 
 export type StorageStatus = {
 	/** The browser has promised not to evict our data under pressure. */
@@ -43,7 +52,7 @@ export type StorageStatus = {
 /** What changed. Table names, plus `outbox`, `blobs`, `trash`, `snapshots`, `meta`. */
 export type StoreEvent = { tables: readonly string[] };
 
-export type NewBlob = { blob: Blob; id?: string; name?: string };
+export type NewBlob = { blob: Blob; id?: string; name?: string; variant?: BlobVariant; source?: string };
 
 export interface Store {
 	// Reads. Plain promises.
@@ -74,6 +83,12 @@ export interface Store {
 	blobsOf(recordId: string): Promise<BlobMeta[]>;
 	/** Frees the bytes of files the server has held for longer than `keepMs`. Returns how many. */
 	pruneBlobs(keepMs?: number): Promise<number>;
+	/**
+	 * Takes back a file whose upload has not left: its description, its bytes (unless a snapshot
+	 * names them) and its queued upload. False when the upload has left, may have landed, or was
+	 * seen on the server: the file stays. For a copy replaced before it was sent.
+	 */
+	dropBlob(id: string): Promise<boolean>;
 
 	// Sync.
 	/** The queue, for the runner. */

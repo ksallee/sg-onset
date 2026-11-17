@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capturedAtOf, decodeStillRemote, encodeStillRemote, extensionOf, stillDisplayName, stillFilename, stillPrefix } from './stills';
+import { capturedAtOf, decodeStillRemote, encodeStillRemote, extensionOf, stillDisplayName, stillFilename, stillPrefix, variantOf } from './stills';
 
 describe('still remote id', () => {
 	it('carries the take and what the Attachment will need', () => {
@@ -56,5 +56,23 @@ describe('still display name', () => {
 		expect(capturedAtOf('Photo')).toBeUndefined();
 		expect(capturedAtOf('holiday.jpg')).toBeUndefined();
 		expect(capturedAtOf(null)).toBeUndefined();
+	});
+});
+
+describe('the annotated copy of a photo', () => {
+	it('is named with an -annotated suffix, under the same still, so a lookup finds it too', () => {
+		expect(stillFilename('ph1', 'b2', 'image/jpeg', 'annotated')).toBe('onset_ph1_b2-annotated.jpg');
+		expect(stillFilename('ph1', 'b2', 'image/jpeg', 'annotated').startsWith(stillPrefix('ph1'))).toBe(true);
+	});
+	it('is known by its file name', () => {
+		expect(variantOf('onset_ph1_b2-annotated.jpg')).toBe('annotated');
+		expect(variantOf('onset_ph1_b2.jpg')).toBeUndefined();
+		expect(variantOf(undefined)).toBeUndefined();
+	});
+	it('says so in its display name, and still gives the capture time back', () => {
+		expect(stillDisplayName('2026-11-11T10:22:33.456Z', 'annotated')).toBe('Photo 2026-11-11T10:22:33.456Z annotated');
+		expect(stillDisplayName(undefined, 'annotated')).toBe('Photo annotated');
+		expect(capturedAtOf('Photo 2026-11-11T10:22:33.456Z annotated')).toBe('2026-11-11T10:22:33.456Z');
+		expect(capturedAtOf('Photo annotated')).toBeUndefined();
 	});
 });

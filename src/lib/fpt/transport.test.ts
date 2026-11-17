@@ -784,6 +784,58 @@ describe('a still', () => {
 	});
 });
 
+describe('a setup diagram', () => {
+	const png = (size: number) => new Blob([new Uint8Array(size)], { type: 'image/png' });
+	/** A slate on the server, and the ref of a diagram image of it, as the runner hands it over. */
+	async function slate(w: World) {
+		const ids = await shoot(w);
+		const ref = (size: number, blobId: string): BlobRef => ({ table: 'slate', recordId: 's1', blobId, size, type: 'image/png', variant: 'diagram', recordRemoteId: ids.s1 });
+		return { slate: ids.s1 as number, ref };
+	}
+	const diagrams = (w: World, slate: number) => (w.fpt.rows.get(`Slate:${slate}`)!.values.sg_setup_diagram as { id: number }[] | undefined) ?? [];
+	async function upload(w: World, ref: BlobRef): Promise<RemoteId | undefined> {
+		const s = await w.transport.beginUpload(ref);
+		const part = await w.transport.uploadPart(s, { index: 0, data: png(ref.size) });
+		return (await w.transport.finishUpload(s, [part])).remoteId;
+	}
+
+	it('goes up as an Attachment in the slate’s setup diagram field, named for the slate', async () => {
+		const w = world();
+		const s = await slate(w);
+		const ref = s.ref(4000, 'b-dg1');
+		const id = await upload(w, ref);
+		const init = w.fpt.requests.find((r) => r.path.endsWith('/_upload') && r.method === 'GET')!;
+		expect(init.path).toBe(`/api/v1/entity/slates/${s.slate}/sg_setup_diagram/_upload`);
+		expect(init.query.get('filename')).toBe('onset_diagram_s1_b-dg1.png');
+		const row = attachments(w).find((a) => a.id === id)!;
+		expect(row.values).toMatchObject({ filename: 'onset_diagram_s1_b-dg1.png', display_name: 'Setup diagram' });
+		expect(await w.transport.verifyUpload(ref, id)).toEqual({ verified: true, remoteId: id });
+		expect(diagrams(w, s.slate).map((r) => r.id)).toEqual([id]);
+	});
+
+	it('shows one diagram on the slate once it is drawn again: the old image leaves the field, kept', async () => {
+		const w = world();
+		const s = await slate(w);
+		const first = s.ref(4000, 'b-dg1');
+		const second = s.ref(4100, 'b-dg2');
+		const old = await upload(w, first);
+		await w.transport.verifyUpload(first, old);
+		const neu = await upload(w, second);
+		expect(await w.transport.verifyUpload(second, neu)).toEqual({ verified: true, remoteId: neu });
+		expect(diagrams(w, s.slate).map((r) => r.id)).toEqual([neu]);
+		expect(attachments(w).map((a) => a.id)).toContain(old);
+		// A late check of the old image leaves it off.
+		expect(await w.transport.verifyUpload(first, old)).toMatchObject({ verified: true });
+		expect(diagrams(w, s.slate).map((r) => r.id)).toEqual([neu]);
+	});
+
+	it('waits for its slate on the server', async () => {
+		const w = world();
+		const ref: BlobRef = { table: 'slate', recordId: 's1', blobId: 'b', size: 10, type: 'image/png', variant: 'diagram' };
+		expect(await kindOf(w.transport.beginUpload(ref))).toBe('failed');
+	});
+});
+
 describe('upload', () => {
 	it('sends a photo in one PUT, as an Attachment in the stills field of its take', async () => {
 		const w = world();
@@ -809,6 +861,83 @@ describe('upload', () => {
 		expect(init.path).toBe(`/api/v1/entity/custom_entity09s/${s.take}/sg_photos/_upload`);
 		expect(init.query.get('filename')).toBe('onset_ph1_b-ph1.jpg');
 		expect(init.query.get('multipart_upload')).toBeNull();
+	});
+
+	it('sends the annotated copy beside the photo, named with an -annotated suffix, and finds both again', async () => {
+		const w = world();
+		const s = await still(w, 'ph1', { caption: 'Chart' });
+		const original = s.ref(1200);
+		const copy: BlobRef = { ...s.ref(900, 'b-flat'), variant: 'annotated' };
+		await send(w, original);
+		const sent = await send(w, copy);
+		const row = attachments(w).find((a) => a.id === sent.remoteId)!;
+		expect(row.values).toMatchObject({ filename: 'onset_ph1_b-flat-annotated.jpg', display_name: 'Photo 2026-11-11T09:01:02.000Z annotated', description: 'Chart' });
+		expect(stills(w, s.take)).toHaveLength(2);
+		expect(await w.transport.verifyUpload(copy, sent.remoteId)).toEqual({ verified: true, remoteId: row.id });
+		expect(await w.transport.verifyUpload(original)).toMatchObject({ verified: true });
+		// The still is found back by either file, with its capture time.
+		const [found] = await w.transport.lookup([{ table: 'still', id: 'ph1' }]);
+		expect(found.remoteId).toBe(encodeStillRemote({ take: s.take, capturedAt: '2026-11-11T09:01:02.000Z', caption: 'Chart' }));
+	});
+
+	it('shows one annotated copy on the take once the photo is drawn on again: the old copy leaves the field, kept, in one batch', async () => {
+		const w = world();
+		const s = await still(w, 'ph1');
+		const original = s.ref(1200);
+		const first: BlobRef = { ...s.ref(900, 'b-flat1'), variant: 'annotated' };
+		const second: BlobRef = { ...s.ref(950, 'b-flat2'), variant: 'annotated' };
+		const photo = await send(w, original);
+		await w.transport.verifyUpload(original, photo.remoteId);
+		const old = await send(w, first);
+		expect(await w.transport.verifyUpload(first, old.remoteId)).toEqual({ verified: true, remoteId: old.remoteId });
+		expect(stills(w, s.take).map((r) => r.id)).toEqual([photo.remoteId, old.remoteId]);
+
+		const neu = await send(w, second);
+		w.fpt.requests.length = 0;
+		expect(await w.transport.verifyUpload(second, neu.remoteId)).toEqual({ verified: true, remoteId: neu.remoteId });
+		expect(stills(w, s.take).map((r) => r.id)).toEqual([photo.remoteId, neu.remoteId]);
+		// The old copy is off the field, not deleted: an Artist may not delete an Attachment (findings/143).
+		expect(attachments(w).map((a) => a.id)).toContain(old.remoteId);
+		// The mode goes in the body, in a batch (recipes/009, findings/154).
+		const batch = batches(w).at(-1)!.body as { requests: { data: Record<string, { multi_entity_update_mode: string; value: { id: number }[] }> }[] };
+		expect(batch.requests.map((r) => r.data.sg_photos)).toEqual([{ multi_entity_update_mode: 'remove', value: [{ type: 'Attachment', id: old.remoteId }] }]);
+	});
+
+	it('does not bring an older annotated copy back when it is checked late', async () => {
+		const w = world();
+		const s = await still(w, 'ph1');
+		const first: BlobRef = { ...s.ref(900, 'b-flat1'), variant: 'annotated' };
+		const second: BlobRef = { ...s.ref(950, 'b-flat2'), variant: 'annotated' };
+		await send(w, s.ref(1200));
+		const old = await send(w, first);
+		const neu = await send(w, second);
+		await w.transport.verifyUpload(second, neu.remoteId);
+		// The older copy's check comes after: it is on Flow PT, so it is done, and it stays off the field.
+		expect(await w.transport.verifyUpload(first, old.remoteId)).toEqual({ verified: true, remoteId: old.remoteId });
+		expect(stills(w, s.take).map((r) => r.id)).not.toContain(old.remoteId);
+		expect(stills(w, s.take).map((r) => r.id)).toContain(neu.remoteId);
+	});
+
+	it('puts the newest annotated copy back on the field when it is missing there', async () => {
+		const w = world();
+		const s = await still(w, 'ph1');
+		const copy: BlobRef = { ...s.ref(900, 'b-flat1'), variant: 'annotated' };
+		const sent = await send(w, copy);
+		// Someone took it off in the web interface.
+		w.fpt.rows.get(`CustomEntity09:${s.take}`)!.values.sg_photos = [];
+		expect(stills(w, s.take)).toEqual([]);
+		expect(await w.transport.verifyUpload(copy, sent.remoteId)).toMatchObject({ verified: true });
+		expect(stills(w, s.take).map((r) => r.id)).toEqual([sent.remoteId]);
+	});
+
+	it('writes a new caption on the photo and on its annotated copy', async () => {
+		const w = world();
+		const s = await still(w, 'ph1', { caption: 'Chart' });
+		await send(w, s.ref(1200));
+		await send(w, { ...s.ref(900, 'b-flat'), variant: 'annotated' });
+		const edit = update('still', 'ph1', s.remote, { caption: ['Chart', 'Grey ball'] });
+		expect(await w.transport.push([edit])).toMatchObject({ outcome: 'applied' });
+		expect(attachments(w).map((a) => a.values.description)).toEqual(['Grey ball', 'Grey ball']);
 	});
 
 	// corpus findings/044_multipart_upload.md.

@@ -408,11 +408,15 @@ writes the plan's folder entries that way, and its test reads the entry back.
 - Windows' Extract All fails on a path past 260 characters. Each name part is 60 at most; a long
   project name, slate, kind and reference name together, unzipped deep in a folder, can pass it.
 
-### Adding a kind of file (#86, #87)
+### Adding a kind of file (#94, #89, #86, #87)
 
 A slate folder holds the files of its takes and its own files. Videos (#94), audio notes (#89)
-and annotated copies (#86) are a take's; the setup diagram (#87) is the slate's own. Audio notes
-went this way: `audioFileName`, `Media` `audio`, `Audio note`, `FlatTake.audioNotes`. To add one:
+and annotated copies (#86) are a take's; the setup diagram (#87) is the slate's own. Annotated
+copies are in: media `annotated`, after their photo in `takeFiles`, manifest word "Annotated
+photo". The setup diagram is in: media `diagram` in `slateFiles`, drawn as the package is
+written (`diagramId` on the file, a branch in `read`), manifest word "Setup diagram". Audio notes
+are in: media `audio`, after the take's photos in `takeFiles`, read from `FlatTake.audioNotes`,
+named by `audioFileName`, manifest word "Audio note". To add one:
 
 1. Name it in `naming.ts`, next to `photoFileName`. The name must be unique in the slate folder:
    number it per slate and camera as photos are, or build it from the photo it copies

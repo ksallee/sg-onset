@@ -46,6 +46,11 @@ enforces the parts a test can check.
 | Audio note | | A note spoken into the microphone from the take sheet, kept on the take as the browser wrote it. | `still`, an audio file | | Version, linked to the take |
 | Reference | | One thing captured for the slate on another device, logged by name: an HDRI, a scan, a witness clip. The file stays on that device. | `reference` | VES 2.1, 4.2, 5.1 | Set Reference |
 | Reference kind | | What a reference is: HDRI 360, 360 video, HDR reference, Witness camera, Lidar scan, Textured model, Photogrammetry, Splat, Other, or a kind the project adds. | `reference.kind` | | Kind |
+| Drawing | | What is drawn over a photo: lines, text and measurements. Kept beside the photo, which stays as taken. | `markup` | | |
+| Annotated copy | | The photo with its drawing on it, one image. Sent to Flow PT and put in the wrap package beside the photo, its name ending "-annotated". | `variant: 'annotated'` | | Photos |
+| Measurement | | A dimension line on a drawing with the length typed for it. | `dimension` | | |
+| Setup diagram | | A slate's sketch from above: where the cameras, the subject, the lights and the markers stand, with measurements. One per slate. | `diagram` | | |
+| Subject, Light, Marker | | The symbols of a setup diagram beside the cameras: who is filmed, a light, a tracking marker. | `symbol` | | |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
 | Change | | One edit waiting to sync. | outbox entry | | |
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
@@ -187,6 +192,7 @@ gives.
 | Photo | Takes a reference photo for the take. | Still, Ref |
 | Add Photos or Videos | In the take sheet: picks photos and videos from the photo library or Files for the take. | Import, Upload: Upload is a sync word |
 | Add Audio Note, Save Audio Note | In the take sheet: one row that opens the microphone, then keeps what it heard. Closing the sheet keeps it too. | Record, Stop: banned, Start and End are the take's; Voice memo: Apple's app |
+| Move, Draw, Text, Measure | The drawing's tools: pick and move, draw a line, write, draw a dimension line and type its length. | Pen, Annotate, Dimension |
 | Undo, Redo | Reverse the last edit. | |
 | Sync | Send changes to Flow PT and read back. | Upload, Push |
 | All synced | Nothing waits, signed in. | |

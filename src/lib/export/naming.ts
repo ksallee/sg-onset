@@ -143,14 +143,22 @@ function slateCamera(slate: string, cameraLetter: string): string {
 	return parts.filter((p) => p !== '').join('-');
 }
 
-/** CRIF: the slate and camera letter with whitespace removed, then "-reference-N". */
-export function photoFileName(slate: string, cameraLetter: string, n: number, ext: string): string {
-	return `${slateCamera(slate, cameraLetter)}-reference-${n}.${ext}`;
+/**
+ * CRIF: the slate and camera letter with whitespace removed, then "-reference-N". The annotated
+ * copy of a photo, its drawing flattened on it, takes the same name with "-annotated".
+ */
+export function photoFileName(slate: string, cameraLetter: string, n: number, ext: string, annotated = false): string {
+	return `${slateCamera(slate, cameraLetter)}-reference-${n}${annotated ? '-annotated' : ''}.${ext}`;
 }
 
 /** An audio note (#89). CRIF names none: the photos' form, "-audio-note-N". */
 export function audioFileName(slate: string, cameraLetter: string, n: number, ext: string): string {
 	return `${slateCamera(slate, cameraLetter)}-audio-note-${n}.${ext}`;
+}
+
+/** A slate's setup diagram (#87): the slate with whitespace removed, then "-setup-diagram.png". */
+export function diagramFileName(slate: string): string {
+	return `${slug(slate.replace(/\s+/g, ''), 'slate')}-setup-diagram.png`;
 }
 
 const MIME_EXT: Record<string, string> = {

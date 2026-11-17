@@ -10,18 +10,21 @@
 
 import type { Project, Reference, ShootDay, Slate } from '$lib/model/types';
 import type { BlobMeta } from '$lib/store/types';
-import { audioFileName, exportFileName, extensionFor, folderName, kindFolders, manifestFileName, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
+import { audioFileName, diagramFileName, exportFileName, extensionFor, folderName, kindFolders, manifestFileName, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
 import { referencesBySlate, type FlatTake } from './selection';
 import { slateManifest } from './slateManifest';
 
 /** What the plan needs of a stored file: `BlobMeta` without the sync fields. */
-export type PhotoBlob = Pick<BlobMeta, 'id' | 'recordId' | 'type' | 'size' | 'createdAt' | 'name' | 'prunedAt'>;
+export type PhotoBlob = Pick<BlobMeta, 'id' | 'recordId' | 'type' | 'size' | 'createdAt' | 'name' | 'prunedAt' | 'variant'>;
 
 /**
- * What a file in a slate's folder is: a photo (a video is one too, #94), an audio note (#89).
- * Annotated copies (#86) of a take, and the setup diagram (#87) of a slate, add theirs.
+ * What a file in a slate's folder is: a photo (a video is one too, #94), a photo's annotated
+ * copy, its drawing flattened on it (#86), an audio note (#89), or the slate's setup diagram (#87).
  */
-export type Media = 'photo' | 'audio';
+export type Media = 'photo' | 'annotated' | 'audio' | 'diagram';
+
+/** About what a setup diagram's PNG weighs, until it is drawn as the package is written. */
+export const DIAGRAM_BYTES = 120_000;
 
 /** A file in a slate's folder: one of a take's, or the slate's own. Its bytes are a stored file. */
 export type SlateFile = {
@@ -30,9 +33,11 @@ export type SlateFile = {
 	name: string;
 	mime: string;
 	size: number;
-	/** The stored file, read with `store.blob(id)`. */
+	/** The stored file, read with `store.blob(id)`. Empty for a file drawn as the package is written. */
 	blobId: string;
-	/** The record it is the file of: a still, a photo's or an audio note's. */
+	/** A setup diagram, drawn from its data as the package is written (#87). */
+	diagramId?: string;
+	/** The record it is the file of: a still, a photo's or an audio note's; a slate for its diagram. */
 	recordId: string;
 	/** The bytes left the device after Flow PT verified them: fetch them or skip the file. */
 	pruned: boolean;
@@ -56,7 +61,7 @@ export type SlateFolder = {
 	name: string;
 	/** Its takes in the package, in order, each with its files. */
 	takes: TakeFolder[];
-	/** The slate's own files, a take's none. None yet: the setup diagram (#87) goes here. */
+	/** The slate's own files, a take's none: its setup diagram (#87). */
 	files: SlateFile[];
 	/** Its set references, in the order logged. */
 	references: ReferenceFolder[];
@@ -99,6 +104,8 @@ export type WrapOptions = {
 	projectKinds?: readonly string[];
 	/** A reference kind as the app shows it, for the manifests. Absent: the kind as stored. */
 	kindLabel?: (kind: string) => string;
+	/** The setup diagrams with something drawn on them, one per slate (#87). */
+	diagrams?: readonly { id: string; slateId: string }[];
 };
 
 /** What `takeFiles` and `slateFiles` read. One per package: the photo numbers run across it. */
@@ -107,61 +114,112 @@ export type FileContext = {
 	photos: boolean;
 	/** The first stored file of each record: later ones are derived, such as a thumbnail. */
 	firstBlob: Map<string, PhotoBlob>;
+	/** The annotated copy of each photo that has one, by still id (#86). */
+	annotated: Map<string, PhotoBlob>;
+	/** The setup diagram of each slate that has one, by slate id (#87). */
+	diagrams: Map<string, string>;
 	/** The next number per slate and camera, of photos and of audio notes. */
 	counters: Map<string, number>;
 	/** Records with no stored file. */
 	missing: string[];
 };
 
-/** The first stored file of each record, by record id. */
+const byAge = (a: PhotoBlob, b: PhotoBlob) => a.createdAt - b.createdAt || a.id.localeCompare(b.id);
+
+/** The first stored file of each record, by record id. A copy made from it never is. */
 export function firstBlobs(blobs: readonly PhotoBlob[]): Map<string, PhotoBlob> {
 	const first = new Map<string, PhotoBlob>();
-	for (const b of [...blobs].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))) if (!first.has(b.recordId)) first.set(b.recordId, b);
+	for (const b of [...blobs].sort(byAge)) if (b.variant === undefined && !first.has(b.recordId)) first.set(b.recordId, b);
 	return first;
 }
 
 /**
- * A take's files, as they sit in its slate's folder: its photos, named as CRIF names them, then
- * its audio notes (#89), named in the same form. Each numbered per slate and camera in take order,
- * then the order taken. A later kind of file of a take (an annotated copy) is added here. The audio
- * notes follow the Photos switch, as videos do.
+ * The annotated copy of each photo, by still id: the newest. Pass only the copies that match
+ * their drawing (`$lib/draw/markup` `currentFiles`).
+ */
+export function annotatedBlobs(blobs: readonly PhotoBlob[]): Map<string, PhotoBlob> {
+	const copies = new Map<string, PhotoBlob>();
+	for (const b of [...blobs].sort(byAge)) if (b.variant === 'annotated') copies.set(b.recordId, b);
+	return copies;
+}
+
+/**
+ * A take's files, as they sit in its slate's folder: its photos, named as CRIF names them and
+ * numbered per slate and camera in take order, then the order taken. A photo's annotated copy
+ * follows it, under its name with "-annotated" (#86). Then its audio notes (#89), in the photos'
+ * form, `-audio-note-N`, numbered the same way on their own. The audio notes follow the Photos
+ * switch, as videos do.
  */
 export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
 	const files: SlateFile[] = [];
 	if (!ctx.photos) return files;
 	const slate = row.slate.slateUID ?? '';
-	const lists = [
-		{ media: 'photo', stills: row.stills, name: photoFileName },
-		{ media: 'audio', stills: row.audioNotes, name: audioFileName }
-	] as const;
-	for (const { media, stills, name } of lists) {
-		for (const still of stills) {
-			const blob = ctx.firstBlob.get(still.id);
-			if (!blob) {
-				ctx.missing.push(still.id);
-				continue;
-			}
-			const key = `${row.slate.id}:${name(slate, row.cameraLetter, 0, '').toLowerCase()}`;
-			const n = (ctx.counters.get(key) ?? 0) + 1;
-			ctx.counters.set(key, n);
+	/** The next number of a kind of file, per slate and camera. */
+	const next = (name: typeof photoFileName | typeof audioFileName) => {
+		const key = `${row.slate.id}:${name(slate, row.cameraLetter, 0, '').toLowerCase()}`;
+		const n = (ctx.counters.get(key) ?? 0) + 1;
+		ctx.counters.set(key, n);
+		return n;
+	};
+	for (const still of row.stills) {
+		const blob = ctx.firstBlob.get(still.id);
+		if (!blob) {
+			ctx.missing.push(still.id);
+			continue;
+		}
+		const n = next(photoFileName);
+		files.push({
+			media: 'photo',
+			name: photoFileName(slate, row.cameraLetter, n, extensionFor(blob.type, blob.name)),
+			mime: blob.type,
+			size: blob.size,
+			blobId: blob.id,
+			recordId: still.id,
+			pruned: blob.prunedAt !== undefined,
+			...(still.caption ? { caption: still.caption } : {})
+		});
+		const copy = ctx.annotated.get(still.id);
+		if (copy) {
 			files.push({
-				media,
-				name: name(slate, row.cameraLetter, n, extensionFor(blob.type, blob.name)),
-				mime: blob.type,
-				size: blob.size,
-				blobId: blob.id,
+				media: 'annotated',
+				name: photoFileName(slate, row.cameraLetter, n, extensionFor(copy.type, copy.name), true),
+				mime: copy.type,
+				size: copy.size,
+				blobId: copy.id,
 				recordId: still.id,
-				pruned: blob.prunedAt !== undefined,
+				pruned: copy.prunedAt !== undefined,
 				...(still.caption ? { caption: still.caption } : {})
 			});
 		}
 	}
+	for (const note of row.audioNotes) {
+		const blob = ctx.firstBlob.get(note.id);
+		if (!blob) {
+			ctx.missing.push(note.id);
+			continue;
+		}
+		files.push({
+			media: 'audio',
+			name: audioFileName(slate, row.cameraLetter, next(audioFileName), extensionFor(blob.type, blob.name)),
+			mime: blob.type,
+			size: blob.size,
+			blobId: blob.id,
+			recordId: note.id,
+			pruned: blob.prunedAt !== undefined,
+			...(note.caption ? { caption: note.caption } : {})
+		});
+	}
 	return files;
 }
 
-/** A slate's own files, a take's none. None yet: the setup diagram (#87) is added here. */
-export function slateFiles(_slate: Slate, _ctx: FileContext): SlateFile[] {
-	return [];
+/**
+ * A slate's own files, a take's none: its setup diagram (#87), drawn as the package is written. It
+ * goes whether the photos do or not: it is small, and it is the slate's, not a photo.
+ */
+export function slateFiles(slate: Slate, ctx: FileContext): SlateFile[] {
+	const diagramId = ctx.diagrams.get(slate.id);
+	if (!diagramId) return [];
+	return [{ media: 'diagram', name: diagramFileName(slate.slateUID ?? ''), mime: 'image/png', size: DIAGRAM_BYTES, blobId: '', diagramId, recordId: slate.id, pruned: false }];
 }
 
 type Group = { slate: Slate; rows: FlatTake[]; references: Reference[] };
@@ -188,6 +246,8 @@ function groupBySlate(rows: readonly FlatTake[], options: WrapOptions): Group[] 
  *       <slate>/
  *         <slate>_manifest.csv              its takes, files and references
  *         <slate>-<camera>-reference-<n>.<ext>
+ *         <slate>-<camera>-reference-<n>-annotated.jpg   the photo with its drawing (#86)
+ *         <slate>-setup-diagram.png         the slate's setup diagram (#87)
  *         <kind>/<reference>/               empty, for what was shot on another device
  *
  * A slate gets a folder when it has a take in the rows or a set reference. Names come from
@@ -202,7 +262,7 @@ export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapP
 		{ kind: 'ale', path: file('editorial'), mime: 'text/plain' },
 		{ kind: 'json', path: file('data'), mime: 'application/json' }
 	];
-	const ctx: FileContext = { photos: options.photos !== false, firstBlob: firstBlobs(options.blobs), counters: new Map(), missing: [] };
+	const ctx: FileContext = { photos: options.photos !== false, firstBlob: firstBlobs(options.blobs), annotated: annotatedBlobs(options.blobs), diagrams: new Map((options.diagrams ?? []).map((d) => [d.slateId, d.id])), counters: new Map(), missing: [] };
 	const groups = groupBySlate(rows, options);
 	const kindFolder = kindFolders(
 		groups.flatMap((g) => g.references.map((r) => r.kind ?? '')),

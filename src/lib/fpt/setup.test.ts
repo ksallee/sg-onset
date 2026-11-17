@@ -78,6 +78,7 @@ describe('checkSetup', () => {
 		});
 		expect(fpt.fields.CustomEntity09.sg_onset_uuid.unique?.value).toBe(true);
 		expect(fpt.fields.CustomEntity09.sg_photos.properties?.valid_types?.value).toEqual(['Attachment']);
+		expect(fpt.fields.Slate.sg_setup_diagram.properties?.valid_types?.value).toEqual(['Attachment']);
 		expect(fpt.fields.CustomEntity09.sg_slate.properties?.valid_types?.value).toEqual(['Slate']);
 		expect(fpt.fields.CustomEntity09.sg_circled.data_type.value).toBe('checkbox');
 	});

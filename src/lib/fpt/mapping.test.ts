@@ -208,11 +208,23 @@ describe('wantedColumns', () => {
 
 	// Kevin, #117: a site without Set Shot syncs the rest; the Set Shot and the links to it wait.
 	it('makes the Set Shot optional, with its fields and the slate field that links it', () => {
-		expect(OPTIONAL_SCOPES).toEqual(['setShot']);
+		expect(OPTIONAL_SCOPES).toContain('setShot');
 		for (const column of wantedColumns('setShot')) expect(isOptionalColumn('setShot', column)).toBe(true);
 		expect(isOptionalColumn('slate', SET_SHOTS)).toBe(true);
 		expect(isOptionalColumn('slate', SHOTS)).toBe(false);
 		expect(isOptionalColumn('take', UUID)).toBe(false);
+	});
+
+	// Kevin, #117: Set Reference is optional too. Its records wait on the device; no other record
+	// links one, so nothing else waits with them.
+	it('makes the Set Reference optional, with every field of it, its links to slates included', () => {
+		expect(OPTIONAL_SCOPES).toEqual(['setShot', 'reference']);
+		for (const column of wantedColumns('reference')) expect(isOptionalColumn('reference', column)).toBe(true);
+		expect(isOptionalColumn('reference', REFERENCE_SLATES)).toBe(true);
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'reference')) {
+			expect(wantedColumns(scope).filter((c) => c.target === 'reference')).toEqual([]);
+		}
+		expect(isOptionalColumn('slate', SHOTS)).toBe(false);
 	});
 
 	it('tells the scopes of records on the device from the Set Shot', () => {

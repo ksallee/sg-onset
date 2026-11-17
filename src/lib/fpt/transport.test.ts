@@ -853,6 +853,42 @@ describe('the Slates a set reference shows on (#107)', () => {
 	});
 });
 
+// Kevin, #117: Set Reference is optional. On a site without it the engine keeps the references
+// waiting on the device (app/sync/waiting.ts) and everything else syncs. Should one reach the
+// transport all the same, it is never sent blind: it is refused in plain words, alone.
+describe('a site without Set Reference (#117)', () => {
+	const reference = (s1: RemoteId) => create('reference', 'r1', { slateId: 's1', kind: 'hdri360', name: 'HDRI_0412', loggedAt: '2026-11-11T10:00:00.000Z' }, { s1 });
+
+	it('syncs the day, the slate and the take, and refuses a set reference in plain words, sending nothing for it', async () => {
+		const w = world();
+		delete w.fpt.types.CustomEntity21;
+		const ids = await shoot(w);
+		expect(w.fpt.byUuid('Slate', 's1')).toBeDefined();
+		const before = batches(w).length;
+		const r1 = reference(ids.s1);
+		const s2 = create('slate', 's2', { shootDayId: 'd1', slateUID: '42B' }, { d1: ids.d1 });
+		expect(await w.transport.push([s2, r1])).toEqual({
+			outcome: 'refused',
+			refusals: [{ entryId: r1.entryId, reason: 'invalid', message: 'This Flow PT site has no Set Reference entity yet. Once an admin enables it and runs Set Up Fields, tap Try Again.' }]
+		});
+		expect(batches(w).length).toBe(before);
+		// The slate goes on its own.
+		await applied(w, [s2]);
+		expect(w.fpt.byUuid('Slate', 's2')).toBeDefined();
+	});
+
+	it('finds, reads and links no set reference, and asks Flow PT nothing about one', async () => {
+		const w = world();
+		delete w.fpt.types.CustomEntity21;
+		await shoot(w);
+		const before = w.fpt.requests.length;
+		expect(await w.transport.lookup([{ table: 'reference', id: 'r1' }])).toEqual([]);
+		expect(await w.transport.read([{ table: 'reference', id: 'r1', remoteId: 7, keys: ['name'] }])).toEqual([]);
+		expect(await w.transport.linkReferenceSlates([{ reference: 'r1', remoteId: 7, slates: [1] }])).toBeUndefined();
+		expect(w.fpt.requests.slice(before).filter((r) => r.path.includes('custom_entity21'))).toEqual([]);
+	});
+});
+
 describe('lookup', () => {
 	it('finds records by client UUID, across tables, and leaves out the ones the server lacks', async () => {
 		const w = world();

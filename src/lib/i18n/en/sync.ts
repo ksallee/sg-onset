@@ -98,10 +98,15 @@ export const sync = {
 	'sync.setShots.waiting': 'Slates waiting',
 	'sync.setShots.footer':
 		'This Flow PT site has no Set Shot entity. An admin enables a custom entity named Set Shot, then runs Set Up Fields. Until then the VFX shot codes stay as text on their slates, and their Set Shots and Shot links wait. Everything else syncs.',
+	'sync.references.header': 'Set References',
+	'sync.references.waiting': 'References waiting',
+	'sync.references.footer':
+		'This Flow PT site has no Set Reference entity. An admin enables a custom entity named Set Reference, then runs Set Up Fields. Until then the references and their links to slates wait on this device. Everything else syncs.',
 
 	'sync.refused.create': "This Flow PT account can't create {things}. Ask an Admin for the permission.",
 	'sync.refused.update': "This Flow PT account can't change {things}. Ask an Admin for the permission.",
 	'sync.refused.delete': "This Flow PT account can't delete {things}. Ask an Admin for the permission.",
+	'sync.refused.missing': 'This Flow PT site has no {entity} entity yet. Once an admin enables it and runs Set Up Fields, tap Try Again.',
 	'sync.things.shootDay': 'Shoot Days',
 	'sync.things.slate': 'Slates',
 	'sync.things.take': 'Takes',

@@ -94,6 +94,13 @@ Use a test project on the site, never a show.
   `Video <time>`, with **Link** the take, the file `onset_video_<photo>_<file>.mov` in
   **Uploaded Movie**, and the player plays each once transcoded. **Photos** on the take does not
   hold them. Delete one in the app: its Version goes. Note how long the large one took.
+- **Audio notes (#89).** On the iPad in Safari, and in Chrome on a laptop. In the take sheet,
+  **Add Audio Note**: allow the microphone, speak ten seconds, **Save Audio Note**. It plays in
+  the sheet. Make a second one and close the sheet while it runs: it is kept. In Flow PT, the
+  Take's Versions show `Audio note <time>`, the file `onset_audio_<note>_<file>.m4a` from Safari
+  (`.webm` from a browser with no AAC) in **Uploaded Movie**, no thumbnail (findings/152). Note
+  whether the web player plays it once transcoded, and the type Safari wrote (the file's
+  extension). Lock the screen while one runs: say whether it was kept.
 
 ## What to send back
 

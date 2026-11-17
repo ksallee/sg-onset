@@ -1,7 +1,10 @@
-// The flattened copy of a photo: the photo, then its drawing painted over it, as a JPEG at the
-// photo's own size. The browser edge of the flattener: it decodes, paints and encodes. The
-// geometry and the paint order are pure (geometry.ts, paint.ts); the e2e test covers this.
+// Drawings made into images. The flattened copy of a photo: the photo, then its drawing painted
+// over it, as a JPEG at the photo's own size. A setup diagram: a PNG of its sheet. The browser
+// edge: it decodes, paints and encodes. The geometry and the paint order are pure (geometry.ts,
+// paint.ts); the e2e tests cover this.
 
+import { cameraCaptions, cameraFov, DIAGRAM_REACH, placeCameras, type Diagram, type SlateCamera } from './diagram';
+import { styleFor } from './drawing';
 import { flatSize } from './geometry';
 import type { Markup } from './markup';
 import { paint, typedText } from './paint';
@@ -22,6 +25,30 @@ async function decode(photo: Blob): Promise<HTMLImageElement> {
 	}
 }
 
+async function encode(canvas: HTMLCanvasElement, type: 'image/jpeg' | 'image/png'): Promise<Blob> {
+	const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, 0.9));
+	canvas.width = canvas.height = 0;
+	if (!blob) throw new Error('The canvas gave no image');
+	return blob;
+}
+
+/**
+ * A slate's setup diagram as a PNG at its own size (#87): the white sheet, the fields of view, the
+ * shapes, the slate's cameras placed where the person left them or where they place themselves.
+ */
+export async function flattenDiagram(diagram: Diagram, cameras: readonly SlateCamera[]): Promise<Blob> {
+	const canvas = document.createElement('canvas');
+	canvas.width = diagram.width;
+	canvas.height = diagram.height;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) throw new Error('No 2D canvas');
+	ctx.fillStyle = '#ffffff';
+	ctx.fillRect(0, 0, diagram.width, diagram.height);
+	const shapes = placeCameras(diagram.shapes, cameras, diagram, styleFor(diagram).symbol);
+	paint(ctx, shapes, { value: typedText, captions: cameraCaptions(cameras), fov: cameraFov(cameras), reach: DIAGRAM_REACH });
+	return encode(canvas, 'image/png');
+}
+
 export async function flattenPhoto(photo: Blob, markup: Markup): Promise<Blob> {
 	const img = await decode(photo);
 	const size = flatSize(img.naturalWidth, img.naturalHeight, MAX_PIXELS);
@@ -34,8 +61,5 @@ export async function flattenPhoto(photo: Blob, markup: Markup): Promise<Blob> {
 	ctx.scale(size.width / markup.width, size.height / markup.height);
 	// A measurement shows as it was typed: the image is a note, whatever the units setting.
 	paint(ctx, markup.shapes, { value: typedText });
-	const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-	canvas.width = canvas.height = 0;
-	if (!blob) throw new Error('The canvas gave no image');
-	return blob;
+	return encode(canvas, 'image/jpeg');
 }

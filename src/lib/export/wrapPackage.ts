@@ -24,7 +24,9 @@ export type WrapEntry =
 			pruned: boolean;
 			/** The photo with its drawing flattened on it (#86), beside the photo itself. */
 			annotated: boolean;
-	  };
+	  }
+	/** A slate's setup diagram (#87), made into an image as the package is written. */
+	| { kind: 'diagram'; path: string; mime: string; diagramId: string; slateId: string };
 
 export type WrapPlan = {
 	/** The folder everything sits in. */
@@ -42,6 +44,8 @@ export type WrapOptions = {
 	blobs: readonly PhotoBlob[];
 	/** Include the photos. Default true. */
 	photos?: boolean;
+	/** The setup diagrams kept: one per slate. Each slate of the rows that has one gets its image. */
+	diagrams?: readonly { id: string; slateId: string }[];
 };
 
 /**
@@ -54,12 +58,14 @@ export type WrapOptions = {
  *       <project>_<day>_data.json           JSON
  *       photos/<slate>/take-<take>/<slate>-<camera>-reference-<n>.<ext>
  *       photos/<slate>/take-<take>/<slate>-<camera>-reference-<n>-annotated.jpg
+ *       diagrams/<slate>-setup-diagram.png
  *
  * Photos are numbered per slate and camera, in take order then the order taken, so each name is
  * unique in its slate as CRIF asks. A photo's own file is the first stored that is not a copy;
  * other plain files are derived, such as a thumbnail, and left out. An annotated copy (#86) goes
  * beside it under the same number: pass only the copies that match their drawing
- * (`$lib/draw/markup` `currentFiles`); of several, the newest goes.
+ * (`$lib/draw/markup` `currentFiles`); of several, the newest goes. A slate's setup diagram (#87)
+ * goes whether the photos do or not: it is small.
  */
 export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapPlan {
 	const root = packageName(options.project, options.shootDays);
@@ -71,7 +77,8 @@ export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapP
 		{ kind: 'json', path: file('data'), mime: 'application/json' }
 	];
 	const missingPhotos: string[] = [];
-	if (options.photos === false) return { root, entries, missingPhotos };
+	const diagrams = diagramEntries(rows, root, options.diagrams ?? []);
+	if (options.photos === false) return { root, entries: [...entries, ...diagrams], missingPhotos };
 
 	const firstBlob = new Map<string, PhotoBlob>();
 	const copyOf = new Map<string, PhotoBlob>();
@@ -109,5 +116,20 @@ export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapP
 			}
 		}
 	}
-	return { root, entries, missingPhotos };
+	return { root, entries: [...entries, ...diagrams], missingPhotos };
+}
+
+/** The setup diagrams of the slates in the rows, in slate order. */
+function diagramEntries(rows: readonly FlatTake[], root: string, diagrams: readonly { id: string; slateId: string }[]): WrapEntry[] {
+	const out: WrapEntry[] = [];
+	const seen = new Set<string>();
+	for (const row of rows) {
+		if (seen.has(row.slate.id)) continue;
+		seen.add(row.slate.id);
+		const diagram = diagrams.find((d) => d.slateId === row.slate.id);
+		if (!diagram) continue;
+		const slate = slug((row.slate.slateUID ?? '').replace(/\s+/g, ''), 'slate');
+		out.push({ kind: 'diagram', path: `${root}/diagrams/${slate}-setup-diagram.png`, mime: 'image/png', diagramId: diagram.id, slateId: row.slate.id });
+	}
+	return out;
 }

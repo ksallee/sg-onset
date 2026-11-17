@@ -4,13 +4,15 @@
 	// so what shows is what is exported. No interaction: the canvas and the thumbnails use it.
 	import { INKS, type Dimension, type Figure, type Shape, type Stroke } from '$lib/draw/drawing';
 	import { dimensionParts, figureLine, figureParts, paintOrder } from '$lib/draw/geometry';
-	import { FONT, haloOf } from '$lib/draw/paint';
+	import { FONT, FOV_EDGE, FOV_FILL, haloOf, wedges } from '$lib/draw/paint';
 
 	let {
 		shapes,
 		live,
 		value,
-		captions
+		captions,
+		fov,
+		reach
 	}: {
 		shapes: readonly Shape[];
 		/** The line being drawn. */
@@ -19,7 +21,12 @@
 		value: (d: Dimension) => string;
 		/** The words under a symbol. */
 		captions?: (f: Figure) => string[];
+		/** A camera symbol's field of view, drawn under everything as a wedge `reach` long. */
+		fov?: (f: Figure) => number | undefined;
+		reach?: number;
 	} = $props();
+
+	const cones = $derived(fov ? wedges(shapes, { value, fov, reach }) : []);
 
 	const ordered = $derived(paintOrder(live ? [...shapes, live] : shapes));
 	const flat = (pts: { x: number; y: number }[]) => pts.map((p) => `${p.x},${p.y}`).join(' ');
@@ -49,6 +56,16 @@
 {/snippet}
 
 <g class="shapes" fill="none" stroke-linecap="round" stroke-linejoin="round">
+	{#each cones as cone (cone.camera.id)}
+		<polygon
+			points={flat(cone.points)}
+			fill={INKS[cone.camera.ink]}
+			fill-opacity={FOV_FILL}
+			stroke={INKS[cone.camera.ink]}
+			stroke-opacity={FOV_EDGE}
+			stroke-width={figureLine(cone.camera) * 0.75}
+		/>
+	{/each}
 	{#each ordered as shape (shape.id)}
 		{#if shape.kind === 'stroke'}
 			<polyline points={pairs(shape.points)} stroke={INKS[shape.ink]} stroke-width={shape.width} />

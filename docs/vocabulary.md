@@ -45,6 +45,8 @@ enforces the parts a test can check.
 | Drawing | | What is drawn over a photo: lines, text and measurements. Kept beside the photo, which stays as taken. | `markup` | | |
 | Annotated copy | | The photo with its drawing on it, one image. Sent to Flow PT and put in the wrap package beside the photo, its name ending "-annotated". | `variant: 'annotated'` | | Photos |
 | Measurement | | A dimension line on a drawing with the length typed for it. | `dimension` | | |
+| Setup diagram | | A slate's sketch from above: where the cameras, the subject, the lights and the markers stand, with measurements. One per slate. | `diagram` | | |
+| Subject, Light, Marker | | The symbols of a setup diagram beside the cameras: who is filmed, a light, a tracking marker. | `symbol` | | |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
 | Change | | One edit waiting to sync. | outbox entry | | |
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |

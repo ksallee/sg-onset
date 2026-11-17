@@ -81,11 +81,13 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
 ## Tables
 
 - One per scope (`project`, `shootDay`, `lightingSetup`, `cameraSetup`, `slate`, `take`,
-  `camera`, `lens`), `still`, `template` and `markup`. Key `id`, index on the parent key.
+  `camera`, `lens`), `still`, `template`, `markup` and `diagram`. Key `id`, index on the parent key.
 - `template`: a live template, under its project (schema version 3). Kept on the device: it is in
   the backup and on the undo stack, and nothing is queued for it (`LOCAL_TABLES`).
 - `markup`: the drawing on a photo, under its still (schema version 4, #86). Kept on the device
   like a template. It reaches Flow PT as the still's annotated copy (below).
+- `diagram`: a slate's setup diagram, under its slate (schema version 5, #87). Kept on the device
+  like a template. The wrap package holds it as an image.
 - `blobs`: one row per file, without the bytes. `blobData`: the bytes. A file may be a copy of its
   record's first file: `variant: 'annotated'`, the photo with its drawing flattened on it, and
   `source`, the key of the drawing it was made from (`$lib/draw/markup`). Its upload carries the

@@ -3,7 +3,7 @@ import { flatten } from '$lib/export/selection';
 import { day3, input, project } from '$lib/export/testData';
 import type { PhotoBlob } from '$lib/export/wrapPackage';
 import { defaultChoice } from './choice';
-import { packagePlan } from './assembly';
+import { DIAGRAM_BYTES, packagePlan } from './assembly';
 
 const rows = flatten(input(), { shootDayIds: ['d3'] });
 const blobs: PhotoBlob[] = [
@@ -59,6 +59,15 @@ describe('packagePlan', () => {
 		]);
 		expect(p.photoBytes).toBe(3500);
 		expect(p.pruned).toEqual([{ takeId: 't42A2A', slate: '42A', take: '2', cameraLetter: 'A', count: 1 }]);
+	});
+
+	it('holds the setup diagrams last, sized by guess until they are drawn, photos or not', () => {
+		const slateId = rows.find((r) => r.slate.slateUID === '42A')!.slate.id;
+		const diagrams = [{ id: 'dg1', slateId }];
+		for (const choice of [defaultChoice(), { ...defaultChoice(), files: defaultChoice().files.filter((f) => f !== 'photos') }]) {
+			const p = packagePlan(rows, choice, { ...base, diagrams });
+			expect(p.entries.at(-1)).toEqual({ kind: 'diagram', path: 'Night-Train_2026-11-10-day03/diagrams/42A-setup-diagram.png', mime: 'image/png', size: DIAGRAM_BYTES, diagramId: 'dg1', slateId });
+		}
 	});
 
 	it('lists photos with no file at all', () => {

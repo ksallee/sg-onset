@@ -58,7 +58,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 4px;
+		gap: 2px;
 	}
 	.group + .group {
 		padding-top: 8px;
@@ -72,7 +72,7 @@
 		justify-content: center;
 		gap: 2px;
 		width: 68px;
-		min-height: 54px;
+		min-height: 48px;
 		border-radius: 12px;
 		color: var(--label);
 		font-size: 11px;

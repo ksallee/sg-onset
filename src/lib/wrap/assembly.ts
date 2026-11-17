@@ -11,7 +11,12 @@ import { zipSize } from './estimate';
 export type PackageEntry =
 	| { kind: TextKind | 'report'; path: string; mime: string; size: number }
 	/** `annotated`: a photo's copy with its drawing flattened on it (#86), beside the photo. */
-	| { kind: 'photo'; path: string; mime: string; size: number; blobId: string; annotated?: true };
+	| { kind: 'photo'; path: string; mime: string; size: number; blobId: string; annotated?: true }
+	/** A slate's setup diagram (#87), drawn into a PNG as the zip is written. Its size is a guess till then. */
+	| { kind: 'diagram'; path: string; mime: string; size: number; diagramId: string; slateId: string };
+
+/** About what a setup diagram's PNG weighs: a white sheet with a few lines on it. */
+export const DIAGRAM_BYTES = 120_000;
 
 /** Photos on one take that are in Flow PT only: their bytes were freed after it verified them. */
 export type PrunedTake = { takeId: string; slate: string; take: string; cameraLetter: string; count: number };
@@ -36,16 +41,18 @@ export type PackageSources = {
 	texts: Partial<Record<TextKind, string>>;
 	/** The day report as a page that stands alone. */
 	reportHtml?: string;
+	/** The setup diagrams kept, one per slate. */
+	diagrams?: readonly { id: string; slateId: string }[];
 };
 
 const encoder = new TextEncoder();
 
 export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sources: PackageSources): PackagePlan {
 	const photos = choice.files.includes('photos');
-	const plan = wrapPlan(rows, { project: sources.project, shootDays: sources.shootDays, blobs: sources.blobs, photos });
+	const plan = wrapPlan(rows, { project: sources.project, shootDays: sources.shootDays, blobs: sources.blobs, photos, diagrams: sources.diagrams ?? [] });
 	const entries: PackageEntry[] = [];
 	for (const e of plan.entries) {
-		if (e.kind === 'photo') continue;
+		if (e.kind === 'photo' || e.kind === 'diagram') continue;
 		const text = sources.texts[e.kind];
 		if (!choice.files.includes(e.kind) || text === undefined) continue;
 		entries.push({ kind: e.kind, path: e.path, mime: e.mime, size: encoder.encode(text).length });
@@ -67,6 +74,9 @@ export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sourc
 		}
 		photoBytes += e.size;
 		entries.push({ kind: 'photo', path: e.path, mime: e.mime, size: e.size, blobId: e.blobId, ...(e.annotated ? { annotated: true as const } : {}) });
+	}
+	for (const e of plan.entries) {
+		if (e.kind === 'diagram') entries.push({ kind: 'diagram', path: e.path, mime: e.mime, size: DIAGRAM_BYTES, diagramId: e.diagramId, slateId: e.slateId });
 	}
 	return { root: plan.root, fileName: `${plan.root}.zip`, entries, pruned: [...pruned.values()], missing: plan.missingPhotos, photoBytes, bytes: zipSize(entries) };
 }

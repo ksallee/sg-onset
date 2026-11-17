@@ -22,7 +22,7 @@ describe('VERSIONS', () => {
 			expect(stores[name]).toBeTypeOf('string');
 			expect((TABLES as readonly string[]).includes(name)).toBe(false);
 		}
-		expect(Object.keys(stores).sort()).toEqual([...TABLES.filter((t) => t !== 'template' && t !== 'markup'), ...INTERNAL_TABLES].sort());
+		expect(Object.keys(stores).sort()).toEqual([...TABLES.filter((t) => t !== 'template' && t !== 'markup' && t !== 'diagram'), ...INTERNAL_TABLES].sort());
 	});
 
 	it('adds the template table in version 3, and nothing else', () => {
@@ -31,6 +31,10 @@ describe('VERSIONS', () => {
 
 	it('adds the markup table, the drawings on photos, in version 4, and nothing else', () => {
 		expect(VERSIONS[3]).toEqual({ version: 4, stores: { markup: 'id, stillId' } });
+	});
+
+	it('adds the diagram table, the setup diagrams, in version 5, and nothing else', () => {
+		expect(VERSIONS[4]).toEqual({ version: 5, stores: { diagram: 'id, slateId' } });
 	});
 
 	it('adds the snapshot tables in their own version, and nothing else', () => {

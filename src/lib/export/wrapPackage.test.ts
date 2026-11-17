@@ -56,6 +56,17 @@ describe('wrapPlan', () => {
 		expect(photos[1]).toMatchObject({ blobId: 'b2flat', stillId: 'st2', annotated: true, mime: 'image/jpeg', size: 150 });
 	});
 
+	it('puts the setup diagram of each slate in the package as an image, photos or not', () => {
+		const rows = flatten(input(), { shootDayIds: ['d3'] });
+		const slateId = rows.find((r) => r.slate.slateUID === '42A')!.slate.id;
+		const diagrams = [{ id: 'dg1', slateId }, { id: 'dg9', slateId: 'elsewhere' }];
+		for (const photos of [true, false]) {
+			const p = wrapPlan(rows, { project, shootDays: [day3], blobs, diagrams, photos });
+			const found = p.entries.filter((x) => x.kind === 'diagram');
+			expect(found).toEqual([{ kind: 'diagram', path: 'Night-Train_2026-11-10-day03/diagrams/42A-setup-diagram.png', mime: 'image/png', diagramId: 'dg1', slateId }]);
+		}
+	});
+
 	it('names the photos that have no file at all', () => {
 		const p = wrapPlan(flatten(input(), { shootDayIds: ['d3'] }), { project, shootDays: [day3], blobs: blobs.filter((b) => b.recordId !== 'st3') });
 		expect(p.missingPhotos).toEqual(['st3']);

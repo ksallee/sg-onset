@@ -8,6 +8,9 @@ import type { App } from '$lib/app/app.svelte';
 import type { Current } from '$lib/app/current.svelte';
 import { live } from '$lib/app/live.svelte';
 import { settings } from '$lib/app/settings.svelte';
+import { slateCameras, type Diagram } from '$lib/draw/diagram';
+import { isBlank } from '$lib/draw/drawing';
+import { flattenDiagram } from '$lib/draw/flatten';
 import { currentFiles } from '$lib/draw/markup';
 import { dayReport, type DayReport } from '$lib/export/dayReport';
 import type { ExportInput } from '$lib/export/selection';
@@ -57,7 +60,7 @@ function readLog(): ExportLog {
 
 export type Phase = 'idle' | 'building' | 'ready' | 'failed' | 'cancelled' | 'handed';
 
-type Loaded = { input: ExportInput; blobs: PhotoBlob[] } | undefined;
+type Loaded = { input: ExportInput; blobs: PhotoBlob[]; diagrams: Diagram[] } | undefined;
 
 export class Wrap {
 	readonly #app: App;
@@ -104,7 +107,7 @@ export class Wrap {
 		const input = this.input;
 		const made = this.made;
 		if (!input || !made) return undefined;
-		return packagePlan(made.rows, this.choice, { project: input.project, shootDays: this.days, blobs: this.data.value?.blobs ?? [], texts: made.texts, reportHtml: this.reportHtml });
+		return packagePlan(made.rows, this.choice, { project: input.project, shootDays: this.days, blobs: this.data.value?.blobs ?? [], texts: made.texts, reportHtml: this.reportHtml, diagrams: this.data.value?.diagrams ?? [] });
 	});
 	/** What the package holds, as one string: it changes when a file or its size does. */
 	readonly planKey = $derived(this.plan ? `${this.plan.bytes}:${this.plan.entries.map((e) => e.path).join('|')}` : '');
@@ -120,7 +123,7 @@ export class Wrap {
 		this.#app = app;
 		this.#current = current;
 		this.data = live<Loaded>(
-			['project', 'shootDay', 'lightingSetup', 'cameraSetup', 'camera', 'lens', 'slate', 'take', 'still', 'markup', 'blobs'],
+			['project', 'shootDay', 'lightingSetup', 'cameraSetup', 'camera', 'lens', 'slate', 'take', 'still', 'markup', 'diagram', 'blobs'],
 			async (store) => {
 				const projectId = current.project?.id;
 				if (!projectId) return undefined;
@@ -140,7 +143,10 @@ export class Wrap {
 				const files = (await Promise.all(input.stills.map((s) => store.blobsOf(s.id)))).flat();
 				const markups = (await Promise.all(input.stills.map((s) => store.list('markup', s.id)))).flat();
 				// A photo's annotated copy goes only while it matches the drawing (#86).
-				return { input, blobs: currentFiles(files, markups) };
+				const blobs = currentFiles(files, markups);
+				// A slate's setup diagram goes as an image when something is drawn on it (#87).
+				const diagrams = (await Promise.all(input.slates.map((s) => store.list('diagram', s.id)))).flat().filter((d) => !isBlank(d));
+				return { input, blobs, diagrams };
 			},
 			undefined
 		);
@@ -186,8 +192,16 @@ export class Wrap {
 		this.phase = 'building';
 		this.message = null;
 		this.progress = { done: 0, total: plan.bytes };
+		const input = this.data.value?.input;
+		const diagrams = this.data.value?.diagrams ?? [];
 		const read = async (entry: PackageEntry) => {
 			if (entry.kind === 'photo') return store.blob(entry.blobId);
+			if (entry.kind === 'diagram') {
+				const diagram = diagrams.find((d) => d.id === entry.diagramId);
+				if (!diagram || !input) return undefined;
+				const cameras = slateCameras({ takes: input.takes.filter((t) => t.slateId === entry.slateId), setups: input.cameraSetups, cameras: input.cameras, lenses: input.lenses });
+				return flattenDiagram(diagram, cameras);
+			}
 			if (entry.kind === 'report') return reportHtml;
 			return texts[entry.kind];
 		};

@@ -69,6 +69,21 @@ describe('paint', () => {
 		paint(ctx, [text], { value: typedText });
 		expect(ctx.log.findIndex((l) => l.startsWith('strokeText(Tracker'))).toBeLessThan(ctx.log.findIndex((l) => l.startsWith('fillText(Tracker')));
 	});
+	it('paints a camera’s field of view under everything else', () => {
+		const ctx = recorder();
+		const camera: Figure = { ...fig, id: 'cam', symbol: 'camera', rotation: 90 };
+		paint(ctx, [stroke, camera], { value: typedText, fov: (f) => (f.id === 'cam' ? 40 : undefined), reach: 300 });
+		const wedge = ctx.log.findIndex((l) => l === 'globalAlpha=0.12');
+		expect(wedge).toBeGreaterThan(-1);
+		expect(wedge).toBeLessThan(ctx.log.findIndex((l) => l === 'strokeStyle=#ff3b30'));
+		// From the front of the lens, out to the right.
+		expect(ctx.log.find((l) => l.startsWith('moveTo('))).toBe('moveTo(220,200)');
+	});
+	it('paints no field of view where there is none', () => {
+		const ctx = recorder();
+		paint(ctx, [fig], { value: typedText, fov: () => undefined, reach: 300 });
+		expect(ctx.log).not.toContain('globalAlpha=0.12');
+	});
 	it('writes the captions of a symbol under it', () => {
 		const ctx = recorder();
 		paint(ctx, [fig], { value: typedText, captions: () => ['A', '35 mm'] });

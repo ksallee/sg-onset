@@ -3,7 +3,6 @@
 	// and every touch and Pencil stroke turned into a change. The rules are lib/draw/gesture.ts;
 	// this feeds it points in drawing units and draws what it says. Changes and questions go up:
 	// the owner saves them and asks for words.
-	import type { Snippet } from 'svelte';
 	import type { UnitSystem } from '$lib/model/length';
 	import { INKS, styleFor, type Dimension, type Drawing, type Figure, type Ink, type Shape } from '$lib/draw/drawing';
 	import { fitView, handles, textBox, toDrawing } from '$lib/draw/geometry';
@@ -20,7 +19,8 @@
 		selected = $bindable(null),
 		label,
 		captions,
-		under,
+		fov,
+		reach,
 		newId,
 		oncommit,
 		onask
@@ -34,8 +34,9 @@
 		selected?: string | null;
 		label: string;
 		captions?: (f: Figure) => string[];
-		/** Drawn under the shapes, in drawing units: what a symbol needs beneath it. */
-		under?: Snippet<[readonly Shape[]]>;
+		/** A camera symbol's field of view, and how far its wedge reaches. */
+		fov?: (f: Figure) => number | undefined;
+		reach?: number;
 		newId: () => string;
 		oncommit: (shapes: Shape[], change: Change) => void;
 		onask: (ask: Ask) => void;
@@ -147,8 +148,7 @@
 			{#if photo}
 				<image href={photo} width={drawing.width} height={drawing.height} preserveAspectRatio="none" />
 			{/if}
-			{@render under?.(shown.shapes)}
-			<Shapes shapes={shown.shapes} live={shown.live} {value} {captions} />
+			<Shapes shapes={shown.shapes} live={shown.live} {value} {captions} {fov} {reach} />
 			{#if picked}
 				{@const box = outline(picked)}
 				<rect class="ring" x={box.x - ring * 3} y={box.y - ring * 3} width={box.width + ring * 6} height={box.height + ring * 6} rx={ring * 3} stroke-width={ring} stroke-dasharray="{ring * 3} {ring * 2}" />

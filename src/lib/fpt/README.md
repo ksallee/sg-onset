@@ -25,6 +25,10 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `shotNote.ts` | yes | The Note on a Shot (#97) from the records as Flow PT holds them: what was captured, as text and as ids, and the reply with what a sync added. |
 | `notePlan.ts` | yes | The Note's key and lookup, who it is to, and what a sync writes: the Note, a rewrite and a reply, or nothing. |
 | `shotNotes.ts` | no | `writeShotNotes`: the reads and writes of the Notes on Shots. Reads Flow PT only, so #106 runs it from a desktop. |
+| `actionMenu.ts` | yes | The Action Menu Item "Send set data to artists" (#106): its URL, the lookup by title and URL, what Set Up Fields makes or adds the project to. |
+| `sendPlan.ts` | yes | What a run of the action covers (`sendScope`) and what it did per Shot (`shotReports`). |
+| `setShotLinks.ts` | no | The calls of the Set Shot links, shared by the sync and the action: read by key, match once, read and write a slate's links. |
+| `sendSetData.ts` | no | `previewSend`, `sendSetData`: the action's reads and writes, from Flow PT only, with the person's session. |
 | `lists.ts` | yes | The shared lists (#110): templates and reference kinds as JSON in a text field of the Project. Read, write, apply a push's operations, check they landed. |
 | `errors.ts` | yes | What a refusal or a missing answer means. |
 | `token.ts` | yes | The bearer's `exp`, and when to renew it. |
@@ -79,6 +83,7 @@ if (report.ready) {
 | (none) | Note, one per Shot, with Notes on Shots on (#97) | `sg_onset_key`, in the project. Optional |
 | (none) | Reply, on that Note, when a sync adds to it | written, never read |
 | (none) | Task, of the Shot: who is assigned | read only |
+| (none) | ActionMenuItem "Send set data to artists", on Shot and on Set Shot (#106) | title and URL. Made by Set Up Fields, one per entity type and deploy, holding each project that ran it |
 | `template`, `referenceKind` | Project, JSON in `sg_onset_templates` and `sg_onset_reference_kinds` | the entry's client UUID, in the list. Optional |
 
 Custom entities are matched trimmed and whatever the case, among `CustomEntityNN` types only.
@@ -118,6 +123,12 @@ type SetupReport = {
 		status: 'present' | 'willAppear';
 	}[];
 	canCreateFields?: boolean; // absent when no create was tried
+	action?: {
+		// the Action Menu Item of #106; absent when no project was given
+		title: string; // 'Send set data to artists'
+		url: string; // '<origin>/action/send-set-data'
+		items: { entityType: string; status: 'present' | 'added' | 'missing' | 'needsAdmin' | 'failed'; reason?: string }[];
+	};
 };
 ```
 
@@ -464,8 +475,9 @@ Links to Shots are made in one place, the Set Shot's `sg_shots`: by the app's ma
 once, or by a person in Flow PT's grid, which covers the time after wrap. The slate's own
 `sg_shots` (#96) is derived: the Shots of its Set Shots, so artists stay one click from the slate.
 A wrong link is fixed on the Set Shot; one made by hand on the slate is overwritten at the next
-sync. Nothing about links is kept on the device. `setShots.ts` holds the rules, `transport.ts` the
-calls (Kevin, 2026-11-17, replacing #96's link rules).
+sync. Nothing about links is kept on the device. `setShots.ts` holds the rules, `setShotLinks.ts`
+and `transport.ts` the calls (Kevin, 2026-11-17, replacing #96's link rules). The Action Menu Item
+of #106 runs the same rules from a desktop ("Send set data to artists").
 
 `linkShots` takes slates Flow PT holds, each with the codes it holds now:
 
@@ -550,40 +562,92 @@ newly assigned to the Shot's Tasks are added, and nobody is removed.
 On a site without Set Reference (decision 60) the references are not searched: the Note lists what
 Flow PT holds, which is none. Once they go up, the next sync that writes adds them, with a Reply.
 
-A sample, for a Shot with two slates:
+A sample, for a Shot with two slates. The Note sits in a small space in Flow PT (Kevin,
+2026-11-17): short headings, one entry a line, no intro, since the subject names the Shot.
 
 ```
 Subject: Set data for SMP_042_0010
 
-What was shot on set for SMP_042_0010. SG OnSet updates this Note at each sync that adds to it.
-
 Elements
 Clean plate: 42A take 10
-Clean plate at the tail: 42B take 2
-Balls and chart at the tail: 42A take 3
+Clean plate tail: 42B take 2
+Balls and chart tail: 42A take 3
 
 Takes
-Slate 42A: takes 1, 2, 3, 10
-Slate 42B: takes 1, 2
+42A: 1, 2, 3, 10
+42B: 1, 2
 
 References
-HDRI 360: HDRI_0412, HDRI_0413
+HDRI 360: HDRI_0412
+HDRI 360: HDRI_0413
 Witness camera: WIT_A001
 
 Photos: 3
 ```
 
-And the Reply after a later sync:
+And the Reply after a later sync that added a clean plate at the tail of take 11, take 12, an
+HDRI and two photos. A take said as an element take is not said again:
 
 ```
-Added since the last update:
-Clean plate at the tail: 42A take 11
-Slate 42A: take 11
+Added:
+Clean plate tail: 42A take 11
+42A take 12
 HDRI 360: HDRI_0414
-2 more photos
+2 photos
 ```
 
 The words are in the message catalogue, `sync.note.*`, always English.
+
+## Send set data to artists
+
+Shots are made at turnover, after wrap, when nobody syncs any more (#106). So Set Up Fields adds an
+Action Menu Item, **Send set data to artists**, on Shot and on Set Shot (when its slot is
+enabled), for the linked Flow PT project. Whoever links the Set Shots at turnover selects rows in
+Flow PT's web interface and runs it. Kevin decided, 2026-11-17: build it; without it the
+after-wrap links and Notes do not happen.
+
+What Flow PT sends (findings/156, probe 156 in Chrome): a new tab posts
+`application/x-www-form-urlencoded` to the item's URL, even when set to json, with `Origin: null`,
+`Sec-Fetch-Site: cross-site`, no `Referer` and no credential. The form holds `selected_ids`, `ids`
+(every row on the page), `entity_type`, `project_id`, `project_name`, `server_hostname`, `user_id`,
+`user_login`, `session_uuid`, and the page's columns and sort.
+
+1. **The item.** `actionMenu.ts`, called by `checkSetup` with `actionMenu: { projectId, url }`.
+   Looked for by title and URL; per entity type, a row of ours naming the project is there, one
+   for other projects gets the project added (`multi_entity_update_mode: add`), none is created
+   with `title`, `url`, `entity_type` and `projects`, nothing else. The URL is the deploy's own
+   origin and `/action/send-set-data`, so a deploy of a studio's own points at itself. The check
+   after linking only looks; Set Up Fields makes it. An Artist is refused (400 code 104): the line
+   says an admin must. It decides nothing about readiness.
+2. **The route.** `POST /action/send-set-data` (`$lib/server/action-route.ts`,
+   `$lib/send/request.ts`) reads the form, 1 MiB at most, keeps `selected_ids`, `entity_type`,
+   `project_id` and `server_hostname`, checks them (ids are integers, 500 at most; the type is
+   `Shot` or a `CustomEntityNN` slot; the host passes the sign-in allowlist, `FPT_HOSTS` and
+   `FPT_EXTRA_HOSTS`), and answers 303 to `/send-set-data?site=&project=&type=&ids=`. The login,
+   the user id, the session id and the rest of the form are dropped and never logged. A problem
+   is a 303 to the page with `?problem=` and nothing else. SvelteKit's own check refuses a form
+   from another site, so it is off and `hooks.server.ts` runs the same check with this route let
+   through (`$lib/server/csrf.ts`).
+3. **The page.** `/send-set-data`, outside the shell: it needs no project on the device. Signed
+   in to the site Flow PT named, with the person's own session, it reads the site's schema fresh,
+   checks the type is Shot or the site's Set Shot slot, and shows the project, the site, the rows
+   and what Send will do. Not signed in to that site, it asks to sign in first and then goes on.
+   Nothing is written before the tap on **Send**: the request proves nothing about where it came
+   from.
+4. **The run** (`sendSetData.ts`), from what Flow PT holds:
+   - on Shots: their codes; the Set Shots holding them, and those of their codes by key. On Set
+     Shots: those rows. A row of another project, deleted, or a Set Shot with no key is left out
+     and counted.
+   - the code match of #102 on those Set Shots, once each (decision 39): never matched and empty
+     gets every Shot of the project with its code, and its flag.
+   - the slates that link the run's Set Shots (`sg_set_shots in`): each set to the Set Shots of its
+     codes as Flow PT holds them (`sg_vfx_shots`) and the Shots of those (`slateWrites`), where it
+     differs.
+   - the Note of each Shot of the run (`writeShotNotes`), whatever a device's Notes on Shots
+     setting: running the action is the request. One Note per Shot, a Reply on additions, the
+     newly assigned added (#97).
+   - per Shot: whether this run linked its Set Shot, its slates, whether a slate write failed, its
+     Note. The Set Shots selected that still hold no Shot are listed.
 
 ## The shared lists
 
@@ -830,7 +894,30 @@ Made by Claude. Kevin can overrule any of them.
     plain words, alone, and never sent blind. The Notes on Shots list no references there (decision
     50: what Flow PT holds).
 
-61. **Templates and reference kinds are JSON in two text fields of the Project** (#110). Flow PT has
+61. **One Action Menu Item per entity type and deploy, holding every project that ran Set Up
+    Fields** (#106). Found by title and URL, so it is never made twice; a second project is added
+    to its projects in place. A deploy elsewhere has another URL, so its own row. A row of ours
+    with no project gets the project too: what Flow PT does with an empty list is unmeasured.
+62. **Only title, URL, entity type and projects are sent.** Left alone, the item posts a form in a
+    new tab, which is what probe 156 recorded. `selection_required`, `light_payload`,
+    `open_in_overlay`, `secret_token` and the rest stay as Flow PT sets them: what they change is
+    not measured.
+63. **The route takes a form from any origin and writes nothing.** No signature was measured, so
+    the request proves nothing. The page writes only on Send, with the person's own session for
+    that site, and the site must pass the sign-in allowlist. A forged post can open the page, and
+    nothing more.
+64. **A run covers what was selected.** The match runs on the Set Shots of the selected rows only,
+    and the Notes are written on the run's Shots only. A slate's links are set whole, as at sync,
+    so a slate keeps the Set Shots of its other codes. Another code's Set Shot is matched by the
+    next sync, or a run on it.
+65. **The slates of a run are those linking its Set Shots.** A slate whose code has a Set Shot
+    it does not link yet is put right by the next sync from the device. The Note reads the slates
+    the same way (decision 50).
+66. **500 rows a run.** The page address carries every id, and each Shot costs a few requests.
+    More is refused in words.
+67. **The page reads the site's schema fresh, into memory.** It needs nothing on the device, and
+    a schema kept from before an admin enabled Set Shot would hide it.
+68. **Templates and reference kinds are JSON in two text fields of the Project** (#110). Flow PT has
     no entity for either, and Kevin wants no new required custom entity (#117): a site without the
     fields syncs the rest. The Project is the one the device syncs with, so the list is the show's,
     and Set Up Fields makes the fields as it makes the others. A text field keeps the string as
@@ -838,22 +925,22 @@ Made by Claude. Kevin can overrule any of them.
     field would filter, but none was ever made: the corpus found two stock ones, and Note.meta is
     written on create only (field_types/jsonb.md). A custom entity per list was weighed: it would
     give one row per entry and a unique client UUID, but it is one more slot each studio enables.
-62. **One field per list,** so an edit of a kind never writes over a template another device saved
+69. **One field per list,** so an edit of a kind never writes over a template another device saved
     at the same moment, and the reverse.
-63. **A list is written whole, read again, and checked.** No conditional write exists: `If-Match`
+70. **A list is written whole, read again, and checked.** No conditional write exists: `If-Match`
     is ignored (recipes/005). Two devices that write one list within a second may lose one write,
     and the check finds it and sends it again. The window is the time between the search and the
     `PUT`.
-64. **A list holds the keys the device has, but the project:** a template's `name`, `scope` and
+71. **A list holds the keys the device has, but the project:** a template's `name`, `scope` and
     `values`, a kind's `name`. The project is the field's own; a device reading it puts the entry
     under its own project.
-65. **A list this version cannot read is never written over.** Its entries need a person, with the
+72. **A list this version cannot read is never written over.** Its entries need a person, with the
     field named, until an admin empties it in Flow PT. It is left out of a read too, so nothing on
     the device is judged removed from it.
-66. **Cameras, lenses, camera setups and lighting setups are read back from their entities,** every
+73. **Cameras, lenses, camera setups and lighting setups are read back from their entities,** every
     row of the project with a client UUID. A row made by hand in Flow PT has none and is left out:
     matching it to the device's gear by name is not done. Which camera setups a device shoots with
-    is its own choice, kept on the device, never in Flow PT (app/sync README, decision 24).
+    is its own choice, kept on the device, never in Flow PT (app/sync README, decision 25).
 
 ## Where FPT did not fit the contract
 
@@ -940,19 +1027,29 @@ Still open:
 16. Whether the Shot's reverse field of `Set Shot.sg_shots`, or `Slate.sg_shots`, shows on a Shot's
     page in the web interface by default, so an artist finds the slates from the Note. Not needed by
     the app.
-17. A custom field on Project: its create, and a `PUT` of it. Measured on Version, a custom slot
+17. Whether an ActionMenuItem's `secret_token` adds a signature to the request (findings/156). Not
+    measured: nothing relies on it. The Send button and the host allowlist are the guard.
+18. What the web interface does with an ActionMenuItem whose `projects` is empty, and whether
+    `permissions_groups` hides it there (findings/156: it does not filter what the API returns).
+19. Whether a Manager may create an ActionMenuItem (findings/156: Admin 201, Artist 400 code 104,
+    Manager not reachable).
+20. What Safari and Firefox send to the item's URL: `Origin`, `Sec-Fetch-Site`, the content type
+    (probe 156 ran Chrome). The route takes any origin, so only the content type matters.
+21. What `selected_ids` holds when a person runs the item with no row selected, and what
+    `selection_required` changes. The route reads an empty or missing value as nothing selected.
+22. A custom field on Project: its create, and a `PUT` of it. Measured on Version, a custom slot
     and Tag, a type with no `project` field, all alike (findings/118); Project itself is not. The
     shared lists (#110) assume it answers as Tag did.
-18. Who may update a Project's field: an Admin surely, a Manager, an Artist, a Vendor? The group
+23. Who may update a Project's field: an Admin surely, a Manager, an Artist, a Vendor? The group
     rights on Project were never read (findings/143 read the custom slots and Attachment). A refusal
     is said in plain words and the lists wait; the rest syncs.
-19. A text field longer than 100,000 characters (field_types/text.md stopped there), for a show
+24. A text field longer than 100,000 characters (field_types/text.md stopped there), for a show
     with very many templates.
-20. A custom field of type jsonb: can one be created, and is it editable after create (Note.meta is
+25. A custom field of type jsonb: can one be created, and is it editable after create (Note.meta is
     not)? Not needed: text holds the JSON.
-21. What an entity field that links a deleted row reads back, and whether a write of a link to a
+26. What an entity field that links a deleted row reads back, and whether a write of a link to a
     deleted row is refused. A lens removed on one device while another's takes use it: the other
-    device sends it back as a new row (app/sync README, decision 19), and its takes already on
+    device sends it back as a new row (app/sync README, decision 20), and its takes already on
     Flow PT keep a link to the deleted row.
 
 ## On the probed site, read 2026-11-11
@@ -978,6 +1075,9 @@ Set Up Fields makes its two fields, `sg_onset_key` and `sg_shots`, and the slate
 
 Notes on Shots came after too (#97). Set Up Fields makes `sg_onset_key` (unique) and
 `sg_onset_captured` on Note, a stock type. Until then the rest syncs and no Note is written.
+
+The Action Menu Item came after too (#106). Set Up Fields makes it on Shot and on Set Shot for the
+linked project, pointing at the deploy it runs on. An admin runs it once per project.
 
 The shared lists came after too (#110). Set Up Fields makes `sg_onset_templates` and
 `sg_onset_reference_kinds` on Project, a stock type. Until then the rest syncs and templates and

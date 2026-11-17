@@ -65,6 +65,18 @@ describe('setupReview', () => {
 		expect(r.reverse.map((f) => [f.entity, f.name])).toEqual([['Slate', 'sg_takes']]);
 	});
 
+	// #106: the Action Menu Item is listed beside the fields; on its own it needs no review, it
+	// changes no schema and an admin removes it in Flow PT.
+	it('lists the Action Menu Item to add, and shows no review for it alone', () => {
+		const action = { title: 'Send set data to artists', url: 'https://onset.example/action/send-set-data', items: [{ entityType: 'Shot', status: 'missing' as const }, { entityType: 'CustomEntity22', status: 'present' as const }] };
+		const both = setupReview(setupView({ ...report([field({})]), action }), WHERE);
+		expect(both.actions).toEqual([{ entity: 'Shot', entityType: 'Shot', status: 'missing' }]);
+		expect(both.show).toBe(true);
+		const alone = setupReview(setupView({ ...report([]), action }), WHERE);
+		expect(alone.show).toBe(false);
+		expect(nextStep('closed', 'request', alone)).toEqual({ step: 'closed', run: true });
+	});
+
 	it('shows when fields would be created, and not otherwise', () => {
 		expect(review([field({})]).show).toBe(true);
 		expect(review([field({ status: 'present' })]).show).toBe(false);

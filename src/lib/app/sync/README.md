@@ -101,43 +101,49 @@ Made by Claude. Kevin can overrule any of them.
     waiting. After a setup check the runner starts again: they go at the next drain, and their
     Slates are set when it ends. A Set Shot's links are no entry of the queue: the status does not
     count them, and the **Set Shots** section counts the slates whose codes wait (decision 11).
-16. **The lists a show shares are read back when a drain ends** (#110): cameras, lenses, camera
+16. **The setup check looks for the Action Menu Item of the linked project, and Set Up Fields makes
+    it** (#106, lib/fpt README, "Send set data to artists"). It points at this deploy:
+    `location.origin`, passed to the engine as `origin`. With every field there and the item
+    missing, Set Up Fields is offered and runs with no review: the item changes no schema and an
+    admin deletes it in Flow PT. When fields are missing too, the review lists it. A dev server on
+    localhost makes one pointing at localhost: that is the deploy it runs on.
+17. **The lists a show shares are read back when a drain ends** (#110): cameras, lenses, camera
     setups, lighting setups, templates and the kinds of set reference the project adds. At most once a minute, at
     once on Sync Now, after the slates' links. A new device starts with them at its first sync.
     Slates, takes and references are not read back: they stay with the device that made them
     (Kevin, 2026-11-17).
-17. **The merge is `mergeShared`, table by table, inside one store transaction** (`reconcile`):
+18. **The merge is `mergeShared`, table by table, inside one store transaction** (`reconcile`):
     matched by client UUID; a record made elsewhere is added; a field changed elsewhere is taken,
     unless it was edited here and the edit is not confirmed, in any state; a record removed elsewhere
     is removed here, unless something here uses it or an edit of it waits. Nothing taken in is
     queued or put on the undo stack.
-18. **No drain runs while the lists are merged, and they are not read while a drain runs.** A
+19. **No drain runs while the lists are merged, and they are not read while a drain runs.** A
     change confirmed between the read and the merge would look like a change made elsewhere and be
     put back. A drain waits for a merge under way; a drain that ends while another runs skips the
     read, and the last one reads.
-19. **A record removed elsewhere and kept here is sent back with its id** (Kevin, 2026-11-17): its
+20. **A record removed elsewhere and kept here is sent back with its id** (Kevin, 2026-11-17): its
     server id goes, its unsent edits fold into a create of the record as it is, and every device
     gets it again at its next sync. Without it, a take or camera setup that links it could not
     sync. It is listed in the sync sheet under "Kept on this device" for the session, with a row
     that opens it. A record whose edit is under way is kept and sent back at a later sync.
-20. **"Used" is what this device holds:** a camera or a lens in a take or a camera setup, a camera
+21. **"Used" is what this device holds:** a camera or a lens in a take or a camera setup, a camera
     setup a take is on or this device shoots with, a lighting setup in a slate, a template a slate
     or take was made from, a kind a reference holds by name. What another device's takes use is not
     known here.
-21. **A record never on Flow PT and with nothing queued is sent.** That is a template or kind kept
+22. **A record never on Flow PT and with nothing queued is sent.** That is a template or kind kept
     on the device before #110. Two devices that each made one send both: the list keeps both.
-22. **A pulled change to an entry in use changes the entry only, and is listed until seen**
+23. **A pulled change to an entry in use changes the entry only, and is listed until seen**
     (Kevin, 2026-11-17). A take keeps the lens it has, and its own focal length; a slate keeps the
     values its template gave it. The sync sheet's "Changed on another device" list names the entry
     and the fields taken (`changed.ts`), newest first, one row an entry; opening the row marks it
     seen. Nothing shows on the take screen. The list is kept on the device per project,
     `sg-onset:sync:changed:<id>`, so a reload keeps what was not seen. An entry removed since leaves
     it. A new entry, or a change of one not used here, is not listed.
-23. **On a site without the Project fields, templates and kinds wait** (#117's rule): the runner
+24. **On a site without the Project fields, templates and kinds wait** (#117's rule): the runner
     does not see their changes (`waiting.ts`), the status counts them as waiting, and the sync sheet
     says an admin runs Set Up Fields, then Check Setup on each device. Cameras, lenses, camera setups
     and lighting setups are shared already: they are entities every site has.
-24. **Every device sees every camera setup; each chooses the ones it shoots with** (Kevin,
+25. **Every device sees every camera setup; each chooses the ones it shoots with** (Kevin,
     2026-11-17). The choice is kept on the device, per project, never synced (`lib/gear/shooting.ts`,
     `localStorage` `sg-onset.shooting`): the setups it does not shoot with. By default a device shoots
     with the setups made on it; one read back from another device starts unchosen, marked before it

@@ -20,7 +20,8 @@ const SCREENS: Record<string, string> = {
 	gear: 'Gear',
 	templates: 'Templates',
 	settings: 'Settings',
-	'sign-in': 'Sign In'
+	'sign-in': 'Sign In',
+	'send-set-data': 'Send Set Data'
 };
 
 /** The paths worth a search result. */

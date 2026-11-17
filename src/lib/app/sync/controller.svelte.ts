@@ -35,6 +35,8 @@ export function provideSync(projectId: () => string | undefined, everything: () 
 		schemaCache: storageKeyValue(localStorage),
 		kv: storageKeyValue(localStorage, 'sg-onset:sync:'),
 		page: browserPage(),
+		// The Action Menu Item Set Up Fields adds points at this deploy (#106).
+		origin: location.origin,
 		// A setup diagram's image is drawn here, in the browser, when a sync is about to run (#87).
 		beforeDrain: async () => {
 			await prepareDiagrams(app.store, flattenDiagram);

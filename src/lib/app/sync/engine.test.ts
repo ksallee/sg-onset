@@ -19,7 +19,7 @@ const TAKE = 'CustomEntity09';
 const SET_SHOT = 'CustomEntity22';
 let n = 0;
 
-function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: DexieStore) => Promise<void> } = {}) {
+function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: DexieStore) => Promise<void>; origin?: string } = {}) {
 	const fpt = fakeFpt(options);
 	const fptProject = fpt.seed('Project', { name: 'Show', is_template: false, is_demo: false, archived: false });
 	fpt.seed('Project', { name: 'Template', is_template: true, is_demo: false, archived: false });
@@ -28,7 +28,7 @@ function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: De
 }
 
 /** One device: its store, editor, page, session and sync engine, on the site given. */
-function device(fpt: FakeFpt, options: { beforeDrain?: (store: DexieStore) => Promise<void> } = {}) {
+function device(fpt: FakeFpt, options: { beforeDrain?: (store: DexieStore) => Promise<void>; origin?: string } = {}) {
 	const store = openStore({ name: `sync-${++n}`, indexedDB: new IDBFactory(), IDBKeyRange, now: () => fpt.clock.t });
 	const edit = createEditor(store, () => undefined);
 
@@ -73,7 +73,8 @@ function device(fpt: FakeFpt, options: { beforeDrain?: (store: DexieStore) => Pr
 		kv,
 		page,
 		shooting,
-		...(options.beforeDrain ? { beforeDrain: () => options.beforeDrain!(store) } : {})
+		...(options.beforeDrain ? { beforeDrain: () => options.beforeDrain!(store) } : {}),
+		...(options.origin ? { origin: options.origin } : {})
 	} satisfies Parameters<typeof createSyncEngine>[0];
 	const engine = createSyncEngine(deps);
 	/** The same device opened again: its store, its keys and its choice, a new engine. */
@@ -200,6 +201,43 @@ describe('the setup check gates the runner', () => {
 		const created = s.fpt.count((r) => r.method === 'POST' && /\/schema\/\w+\/fields$/.test(r.path));
 		expect(created).toBe(review.total);
 		expect(s.engine.state.ready).toBe(true);
+	});
+});
+
+// #106: the Action Menu Item "Send set data to artists", for the linked Flow PT project, pointing at
+// this deploy. Linking only looks; Set Up Fields adds it.
+describe('the Action Menu Item', () => {
+	const ORIGIN = 'https://onset.example';
+	const items = (s: S) => s.fpt.live('ActionMenuItem');
+
+	it('linking only looks for it; Set Up Fields adds it on Shot and Set Shot for the linked project', async () => {
+		const s = setup({ origin: ORIGIN });
+		await s.engine.setProject('p1');
+		await s.engine.link({ id: s.fptProject, name: 'Show' });
+		expect(s.engine.state.report?.action?.items.map((i) => [i.entityType, i.status])).toEqual([
+			['Shot', 'missing'],
+			[SET_SHOT, 'missing']
+		]);
+		expect(items(s)).toEqual([]);
+		// Every field is there: Set Up Fields is offered for the item alone, and runs with no review.
+		const view = setupView(s.engine.state.report!);
+		expect(view.canSetUpFields).toBe(true);
+		const review = setupReview(view, { site: s.fpt.site, project: 'Show' });
+		expect(nextStep('closed', 'request', review)).toEqual({ step: 'closed', run: true });
+
+		await s.engine.check(true);
+		expect(s.engine.state.report?.action?.items.map((i) => i.status)).toEqual(['added', 'added']);
+		expect(items(s).map((r) => [r.values.entity_type, r.values.url, r.values.projects])).toEqual([
+			['Shot', `${ORIGIN}/action/send-set-data`, [{ type: 'Project', id: s.fptProject }]],
+			[SET_SHOT, `${ORIGIN}/action/send-set-data`, [{ type: 'Project', id: s.fptProject }]]
+		]);
+	});
+
+	it('nothing about it before a project is linked', async () => {
+		const s = setup({ origin: ORIGIN });
+		await s.engine.setProject('p1');
+		await s.engine.check(false);
+		expect(s.engine.state.report?.action).toBeUndefined();
 	});
 });
 
@@ -667,7 +705,7 @@ describe('the Slates of a set reference (#107)', () => {
 		expect(status().state).toBe('synced');
 		expect(s.fpt.live('Note')).toHaveLength(1);
 		expect(s.fpt.live('Note')[0].values.content).toContain('HDRI 360: HDRI_0412');
-		expect(s.fpt.live('Reply').map((r) => r.values.content)).toEqual([['Added since the last update:', 'HDRI 360: HDRI_0412', 'Lidar scan: Scan 01'].join('\n')]);
+		expect(s.fpt.live('Reply').map((r) => r.values.content)).toEqual([['Added:', 'HDRI 360: HDRI_0412', 'Lidar scan: Scan 01'].join('\n')]);
 	});
 
 	it('writes again at a later sync what did not land', async () => {
@@ -732,7 +770,7 @@ describe('Notes on Shots', () => {
 		expect(notes(s)).toHaveLength(1);
 		const [note] = notes(s);
 		expect(note.values).toMatchObject({ subject: 'Set data for SMP_042_0010', note_links: [{ type: 'Shot', id: shot }], addressings_to: [{ type: 'HumanUser', id: person }] });
-		expect(note.values.content).toContain('Slate 42A: take 1');
+		expect(note.values.content).toContain('42A: 1');
 
 		await later(s);
 		expect(s.fpt.live('Reply')).toEqual([]);
@@ -740,8 +778,8 @@ describe('Notes on Shots', () => {
 		await s.edit.create('take', { id: 't2', slateId: 's1', take: '2', takeType: 'cleanPlate' });
 		await later(s);
 		expect(notes(s)).toHaveLength(1);
-		expect(notes(s)[0].values.content).toContain('Slate 42A: takes 1, 2');
-		expect(s.fpt.live('Reply').map((r) => [r.values.entity, r.values.content])).toEqual([[{ type: 'Note', id: note.id }, 'Added since the last update:\nClean plate: 42A take 2\nSlate 42A: take 2']]);
+		expect(notes(s)[0].values.content).toContain('42A: 1, 2');
+		expect(s.fpt.live('Reply').map((r) => [r.values.entity, r.values.content])).toEqual([[{ type: 'Note', id: note.id }, 'Added:\nClean plate: 42A take 2']]);
 	});
 
 	it('is kept per project on the device', async () => {

@@ -100,7 +100,7 @@ test.describe('sign-in', () => {
 			await openApp(page, '/sign-in');
 			await field(page).fill(site);
 			await go(page).tap();
-			await expect(page.getByRole('alert')).toHaveText(/Autodesk-hosted Flow PT sites only/);
+			await expect(page.getByRole('alert')).toHaveText(/does not sign in to that site/);
 			expect(await tabState(page)).toEqual({ closed: true });
 			expect(offsite).toEqual([]);
 		});
@@ -242,7 +242,7 @@ test.describe('sign-in', () => {
 		await tab(page, 'opens');
 		const answers: [number, string, RegExp][] = [
 			[502, 'unreachable', /^Your site did not answer\. Check the address and the network\.$/],
-			[403, 'not-allowed', /Autodesk-hosted Flow PT sites only/],
+			[403, 'not-allowed', /does not sign in to that site/],
 			[500, 'boom', /^Your site refused the request\. Check the address\.$/]
 		];
 		let at = 0;

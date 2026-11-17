@@ -1227,3 +1227,48 @@ describe('a video, after its upload', () => {
 		expect(await w.transport.lookup([{ table: 'still', id: 'v1' }])).toEqual([]);
 	});
 });
+
+// ---------------------------------------------------------------------------------- audio notes
+
+// Kevin, 2026-11-17 (#89): an audio note goes up as a Version linked to its take, as a video does,
+// kept as the browser wrote it: M4A from Safari, WebM from Chrome. Live: a Version takes the take
+// row as `entity` (findings/151); audio on its movie field becomes an AAC mp4 (findings/152).
+async function audioNote(w: World, id: string, type: string) {
+	const s = await still(w, id);
+	const ref = (size: number, blobId = `b-${id}`): BlobRef => ({ ...s.ref(size, blobId), type });
+	return { ...s, ref };
+}
+
+describe('an audio note', () => {
+	it.each([
+		['audio/mp4', 'onset_audio_a1_b-a1.m4a'],
+		['audio/webm', 'onset_audio_a1_b-a1.webm']
+	])('goes up as a Version of its take, %s as it was recorded', async (type, filename) => {
+		const w = world();
+		const a = await audioNote(w, 'a1', type);
+		const ref = a.ref(900);
+		const session = await w.transport.beginUpload(ref);
+		const [version] = versions(w);
+		expect(version.values).toMatchObject({ entity: { type: 'CustomEntity09', id: a.take }, code: 'Audio note 2026-11-11T09:01:02.000Z', sg_onset_uuid: 'a1' });
+		const init = w.fpt.requests.find((r) => r.path.endsWith('/_upload') && r.method === 'GET')!;
+		expect(init.path).toBe(`/api/v1/entity/versions/${version.id}/sg_uploaded_movie/_upload`);
+		expect(init.query.get('filename')).toBe(filename);
+		const sent = await send(w, ref, session);
+		const put = w.fpt.requests.find((r) => r.host === 'storage' && r.method === 'PUT')!;
+		expect(put.headers.get('content-type')).toBe(type);
+		// Not a photo: the take's photos field is left alone.
+		expect(stills(w, a.take)).toEqual([]);
+		expect(await w.transport.verifyUpload(ref, sent.remoteId)).toEqual({ verified: true, remoteId: version.id });
+	});
+
+	it('keeps its name when its time changes', async () => {
+		const w = world();
+		const a = await audioNote(w, 'a1', 'audio/mp4');
+		await send(w, a.ref(300));
+		await applied(w, [update('still', 'a1', a.remote, { capturedAt: ['2026-11-11T09:01:02.000Z', '2026-11-11T09:30:00.000Z'] })]);
+		expect(versions(w)[0].values.code).toBe('Audio note 2026-11-11T09:30:00.000Z');
+		expect(await w.transport.lookup([{ table: 'still', id: 'a1' }])).toEqual([
+			{ table: 'still', id: 'a1', remoteId: encodeStillRemote({ take: a.take, capturedAt: '2026-11-11T09:30:00.000Z' }) }
+		]);
+	});
+});

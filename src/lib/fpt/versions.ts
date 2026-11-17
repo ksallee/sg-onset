@@ -1,6 +1,6 @@
 // A take's media that go to Flow PT as a Version linked to the take, its file in
-// `sg_uploaded_movie`: videos (Kevin, 2026-11-17, #94), and audio notes next (#89). Photos stay
-// Attachments (stills.ts). Pure: which files, their names, the create, the file read back.
+// `sg_uploaded_movie`: videos (#94) and audio notes (#89), both decided by Kevin, 2026-11-17.
+// Photos stay Attachments (stills.ts). Pure: which files, their names, the create, the file read back.
 // `takeVersions.ts` does the calls; the transport hands it every upload whose type is here.
 //
 // From the corpus:
@@ -9,8 +9,11 @@
 //   unique (findings/127): a create sent twice is refused, not made twice.
 // - `sg_uploaded_movie` holds one file, and a new upload replaces it. The server transcodes it
 //   to `_mp4` (findings/022) and adds two Attachments of its own named after it (findings/123).
-// - `Version.entity` did not enforce `valid_types` (findings/122, 123). A Version whose `entity`
-//   is a custom entity row, as a Take is, is not measured yet: a probe in sg-groundtruth is on it.
+// - `Version.entity` takes a custom entity row, as a Take is: 201, read back as sent
+//   (findings/151). A slot whose Versions are turned on also lists the Version in `sg_versions`.
+// - Audio on `sg_uploaded_movie`, M4A and Opus WebM alike, becomes an AAC mp4 with no picture and
+//   no thumbnail (findings/152). Its stored `content_type` is the server's choice: an Opus WebM
+//   reads `video/webm`. So the kind is decided here, from the type the device stored.
 
 import { extensionOf, safe } from './stills';
 
@@ -18,13 +21,16 @@ export const VERSION = 'Version';
 /** The Version's file. One file: a new upload replaces it (findings/022). */
 export const MOVIE = 'sg_uploaded_movie';
 
-export type VersionKind = 'video';
+export type VersionKind = 'video' | 'audio';
 
 /**
- * The media that go up as a Version, by file type, with the word Flow PT shows for each. An audio
- * note (#89) is one more line here.
+ * The media that go up as a Version, by file type, with the word Flow PT shows for each. The
+ * first is what a name we did not write is taken for (`retimedCode`).
  */
-const KINDS: readonly { kind: VersionKind; matches: (type: string) => boolean; shown: string }[] = [{ kind: 'video', matches: (type) => type.startsWith('video/'), shown: 'Video' }];
+const KINDS: readonly { kind: VersionKind; matches: (type: string) => boolean; shown: string }[] = [
+	{ kind: 'video', matches: (type) => type.startsWith('video/'), shown: 'Video' },
+	{ kind: 'audio', matches: (type) => type.startsWith('audio/'), shown: 'Audio note' }
+];
 
 /** The kind of Version a file goes up as. Undefined: not a Version (a photo is an Attachment). */
 export function versionKind(type: string): VersionKind | undefined {
@@ -42,7 +48,8 @@ const shownOf = (type: string) => KINDS.find((k) => k.kind === versionKind(type)
 export type TakeMedia = { recordId: string; blobId: string; type: string; take: number; capturedAt?: string; caption?: string };
 
 /**
- * The file name a Version's file goes up under: `onset_video_<record>_<blob>.mov`. The name of
+ * The file name a Version's file goes up under: `onset_video_<record>_<blob>.mov`,
+ * `onset_audio_<record>_<blob>.m4a`. The name of
  * the file in `sg_uploaded_movie` is how a check knows the file is ours. It never starts as a
  * photo's does (`stillPrefix`), so a photo's lookup by file name never finds it.
  */

@@ -1,6 +1,6 @@
 // The Versions of a take's media on the site: found by client UUID, made when missing, their file
 // checked. The calls behind versions.ts. The transport hands every upload whose type is a Version
-// kind here: a video today (#94), an audio note next (#89). What it needs is a `TakeMedia`: the
+// kind here: a video (#94) or an audio note (#89). What it needs is a `TakeMedia`: the
 // record, its file, the take on the server. Nothing here knows which table the record is in.
 //
 // The upload itself is the transport's, as for a photo: `target` says where the file goes, the

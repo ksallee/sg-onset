@@ -2,7 +2,7 @@
 // real FPT transport, against the fake site of lib/fpt (corpus shapes). Nothing leaves the test.
 
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { memoryKeyValue } from '$lib/fpt/cache';
 import { BEARER, fakeFpt, type FakeFpt } from '$lib/fpt/fakeFpt';
 import type { Page, PageEvent } from '$lib/outbox/foreground';
@@ -324,5 +324,99 @@ describe('a drain through the app wiring', () => {
 		expect(s.fpt.byUuid(TAKE, 't1')).toBeDefined();
 		expect(s.fpt.byUuid(TAKE, 't2')).toBeDefined();
 		expect(await s.store.outbox.entries()).toEqual([]);
+	});
+});
+
+// The slate's Shots field, filled from its VFX shot codes at sync (lib/fpt/shots.ts). The codes no
+// Shot has wait on the device, are listed in the sync sheet, and are asked about at later syncs.
+describe('the Shots of a slate', () => {
+	type Ref = { type: string; id: number };
+	const shotIds = (s: S) => ((s.fpt.byUuid('Slate', 's1')?.values.sg_shots as Ref[] | undefined) ?? []).map((r) => r.id).sort((a, b) => a - b);
+	const seedShot = (s: S, code: string, project = s.fptProject) => s.fpt.seed('Shot', { code, project: { type: 'Project', id: project } });
+
+	async function slateWithShots(s: S) {
+		await s.edit.create('project', { id: 'p1', name: 'Show' });
+		await s.edit.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.edit.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '42A', vfxShots: ['SMP_042_0010', 'SMP_042_0020'] });
+	}
+
+	it('links them at sync, keeps the codes no Shot has, and links those once a Shot has them', async () => {
+		const s = setup();
+		const a = seedShot(s, 'SMP_042_0010');
+		await slateWithShots(s);
+		await linked(s);
+		s.world.visible = true;
+		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
+		expect(shotIds(s)).toEqual([a]);
+		expect(s.engine.state.shots).toEqual({ s1: ['SMP_042_0020'] });
+
+		// A coordinator makes the other Shot. The next sync links it.
+		const b = seedShot(s, 'SMP_042_0020');
+		s.fpt.clock.t += 61_000;
+		await settle(s.engine, s.fpt);
+		expect(shotIds(s)).toEqual([a, b]);
+		expect(s.engine.state.shots).toEqual({});
+		expect(s.fpt.live('Shot')).toHaveLength(2);
+	});
+
+	it('asks Flow PT again at most once a minute on its own, and at once on Sync Now', async () => {
+		const s = setup();
+		await slateWithShots(s);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		const searches = () => s.fpt.count((r) => r.path === '/api/v1/entity/shots/_search');
+		const after = searches();
+		// A drain the app starts by itself, as the foreground does on every change.
+		await s.edit.create('take', { id: 't1', slateId: 's1', take: '1' });
+		await vi.waitFor(() => expect(s.fpt.byUuid(TAKE, 't1')).toBeDefined());
+		await vi.waitFor(async () => expect(await s.store.outbox.entries()).toEqual([]));
+		// Sync Now joins any drain still running, so both drains' ends are counted below.
+		await s.engine.syncNow();
+		expect(searches()).toBe(after + 1);
+	});
+
+	it('forgets a code taken off the slate, and a slate deleted', async () => {
+		const s = setup();
+		await slateWithShots(s);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		expect(s.engine.state.shots).toEqual({ s1: ['SMP_042_0010', 'SMP_042_0020'] });
+		const slate = (await s.store.get('slate', 's1'))!;
+		await s.edit.set('slate', slate, 'vfxShots', ['SMP_042_0020']);
+		await settle(s.engine, s.fpt);
+		expect(s.engine.state.shots).toEqual({ s1: ['SMP_042_0020'] });
+		await s.edit.removeTree('slate', 's1');
+		await settle(s.engine, s.fpt);
+		expect(s.engine.state.shots).toEqual({});
+	});
+
+	it('keeps what waits on the device, per project', async () => {
+		const s = setup();
+		await slateWithShots(s);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		await s.engine.setProject('p2');
+		expect(s.engine.state.shots).toEqual({});
+		await s.engine.setProject('p1');
+		expect(s.engine.state.shots).toEqual({ s1: ['SMP_042_0010', 'SMP_042_0020'] });
+	});
+
+	it('reads the linked project Shot codes for the field, and none without a link, a session or a network', async () => {
+		const s = setup();
+		seedShot(s, 'SMP_042_0020');
+		seedShot(s, 'SMP_042_0010');
+		seedShot(s, 'OTHER_0010', s.other);
+		await s.engine.setProject('p1');
+		expect(await s.engine.shotCodes()).toEqual([]);
+		await s.engine.link({ id: s.fptProject, name: 'Show' });
+		expect(await s.engine.shotCodes()).toEqual(['SMP_042_0010', 'SMP_042_0020']);
+		s.world.online = false;
+		expect(await s.engine.shotCodes()).toEqual([]);
+		s.world.online = true;
+		s.auth.token = null;
+		expect(await s.engine.shotCodes()).toEqual([]);
 	});
 });

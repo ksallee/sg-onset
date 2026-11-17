@@ -26,8 +26,9 @@ Use a test project on the site, never a show.
    - **Fields Flow PT Adds**: one line per link field, each **Will appear**. Flow PT adds a field
      on the linked entity for every link field (corpus findings/142). Expect, on a site that calls
      the entities as above: `sg_takes` on Slate, Camera, Lens and Camera Setup; `sg_camera_setups`
-     on Camera and Lens; `sg_slates` on Shoot Day and Lighting Setup; and on Attachment (File)
-     `custom_entityNN_sg_photos_custom_entityNNs`, with the Take's slot number. A link that would
+     on Camera and Lens; `sg_slates` on Shoot Day and Lighting Setup; on Attachment (File)
+     `custom_entityNN_sg_photos_custom_entityNNs`, with the Take's slot number; and on Shot
+     `slate_sg_shots_slates`, shown **Slates <-> Shots**. A link that would
      add a name an entity already has is under **Cannot be made yet**, naming that field: nothing
      was created for it.
 5. Tap **Set Up Fields**. The report says **Created** for each, and every **Fields Flow PT Adds**
@@ -45,6 +46,11 @@ Use a test project on the site, never a show.
 8. Edit a field of that take, tick and untick **Circled**. Each lands, with no **Needs attention**.
 9. Turn Wi-Fi off. Capture a take: nothing waits. The status says **Offline** and counts. Wi-Fi on:
    it drains by itself.
+10. Make two Shots in the test project in Flow PT, say `TST_010_0010` and `TST_010_0020`. On a
+    slate, tap **VFX shots** and type `tst_010`: both codes show as chips under the field. Tap one:
+    it is saved. Add a third code no Shot has, `TST_010_0099`. The sync sheet lists it under
+    **VFX shots not in Flow PT**, on that slate. Turn Wi-Fi off: the field shows no chips and
+    takes any text.
 
 ## In Flow PT
 
@@ -54,6 +60,8 @@ Use a test project on the site, never a show.
 - **Photos** on the take holds one Attachment named `onset_<photo>_<file>.jpg`, display name
   `Photo <time>`. Open it: full resolution, the same size as on the iPad.
 - No duplicate rows after step 9.
+- The slate of step 10: **Shots** links the two Shots, **VFX Shots** holds all three codes as
+  typed. Open one of the Shots: **Slates <-> Shots** lists the slate. No new Shot was made.
 
 ## Also try
 
@@ -69,6 +77,10 @@ Use a test project on the site, never a show.
   delete Photos". Shoot days, slates and cameras follow the account's own rights.
 - Leave the sync sheet open past ten minutes of syncing: no **Sign in to sync**. The bearer is
   renewed a minute before it ends.
+- **Shot links.** Make the Shot `TST_010_0099` in Flow PT, wait a minute, tap **Sync Now**: the
+  slate links it and the sync sheet no longer lists it. Take a code off the slate: its Shot is
+  unlinked. Link the slate to another Shot from the Shot's page in Flow PT, then edit the slate's
+  codes in the app: that link stays.
 - A photo: in Flow PT, open the file's link in a new tab. It shows as an image, not a download
   of `binary/octet-stream`. Two photos on one take: **Photos** holds both.
 

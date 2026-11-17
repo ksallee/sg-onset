@@ -89,6 +89,9 @@ export const sync = {
 	'sync.review.notNow': 'Not Now',
 	'sync.prototype': 'Early prototype: use a test project on a test site.',
 
+	'sync.shots.header': 'VFX shots not in Flow PT',
+	'sync.shots.footer': 'No Shot in the Flow PT project has these codes yet. They stay as text on the slate. Each sync looks again. SG OnSet never makes Shots.',
+
 	'sync.refused.create': "This Flow PT account can't create {things}. Ask an Admin for the permission.",
 	'sync.refused.update': "This Flow PT account can't change {things}. Ask an Admin for the permission.",
 	'sync.refused.delete': "This Flow PT account can't delete {things}. Ask an Admin for the permission.",

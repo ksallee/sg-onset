@@ -1,0 +1,89 @@
+// The reference log (#93) on the sample project: a reference added in two taps, a kind then the
+// name, seen on the slate, in Wrap and in the day report; the next name suggested; a project's own
+// kind from Settings; a reference edited and deleted, and the delete undone. Role and label
+// selectors only. Every test starts on an empty device.
+import type { Page } from '@playwright/test';
+import { expect, openApp, test } from './fixtures';
+
+/** Until a push or pop has finished: a page still sliding in is not where it lands. */
+const settled = (page: Page) => page.waitForFunction(() => !document.documentElement.dataset.nav);
+
+async function open42A(page: Page) {
+	await openApp(page, '/slates');
+	await page.getByRole('link', { name: /^42A/ }).tap();
+	await expect(page.getByRole('heading', { name: 'Slate 42A', level: 1 })).toBeVisible();
+	await settled(page);
+}
+
+const references = (page: Page) => page.getByRole('list').filter({ has: page.getByRole('group', { name: 'Add a reference' }) });
+
+test('adds a reference in two taps and sees it on the slate and in Wrap', async ({ page }) => {
+	await open42A(page);
+	await expect(references(page).getByText('None yet.')).toBeVisible();
+
+	// The first of its kind: a kind, then the name typed.
+	await page.getByRole('button', { name: 'Add HDRI 360' }).tap();
+	const sheet = page.getByRole('dialog', { name: 'HDRI 360' });
+	const name = sheet.getByRole('textbox', { name: 'File or folder' });
+	await expect(name).toHaveValue('');
+	await name.fill('HDRI_0412');
+	await name.press('Enter');
+	await expect(sheet).toBeHidden();
+	await expect(references(page).getByRole('button', { name: /^HDRI_0412\b/ })).toContainText('HDRI 360');
+
+	// The next one is two taps: the kind, then Add on the name it suggests.
+	await page.getByRole('button', { name: 'Add HDRI 360' }).tap();
+	await expect(name).toHaveValue('HDRI_0413');
+	await sheet.getByRole('button', { name: 'Add' }).tap();
+	await expect(sheet).toBeHidden();
+	await expect(references(page).getByRole('button', { name: /^HDRI_0413\b/ })).toBeVisible();
+	await expect(page.getByRole('status').filter({ hasText: 'Reference HDRI_0413 added' })).toBeVisible();
+
+	// Wrap counts the day's references by kind.
+	await page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Wrap' }).tap();
+	await expect(page.getByRole('heading', { name: 'Wrap', level: 1 })).toBeVisible();
+	const wrap = page.getByRole('list').filter({ has: page.getByText('HDRI 360', { exact: true }) });
+	await expect(wrap.getByText('2', { exact: true })).toBeVisible();
+
+	// The day report lists them under their slate.
+	await page.getByRole('link', { name: /^Day Report/ }).tap();
+	await expect(page).toHaveURL(/\/wrap\/report\?days=/);
+	await expect(page.getByText('HDRI 360: HDRI_0412', { exact: true }).first()).toBeVisible();
+	await expect(page.getByText('HDRI 360: HDRI_0413', { exact: true }).first()).toBeVisible();
+});
+
+test('a kind the project adds in Settings is one to log; a reference is edited, deleted and brought back', async ({ page }) => {
+	await openApp(page, '/settings');
+	await page.getByRole('button', { name: /^Reference kinds/ }).tap();
+	const kinds = page.getByRole('dialog', { name: 'Reference Kinds' });
+	await kinds.getByRole('textbox', { name: 'New kind' }).fill('Drone survey');
+	await kinds.getByRole('button', { name: 'Add' }).tap();
+	await expect(kinds.getByText('Drone survey', { exact: true })).toBeVisible();
+	await kinds.getByRole('textbox', { name: 'New kind' }).fill('lidar scan');
+	await kinds.getByRole('button', { name: 'Add' }).tap();
+	await expect(kinds.getByText('That kind is already there.')).toBeVisible();
+	await kinds.getByRole('button', { name: 'Done' }).tap();
+
+	await open42A(page);
+	await page.getByRole('button', { name: 'Add Drone survey' }).tap();
+	const sheet = page.getByRole('dialog', { name: 'Drone survey' });
+	await sheet.getByRole('textbox', { name: 'File or folder' }).fill('Flight 1');
+	await sheet.getByRole('button', { name: 'Add' }).tap();
+	await expect(sheet).toBeHidden();
+
+	// Edited: the device shows under the name.
+	await references(page).getByRole('button', { name: /^Flight 1\b/ }).tap();
+	const detail = page.getByRole('dialog', { name: 'Flight 1' });
+	await detail.getByRole('textbox', { name: 'Device' }).fill('DJI Mavic 3');
+	await detail.getByRole('textbox', { name: 'Device' }).press('Enter');
+	await expect(detail.getByRole('combobox', { name: 'Kind' })).toHaveValue('Drone survey');
+	await detail.getByRole('button', { name: 'Done' }).tap();
+	await expect(references(page).getByText('Drone survey · DJI Mavic 3')).toBeVisible();
+
+	// Deleted, and Undo brings it back.
+	await references(page).getByRole('button', { name: /^Flight 1\b/ }).tap();
+	await detail.getByRole('button', { name: 'Delete Reference' }).tap();
+	await expect(references(page).getByText('None yet.')).toBeVisible();
+	await page.getByRole('status').getByRole('button', { name: 'Undo' }).tap();
+	await expect(references(page).getByRole('button', { name: /^Flight 1\b/ })).toBeVisible();
+});

@@ -41,9 +41,13 @@ export function newReference(id: string, slateId: string, kind: string, name: st
 
 const oneLine = (text: string) => text.replace(/\s*[\r\n\v]+\s*/g, ' ').trim();
 
-/** What a row shows under the name: the kind, device, card or roll and count. "HDRI 360 · Theta Z1 · A003 · ×3". */
-export function referenceDetail(ref: Reference, kindLabel: (kind: string) => string): string {
-	return [kindLabel(ref.kind ?? ''), ref.device, ref.cardOrRoll, ref.count === undefined ? undefined : `×${ref.count}`].filter(Boolean).join(' · ');
+/**
+ * What a row shows under the name: the kind, device, card or roll and count. "HDRI 360 · Theta Z1 ·
+ * A003 · ×3". `logged`, the words for where a lighting reference shown on another slate was logged
+ * (#107), goes last: "· Logged on 12A".
+ */
+export function referenceDetail(ref: Reference, kindLabel: (kind: string) => string, logged?: string): string {
+	return [kindLabel(ref.kind ?? ''), ref.device, ref.cardOrRoll, ref.count === undefined ? undefined : `×${ref.count}`, logged].filter(Boolean).join(' · ');
 }
 
 /** One reference in one line, for a file: "HDRI 360: HDRI_0412 (Theta Z1, A003, ×3, Noon sun)". */

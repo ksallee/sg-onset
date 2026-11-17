@@ -2,9 +2,10 @@
 // lighting setup: it belongs to the lighting setup of the slate it was logged on, and shows on
 // every slate of that lighting setup, now or later. Every other kind stays on its slate. Nothing
 // is stored for it: the reference keeps its slate, and the slates it shows on follow from the
-// lighting setups as they are now, as the switch rule of #92 and #93 does. Pure.
+// lighting setups as they are now, as the switch rule of #92 and #93 does. Deleting that slate
+// moves its lighting references to another slate of the setup first. Pure.
 
-import type { Reference, Slate } from '$lib/model/types';
+import type { Reference, ShootDay, Slate } from '$lib/model/types';
 import { sortReferences } from './log';
 
 /** The kinds that belong to the lighting setup, by key (kinds.ts). */
@@ -41,4 +42,40 @@ export function shownBySlate(slates: readonly SlateLike[], refs: readonly Refere
 		for (const id of setup ? onSetup.get(setup)! : [ref.slateId]) out.set(id, [...(out.get(id) ?? []), ref]);
 	}
 	return out;
+}
+
+const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+
+/**
+ * What deleting a slate does to the lighting references logged on it (Kevin, #107): they move to
+ * the first other slate of its lighting setup, in slate order, in the same undo entry. Slate
+ * order: the shoot day by date, then by number; then the slate as a person counts, 9 before 10,
+ * 42A before 42B. The other kinds go with the slate, and so do these when no other slate has the
+ * setup. Nothing when nothing moves.
+ */
+export function deleteMoves(
+	slateId: string,
+	slates: readonly Pick<Slate, 'id' | 'lightingSetupId' | 'shootDayId' | 'slateUID'>[],
+	days: readonly Pick<ShootDay, 'id' | 'shootDate' | 'shootDay'>[],
+	refs: readonly Reference[]
+): { to: string; refs: Reference[] } | undefined {
+	const setup = slates.find((s) => s.id === slateId)?.lightingSetupId;
+	const moving = sortReferences(refs.filter((r) => r.slateId === slateId && isLightingKind(r.kind)));
+	if (!setup || !moving.length) return undefined;
+	const day = new Map(days.map((d) => [d.id, d]));
+	const byDay = (a: string, b: string) => {
+		const x = day.get(a);
+		const y = day.get(b);
+		return (x?.shootDate ?? '').localeCompare(y?.shootDate ?? '') || (x?.shootDay ?? 0) - (y?.shootDay ?? 0) || a.localeCompare(b);
+	};
+	const [to] = slates
+		.filter((s) => s.id !== slateId && s.lightingSetupId === setup)
+		.sort((a, b) => byDay(a.shootDayId, b.shootDayId) || collator.compare(a.slateUID ?? '', b.slateUID ?? '') || a.id.localeCompare(b.id));
+	return to ? { to: to.id, refs: moving } : undefined;
+}
+
+/** The slate a reference was logged on, as written, when it shows on another: "Logged on 12A". */
+export function loggedOn(ref: Reference, slateId: string, slates: readonly Pick<Slate, 'id' | 'slateUID'>[]): string | undefined {
+	if (ref.slateId === slateId) return undefined;
+	return slates.find((s) => s.id === ref.slateId)?.slateUID;
 }

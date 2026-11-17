@@ -228,4 +228,5 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
 58. **Deleting the slate a lighting reference was logged on first moves it to another slate of the
     lighting setup** (Kevin, 2026-11-17): the first left in slate order, shoot day then slate as a
     person counts, in the same undo entry as the delete. The other kinds go with the slate. With no
-    other slate on the setup, it goes with the slate too (`lib/references/lighting.ts`, `heirOf`).
+    other slate on the setup, it goes with the slate too (`lib/references/lighting.ts`,
+    `deleteMoves`; `lib/references/edit.ts`, `removeSlate`).

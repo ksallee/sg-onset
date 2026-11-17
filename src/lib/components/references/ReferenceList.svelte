@@ -1,7 +1,8 @@
 <script lang="ts">
 	// The reference log of one slate: what was captured for it on other devices, in the order
 	// logged, then a row of kinds to add one. An HDRI 360, a 360 video or an HDR reference logged on
-	// another slate of its lighting setup shows here too (#107, lib/references/lighting.ts). Adding is
+	// another slate of its lighting setup shows here too, saying where it was logged (#107,
+	// lib/references/lighting.ts). Adding is
 	// two taps: a kind, then the name, which is suggested after the last reference of that kind in
 	// the project (lib/references). A row opens the reference; a swipe deletes it. Read live, so an
 	// undo shows at once.
@@ -16,7 +17,7 @@
 	import type { Reference, Slate } from '$lib/model/types';
 	import { removeReference } from '$lib/references/edit';
 	import { kindChoices, kindLabel } from '$lib/references/kinds';
-	import { shownBySlate } from '$lib/references/lighting';
+	import { loggedOn, shownBySlate } from '$lib/references/lighting';
 	import { referenceDetail } from '$lib/references/log';
 	import NewReferenceSheet from './NewReferenceSheet.svelte';
 	import ReferenceSheet from './ReferenceSheet.svelte';
@@ -43,6 +44,11 @@
 	);
 
 	const label = (kind: string) => kindLabel(kind, tk);
+	/** Where a lighting reference shown here was logged, if on another slate. */
+	const logged = (r: Reference) => {
+		const at = loggedOn(r, slate.id, project.value.slates);
+		return at === undefined ? undefined : t('references.loggedOn', { slate: at });
+	};
 	const references = $derived(shownBySlate(project.value.slates, project.value.refs).get(slate.id) ?? []);
 	const choices = $derived(kindChoices(kinds.value.map((k) => k.name)));
 
@@ -67,7 +73,7 @@
 
 <Section header={t('references.header')} footer={t('references.footer')}>
 	{#each references as r (r.id)}
-		<Row title={r.name ?? ''} subtitle={referenceDetail(r, label)} chevron onclick={() => open(r.id)} swipe={[{ label: t('common.delete'), destructive: true, run: () => void remove(r) }]} />
+		<Row title={r.name ?? ''} subtitle={referenceDetail(r, label, logged(r))} chevron onclick={() => open(r.id)} swipe={[{ label: t('common.delete'), destructive: true, run: () => void remove(r) }]} />
 	{:else}
 		<Row title={t('references.none')} class="quiet" />
 	{/each}

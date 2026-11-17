@@ -62,8 +62,8 @@ Use a test project on the site, never a show.
     view. Drag it, place a light, tap **Done**. The status counts one more and drains: the image is
     drawn as the sync runs. Open the diagram again and move the light; tap **Done**.
 12. Give two slates the same lighting setup. On the first, add an **HDRI 360** and a **Lidar scan**.
-    Both slates list the HDRI; only the first lists the scan. Make a third slate on that lighting
-    setup: it lists the HDRI too.
+    Both slates list the HDRI, the second with "Logged on" the first; only the first lists the
+    scan. Make a third slate on that lighting setup: it lists the HDRI too.
 
 ## In Flow PT
 
@@ -87,7 +87,9 @@ Use a test project on the site, never a show.
   is predicted, not measured, for a built-in entity (README gaps).
 - The Set References of step 12: the HDRI's **Slate** is the first slate, its **Slates** the three
   slates of the lighting setup. The scan's **Slates** is the first slate alone. Each slate's
-  **Set References <-> Slates** lists what it shows.
+  **Set References <-> Slates** lists what it shows. Link another slate to the HDRI's **Slates** in
+  Flow PT and sync: it is gone. Delete the first slate in the app and sync: the HDRI's **Slate** is
+  now the second slate, the scan is deleted with the first.
 
 ## Also try
 

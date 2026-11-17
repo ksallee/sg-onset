@@ -71,6 +71,11 @@ describe('referenceDetail', () => {
 		expect(referenceDetail(ref('a', 'hdri360', 'HDRI_0002', '', { device: 'Theta Z1', cardOrRoll: 'A003', count: 3 }), label)).toBe('HDRI 360 · Theta Z1 · A003 · ×3');
 		expect(referenceDetail(ref('a', 'Drone survey', 'Flight 1', ''), label)).toBe('Drone survey');
 	});
+
+	// Kevin, #107: a lighting reference shown on another slate says where it was logged.
+	it('ends with where it was logged, when that is given', () => {
+		expect(referenceDetail(ref('a', 'hdri360', 'HDRI_0002', '', { device: 'Theta Z1' }), label, 'Logged on 12A')).toBe('HDRI 360 · Theta Z1 · Logged on 12A');
+	});
 });
 
 describe('referenceLine', () => {

@@ -2,7 +2,8 @@
 // name, seen on the slate, in Wrap and in the day report; the next name suggested; a project's own
 // kind from Settings; a reference edited and deleted, and the delete undone; a lidar scan turning the
 // slate's switch on, and its delete offering Turn Off; an HDRI shown on every slate of its lighting
-// setup (#107). Role and label selectors only. Every test starts on an empty device.
+// setup, saying where it was logged, and moved to another slate of the setup when that slate is
+// deleted (#107). Role and label selectors only. Every test starts on an empty device.
 import type { Page } from '@playwright/test';
 import { expect, openApp, test } from './fixtures';
 
@@ -131,7 +132,7 @@ test('an HDRI shows on every slate of its lighting setup, edited from any of the
 
 	await openSlate(page, '42B');
 	const hdri = references(page).getByRole('button', { name: /^HDRI_0412\b/ });
-	await expect(hdri).toContainText('HDRI 360');
+	await expect(hdri).toContainText('HDRI 360 · Logged on 42A');
 	await expect(references(page).getByRole('button', { name: /^Scan 01\b/ })).toHaveCount(0);
 
 	// One reference: edited from 42B, it reads the same on 42A.
@@ -142,5 +143,27 @@ test('an HDRI shows on every slate of its lighting setup, edited from any of the
 	await detail.getByRole('button', { name: 'Done' }).tap();
 	await expect(references(page).getByText('HDRI 360 · Ricoh Theta Z1')).toBeVisible();
 	await open42A(page);
-	await expect(references(page).getByText('HDRI 360 · Ricoh Theta Z1')).toBeVisible();
+	await expect(references(page).getByText('HDRI 360 · Ricoh Theta Z1', { exact: true })).toBeVisible();
+});
+
+test('deleting the slate an HDRI was logged on moves it to another slate of the lighting setup, and Undo puts it back', async ({ page }) => {
+	await open42A(page);
+	await page.getByRole('button', { name: 'Add HDRI 360' }).tap();
+	const sheet = page.getByRole('dialog', { name: 'HDRI 360' });
+	await sheet.getByRole('textbox', { name: 'File or folder' }).fill('HDRI_0412');
+	await sheet.getByRole('button', { name: 'Add' }).tap();
+	await expect(sheet).toBeHidden();
+
+	await page.getByRole('button', { name: 'Delete Slate' }).tap();
+	await expect(page).toHaveURL(/\/slates$/);
+	await expect(notice(page, 'Slate 42A deleted')).toBeVisible();
+	await page.getByRole('link', { name: /^42B/ }).tap();
+	await expect(page.getByRole('heading', { name: 'Slate 42B', level: 1 })).toBeVisible();
+	// Now logged on 42B: nothing says another slate.
+	const hdri = references(page).getByRole('button', { name: /^HDRI_0412\b/ });
+	await expect(hdri).toContainText('HDRI 360');
+	await expect(hdri).not.toContainText('Logged on');
+
+	await page.getByRole('status').getByRole('button', { name: 'Undo' }).tap();
+	await expect(hdri).toContainText('HDRI 360 · Logged on 42A');
 });

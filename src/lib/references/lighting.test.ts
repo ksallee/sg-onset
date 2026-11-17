@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Reference, Slate } from '$lib/model/types';
-import { isLightingKind, LIGHTING_KINDS, shownBySlate, slatesOf } from './lighting';
+import { deleteMoves, isLightingKind, LIGHTING_KINDS, loggedOn, shownBySlate, slatesOf } from './lighting';
 
 const slate = (id: string, lightingSetupId?: string): Slate => ({ id, shootDayId: 'd1', slateUID: id, ...(lightingSetupId ? { lightingSetupId } : {}) });
 const ref = (id: string, slateId: string, kind: string, loggedAt: string): Reference => ({ id, slateId, kind, name: id, loggedAt });
@@ -66,5 +66,44 @@ describe('shownBySlate', () => {
 
 	it('shows each reference once on a slate', () => {
 		expect(new Set(ids('12B')).size).toBe(ids('12B').length);
+	});
+});
+
+describe('deleteMoves', () => {
+	// Day 1 (10 Nov): 12A, 12B, 9 on the stage. Day 2 (11 Nov): 10 on the stage, 14 on the street.
+	const days = [
+		{ id: 'd2', shootDate: '2026-11-11', shootDay: 2 },
+		{ id: 'd1', shootDate: '2026-11-10', shootDay: 1 }
+	];
+	const on = (id: string, shootDayId: string, lightingSetupId?: string): Slate => ({ ...slate(id, lightingSetupId), shootDayId });
+	const all = [on('10', 'd2', 'stage'), on('12B', 'd1', 'stage'), on('14', 'd2', 'street'), on('12A', 'd1', 'stage'), on('9', 'd1', 'stage')];
+	const hdri = ref('hdri', '12A', 'hdri360', 't1');
+	const video = ref('video', '12A', 'video360', 't2');
+	const scan = ref('scan', '12A', 'lidarScan', 't3');
+	const other = ref('other', '12B', 'hdri360', 't4');
+
+	it('moves the lighting references logged on the slate to the first other slate of its lighting setup, by day then slate', () => {
+		expect(deleteMoves('12A', all, days, [scan, other, video, hdri])).toEqual({ to: '9', refs: [hdri, video] });
+		const h9 = ref('h', '9', 'hdri360', 't1');
+		expect(deleteMoves('9', all, days, [h9])).toEqual({ to: '12A', refs: [h9] });
+	});
+
+	it('takes a slate of another day when the day has no other', () => {
+		const one = all.filter((s) => s.id !== '12B' && s.id !== '9');
+		expect(deleteMoves('12A', one, days, [hdri])).toEqual({ to: '10', refs: [hdri] });
+	});
+
+	it('moves nothing when no other slate has the lighting setup, the slate has none, or it logged no lighting reference', () => {
+		expect(deleteMoves('14', all, days, [ref('h', '14', 'hdri360', 't1')])).toBeUndefined();
+		expect(deleteMoves('15', [...all, on('15', 'd1')], days, [ref('h', '15', 'hdri360', 't1')])).toBeUndefined();
+		expect(deleteMoves('12A', all, days, [scan])).toBeUndefined();
+	});
+});
+
+describe('loggedOn', () => {
+	it('names the slate a reference was logged on when it shows on another', () => {
+		expect(loggedOn(ref('h', '12A', 'hdri360', 't1'), '12B', slates)).toBe('12A');
+		expect(loggedOn(ref('h', '12A', 'hdri360', 't1'), '12A', slates)).toBeUndefined();
+		expect(loggedOn(ref('h', 'gone', 'hdri360', 't1'), '12A', slates)).toBeUndefined();
 	});
 });

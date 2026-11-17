@@ -23,6 +23,7 @@
 	import { live, liveList, liveQueue } from '$lib/app/live.svelte';
 	import { t, tk } from '$lib/i18n/messages';
 	import type { Slate, Take } from '$lib/model/types';
+	import { removeSlate } from '$lib/references/edit';
 	import { filterSlates, sceneOptions, SLATE_SORTS, sortSlateRows, summarise, takeCount, unsyncedSlateIds, type SlateFilter, type SlateSort, type SlateSummary } from '$lib/slates/list';
 	import { clearSelection, EMPTY_SELECTION, isAllSelected, pruneSelection, selectAll, selectedIn } from '$lib/slates/selection';
 	import BulkSheet from './BulkSheet.svelte';
@@ -145,7 +146,7 @@
 						href="/slates/{r.slate.id}"
 						class={wide && r.slate.id === shown ? 'picked' : ''}
 						onclick={(e) => open(e, r.slate)}
-						swipe={[{ label: t('common.delete'), destructive: true, run: () => app.edit.removeTree('slate', r.slate.id, { key: 'edit.removed', params: { what: t('slates.slate', { slate: r.slate.slateUID ?? '' }) } }) }]}
+						swipe={[{ label: t('common.delete'), destructive: true, run: () => removeSlate(app, r.slate, { key: 'edit.removed', params: { what: t('slates.slate', { slate: r.slate.slateUID ?? '' }) } }) }]}
 					>
 						{#snippet trailing()}
 							<span class="marks" aria-hidden={r.circled + r.noGood === 0 && !r.unsynced}>

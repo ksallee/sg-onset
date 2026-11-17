@@ -14,8 +14,8 @@ where they land on a laptop: `42A/hdri-360/HDRI_0412/` (docs/export.md, "Layout"
 |---|---|
 | `kinds.ts` | `KINDS`, the built-in kinds. `kindChoices` with the project's own kinds, `kindLabel`, `kindProblem` for a new project kind. |
 | `log.ts` | `sortReferences`, `nextReferenceName`, `lastOfKind`, `newReference`, `referenceDetail` (a row), `referenceLine` (a file), `countByKind` (Wrap). |
-| `lighting.ts` | `LIGHTING_KINDS`, `isLightingKind`; `slatesOf`, the slates a reference shows on; `shownBySlate`, the references each slate shows. |
-| `edit.ts` | Not pure: `addReference`, `removeReference`, `setReferenceKind` on the store, with the switches. |
+| `lighting.ts` | `LIGHTING_KINDS`, `isLightingKind`; `slatesOf`, the slates a reference shows on; `shownBySlate`, the references each slate shows; `loggedOn`; `deleteMoves`, what a slate's delete moves and where. |
+| `edit.ts` | Not pure: `addReference`, `removeReference`, `setReferenceKind` on the store, with the switches; `removeSlate`, which moves a slate's lighting references before it goes. |
 
 ## Switches
 
@@ -37,7 +37,10 @@ exports and in Flow PT. Every other kind stays on its slate. The rule is `lighti
   it shows on follow from the lighting setups as they are now, as the switch rule does. A slate
   made later on the setup shows it at once.
 - It is one reference. Opened from any slate of the setup, it edits and deletes the same entry.
-  Added from 12B, it is logged on 12B.
+  Added from 12B, it is logged on 12B. On another slate its detail line ends "Logged on 12A".
+- Deleting 12A first moves its lighting references to the first other slate of the setup, in the
+  same undo entry; its other references go with it. With no other slate on the setup, they go too.
+  Undo puts them back on 12A.
 - The switch rule is unchanged: logging an HDRI 360 turns on the lighting setup's HDRI, and the
   Turn Off offer already counts every slate on the setup.
 - Wrap counts it once a day, however many slates of the day show it.
@@ -87,9 +90,10 @@ overrule any of them.
 8. **A lighting reference follows the slate it was logged on** (#107). Its lighting setup is that
    slate's, now: move 12A to another lighting setup and its HDRIs go with it, as its switches do.
    No lighting setup is stored on the reference.
-9. **A lighting reference logged on another slate shows as the slate's own** (#107). Same row,
-   same detail, same sheet. Nothing says which slate it was logged on; the wrap manifest's path
-   does.
-10. **Deleting a slate deletes the references logged on it,** lighting ones too, as before (#93):
-    they leave every slate of the setup, and Undo brings them back.
+9. **A lighting reference logged on another slate shows in the slate's list as a row of its own,
+   its detail ending "Logged on 12A"** (Kevin, 2026-11-17). Same sheet, same actions.
+10. **Deleting a slate moves its lighting references to the first other slate of its lighting
+    setup** (Kevin, 2026-11-17): first by shoot day (date, then number), then by slate as a person
+    counts, 9 before 10, 42A before 42B. The earliest slate left on the setup, so the rule gives
+    the same answer on any device. The notice stays "Slate 42A deleted"; Undo puts them back.
 

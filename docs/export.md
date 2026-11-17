@@ -313,8 +313,8 @@ render:
 ### Layout
 
 `wrapPlan(rows, { project, shootDays, blobs, slates, references, allSlates, projectKinds })` lists
-every file and empty folder of the package with its path. One folder per slate (#95); it replaced the layout
-with a `photos/` tree, and there is no option for that one.
+every file and empty folder of the package with its path. One folder per slate (#95); it replaced
+the layout with a `photos/` tree, and there is no option for that one.
 
 ```
 Night-Train_2026-11-10-day03/

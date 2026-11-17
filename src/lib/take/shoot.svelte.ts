@@ -22,6 +22,7 @@ import { entrySpec, isLocked, numberFields, shownValue, slotKey, visibleFields, 
 import { activeSetupIds, cameraColumns, groupTakes, NO_SETUP, type TakeGroup } from './groups';
 import { groupMark, groupNote, markPatch, newStill, notePatch, photoTake, type Mark } from './marks';
 import { addedLabel, failedLabel, mediaKind, pickedAt, pickedType, type MediaKind } from './library';
+import { sizeNotice } from './videoSize';
 import { groupPhase, groupTimes, runningGroup } from './phase';
 import { nextSecondIn } from './record';
 import { recentValues } from './recent';
@@ -61,7 +62,7 @@ export class Shoot {
 	entry = $state.raw<FieldEntry>(startEntry(''));
 	/** What is wrong with what was typed. */
 	issue = $state<string | null>(null);
-	/** A photo that did not save. */
+	/** About photos and videos just added: some did not save, or a video is large. */
 	photoIssue = $state<string | null>(null);
 	/** The clock, moved each whole second of the running take. */
 	now = $state(Date.now());
@@ -308,10 +309,11 @@ export class Shoot {
 			.finally(() => {
 				const ids = new Set(added.map((a) => a.still.id));
 				this.unsaved = this.unsaved.filter((s) => !ids.has(s.id));
+				// What did not save is said first; else the size of a large video (videoSize.ts). Neither blocks anything.
+				const saved = added.filter((a) => !failed.includes(a));
+				const notice = failed.length ? failedLabel(failed.map((a) => a.kind)) : sizeNotice(saved.map((a) => ({ type: a.file.type, size: a.file.size })));
+				if (notice) this.#notice(t(notice.key, notice.params));
 				if (!failed.length) return;
-				const notice = failedLabel(failed.map((a) => a.kind));
-				this.photoIssue = t(notice.key, notice.params);
-				setTimeout(() => (this.photoIssue = null), 6000);
 				const gone = new Set(failed.map((a) => a.still.id));
 				const urls = [...gone].map((id) => this.pending[id]);
 				this.pending = Object.fromEntries(Object.entries(this.pending).filter(([id]) => !gone.has(id)));
@@ -319,6 +321,14 @@ export class Shoot {
 				// The files are let go once their thumbnails are off the screen, not while one still loads.
 				setTimeout(() => urls.forEach((url) => URL.revokeObjectURL(url)), 1000);
 			});
+	}
+
+	/** A notice about photos and videos just added, for six seconds. A newer one is not cut short. */
+	#notice(text: string) {
+		this.photoIssue = text;
+		setTimeout(() => {
+			if (this.photoIssue === text) this.photoIssue = null;
+		}, 6000);
 	}
 
 	removeStill(still: Still) {

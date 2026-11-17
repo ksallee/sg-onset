@@ -37,6 +37,8 @@ export const take = {
 	'take.photos.failed': '{n} photos did not save. The device may be full.',
 	'take.videos.failed': '{n} videos did not save. The device may be full.',
 	'take.media.failed': '{n} photos and videos did not save. The device may be full.',
+	'take.video.large': 'This video is {size}. It takes room on this iPad and a long time to sync.',
+	'take.videos.large': 'These {n} videos are {size}. They take room on this iPad and a long time to sync.',
 
 	'phase.idle': 'Ready',
 	'phase.rolling': 'Running',

@@ -1,5 +1,6 @@
 // The take screen (Shoot) on stored data: the sample project, slate 42A of today. Role and label
 // selectors only: the markup moves. Every test starts on an empty device.
+import { truncateSync, writeFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 import { movie } from '../src/lib/media/testFiles';
 import { expect, openApp, test } from './fixtures';
@@ -203,6 +204,23 @@ test.describe('take screen', () => {
 		await expect(strip.getByRole('img', { name: 'Video 1 of take 3' })).toBeVisible();
 		await page.getByRole('button', { name: 'Remove video 1' }).tap();
 		await expect(strip.getByRole('img')).toHaveCount(0);
+	});
+
+	test('a video over 100 MB is taken, and the notice says its size', async ({ page, browserName }, testInfo) => {
+		// Playwright's WebKit session refuses stored Blobs (see the Photo test above).
+		test.skip(browserName === 'webkit', 'stored files: Chromium only');
+		// A clip that says when it was shot, made 101 MB long without writing the bytes.
+		const path = testInfo.outputPath('long.mov');
+		writeFileSync(path, movie('2026-11-13T14:05:22-0600'));
+		truncateSync(path, 101_000_000);
+		await openShoot(page);
+		await page.getByRole('button', { name: /^(Add Note|Note:)/ }).first().tap();
+		const sheet = page.getByRole('dialog', { name: 'Take 3' });
+		const [chooser] = await Promise.all([page.waitForEvent('filechooser'), sheet.getByRole('button', { name: 'Add Photos or Videos' }).tap()]);
+		await chooser.setFiles(path);
+		await sheet.getByRole('button', { name: 'Done' }).tap();
+		await expect(page.getByRole('status').filter({ hasText: 'This video is 101 MB. It takes room on this iPad and a long time to sync.' })).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Photos and videos' }).getByRole('img', { name: 'Video 1 of take 3' })).toBeVisible();
 	});
 
 	test('Circled marks the take, again unmarks it', async ({ page }) => {

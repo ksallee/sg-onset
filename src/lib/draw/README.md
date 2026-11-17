@@ -1,8 +1,8 @@
 # draw
 
-The drawing canvas: drawing on a photo (#86). Pure modules with their tests beside them, the
-flattener at the edge. The components are `src/lib/components/draw/`; the strings
-`src/lib/i18n/en/draw.ts`.
+The drawing canvas: drawing on a photo (#86) and a slate's setup diagram (#87). Pure modules with
+their tests beside them, the flattener at the edge. The components are `src/lib/components/draw/`;
+the strings `src/lib/i18n/en/draw.ts`.
 
 ## Modules
 
@@ -13,8 +13,11 @@ flattener at the edge. The components are `src/lib/components/draw/`; the string
 | `gesture.ts` | yes | Pointer events to a gesture, and on the way up the change to save or the words to ask for. |
 | `paint.ts` | yes | Paints the shapes on a 2D context, in paint order. The context is handed in. |
 | `markup.ts` | yes | A photo's drawing (`markup` table), its key, which file is the photo and which the annotated copy, the flatten plan, the files to hand over. |
-| `flatten.ts` | no | Decodes the photo, paints the drawing over it, encodes a JPEG. |
+| `optics.ts` | yes | A lens's squeeze, the horizontal field of view from focal length and sensor width, the wedge in front of a camera symbol. |
+| `diagram.ts` | yes | A slate's setup diagram (`diagram` table): the slate's cameras with lens and view, where they place themselves, their captions. |
+| `flatten.ts` | no | Decodes the photo, paints the drawing over it, encodes a JPEG. Paints a setup diagram into a PNG. |
 | `flattener.ts` | no | Keeps each photo's annotated copy in step with its drawing, through the store. |
+| `diagramUploads.ts` | no | Before each sync: draws each changed setup diagram's image, a file of its slate, for Flow PT. |
 
 ## How a drawing is kept
 
@@ -28,6 +31,25 @@ flattener at the edge. The components are `src/lib/components/draw/`; the string
   'annotated'`, with the key of the drawing it was made from. It goes to Flow PT as
   `onset_<still>_<blob>-annotated.jpg` (fpt README) and into the wrap package as
   `<slate>-<camera>-reference-<n>-annotated.jpg` beside the photo (`$lib/export/wrapPackage`).
+
+## How a setup diagram is kept
+
+- One per slate, a row of the `diagram` table under the slate, kept on the device. A sheet of 1600
+  by 1200 units; not to scale: distances are measurements typed on it.
+- When it opens, each camera setup of the slate (those on its takes, or every setup while it has
+  none) is a camera symbol: its letter, its lens, its focal length and field of view. One not
+  placed yet stands along the foot, facing up; the first change keeps it where it is. It cannot be
+  deleted: it would place itself again.
+- The lens and body are the latest take's, else the setup's. A prime gives its focal length; a
+  zoom takes the focal length of the slate's latest take on that camera that has one. The field of
+  view is 2 atan(w s / 2f): w the body's sensor width (gear library), s the lens's anamorphic
+  squeeze (1 for spherical glass). With no width or no focal length, no wedge.
+- The wrap package holds it in the slate's folder as `<slate>-setup-diagram.png`, with a manifest
+  row, drawn as the zip is written, whether the photos go or not.
+- Flow PT gets its image (Kevin, 2026-11-17, issue #87): drawn in the browser before each sync,
+  stored as a file of the slate (`variant: 'diagram'`), uploaded to the slate's Setup Diagram field
+  (`diagramUploads.ts`, fpt README). Drawn again when what it shows changes; the slate shows the
+  newest.
 
 ## Decisions
 
@@ -51,3 +73,10 @@ Made by Claude. Kevin can overrule any of them.
 8. **No zoom yet.** The photo fits the screen. Pinch to zoom is a later step.
 9. **The copy is a JPEG at 90 %, at the photo's size,** smaller only past 16.7 million pixels, the
    largest canvas iPadOS Safari paints.
+10. **A setup diagram's symbols are four:** camera, subject, light, marker, as the issue names them.
+11. **A camera's field of view is a wedge 540 units long,** a third of the sheet: the angle is what
+    it shows, not the reach.
+12. **The diagram opens from its own section on the slate's page,** under the takes.
+13. **The diagram image in the wrap package is drawn as the zip is written,** from the gear as it
+    is then, so a lens fixed later shows. The image for Flow PT is a stored file, drawn before a
+    sync.

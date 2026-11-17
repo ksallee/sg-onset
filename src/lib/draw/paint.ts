@@ -3,8 +3,9 @@
 // context is handed in, so a test can give it a recorder.
 
 import { formatLength, type UnitSystem } from '$lib/model/length';
-import { INKS, type Dimension, type Figure, type Ink, type Shape } from './drawing';
+import { INKS, type Dimension, type Figure, type Ink, type Point, type Shape } from './drawing';
 import { dimensionParts, figureLine, figureParts, paintOrder, strokePoints, type Part } from './geometry';
+import { fovWedge } from './optics';
 
 /** The part of CanvasRenderingContext2D the painter uses. */
 export type Painter = Pick<
@@ -30,13 +31,34 @@ export type Painter = Pick<
 	| 'font'
 	| 'textAlign'
 	| 'textBaseline'
+	| 'globalAlpha'
 >;
 
-/** What the painter cannot know by itself: the words on a dimension line and under a symbol. */
+/**
+ * What the painter cannot know by itself: the words on a dimension line and under a symbol, and
+ * the field of view of a camera symbol, drawn as a wedge `reach` units long.
+ */
 export type Labels = {
 	value: (d: Dimension) => string;
 	captions?: (f: Figure) => string[];
+	fov?: (f: Figure) => number | undefined;
+	reach?: number;
 };
+
+/** How strong a field of view is: a light fill, its edges a little more. */
+export const FOV_FILL = 0.12;
+export const FOV_EDGE = 0.5;
+
+/** The camera symbols with a field of view, and the wedge of each. */
+export function wedges(shapes: readonly Shape[], labels: Labels): { camera: Figure; points: Point[] }[] {
+	const out: { camera: Figure; points: Point[] }[] = [];
+	for (const s of shapes) {
+		if (s.kind !== 'symbol' || s.symbol !== 'camera') continue;
+		const fov = labels.fov?.(s);
+		if (fov !== undefined) out.push({ camera: s, points: fovWedge(s, fov, labels.reach ?? s.size * 6) });
+	}
+	return out;
+}
 
 /** The app's type, for text drawn into an image. */
 export const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif';
@@ -128,7 +150,24 @@ function paintShape(ctx: Painter, shape: Shape, labels: Labels): void {
 	}
 }
 
-/** Paints the shapes, in paint order, in drawing units: scale the context first to paint at another size. */
+/**
+ * Paints the shapes, in drawing units: scale the context first to paint at another size. The
+ * fields of view first, under everything, then the shapes in paint order.
+ */
 export function paint(ctx: Painter, shapes: readonly Shape[], labels: Labels): void {
+	for (const { camera, points } of wedges(shapes, labels)) {
+		ctx.save();
+		ctx.beginPath();
+		points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+		ctx.closePath();
+		ctx.globalAlpha = FOV_FILL;
+		ctx.fillStyle = INKS[camera.ink];
+		ctx.fill();
+		ctx.globalAlpha = FOV_EDGE;
+		ctx.strokeStyle = INKS[camera.ink];
+		ctx.lineWidth = figureLine(camera) * 0.75;
+		ctx.stroke();
+		ctx.restore();
+	}
 	for (const shape of paintOrder(shapes)) paintShape(ctx, shape, labels);
 }

@@ -10,7 +10,7 @@
 
 import type { Project, Reference, ShootDay, Slate } from '$lib/model/types';
 import type { BlobMeta } from '$lib/store/types';
-import { exportFileName, extensionFor, folderName, kindFolders, manifestFileName, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
+import { diagramFileName, exportFileName, extensionFor, folderName, kindFolders, manifestFileName, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
 import { referencesBySlate, type FlatTake } from './selection';
 import { slateManifest } from './slateManifest';
 
@@ -18,10 +18,13 @@ import { slateManifest } from './slateManifest';
 export type PhotoBlob = Pick<BlobMeta, 'id' | 'recordId' | 'type' | 'size' | 'createdAt' | 'name' | 'prunedAt' | 'variant'>;
 
 /**
- * What a file in a slate's folder is: a photo, or a photo's annotated copy, its drawing flattened
- * on it (#86). Audio notes (#89) of a take, and the setup diagram (#87) of a slate, add theirs.
+ * What a file in a slate's folder is: a photo, a photo's annotated copy, its drawing flattened on
+ * it (#86), or the slate's setup diagram (#87). Audio notes (#89) of a take add theirs.
  */
-export type Media = 'photo' | 'annotated';
+export type Media = 'photo' | 'annotated' | 'diagram';
+
+/** About what a setup diagram's PNG weighs, until it is drawn as the package is written. */
+export const DIAGRAM_BYTES = 120_000;
 
 /** A file in a slate's folder: one of a take's, or the slate's own. Its bytes are a stored file. */
 export type SlateFile = {
@@ -30,8 +33,10 @@ export type SlateFile = {
 	name: string;
 	mime: string;
 	size: number;
-	/** The stored file, read with `store.blob(id)`. */
+	/** The stored file, read with `store.blob(id)`. Empty for a file drawn as the package is written. */
 	blobId: string;
+	/** A setup diagram, drawn from its data as the package is written (#87). */
+	diagramId?: string;
 	/** The record it is the file of: a still. */
 	recordId: string;
 	/** The bytes left the device after Flow PT verified them: fetch them or skip the file. */
@@ -56,7 +61,7 @@ export type SlateFolder = {
 	name: string;
 	/** Its takes in the package, in order, each with its files. */
 	takes: TakeFolder[];
-	/** The slate's own files, a take's none. None yet: the setup diagram (#87) goes here. */
+	/** The slate's own files, a take's none: its setup diagram (#87). */
 	files: SlateFile[];
 	/** Its set references, in the order logged. */
 	references: ReferenceFolder[];
@@ -99,6 +104,8 @@ export type WrapOptions = {
 	projectKinds?: readonly string[];
 	/** A reference kind as the app shows it, for the manifests. Absent: the kind as stored. */
 	kindLabel?: (kind: string) => string;
+	/** The setup diagrams with something drawn on them, one per slate (#87). */
+	diagrams?: readonly { id: string; slateId: string }[];
 };
 
 /** What `takeFiles` and `slateFiles` read. One per package: the photo numbers run across it. */
@@ -108,6 +115,8 @@ export type FileContext = {
 	firstBlob: Map<string, PhotoBlob>;
 	/** The annotated copy of each photo that has one, by still id (#86). */
 	annotated: Map<string, PhotoBlob>;
+	/** The setup diagram of each slate that has one, by slate id (#87). */
+	diagrams: Map<string, string>;
 	/** The next photo number per slate and camera. */
 	counters: Map<string, number>;
 	/** Records with no stored file. */
@@ -179,9 +188,14 @@ export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
 	return files;
 }
 
-/** A slate's own files, a take's none. None yet: the setup diagram (#87) is added here. */
-export function slateFiles(_slate: Slate, _ctx: FileContext): SlateFile[] {
-	return [];
+/**
+ * A slate's own files, a take's none: its setup diagram (#87), drawn as the package is written. It
+ * goes whether the photos do or not: it is small, and it is the slate's, not a photo.
+ */
+export function slateFiles(slate: Slate, ctx: FileContext): SlateFile[] {
+	const diagramId = ctx.diagrams.get(slate.id);
+	if (!diagramId) return [];
+	return [{ media: 'diagram', name: diagramFileName(slate.slateUID ?? ''), mime: 'image/png', size: DIAGRAM_BYTES, blobId: '', diagramId, recordId: slate.id, pruned: false }];
 }
 
 type Group = { slate: Slate; rows: FlatTake[]; references: Reference[] };
@@ -209,6 +223,7 @@ function groupBySlate(rows: readonly FlatTake[], options: WrapOptions): Group[] 
  *         <slate>_manifest.csv              its takes, files and references
  *         <slate>-<camera>-reference-<n>.<ext>
  *         <slate>-<camera>-reference-<n>-annotated.jpg   the photo with its drawing (#86)
+ *         <slate>-setup-diagram.png         the slate's setup diagram (#87)
  *         <kind>/<reference>/               empty, for what was shot on another device
  *
  * A slate gets a folder when it has a take in the rows or a set reference. Names come from
@@ -223,7 +238,7 @@ export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapP
 		{ kind: 'ale', path: file('editorial'), mime: 'text/plain' },
 		{ kind: 'json', path: file('data'), mime: 'application/json' }
 	];
-	const ctx: FileContext = { photos: options.photos !== false, firstBlob: firstBlobs(options.blobs), annotated: annotatedBlobs(options.blobs), counters: new Map(), missing: [] };
+	const ctx: FileContext = { photos: options.photos !== false, firstBlob: firstBlobs(options.blobs), annotated: annotatedBlobs(options.blobs), diagrams: new Map((options.diagrams ?? []).map((d) => [d.slateId, d.id])), counters: new Map(), missing: [] };
 	const groups = groupBySlate(rows, options);
 	const kindFolder = kindFolders(
 		groups.flatMap((g) => g.references.map((r) => r.kind ?? '')),

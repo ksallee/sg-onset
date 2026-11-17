@@ -1,4 +1,4 @@
-// Strings of the drawing canvas: drawing on a photo (#86). Owned by the drawing area
+// Strings of the drawing canvas: drawing on a photo (#86), the setup diagram (#87). Owned by the drawing area
 // (`src/lib/draw`, `src/lib/components/draw`).
 
 export const draw = {
@@ -11,6 +11,10 @@ export const draw = {
 	'draw.tool.draw': 'Draw',
 	'draw.tool.text': 'Text',
 	'draw.tool.measure': 'Measure',
+	'draw.tool.camera': 'Camera',
+	'draw.tool.subject': 'Subject',
+	'draw.tool.light': 'Light',
+	'draw.tool.marker': 'Marker',
 	'draw.inks': 'Colour',
 	'draw.ink.red': 'Red',
 	'draw.ink.yellow': 'Yellow',
@@ -21,6 +25,11 @@ export const draw = {
 	'draw.hint.draw': 'Draw with a finger or the Pencil.',
 	'draw.hint.text': 'Tap where the text goes.',
 	'draw.hint.measure': 'Drag from one end to the other, then type the length.',
+	'draw.hint.diagram.move': 'Drag a camera, a subject, a light or a marker to move it. Turn it by the dot in front of it.',
+	'draw.hint.camera': 'Tap where a camera stands. The cameras of the slate are there already.',
+	'draw.hint.subject': 'Tap where the subject stands.',
+	'draw.hint.light': 'Tap where a light stands.',
+	'draw.hint.marker': 'Tap where a marker is.',
 
 	'draw.text.title': 'Text',
 	'draw.text.label': 'Text',
@@ -40,5 +49,16 @@ export const draw = {
 	'draw.edit.draw': 'Line drawn on photo {n}',
 	'draw.edit.text': 'Text on photo {n} changed',
 	'draw.edit.measure': 'Measurement on photo {n} changed',
-	'draw.edit.change': 'Drawing on photo {n} changed'
+	'draw.edit.change': 'Drawing on photo {n} changed',
+
+	'draw.diagram.header': 'Setup diagram',
+	'draw.diagram.open': 'Setup Diagram',
+	'draw.diagram.drawn': 'Drawn',
+	'draw.diagram.none': 'Not drawn',
+	'draw.diagram.footer': 'Where the cameras, the subject, the lights and the markers stand, from above. The cameras of this slate place themselves, each with its lens and what it sees.',
+	'draw.diagram.title': 'Setup Diagram, Slate {slate}',
+	'draw.diagram.canvas': 'Setup diagram of slate {slate}',
+	'draw.diagram.focal': '{focal} mm',
+	'draw.diagram.fov': '{fov}°',
+	'draw.diagram.edit': 'Setup diagram of slate {slate} changed'
 } as const;

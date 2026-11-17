@@ -116,6 +116,21 @@ describe('wrapPlan', () => {
 		expect(manifest?.kind === 'manifest' && manifest.text).toContain('42A/42A-A-reference-1-annotated.jpg');
 	});
 
+	it('puts the setup diagram of a slate in its folder, drawn as the package is written, in the manifest, photos or not', () => {
+		const { rows, slates, references } = day3Input();
+		const diagrams = [{ id: 'dg1', slateId: s42A.id }, { id: 'dg9', slateId: 'elsewhere' }];
+		for (const photos of [true, false]) {
+			const p = wrapPlan(rows, { project, shootDays: [day3], blobs, slates, references, diagrams, photos });
+			const found = p.entries.filter((x) => x.kind === 'file' && x.media === 'diagram');
+			expect(found.map(inside)).toEqual(['42A/42A-setup-diagram.png']);
+			expect(found[0]).toMatchObject({ mime: 'image/png', blobId: '', diagramId: 'dg1', recordId: s42A.id, slateId: s42A.id, pruned: false });
+			expect(found[0]).not.toHaveProperty('takeId');
+			expect(p.slates.find((s) => s.slate.id === s42A.id)!.files.map((f) => f.name)).toEqual(['42A-setup-diagram.png']);
+			const manifest = p.entries.find((x) => x.kind === 'manifest' && x.slateId === s42A.id);
+			expect(manifest?.kind === 'manifest' && manifest.text).toContain('Setup diagram,,,,,,,,42A-setup-diagram.png,42A/42A-setup-diagram.png');
+		}
+	});
+
 	it('names the photos that have no file at all', () => {
 		const { rows, slates, references } = day3Input();
 		const p = wrapPlan(rows, { project, shootDays: [day3], blobs: blobs.filter((b) => b.recordId !== 'st3'), slates, references });

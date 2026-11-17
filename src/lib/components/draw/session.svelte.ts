@@ -7,9 +7,12 @@ import { untrack } from 'svelte';
 import type { App } from '$lib/app/app.svelte';
 import type { Label, UndoEntry } from '$lib/app/undo';
 import type { Shape } from '$lib/draw/drawing';
+import type { Change } from '$lib/draw/gesture';
 import type { RowOf } from '$lib/store/tables';
 
-export type DrawTable = 'markup';
+export type DrawTable = 'markup' | 'diagram';
+/** What a change was, for its undo label: a gesture's, a text or a length typed, a delete. */
+export type EditChange = Change | 'text' | 'delete';
 type Row = RowOf<DrawTable>;
 
 export class DrawSession {

@@ -403,7 +403,8 @@ writes the plan's folder entries that way, and its test reads the entry back.
 A slate folder holds the files of its takes and its own files. Videos (#94), audio notes (#89)
 and annotated copies (#86) are a take's; the setup diagram (#87) is the slate's own. Annotated
 copies are in: media `annotated`, after their photo in `takeFiles`, manifest word "Annotated
-photo". To add one:
+photo". The setup diagram is in: media `diagram` in `slateFiles`, drawn as the package is
+written (`diagramId` on the file, a branch in `read`), manifest word "Setup diagram". To add one:
 
 1. Name it in `naming.ts`, next to `photoFileName`. The name must be unique in the slate folder:
    number it per slate and camera as photos are, or build it from the photo it copies

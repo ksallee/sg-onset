@@ -81,8 +81,8 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
 ## Tables
 
 - One per scope (`project`, `shootDay`, `lightingSetup`, `cameraSetup`, `slate`, `take`,
-  `camera`, `lens`, `reference`), `still`, `template`, `referenceKind` and `markup`. Key `id`,
-  index on the parent key.
+  `camera`, `lens`, `reference`), `still`, `template`, `referenceKind`, `markup` and `diagram`. Key
+  `id`, index on the parent key.
 - `template`: a live template, under its project (schema version 3). Kept on the device: it is in
   the backup and on the undo stack, and nothing is queued for it (`LOCAL_TABLES`).
 - `reference`: a set reference, under its slate (schema version 4). Synced like a take.
@@ -90,10 +90,13 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
   version 4). Kept on the device, as a template is.
 - `markup`: the drawing on a photo, under its still (schema version 5, #86). Kept on the device
   like a template. It reaches Flow PT as the still's annotated copy (below).
-- `blobs`: one row per file, without the bytes. `blobData`: the bytes. A file may be a copy of its
-  record's first file: `variant: 'annotated'`, the photo with its drawing flattened on it, and
-  `source`, the key of the drawing it was made from (`$lib/draw/markup`). Its upload carries the
-  variant, so Flow PT names it with an "-annotated" suffix. `dropBlob(id)` takes back a file whose
+- `diagram`: a slate's setup diagram, under its slate (schema version 6, #87). Kept on the device
+  like a template. The wrap package holds it as an image.
+- `blobs`: one row per file, without the bytes. `blobData`: the bytes. A file may be one the app
+  made: `variant: 'annotated'`, a still's photo with its drawing flattened on it, or `variant:
+  'diagram'`, a slate's setup diagram as an image; `source` is the key of the drawing it was made
+  from (`$lib/draw/markup`, `$lib/draw/diagram`). Its upload carries the variant, so Flow PT names
+  and places it (fpt README). `dropBlob(id)` takes back a file whose
   upload has not left: its description, its unpinned bytes and its queued upload. Once the upload
   has left, or may have, it refuses and the file stays.
 - `outbox`: the queue. `remotes`: client UUID to server id. `trash`: removed records.

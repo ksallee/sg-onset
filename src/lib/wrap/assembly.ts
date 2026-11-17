@@ -14,7 +14,7 @@ export type PackageEntry =
 	/** A slate's manifest, its text made. */
 	| { kind: 'manifest'; path: string; mime: string; size: number; text: string }
 	/** A stored file in a slate's folder, read with `store.blob(blobId)`. */
-	| { kind: 'file'; media: Media; path: string; mime: string; size: number; blobId: string }
+	| { kind: 'file'; media: Media; path: string; mime: string; size: number; blobId: string; diagramId?: string }
 	/** An empty folder: its path ends in a slash, its size is 0. */
 	| { kind: 'folder'; path: string; size: number };
 
@@ -51,6 +51,8 @@ export type PackageSources = {
 	projectKinds?: readonly string[];
 	/** A reference kind as the app shows it, for the manifests. */
 	kindLabel?: (kind: string) => string;
+	/** The setup diagrams with something drawn on them, one per slate (#87). */
+	diagrams?: readonly { id: string; slateId: string }[];
 };
 
 const encoder = new TextEncoder();
@@ -65,7 +67,8 @@ export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sourc
 		slates: sources.slates,
 		references: sources.references,
 		projectKinds: sources.projectKinds,
-		kindLabel: sources.kindLabel
+		kindLabel: sources.kindLabel,
+		diagrams: sources.diagrams ?? []
 	});
 	const entries: PackageEntry[] = [];
 	for (const e of plan.entries) {
@@ -100,7 +103,7 @@ export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sourc
 			continue;
 		}
 		if (e.media === 'photo' || e.media === 'annotated') photoBytes += e.size;
-		entries.push({ kind: 'file', media: e.media, path: e.path, mime: e.mime, size: e.size, blobId: e.blobId });
+		entries.push({ kind: 'file', media: e.media, path: e.path, mime: e.mime, size: e.size, blobId: e.blobId, ...(e.diagramId ? { diagramId: e.diagramId } : {}) });
 	}
 	return {
 		root: plan.root,

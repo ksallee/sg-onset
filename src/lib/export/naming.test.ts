@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { KINDS } from '$lib/references/kinds';
-import { dayPart, exportFileName, extensionFor, folderName, kindFolderName, kindFolders, manifestFileName, photoFileName, slateFolderName, slug, uniqueName } from './naming';
+import { dayPart, diagramFileName, exportFileName, extensionFor, folderName, kindFolderName, kindFolders, manifestFileName, photoFileName, slateFolderName, slug, uniqueName } from './naming';
 import { day3, day4, project } from './testData';
 
 describe('slug', () => {
@@ -195,6 +195,11 @@ describe('photoFileName', () => {
 
 	it('makes an unsafe slate safe', () => {
 		expect(photoFileName('42/A', 'B', 1, 'jpg')).toBe('42-A-B-reference-1.jpg');
+	});
+
+	it('names the setup diagram of a slate after the slate', () => {
+		expect(diagramFileName('42 A')).toBe('42A-setup-diagram.png');
+		expect(diagramFileName('')).toBe('slate-setup-diagram.png');
 	});
 
 	it('names the annotated copy of a photo with an -annotated suffix', () => {

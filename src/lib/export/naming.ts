@@ -144,6 +144,11 @@ export function photoFileName(slate: string, cameraLetter: string, n: number, ex
 	return `${parts.filter((p) => p !== '').join('-')}-reference-${n}${annotated ? '-annotated' : ''}.${ext}`;
 }
 
+/** A slate's setup diagram (#87): the slate with whitespace removed, then "-setup-diagram.png". */
+export function diagramFileName(slate: string): string {
+	return `${slug(slate.replace(/\s+/g, ''), 'slate')}-setup-diagram.png`;
+}
+
 const MIME_EXT: Record<string, string> = {
 	'image/jpeg': 'jpg',
 	'image/heic': 'heic',

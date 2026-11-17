@@ -4,8 +4,12 @@
 //
 // Shapes are the corpus's: endpoints/get_schema.md, endpoints/get_schema_type_fields.md.
 
-import { ENTITY_SCOPES, ENTITY_TYPES, wantedColumns, type Column, type EntityScope, type FptDataType, type Target } from './mapping';
+import { ENTITY_SCOPES, ENTITY_TYPES, UUID, VERSION_COLUMNS, wantedColumns, type Column, type EntityScope, type FptDataType, type Target } from './mapping';
 import { codeName, reverseField } from './names';
+import { VERSION } from './versions';
+
+/** Where a planned field is: one of our scopes' entities, or Version, where a take's videos go. */
+export type PlanScope = EntityScope | 'version';
 
 /** `GET /schema`, its `data`: one entry per enabled type, keyed by schema name. */
 export type SchemaTypes = Record<string, { name: Property<string> }>;
@@ -79,7 +83,7 @@ export function foundTypes(entities: readonly EntityResolution[]): Partial<Recor
 }
 
 export type FieldPlan = {
-	scope: EntityScope;
+	scope: PlanScope;
 	entityType: string;
 	/** The field as the mapping names it. */
 	column: Column;
@@ -113,6 +117,8 @@ export type SiteContext = {
 	names?: Record<string, string>;
 	/** Fields of other linked types, by type: `Attachment`. A type left out is not checked for collisions. */
 	others?: Record<string, RawFields>;
+	/** The fields of Version, where a take's videos go. Left out: nothing is planned there. */
+	version?: RawFields;
 };
 
 function targetType(target: Target, types: Partial<Record<EntityScope, string>>): string | undefined {
@@ -142,7 +148,8 @@ function mismatch(column: Column, field: RawField, valid: string | undefined): s
  * `<name>_1` (corpus endpoints/post_schema_type_fields.md).
  */
 export function planFields(types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>, site: SiteContext = {}): FieldPlan[] {
-	return planReverses(planOwn(types, fields), types, fields, site);
+	const version = site.version ? VERSION_COLUMNS.map((column) => planColumn('version', VERSION, column, site.version!, types)) : [];
+	return planReverses([...planOwn(types, fields), ...version], types, fields, site);
 }
 
 /**
@@ -168,7 +175,7 @@ function planReverses(plans: FieldPlan[], types: Partial<Record<EntityScope, str
 	};
 	return plans.map((plan) => {
 		const target = plan.validTypes?.[0];
-		if (!target || plan.column.stock || (plan.dataType !== 'entity' && plan.dataType !== 'multi_entity') || plan.status === 'blocked') return plan;
+		if (!target || plan.column.stock || plan.scope === 'version' || (plan.dataType !== 'entity' && plan.dataType !== 'multi_entity') || plan.status === 'blocked') return plan;
 		const source = site.names?.[plan.entityType]?.trim() || ENTITY_TYPES[plan.scope].displayName;
 		const predicted = { entityType: target, ...reverseField(plan.entityType, source, plan.name, plan.displayName, plan.dataType) };
 		const have = fieldsOf(target);
@@ -201,38 +208,34 @@ function planOwn(types: Partial<Record<EntityScope, string>>, fields: Partial<Re
 		const entityType = types[scope];
 		const have = fields[scope];
 		if (!entityType || !have) continue;
-		const shown = new Set(Object.values(have).map((f) => loose(f.name.value)));
-		for (const column of wantedColumns(scope)) {
-			const base = { scope, entityType, column, dataType: column.dataType, ...(column.unique ? { unique: true as const } : {}) };
-			const valid = column.target ? targetType(column.target, types) : undefined;
-			if (column.target && !valid) {
-				const missing = ENTITY_TYPES[column.target as EntityScope].displayName;
-				plans.push({ ...base, name: column.name, displayName: column.display, status: 'blocked', reason: `links ${missing}, which the site does not have yet` });
-				continue;
-			}
-			const links = valid ? { validTypes: [valid] } : {};
-			const aside = column.display.startsWith('Onset ') ? [] : [`Onset ${column.display}`];
-			const candidates = [column.display, ...aside].map((display) => ({ display, name: codeName(display) }));
-
-			const usable = candidates.find((c) => have[c.name] && !mismatch(column, have[c.name], valid));
-			if (usable) {
-				plans.push({ ...base, ...links, name: usable.name, displayName: have[usable.name].name.value, status: 'present' });
-				continue;
-			}
-			const why = candidates.map((c) => {
-				if (have[c.name]) return `${entityType}.${c.name} ${mismatch(column, have[c.name], valid)}`;
-				return shown.has(loose(c.display)) ? `another ${entityType} field is already shown as "${c.display}"` : undefined;
-			});
-			const at = why.findIndex((w) => w === undefined);
-			const reason = why.filter((w): w is string => w !== undefined).join('; ');
-			if (at < 0) {
-				plans.push({ ...base, ...links, name: column.name, displayName: column.display, status: 'blocked', reason });
-				continue;
-			}
-			plans.push({ ...base, ...links, name: candidates[at].name, displayName: candidates[at].display, status: 'create', ...(reason ? { reason } : {}) });
-		}
+		for (const column of wantedColumns(scope)) plans.push(planColumn(scope, entityType, column, have, types));
 	}
 	return plans;
+}
+
+/** What to do about one field we want on a type, given the fields the type has. */
+function planColumn(scope: PlanScope, entityType: string, column: Column, have: RawFields, types: Partial<Record<EntityScope, string>>): FieldPlan {
+	const shown = new Set(Object.values(have).map((f) => loose(f.name.value)));
+	const base = { scope, entityType, column, dataType: column.dataType, ...(column.unique ? { unique: true as const } : {}) };
+	const valid = column.target ? targetType(column.target, types) : undefined;
+	if (column.target && !valid) {
+		const missing = ENTITY_TYPES[column.target as EntityScope].displayName;
+		return { ...base, name: column.name, displayName: column.display, status: 'blocked', reason: `links ${missing}, which the site does not have yet` };
+	}
+	const links = valid ? { validTypes: [valid] } : {};
+	const aside = column.display.startsWith('Onset ') ? [] : [`Onset ${column.display}`];
+	const candidates = [column.display, ...aside].map((display) => ({ display, name: codeName(display) }));
+
+	const usable = candidates.find((c) => have[c.name] && !mismatch(column, have[c.name], valid));
+	if (usable) return { ...base, ...links, name: usable.name, displayName: have[usable.name].name.value, status: 'present' };
+	const why = candidates.map((c) => {
+		if (have[c.name]) return `${entityType}.${c.name} ${mismatch(column, have[c.name], valid)}`;
+		return shown.has(loose(c.display)) ? `another ${entityType} field is already shown as "${c.display}"` : undefined;
+	});
+	const at = why.findIndex((w) => w === undefined);
+	const reason = why.filter((w): w is string => w !== undefined).join('; ');
+	if (at < 0) return { ...base, ...links, name: column.name, displayName: column.display, status: 'blocked', reason };
+	return { ...base, ...links, name: candidates[at].name, displayName: candidates[at].display, status: 'create', ...(reason ? { reason } : {}) };
 }
 
 export type CreateInput = { dataType: FptDataType; displayName: string; properties: Record<string, unknown> };
@@ -260,6 +263,8 @@ export type Resolution = {
 	site: string;
 	entities: Record<EntityScope, string>;
 	fields: Record<EntityScope, Record<string, string>>;
+	/** The name on the site of the client UUID field of Version, where a take's videos go. */
+	versionUuid: string;
 };
 
 /** The resolution, once every entity is found and every field is present. Otherwise nothing. */
@@ -275,7 +280,9 @@ export function toResolution(site: string, entities: readonly EntityResolution[]
 			fields[scope][column.name] = plan.name;
 		}
 	}
-	return { version: 1, site, entities: types, fields };
+	const uuid = plans.find((p) => p.scope === 'version' && p.column.name === UUID.name);
+	if (uuid?.status !== 'present') return undefined;
+	return { version: 1, site, entities: types, fields, versionUuid: uuid.name };
 }
 
 /** The name on the site of a mapped field. A stock field is its own name. */
@@ -298,7 +305,8 @@ export function parseResolution(raw: string | undefined | null, site: string): R
 	}
 	if (value === null || typeof value !== 'object') return undefined;
 	const r = value as Partial<Resolution>;
-	if (r.version !== 1 || r.site !== site || !r.entities || !r.fields) return undefined;
+	// Without `versionUuid`: written before videos went up as Versions. Resolve again.
+	if (r.version !== 1 || r.site !== site || !r.entities || !r.fields || typeof r.versionUuid !== 'string') return undefined;
 	for (const scope of ENTITY_SCOPES) {
 		if (typeof r.entities[scope] !== 'string' || !r.fields[scope]) return undefined;
 		// A catalogue field added since the cache was written has no name here: resolve again.

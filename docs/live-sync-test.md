@@ -71,6 +71,12 @@ Use a test project on the site, never a show.
   renewed a minute before it ends.
 - A photo: in Flow PT, open the file's link in a new tab. It shows as an image, not a download
   of `binary/octet-stream`. Two photos on one take: **Photos** holds both.
+- **Videos (#94).** Once the probe of a Version on a custom entity row has reported (fpt README,
+  gap 7). Set Up Fields first: it adds **Onset UUID** on Version. In the take sheet, **Add Photos
+  or Videos**: one short clip and one over 32 MB. In Flow PT, the Take's Versions show two, named
+  `Video <time>`, with **Link** the take, the file `onset_video_<photo>_<file>.mov` in
+  **Uploaded Movie**, and the player plays each once transcoded. **Photos** on the take does not
+  hold them. Delete one in the app: its Version goes. Note how long the large one took.
 
 ## What to send back
 

@@ -101,6 +101,25 @@ describe('the runner over the FPT transport', () => {
 		expect(s.port.verified.get('ph1')).toBe(attachment.id);
 	});
 
+	// Kevin, 2026-11-17 (#94): a video goes up as a Version linked to its take; a photo stays an
+	// Attachment. Live, a Version on a custom entity row awaits its finding in sg-groundtruth.
+	it('sends a video of the take as a Version, in parts when large, and verifies it', async () => {
+		const s = setup({ upload: { singlePutMax: 10, partSize: 6 } });
+		s.fpt.partFloor = 6;
+		await shoot(s);
+		await s.add({ kind: 'blob', table: 'still', recordId: 'v1', blobId: 'v1', size: 16, type: 'video/quicktime' }, ['v1']);
+		await s.add(create('still', 'v1', { takeId: 't1', capturedAt: '2026-11-11T09:05:00Z' }), ['t1']);
+		s.port.blobs.set('v1', new Blob([new Uint8Array(16)], { type: 'video/quicktime' }));
+		expect(await s.runner.drain()).toEqual(DONE);
+		const take = takeRow(s);
+		const [version] = s.fpt.live('Version');
+		expect(version.values).toMatchObject({ entity: { type: TAKE, id: take.id }, sg_onset_uuid: 'v1', code: 'Video 2026-11-11T09:05:00Z' });
+		expect(version.values.sg_uploaded_movie).toMatchObject({ type: 'Attachment' });
+		// The photo is the take's only photo; the video is not in that field.
+		expect(stillsOf(s).length).toBe(1);
+		expect(s.port.verified.get('v1')).toBe(version.id);
+	});
+
 	it('offline, then drains everything', async () => {
 		const s = setup();
 		s.fpt.online = false;

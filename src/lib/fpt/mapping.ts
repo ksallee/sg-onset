@@ -79,6 +79,12 @@ export const UUID: Column = { name: 'sg_onset_uuid', display: 'Onset UUID', data
 /** The photos of a take: Attachments at full resolution (corpus findings/123_photos_per_record.md). */
 export const STILLS: Column = { name: 'sg_photos', display: 'Photos', dataType: 'multi_entity', target: 'attachment', note: 'Reference photos, as shot.' };
 
+/**
+ * Ours on Version, a stock type: a take's videos go up as Versions linked to the take (Kevin,
+ * 2026-11-17; versions.ts). The client UUID only, so a create sent twice is refused.
+ */
+export const VERSION_COLUMNS: readonly Column[] = [UUID];
+
 /** The key whose value a new record takes as `created_at` (corpus findings/070_authored_timestamps.md). */
 export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt' };
 

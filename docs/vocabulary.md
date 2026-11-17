@@ -41,7 +41,8 @@ enforces the parts a test can check.
 | Lens | | One lens, by serial number. | `lens` | CRIF Tk Lens ID | Lens |
 | Slate | | The number on the clapperboard and the takes shot under it. | `slate` | CRIF Slate; OMC Slate.slateUID | Slate |
 | Take | | One camera setup's run of one slate, from Start to End. | `take` | CRIF Tk Take; VES scope Take | Take |
-| Photo | | A reference photo taken from the take screen, kept on the take. | `still` | VES 1.1 reference | Photos |
+| Photo | | A reference photo taken from the take screen or picked from the photo library or Files, kept on the take. | `still` | VES 1.1 reference | Photos |
+| Video | | A reference video picked from the photo library or Files, kept on the take. "Photos and videos" names both. | `still`, a video file | | Version, linked to the take |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
 | Change | | One edit waiting to sync. | outbox entry | | |
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
@@ -168,6 +169,7 @@ gives.
 | Ready, Running, Ended | The take's state. | Rolling, Filed, Idle |
 | New Take | Starts the next take as a copy of the last. | |
 | Photo | Takes a reference photo for the take. | Still, Ref |
+| Add Photos or Videos | In the take sheet: picks photos and videos from the photo library or Files for the take. | Import, Upload: Upload is a sync word |
 | Undo, Redo | Reverse the last edit. | |
 | Sync | Send changes to Flow PT and read back. | Upload, Push |
 | All synced | Nothing waits, signed in. | |

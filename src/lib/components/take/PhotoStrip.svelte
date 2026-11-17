@@ -1,7 +1,7 @@
 <script lang="ts">
-	// The photos of the take on screen, as a strip of thumbnails, each with its camera and a remove
-	// button. Removing is undoable, so nothing asks first.
-	import { X } from '@lucide/svelte';
+	// The photos and videos of the take on screen, as a strip of thumbnails, each with its camera
+	// and a remove button; a video has a mark. Removing is undoable, so nothing asks first.
+	import { Video, X } from '@lucide/svelte';
 	import { t } from '$lib/i18n/messages';
 	import type { Shoot } from '$lib/take/shoot.svelte';
 	import PhotoThumb from './PhotoThumb.svelte';
@@ -20,10 +20,12 @@
 		<ul>
 			{#each shoot.groupStills as still, i (still.id)}
 				{@const cam = camOf(still.takeId)}
+				{@const video = shoot.kindOf(still) === 'video'}
 				<li>
-					<PhotoThumb {still} pending={shoot.pending[still.id]} alt={t('photos.alt', { n: i + 1, take: number })} />
+					<PhotoThumb {still} {video} pending={shoot.pending[still.id]} alt={t(video ? 'photos.alt.video' : 'photos.alt', { n: i + 1, take: number })} />
 					{#if cam}<span class="cam">{cam}</span>{/if}
-					<button type="button" class="remove" aria-label={t('photos.remove', { n: i + 1 })} onclick={() => shoot.removeStill(still)}><X class="size-4" strokeWidth={3} /></button>
+					{#if video}<span class="kind" aria-hidden="true"><Video class="size-4" strokeWidth={2.4} /></span>{/if}
+					<button type="button" class="remove" aria-label={t(video ? 'photos.remove.video' : 'photos.remove', { n: i + 1 })} onclick={() => shoot.removeStill(still)}><X class="size-4" strokeWidth={3} /></button>
 				</li>
 			{/each}
 		</ul>
@@ -74,6 +76,17 @@
 		font-size: 13px;
 		font-weight: 700;
 		text-align: center;
+	}
+	/* A video's mark, in the corner the camera label and the remove button leave free. */
+	.kind {
+		position: absolute;
+		right: 6px;
+		bottom: 6px;
+		display: flex;
+		padding: 3px 5px;
+		border-radius: 7px;
+		background: var(--bg);
+		color: var(--label);
 	}
 	/* 44 px to tap, a small disc to see. */
 	.remove {

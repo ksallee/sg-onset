@@ -1,10 +1,11 @@
 <script lang="ts">
-	// One photo of a take: the file just taken while the store writes it, else the stored bytes.
-	// The bytes are read only for the photos on screen, and let go when the photo leaves it.
+	// One photo or video of a take: the file just taken while the store writes it, else the stored
+	// bytes. The bytes are read only for the ones on screen, and let go when one leaves it. A video
+	// shows its first frame and does not play.
 	import { useApp } from '$lib/app/app.svelte';
 	import type { Still } from '$lib/model/types';
 
-	let { still, pending, alt }: { still: Still; pending?: string; alt: string } = $props();
+	let { still, pending, alt, video = false }: { still: Still; pending?: string; alt: string; video?: boolean } = $props();
 
 	const app = useApp();
 	let url = $state<string | undefined>(undefined);
@@ -28,10 +29,15 @@
 	});
 </script>
 
-{#if pending ?? url}<img src={pending ?? url} {alt} />{:else}<span class="blank" role="img" aria-label={alt}></span>{/if}
+<!-- `#t`: Safari draws the first frame only once asked for a moment of the video. -->
+{#if (pending ?? url) && video}<span class="frame" role="img" aria-label={alt}><video src="{pending ?? url}#t=0.001" muted playsinline preload="metadata" aria-hidden="true"></video></span>
+{:else if pending ?? url}<img src={pending ?? url} {alt} />
+{:else}<span class="blank" role="img" aria-label={alt}></span>{/if}
 
 <style>
 	img,
+	video,
+	.frame,
 	.blank {
 		display: block;
 		width: 100%;
@@ -39,7 +45,7 @@
 		object-fit: cover;
 	}
 	/* Red night mode: a photo must not light the set. Grey, then red through the cell behind it. */
-	:global([data-night='true']) img {
+	:global([data-night='true']) :is(img, video) {
 		filter: grayscale(1) brightness(0.75);
 		mix-blend-mode: multiply;
 	}

@@ -57,6 +57,23 @@ test('bulk edit sets a field on five takes, one undo takes it back, and it survi
 	await holds(page, 'T-stop', '5.6');
 });
 
+test('a field focused as the field page slides in keeps what is typed, key by key', async ({ page }) => {
+	await open42A(page);
+	await circle(page, '1', 'A').tap();
+	await page.getByRole('button', { name: 'Select All' }).tap();
+	await page.getByRole('toolbar').getByRole('button', { name: 'Edit' }).tap();
+	const sheet = page.getByRole('dialog', { name: 'Edit 5 Takes' });
+	await sheet.getByRole('button', { name: /^T-stop/ }).tap();
+	// At once, as a person typing fast would: the page is still sliding in.
+	const field = sheet.getByRole('textbox', { name: 'T-stop' });
+	await field.focus();
+	await expect(sheet.getByRole('group', { name: 'T-stop' })).toHaveCSS('transform', 'none');
+	await expect(field).toBeFocused();
+	await page.keyboard.type('5.6');
+	await expect(field).toHaveValue('5.6');
+	await expect(sheet.getByText('Changes 5 takes.')).toBeVisible();
+});
+
 test('marks and a clear on many takes, with what already holds it said first', async ({ page }) => {
 	await open42A(page);
 	await circle(page, '1', 'A').tap();

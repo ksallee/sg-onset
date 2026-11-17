@@ -115,8 +115,10 @@ test.describe('setup diagram', () => {
 		const [download] = await Promise.all([page.waitForEvent('download'), save.tap()]);
 		const zip = new Blob([await readFile((await download.path())!)]);
 		const entries = await readZip(zip);
-		const image = entries.find((e) => e.name.endsWith('/diagrams/42A-setup-diagram.png'));
+		const image = entries.find((e) => e.name.endsWith('/42A/42A-setup-diagram.png'));
 		expect(image, entries.map((e) => e.name).join('\n')).toBeDefined();
+		const manifest = await (await entryBlob(zip, entries.find((e) => e.name.endsWith('/42A/42A_manifest.csv'))!)).text();
+		expect(manifest.split('\r\n').some((line) => line.startsWith('Setup diagram,') && line.includes('42A/42A-setup-diagram.png'))).toBe(true);
 		const png = Buffer.from(await (await entryBlob(zip, image!)).arrayBuffer());
 		expect(png.subarray(1, 4).toString()).toBe('PNG');
 		await testInfo.attach('setup diagram', { body: png, contentType: 'image/png' });

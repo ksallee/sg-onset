@@ -8,7 +8,7 @@ interface. The implementation here is IndexedDB through Dexie. A Capacitor store
 | module | pure | what it does |
 |---|---|---|
 | `types.ts` | types | `Store`, `BlobMeta`, `StorageStatus`, `BackupSource`, `BackupTarget`. |
-| `tables.ts` | yes | The tables, from the model: one per scope, `still` and `template`. Parent keys, link keys, `dependsOn`, `LOCAL_TABLES`. |
+| `tables.ts` | yes | The tables, from the model: one per scope, `still`, `template` and `referenceKind`. Parent keys, link keys, `dependsOn`, `LOCAL_TABLES`. |
 | `schema.ts` | yes | The IndexedDB schema by version. How to add a version. |
 | `storage.ts` | yes | `storageStatus`, `prunable`, `BLOB_KEEP_MS`. |
 | `dexieStore.ts` | no | `openStore`: the `Store` on Dexie. |
@@ -81,12 +81,16 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
 ## Tables
 
 - One per scope (`project`, `shootDay`, `lightingSetup`, `cameraSetup`, `slate`, `take`,
-  `camera`, `lens`), `still`, `template`, `markup` and `diagram`. Key `id`, index on the parent key.
+  `camera`, `lens`, `reference`), `still`, `template`, `referenceKind`, `markup` and `diagram`. Key
+  `id`, index on the parent key.
 - `template`: a live template, under its project (schema version 3). Kept on the device: it is in
   the backup and on the undo stack, and nothing is queued for it (`LOCAL_TABLES`).
-- `markup`: the drawing on a photo, under its still (schema version 4, #86). Kept on the device
+- `reference`: a set reference, under its slate (schema version 4). Synced like a take.
+- `referenceKind`: a kind of set reference the project added, `{ id, projectId, name }` (schema
+  version 4). Kept on the device, as a template is.
+- `markup`: the drawing on a photo, under its still (schema version 5, #86). Kept on the device
   like a template. It reaches Flow PT as the still's annotated copy (below).
-- `diagram`: a slate's setup diagram, under its slate (schema version 5, #87). Kept on the device
+- `diagram`: a slate's setup diagram, under its slate (schema version 6, #87). Kept on the device
   like a template. The wrap package holds it as an image.
 - `blobs`: one row per file, without the bytes. `blobData`: the bytes. A file may be a copy of its
   record's first file: `variant: 'annotated'`, the photo with its drawing flattened on it, and
@@ -272,11 +276,16 @@ Made by Claude. Kevin can overrule any of them.
 25. **Templates stay on the device.** Flow PT has no place for them; a slate or take keeps its
     template's id as text. The store skips the outbox for a table in `LOCAL_TABLES`. A backup
     made under schema an older version is refused (decision 13).
-26. **A drawing stays on the device; its flattened copy is a file of the still.** The photo is
+26. **A project's own kinds of set reference stay on the device, as templates do.** Flow PT has no
+    place for the list; each reference carries its kind as text, so Flow PT sees every kind used.
+    Schema version 4 adds them with the references: a backup made before it is refused
+    (decision 13), a snapshot from before it needs `acceptOlderSchema`.
+27. **A drawing stays on the device; its flattened copy is a file of the still.** The photo is
     never touched. The flattener (`$lib/draw/flattener.ts`) makes the copy after the drawing
     changes, and drops the copies that no longer match while they are unsent. A copy already
-    sent stays on Flow PT beside the new one: there is no file delete in the queue (21), and an
-    Artist may not delete an Attachment (corpus findings/143).
+    sent is not deleted (there is no file delete in the queue, 21, and an Artist may not delete an
+    Attachment, corpus findings/143): once the new copy is verified, the old one is taken off the
+    take's photos field instead (fpt README).
 
 ## What a real iPad must still prove
 

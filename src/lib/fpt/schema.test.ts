@@ -11,7 +11,10 @@ import {
 	type RawFields,
 	type SchemaTypes
 } from './schema';
-import { completeFields as complete, rawField as raw, TYPES } from './testkit';
+import { completeFields as complete, rawField as raw, TYPES, versionFields } from './testkit';
+
+/** What a site holds on Version: its stock fields, and our client UUID once Set Up Fields ran. */
+const VERSION_DONE = { version: versionFields(true) };
 
 // Shapes: corpus endpoints/get_schema.md and endpoints/get_schema_type_fields.md. Slot numbers
 // differ per site (findings/008_custom_entities.md); these are the probed site's, read 2026-11-11.
@@ -25,6 +28,7 @@ const SITE: SchemaTypes = {
 	CustomEntity10: type('Camera Setup'),
 	CustomEntity11: type('Lighting Setup'),
 	CustomEntity19: type('Lens'),
+	CustomEntity21: type('Set Reference'),
 	CustomEntity29: type('Location'),
 	CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection')
 };
@@ -56,6 +60,14 @@ describe('resolveEntities', () => {
 	it('says which custom entity to enable and what to name it', () => {
 		const { CustomEntity09: _take, ...rest } = SITE;
 		expect(resolveEntities(rest).find((e) => e.scope === 'take')).toEqual({ scope: 'take', kind: 'custom', displayName: 'Take', status: 'missing' });
+	});
+
+	// A site set up before the reference log: every studio enables one more slot, as for Take.
+	it('asks for a Set Reference entity, and gives no types until there is one', () => {
+		const { CustomEntity21: _ref, ...before } = SITE;
+		expect(resolveEntities(before).find((e) => e.scope === 'reference')).toEqual({ scope: 'reference', kind: 'custom', displayName: 'Set Reference', status: 'missing' });
+		expect(entityTypesOf(resolveEntities(before))).toBeUndefined();
+		expect(status('reference')).toMatchObject({ status: 'found', entityType: 'CustomEntity21' });
 	});
 
 	// findings/122: a hidden built-in type is absent from /schema.
@@ -113,6 +125,14 @@ describe('planFields', () => {
 		expect(one(plans, 'take', 'sg_slate')).toMatchObject({ status: 'create', dataType: 'entity', validTypes: ['Slate'] });
 		expect(one(plans, 'take', 'sg_photos')).toMatchObject({ status: 'create', dataType: 'multi_entity', validTypes: ['Attachment'] });
 		expect(one(plans, 'slate', 'sg_shoot_day')).toMatchObject({ status: 'present' });
+	});
+
+	it('reuses a Shots field of the site that links Shot, and steps aside from one that does not', () => {
+		const fields = complete();
+		fields.slate.sg_shots = raw('multi_entity', 'Shots', { validTypes: ['Shot'] });
+		expect(one(plan(fields), 'slate', 'sg_shots')).toMatchObject({ status: 'present', name: 'sg_shots' });
+		fields.slate.sg_shots = raw('text', 'Shots');
+		expect(one(plan(fields), 'slate', 'sg_shots')).toMatchObject({ status: 'create', name: 'sg_onset_shots', displayName: 'Onset Shots', validTypes: ['Shot'] });
 	});
 
 	it('reuses a site field of the same name and type', () => {
@@ -235,6 +255,27 @@ describe('planFields: reverse fields', () => {
 		expect([one(again, 'cameraSetup', 'sg_camera').status, one(again, 'take', 'sg_camera').status].sort()).toEqual(['blocked', 'create']);
 	});
 
+	// A multi_entity on a built-in source: `version_sg_ai_generated_from_versions` was measured on
+	// Version (findings/field_types/multi_entity.md), the slot form in findings/142.
+	it('says the Shots link of the slate adds a field on Shot that lists the slates', () => {
+		const fields = complete();
+		delete fields.slate.sg_shots;
+		const plans = planFields(TYPES, fields, { names: NAMES, others: { Shot: { code: raw('text', 'Shot Code') } } });
+		expect(one(plans, 'slate', 'sg_shots')).toMatchObject({
+			status: 'create',
+			dataType: 'multi_entity',
+			validTypes: ['Shot'],
+			reverse: { entityType: 'Shot', name: 'slate_sg_shots_slates', displayName: 'Slates <-> Shots' }
+		});
+	});
+
+	it('does not create the Shots link when Shot already has the name it would add', () => {
+		const fields = complete();
+		delete fields.slate.sg_shots;
+		const plans = planFields(TYPES, fields, { names: NAMES, others: { Shot: { slate_sg_shots_slates: raw('text', 'x') } } });
+		expect(one(plans, 'slate', 'sg_shots')).toMatchObject({ status: 'blocked', reason: expect.stringContaining('Shot.slate_sg_shots_slates') });
+	});
+
 	it('finds a field of ours present with its reverse, and plans nothing', () => {
 		const fields = complete();
 		fields.slate.sg_takes = raw('multi_entity', 'Take <-> Slate', { validTypes: ['CustomEntity09'] });
@@ -243,8 +284,34 @@ describe('planFields: reverse fields', () => {
 	});
 });
 
+// Videos go up as Versions linked to their take (Kevin, 2026-11-17). Version is stock; only the
+// client UUID is ours, created unique as on every entity (findings/127).
+describe('planFields: Version', () => {
+	const version = (plans: ReturnType<typeof planFields>) => plans.filter((p) => p.scope === 'version');
+
+	it('plans the client UUID on Version, to create unique', () => {
+		const [uuid] = version(planFields(TYPES, complete(), { version: versionFields(false) }));
+		expect(uuid).toMatchObject({ entityType: 'Version', name: 'sg_onset_uuid', displayName: 'Onset UUID', dataType: 'text', status: 'create', unique: true });
+		expect(createInput(uuid).properties).toMatchObject({ unique: true });
+	});
+
+	it('finds it present the next time', () => {
+		expect(version(planFields(TYPES, complete(), VERSION_DONE))).toMatchObject([{ status: 'present', name: 'sg_onset_uuid' }]);
+	});
+
+	it('will not use a Version field of that name that is not unique', () => {
+		const fields = versionFields(false);
+		fields.sg_onset_uuid = raw('text', 'Onset UUID');
+		expect(version(planFields(TYPES, complete(), { version: fields }))).toMatchObject([{ status: 'blocked' }]);
+	});
+
+	it('plans nothing on Version when its fields were not read', () => {
+		expect(version(planFields(TYPES, complete()))).toEqual([]);
+	});
+});
+
 describe('createInput', () => {
-	const bare = { take: { code: raw('text', 'Take Name') } };
+	const bare = { take: { code: raw('text', 'Take Name') }, slate: { code: raw('text', 'Slate Name') } };
 	const plans = planFields(TYPES, bare);
 	const input = (column: string) => createInput(plans.find((p) => p.column.name === column)!);
 
@@ -260,6 +327,7 @@ describe('createInput', () => {
 	it('sends valid_types for an entity field, exactly one for a multi-entity', () => {
 		expect(input('sg_slate')).toMatchObject({ dataType: 'entity', properties: { valid_types: ['Slate'] } });
 		expect(input('sg_photos')).toMatchObject({ dataType: 'multi_entity', properties: { valid_types: ['Attachment'] } });
+		expect(input('sg_shots')).toMatchObject({ dataType: 'multi_entity', displayName: 'Shots', properties: { valid_types: ['Shot'] } });
 	});
 
 	// A bare checkbox create is a 500 (endpoints/post_schema_type_fields.md).
@@ -277,28 +345,40 @@ describe('toResolution', () => {
 		const fields = complete();
 		fields.lens.sg_focal_length = raw('text', 'Focal Length');
 		fields.lens.sg_onset_focal_length = raw('float', 'Onset Focal Length');
-		const res = toResolution('https://x.shotgrid.autodesk.com', resolveEntities(SITE), planFields(TYPES, fields))!;
+		const res = toResolution('https://x.shotgrid.autodesk.com', resolveEntities(SITE), planFields(TYPES, fields, VERSION_DONE))!;
 		expect(res.entities).toEqual(TYPES);
 		expect(res.fields.lens.sg_focal_length).toBe('sg_onset_focal_length');
 		expect(res.fields.take.sg_tilt).toBe('sg_tilt');
+		expect(res.versionUuid).toBe('sg_onset_uuid');
 		expect(res.site).toBe('https://x.shotgrid.autodesk.com');
 	});
 
 	it('is nothing while a field or an entity is missing', () => {
 		const fields = complete();
 		delete fields.take.sg_tilt;
-		expect(toResolution('s', resolveEntities(SITE), planFields(TYPES, fields))).toBeUndefined();
+		expect(toResolution('s', resolveEntities(SITE), planFields(TYPES, fields, VERSION_DONE))).toBeUndefined();
 		const { Slate: _s, ...rest } = SITE;
-		expect(toResolution('s', resolveEntities(rest), planFields(TYPES, complete()))).toBeUndefined();
+		expect(toResolution('s', resolveEntities(rest), planFields(TYPES, complete(), VERSION_DONE))).toBeUndefined();
+	});
+
+	it("is nothing while Version lacks the client UUID, or Version's fields were not read", () => {
+		expect(toResolution('s', resolveEntities(SITE), planFields(TYPES, complete(), { version: versionFields(false) }))).toBeUndefined();
+		expect(toResolution('s', resolveEntities(SITE), planFields(TYPES, complete()))).toBeUndefined();
 	});
 
 	it('survives the cache, and only for its own site', () => {
-		const res = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete()))!;
+		const res = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE))!;
 		const text = serializeResolution(res);
 		expect(parseResolution(text, 'https://a.example')).toEqual(res);
 		expect(parseResolution(text, 'https://b.example')).toBeUndefined();
 		expect(parseResolution('{not json', 'https://a.example')).toBeUndefined();
 		expect(parseResolution(undefined, 'https://a.example')).toBeUndefined();
 		expect(parseResolution(JSON.stringify({ ...res, version: 0 }), 'https://a.example')).toBeUndefined();
+	});
+
+	// A device that synced before videos went up as Versions holds a resolution without it: read again.
+	it('is read again from a cache written before Versions', () => {
+		const { versionUuid: _v, ...before } = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE))!;
+		expect(parseResolution(JSON.stringify(before), 'https://a.example')).toBeUndefined();
 	});
 });

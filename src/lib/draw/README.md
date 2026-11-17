@@ -43,8 +43,8 @@ the strings `src/lib/i18n/en/draw.ts`.
   zoom takes the focal length of the slate's latest take on that camera that has one. The field of
   view is 2 atan(w s / 2f): w the body's sensor width (gear library), s the lens's anamorphic
   squeeze (1 for spherical glass). With no width or no focal length, no wedge.
-- The wrap package holds it as `diagrams/<slate>-setup-diagram.png`, drawn as the zip is written,
-  whether the photos go or not. Flow PT gets nothing of it yet.
+- The wrap package holds it in the slate's folder as `<slate>-setup-diagram.png`, with a manifest
+  row, drawn as the zip is written, whether the photos go or not. Flow PT gets nothing of it yet.
 
 ## Decisions
 
@@ -56,7 +56,8 @@ Made by Claude. Kevin can overrule any of them.
 2. **The copy is made when the drawing closes, not per stroke.** A photo whose drawing is open is
    held. After an undo from anywhere, the flattener makes it again.
 3. **A copy no longer matching its drawing is dropped while unsent.** A sent one stays on Flow PT
-   beside the new one (store decision 26).
+   as an Attachment, but the take's photos field shows the newest copy only (fpt README, store
+   decision 27).
 4. **A measurement on the copy shows as typed,** whatever the units setting. On screen it follows
    the setting: metres stored, feet and inches shown.
 5. **Lengths are typed, never measured.** Measuring with the device is #88, native only.

@@ -2,7 +2,8 @@
 	// The take screen's rail: Start / End and Photo as capture targets, New take and Undo under
 	// them. Start stamps the press instant, the moment the finger landed, not when the handler
 	// ran. Photo opens the native camera through a file input (`capture`): the still comes back as
-	// a file and goes on the take. No in-page camera. `S` presses Start / End from a keyboard.
+	// a file and goes on the take. No in-page camera. Photos and videos from the library or Files
+	// come in through the take sheet. `S` presses Start / End from a keyboard.
 	import { Camera, Plus, Undo2 } from '@lucide/svelte';
 	import Rail from '$lib/components/ios/Rail.svelte';
 	import RailButton from '$lib/components/ios/RailButton.svelte';

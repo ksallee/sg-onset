@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { flatten } from './selection';
-import { day3, input, project, t42A1A } from './testData';
-import { wrapPlan, type PhotoBlob } from './wrapPackage';
+import type { Reference, Slate, Take } from '$lib/model/types';
+import { flatten, selectSlates } from './selection';
+import { slateManifest } from './slateManifest';
+import { day3, input, kindLabel, project, s42A, t42A1A } from './testData';
+import { wrapPlan, type PhotoBlob, type WrapEntry } from './wrapPackage';
 
 const blobs: PhotoBlob[] = [
 	{ id: 'b1', recordId: 'st1', type: 'image/jpeg', size: 100, createdAt: 2 },
@@ -9,71 +11,183 @@ const blobs: PhotoBlob[] = [
 	{ id: 'b2', recordId: 'st2', type: 'image/heic', size: 200, createdAt: 1 },
 	{ id: 'b3', recordId: 'st3', type: 'image/jpeg', size: 300, createdAt: 4, prunedAt: 9 }
 ];
+const ROOT = 'Night-Train_2026-11-10-day03';
+const inside = (e: WrapEntry) => e.path.slice(ROOT.length + 1);
 
 describe('wrapPlan', () => {
-	const plan = () => wrapPlan(flatten(input(), { shootDayIds: ['d3'] }), { project, shootDays: [day3], blobs });
+	const day3Input = () => {
+		const all = input();
+		return { rows: flatten(all, { shootDayIds: ['d3'] }), slates: selectSlates(all, { shootDayIds: ['d3'] }), references: all.references };
+	};
+	const plan = () => {
+		const { rows, slates, references } = day3Input();
+		return wrapPlan(rows, { project, shootDays: [day3], blobs, slates, references });
+	};
 
 	it('roots everything in one folder named for the project and day', () => {
-		expect(plan().root).toBe('Night-Train_2026-11-10-day03');
-		for (const e of plan().entries) expect(e.path.startsWith('Night-Train_2026-11-10-day03/')).toBe(true);
+		expect(plan().root).toBe(ROOT);
+		for (const e of plan().entries) expect(e.path.startsWith(`${ROOT}/`)).toBe(true);
 	});
 
-	it('lists the four exports first, then the photos', () => {
+	it('lists the four exports first, at the root', () => {
 		const e = plan().entries;
 		expect(e.slice(0, 4).map((x) => [x.kind, x.path])).toEqual([
-			['crif', 'Night-Train_2026-11-10-day03/Night-Train_2026-11-10-day03_camera-report.csv'],
-			['plainCsv', 'Night-Train_2026-11-10-day03/Night-Train_2026-11-10-day03_all-fields.csv'],
-			['ale', 'Night-Train_2026-11-10-day03/Night-Train_2026-11-10-day03_editorial.ale'],
-			['json', 'Night-Train_2026-11-10-day03/Night-Train_2026-11-10-day03_data.json']
+			['crif', `${ROOT}/${ROOT}_camera-report.csv`],
+			['plainCsv', `${ROOT}/${ROOT}_all-fields.csv`],
+			['ale', `${ROOT}/${ROOT}_editorial.ale`],
+			['json', `${ROOT}/${ROOT}_data.json`]
 		]);
 		expect(e[0]).toMatchObject({ mime: 'text/csv' });
 		expect(e[2]).toMatchObject({ mime: 'text/plain' });
 	});
 
-	it('lays photos out by slate and take, named as CRIF, numbered per slate and camera in shot order', () => {
-		const photos = plan().entries.filter((x) => x.kind === 'photo');
-		expect(photos.map((p) => p.path.split('/').slice(1).join('/'))).toEqual(['photos/42A/take-1/42A-A-reference-1.heic', 'photos/42A/take-1/42A-A-reference-2.jpg', 'photos/42A/take-2/42A-A-reference-3.jpg']);
-		expect(photos[0]).toMatchObject({ kind: 'photo', blobId: 'b2', stillId: 'st2', takeId: t42A1A.id, mime: 'image/heic', size: 200, pruned: false });
+	it('puts each photo in its slate folder, named as CRIF, numbered per slate and camera in shot order', () => {
+		const files = plan().entries.filter((x) => x.kind === 'file');
+		expect(files.map(inside)).toEqual(['42A/42A-A-reference-1.heic', '42A/42A-A-reference-2.jpg', '42A/42A-A-reference-3.jpg']);
+		expect(files[0]).toMatchObject({ kind: 'file', media: 'photo', blobId: 'b2', recordId: 'st2', takeId: t42A1A.id, slateId: s42A.id, mime: 'image/heic', size: 200, pruned: false });
+	});
+
+	it('gives each set reference an empty folder in a folder for its kind, in the order logged', () => {
+		const folders = plan().entries.filter((x) => x.kind === 'folder');
+		expect(folders.map(inside)).toEqual(['42A/lidar-scan/Scan-01/', '42A/hdri-360/HDRI_0412/']);
+	});
+
+	it('lists the manifest of a slate, then its files, then its reference folders, slate by slate', () => {
+		expect(plan().entries.slice(4).map(inside)).toEqual([
+			'9/9_manifest.csv',
+			'10/10_manifest.csv',
+			'42A/42A_manifest.csv',
+			'42A/42A-A-reference-1.heic',
+			'42A/42A-A-reference-2.jpg',
+			'42A/42A-A-reference-3.jpg',
+			'42A/lidar-scan/Scan-01/',
+			'42A/hdri-360/HDRI_0412/'
+		]);
+	});
+
+	it('gives each slate folder its manifest, named for the folder, written with the kind labels passed', () => {
+		const { rows, slates, references } = day3Input();
+		const p = wrapPlan(rows, { project, shootDays: [day3], blobs, slates, references, kindLabel });
+		const manifest = p.entries.find((e) => e.path.endsWith('/42A_manifest.csv'));
+		expect(manifest).toMatchObject({ kind: 'manifest', mime: 'text/csv', slateId: s42A.id });
+		expect(manifest?.kind === 'manifest' && manifest.text).toBe(slateManifest(p.slates[2], kindLabel));
+		expect(manifest?.kind === 'manifest' && manifest.text).toContain('HDRI 360,HDRI_0412,42A/hdri-360/HDRI_0412/');
+	});
+
+	it('holds every slate with a take or a reference, its takes with their files, its references with their folders', () => {
+		const slates = plan().slates;
+		expect(slates.map((s) => [s.slate.slateUID, s.name])).toEqual([
+			['9', '9'],
+			['10', '10'],
+			['42A', '42A']
+		]);
+		const s = slates[2];
+		expect(s.takes.map((t) => [t.row.take.take, t.row.cameraLetter, t.files.map((f) => f.name)])).toEqual([
+			['1', 'A', ['42A-A-reference-1.heic', '42A-A-reference-2.jpg']],
+			['1', 'B', []],
+			['2', 'A', ['42A-A-reference-3.jpg']],
+			['2', 'B', []],
+			['10', 'A', []]
+		]);
+		expect(s.files).toEqual([]);
+		expect(s.references.map((r) => [r.reference.name, r.path])).toEqual([
+			['Scan 01', '42A/lidar-scan/Scan-01/'],
+			['HDRI_0412', '42A/hdri-360/HDRI_0412/']
+		]);
 	});
 
 	it('takes the first file of a photo, and marks one whose bytes left the device', () => {
-		const photos = plan().entries.filter((x) => x.kind === 'photo');
-		expect(photos.map((p) => (p.kind === 'photo' ? p.blobId : ''))).not.toContain('b1thumb');
-		expect(photos[2]).toMatchObject({ blobId: 'b3', pruned: true });
+		const files = plan().entries.filter((x) => x.kind === 'file');
+		expect(files.map((p) => (p.kind === 'file' ? p.blobId : ''))).not.toContain('b1thumb');
+		expect(files[2]).toMatchObject({ blobId: 'b3', pruned: true });
 	});
 
-	it('puts the annotated copy of a photo beside it, with the same number and an -annotated suffix', () => {
+	it('puts the annotated copy of a photo beside it in the slate folder, same number, -annotated, in the manifest', () => {
+		const { rows, slates, references } = day3Input();
+		// The copy was stored before its photo: it is still not the photo's own file.
 		const withCopy: PhotoBlob[] = [...blobs, { id: 'b2flat', recordId: 'st2', type: 'image/jpeg', size: 150, createdAt: 0, variant: 'annotated' }];
-		const p = wrapPlan(flatten(input(), { shootDayIds: ['d3'] }), { project, shootDays: [day3], blobs: withCopy });
-		const photos = p.entries.filter((x) => x.kind === 'photo');
-		expect(photos.map((x) => x.path.split('/').slice(1).join('/'))).toEqual([
-			'photos/42A/take-1/42A-A-reference-1.heic',
-			'photos/42A/take-1/42A-A-reference-1-annotated.jpg',
-			'photos/42A/take-1/42A-A-reference-2.jpg',
-			'photos/42A/take-2/42A-A-reference-3.jpg'
-		]);
-		expect(photos[0]).toMatchObject({ blobId: 'b2', annotated: false });
-		expect(photos[1]).toMatchObject({ blobId: 'b2flat', stillId: 'st2', annotated: true, mime: 'image/jpeg', size: 150 });
+		const p = wrapPlan(rows, { project, shootDays: [day3], blobs: withCopy, slates, references });
+		const files = p.entries.filter((x) => x.kind === 'file');
+		expect(files.map(inside)).toEqual(['42A/42A-A-reference-1.heic', '42A/42A-A-reference-1-annotated.jpg', '42A/42A-A-reference-2.jpg', '42A/42A-A-reference-3.jpg']);
+		expect(files[0]).toMatchObject({ media: 'photo', blobId: 'b2' });
+		expect(files[1]).toMatchObject({ media: 'annotated', blobId: 'b2flat', recordId: 'st2', takeId: t42A1A.id, mime: 'image/jpeg', size: 150, pruned: false });
+		const manifest = p.entries.find((x) => x.kind === 'manifest' && x.path.endsWith('42A_manifest.csv'));
+		expect(manifest?.kind === 'manifest' && manifest.text).toContain('Annotated photo,1,A,');
+		expect(manifest?.kind === 'manifest' && manifest.text).toContain('42A/42A-A-reference-1-annotated.jpg');
 	});
 
-	it('puts the setup diagram of each slate in the package as an image, photos or not', () => {
-		const rows = flatten(input(), { shootDayIds: ['d3'] });
-		const slateId = rows.find((r) => r.slate.slateUID === '42A')!.slate.id;
-		const diagrams = [{ id: 'dg1', slateId }, { id: 'dg9', slateId: 'elsewhere' }];
+	it('puts the setup diagram of a slate in its folder, drawn as the package is written, in the manifest, photos or not', () => {
+		const { rows, slates, references } = day3Input();
+		const diagrams = [{ id: 'dg1', slateId: s42A.id }, { id: 'dg9', slateId: 'elsewhere' }];
 		for (const photos of [true, false]) {
-			const p = wrapPlan(rows, { project, shootDays: [day3], blobs, diagrams, photos });
-			const found = p.entries.filter((x) => x.kind === 'diagram');
-			expect(found).toEqual([{ kind: 'diagram', path: 'Night-Train_2026-11-10-day03/diagrams/42A-setup-diagram.png', mime: 'image/png', diagramId: 'dg1', slateId }]);
+			const p = wrapPlan(rows, { project, shootDays: [day3], blobs, slates, references, diagrams, photos });
+			const found = p.entries.filter((x) => x.kind === 'file' && x.media === 'diagram');
+			expect(found.map(inside)).toEqual(['42A/42A-setup-diagram.png']);
+			expect(found[0]).toMatchObject({ mime: 'image/png', blobId: '', diagramId: 'dg1', recordId: s42A.id, slateId: s42A.id, pruned: false });
+			expect(found[0]).not.toHaveProperty('takeId');
+			expect(p.slates.find((s) => s.slate.id === s42A.id)!.files.map((f) => f.name)).toEqual(['42A-setup-diagram.png']);
+			const manifest = p.entries.find((x) => x.kind === 'manifest' && x.slateId === s42A.id);
+			expect(manifest?.kind === 'manifest' && manifest.text).toContain('Setup diagram,,,,,,,,42A-setup-diagram.png,42A/42A-setup-diagram.png');
 		}
 	});
 
 	it('names the photos that have no file at all', () => {
-		const p = wrapPlan(flatten(input(), { shootDayIds: ['d3'] }), { project, shootDays: [day3], blobs: blobs.filter((b) => b.recordId !== 'st3') });
+		const { rows, slates, references } = day3Input();
+		const p = wrapPlan(rows, { project, shootDays: [day3], blobs: blobs.filter((b) => b.recordId !== 'st3'), slates, references });
 		expect(p.missingPhotos).toEqual(['st3']);
+		expect(p.slates[2].takes[2].files).toEqual([]);
 	});
 
-	it('leaves out the photos on request', () => {
-		const p = wrapPlan(flatten(input()), { project, shootDays: [day3], blobs, photos: false });
-		expect(p.entries.map((e) => e.kind)).toEqual(['crif', 'plainCsv', 'ale', 'json']);
+	it('leaves out the photos on request, and keeps the reference folders', () => {
+		const { rows, slates, references } = day3Input();
+		const p = wrapPlan(rows, { project, shootDays: [day3], blobs, photos: false, slates, references });
+		expect(p.entries.map((e) => e.kind)).toEqual(['crif', 'plainCsv', 'ale', 'json', 'manifest', 'manifest', 'manifest', 'folder', 'folder']);
+		expect(p.slates[2].takes.every((t) => t.files.length === 0)).toBe(true);
+	});
+
+	it('gives a slate with references and no take in the package its folder', () => {
+		const { rows, slates, references } = day3Input();
+		const p = wrapPlan(
+			rows.filter((r) => r.slate.id !== s42A.id),
+			{ project, shootDays: [day3], blobs, slates, references }
+		);
+		expect(p.slates.map((s) => s.name)).toEqual(['9', '10', '42A']);
+		expect(p.slates[2].takes).toEqual([]);
+		expect(p.entries.filter((e) => e.kind === 'folder').map(inside)).toEqual(['42A/lidar-scan/Scan-01/', '42A/hdri-360/HDRI_0412/']);
+	});
+
+	it('reads the references off the rows when none are passed', () => {
+		const { rows } = day3Input();
+		const p = wrapPlan(rows, { project, shootDays: [day3], blobs });
+		expect(p.entries.filter((e) => e.kind === 'folder').map(inside)).toEqual(['42A/lidar-scan/Scan-01/', '42A/hdri-360/HDRI_0412/']);
+	});
+
+	it('names a project kind safely, in lower case', () => {
+		const all = input();
+		const p = wrapPlan(flatten(all), { project, shootDays: [], blobs, slates: selectSlates(all), references: all.references, projectKinds: ['Drone survey'] });
+		expect(p.entries.filter((e) => e.kind === 'folder').map((e) => e.path.split('/').slice(1).join('/'))).toEqual(['42A/lidar-scan/Scan-01/', '42A/hdri-360/HDRI_0412/', '50/drone-survey/Flight-1/']);
+	});
+
+	describe('names that would clash once unzipped', () => {
+		const slate = (id: string, slateUID: string): Slate => ({ id, shootDayId: 'd3', slateUID });
+		const take = (id: string, slateId: string): Take => ({ id, slateId, take: '1', cameraSetupId: 'csA' });
+		const ref = (id: string, slateId: string, kind: string, name: string, at: string): Reference => ({ id, slateId, kind, name, loggedAt: `2026-11-10T10:${at}:00.000Z` });
+		const clash = () => {
+			const all = input();
+			all.slates = [slate('sb', '12A'), slate('sa', '12a')];
+			all.takes = [take('ta', 'sa'), take('tb', 'sb')];
+			all.stills = [];
+			all.references = [ref('r1', 'sa', 'hdri360', 'HDRI_0412', '01'), ref('r2', 'sa', 'hdri360', 'hdri_0412', '02'), ref('r3', 'sa', 'HDRI-360', 'HDRI_0412', '03'), ref('r4', 'sa', 'other', '', '04')];
+			return wrapPlan(flatten(all, { shootDayIds: ['d3'] }), { project, shootDays: [day3], blobs: [], slates: selectSlates(all, { shootDayIds: ['d3'] }), references: all.references, projectKinds: ['HDRI-360'] });
+		};
+
+		it('steps a slate folder whose name another slate has, case ignored, and names its manifest for it', () => {
+			expect(clash().slates.map((s) => s.name)).toEqual(['12a', '12A-2']);
+			expect(clash().entries.filter((e) => e.kind === 'manifest').map((e) => e.path.split('/').slice(1).join('/'))).toEqual(['12a/12a_manifest.csv', '12A-2/12A-2_manifest.csv']);
+		});
+
+		it('steps a reference folder whose name another of its kind has, and a kind folder a built-in one has', () => {
+			expect(clash().slates[0].references.map((r) => r.path)).toEqual(['12a/hdri-360/HDRI_0412/', '12a/hdri-360/hdri_0412-2/', '12a/hdri-360-2/HDRI_0412/', '12a/other/reference/']);
+		});
 	});
 });

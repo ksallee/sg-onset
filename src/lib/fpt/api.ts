@@ -188,6 +188,22 @@ export function createApi(options: FptOptions) {
 			return found.data;
 		},
 
+		/**
+		 * Every page of a `_search`, 500 rows a page, up to `pages` pages. Rows come id ascending and a
+		 * walk by page misses none and repeats none (corpus findings/026_result_order.md). Paging stops
+		 * on a short page, never on `links.next`, which is sent on every page (findings/006_pagination.md).
+		 */
+		async searchAll(entityType: string, filters: Filter, fields: string[], signal?: AbortSignal, pages = 40): Promise<EntityRow[]> {
+			const group = Array.isArray(filters) ? { logical_operator: 'and' as const, conditions: [filters] } : filters;
+			const out: EntityRow[] = [];
+			for (let number = 1; number <= pages; number++) {
+				const found = await run(() => rest('read', signal).search(entityType, { filters: group as never, fields, page: { size: 500, number } }));
+				out.push(...found.data);
+				if (!found.hasMore) break;
+			}
+			return out;
+		},
+
 		/** `POST /entity/_batch`: all or nothing, results in request order (corpus recipes/002_batch.md). */
 		batch(requests: BatchRequest[], signal?: AbortSignal): Promise<BatchResult[]> {
 			return run(() => rest('write', signal).batch(requests));

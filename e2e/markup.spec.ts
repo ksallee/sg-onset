@@ -139,11 +139,18 @@ test.describe('drawing on a photo', () => {
 		await expect(save).toBeVisible();
 		const [download] = await Promise.all([page.waitForEvent('download'), save.tap()]);
 		const zip = new Blob([await readFile((await download.path())!)]);
-		const entries = (await readZip(zip)).filter((e) => e.name.includes('/photos/'));
+		const all = await readZip(zip);
+		const entries = all.filter((e) => /\/42A\/42A-A-reference-\d+/.test(e.name));
 		const photos = entries.map((e) => e.name);
+		// In the slate's folder: the photo, then its annotated copy beside it.
 		expect(photos).toHaveLength(2);
-		expect(photos[0]).toMatch(/\/photos\/42A\/take-\d+\/42A-A-reference-(\d+)\.png$/);
+		expect(photos[0]).toMatch(/\/42A\/42A-A-reference-(\d+)\.png$/);
 		expect(photos[1]).toBe(photos[0].replace(/\.png$/, '-annotated.jpg'));
+		// The slate's manifest lists both.
+		const manifest = await (await entryBlob(zip, all.find((e) => e.name.endsWith('/42A/42A_manifest.csv'))!)).text();
+		const row = (what: string, path: string) => manifest.split('\r\n').some((line) => line.startsWith(`${what},`) && line.includes(path.split('/').at(-1)!));
+		expect(row('Photo', photos[0])).toBe(true);
+		expect(row('Annotated photo', photos[1])).toBe(true);
 		// The copy for the report, to look at.
 		const copy = Buffer.from(await (await entryBlob(zip, entries[1])).arrayBuffer());
 		expect(copy.subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));

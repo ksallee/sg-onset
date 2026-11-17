@@ -6,7 +6,7 @@
 // export. Sources: OMC v2.8, OpenTrackIO 1.0.1, VES CRIF v1.1, ALE files from ARRI, Avid and
 // Silverstack, USD UsdGeomCamera, VES on-set guide v1.1.0 section numbers.
 
-export const SCOPES = ['project', 'shootDay', 'lightingSetup', 'cameraSetup', 'slate', 'take', 'camera', 'lens'] as const;
+export const SCOPES = ['project', 'shootDay', 'lightingSetup', 'cameraSetup', 'slate', 'take', 'camera', 'lens', 'reference'] as const;
 export type Scope = (typeof SCOPES)[number];
 
 /**
@@ -125,6 +125,8 @@ export const FIELDS = [
 
 	// Take: identity and time
 	{ scope: 'take', key: 'take', type: 'string', labelKey: 'field.take.take', required: true, carry: false, names: { crif: 'Tk Take', omc: 'SlateUID.hasTake', ale: { avid: 'Take', arri: 'Take', silverstack: 'Take' } } },
+	// What the take is for. No value is Main: see takeType.ts.
+	{ scope: 'take', key: 'takeType', type: 'enum', options: ['main', 'cleanPlate', 'ballsAndChart', 'shadowPlate', 'lightPass', 'atmosphere', 'element', 'other'], labelKey: 'field.take.takeType', carry: false },
 	{ scope: 'take', key: 'startedAt', type: 'timestamp', labelKey: 'field.take.startedAt', carry: false, names: { crif: 'Tk Start Time Of Take' } },
 	{ scope: 'take', key: 'endedAt', type: 'timestamp', labelKey: 'field.take.endedAt', carry: false },
 	{ scope: 'take', key: 'circleTake', type: 'boolean', labelKey: 'field.take.circleTake', carry: false, names: { omc: 'circleTake', ale: { silverstack: 'Circled Take' } } },
@@ -171,7 +173,19 @@ export const FIELDS = [
 	{ scope: 'lens', key: 'lensSerialNumber', type: 'string', labelKey: 'field.lens.lensSerialNumber', names: { crif: 'Tk Lens Serial Num', omc: 'lensSerialNumber', otk: 'static.lens.serialNumber', ale: { arri: 'Lens_sn' } } },
 	{ scope: 'lens', key: 'focalLength', type: 'number', unit: 'mm', labelKey: 'field.lens.focalLength', above: 0, names: { crif: 'Tk Focal Length', omc: 'focalLength', otk: 'static.lens.nominalFocalLength', usd: 'focalLength', ves: '1.4' } },
 	{ scope: 'lens', key: 'focalLengthMax', type: 'number', unit: 'mm', labelKey: 'field.lens.focalLengthMax', above: 0 },
-	{ scope: 'lens', key: 'anamorphicSqueeze', type: 'rational', labelKey: 'field.lens.anamorphicSqueeze', names: { omc: 'anamorphicSqueeze', otk: 'static.camera.anamorphicSqueeze', ves: '1.4' } }
+	{ scope: 'lens', key: 'anamorphicSqueeze', type: 'rational', labelKey: 'field.lens.anamorphicSqueeze', names: { omc: 'anamorphicSqueeze', otk: 'static.camera.anamorphicSqueeze', ves: '1.4' } },
+
+	// Set reference: one thing captured for the slate on another device (an HDRI, a scan, a witness
+	// clip), logged by name. The file stays on that device. The kind is a built-in key or a kind the
+	// project added (lib/references/kinds.ts), so it is text, not an enum.
+	{ scope: 'reference', key: 'kind', type: 'string', labelKey: 'field.reference.kind' },
+	{ scope: 'reference', key: 'name', type: 'string', labelKey: 'field.reference.name', required: true },
+	{ scope: 'reference', key: 'device', type: 'string', labelKey: 'field.reference.device' },
+	{ scope: 'reference', key: 'cardOrRoll', type: 'string', labelKey: 'field.reference.cardOrRoll' },
+	{ scope: 'reference', key: 'count', type: 'integer', labelKey: 'field.reference.count', min: 1 },
+	{ scope: 'reference', key: 'notes', type: 'string', labelKey: 'field.reference.notes' },
+	// When it was logged: the order of the list. Never a form field.
+	{ scope: 'reference', key: 'loggedAt', type: 'timestamp', labelKey: 'field.reference.loggedAt' }
 ] as const satisfies readonly FieldDef[];
 
 /** The key an end value is stored under: tilt → tiltEnd. */

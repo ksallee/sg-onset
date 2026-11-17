@@ -1,37 +1,86 @@
-// What a wrap package holds, as data: the four exports and the photos, each with its path in the
-// zip. No zipping here: the UI feeds the plan to the zip writer the backup uses (client-zip),
-// making each text with the export modules and reading each photo with `store.blob(id)`. Pure.
+// What a wrap package holds, as data: the four exports at the root, then a folder per slate with
+// its manifest, its files and an empty folder for each set reference shot on another device. No
+// zipping here:
+// the UI feeds the plan to the zip writer the backup uses (client-zip), making each text with the
+// export modules and reading each stored file with `store.blob(id)`. Pure.
+//
+// The seam for later media: a take's files come from `takeFiles`, a slate's own from
+// `slateFiles`. Add a kind of file there (and its name in naming.ts); the layout, the zip, the
+// size, the notes and the manifest pick it up. See docs/export.md, "Adding a kind of file".
 
-import type { Project, ShootDay } from '$lib/model/types';
+import type { Project, Reference, ShootDay, Slate } from '$lib/model/types';
 import type { BlobMeta } from '$lib/store/types';
-import { exportFileName, extensionFor, packageName, photoFileName, slug } from './naming';
-import type { FlatTake } from './selection';
+import { diagramFileName, exportFileName, extensionFor, folderName, kindFolders, manifestFileName, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
+import { referencesBySlate, type FlatTake } from './selection';
+import { slateManifest } from './slateManifest';
 
 /** What the plan needs of a stored file: `BlobMeta` without the sync fields. */
 export type PhotoBlob = Pick<BlobMeta, 'id' | 'recordId' | 'type' | 'size' | 'createdAt' | 'name' | 'prunedAt' | 'variant'>;
 
+/**
+ * What a file in a slate's folder is: a photo, a photo's annotated copy, its drawing flattened on
+ * it (#86), or the slate's setup diagram (#87). Audio notes (#89) of a take add theirs.
+ */
+export type Media = 'photo' | 'annotated' | 'diagram';
+
+/** About what a setup diagram's PNG weighs, until it is drawn as the package is written. */
+export const DIAGRAM_BYTES = 120_000;
+
+/** A file in a slate's folder: one of a take's, or the slate's own. Its bytes are a stored file. */
+export type SlateFile = {
+	media: Media;
+	/** Its name in the slate's folder. */
+	name: string;
+	mime: string;
+	size: number;
+	/** The stored file, read with `store.blob(id)`. Empty for a file drawn as the package is written. */
+	blobId: string;
+	/** A setup diagram, drawn from its data as the package is written (#87). */
+	diagramId?: string;
+	/** The record it is the file of: a still. */
+	recordId: string;
+	/** The bytes left the device after Flow PT verified them: fetch them or skip the file. */
+	pruned: boolean;
+	/** What the manifest notes about it: a photo's caption. */
+	caption?: string;
+};
+
+/** A take in its slate's folder, with its files. */
+export type TakeFolder = { row: FlatTake; files: SlateFile[] };
+
+/**
+ * A set reference, with the empty folder that waits for its files, from the package root:
+ * `42A/hdri-360/HDRI_0412/`. From the root, so another slate's manifest can point at it.
+ */
+export type ReferenceFolder = { reference: Reference; path: string };
+
+/** A slate's folder: what the manifest of a slate lists, and where each thing sits. */
+export type SlateFolder = {
+	slate: Slate;
+	/** The folder's name at the package root: `42A`. */
+	name: string;
+	/** Its takes in the package, in order, each with its files. */
+	takes: TakeFolder[];
+	/** The slate's own files, a take's none: its setup diagram (#87). */
+	files: SlateFile[];
+	/** Its set references, in the order logged. */
+	references: ReferenceFolder[];
+};
+
 export type WrapEntry =
 	| { kind: 'crif' | 'plainCsv' | 'ale' | 'json'; path: string; mime: string }
-	| {
-			kind: 'photo';
-			path: string;
-			mime: string;
-			blobId: string;
-			stillId: string;
-			takeId: string;
-			size: number;
-			/** The bytes left the device after Flow PT verified them: fetch them or skip the file. */
-			pruned: boolean;
-			/** The photo with its drawing flattened on it (#86), beside the photo itself. */
-			annotated: boolean;
-	  }
-	/** A slate's setup diagram (#87), made into an image as the package is written. */
-	| { kind: 'diagram'; path: string; mime: string; diagramId: string; slateId: string };
+	/** A slate's manifest, made here. */
+	| { kind: 'manifest'; path: string; mime: string; slateId: string; text: string }
+	| ({ kind: 'file'; path: string; slateId: string; takeId?: string } & SlateFile)
+	/** An empty folder. Its path ends in a slash. */
+	| { kind: 'folder'; path: string };
 
 export type WrapPlan = {
 	/** The folder everything sits in. */
 	root: string;
 	entries: WrapEntry[];
+	/** The slate folders, in order. */
+	slates: SlateFolder[];
 	/** Photos with no stored file at all. */
 	missingPhotos: string[];
 };
@@ -44,9 +93,123 @@ export type WrapOptions = {
 	blobs: readonly PhotoBlob[];
 	/** Include the photos. Default true. */
 	photos?: boolean;
-	/** The setup diagrams kept: one per slate. Each slate of the rows that has one gets its image. */
+	/**
+	 * The slates of the days picked, as `selectSlates` gives them, so a slate with set references
+	 * and no take in the rows gets its folder too. Absent: the slates of the rows.
+	 */
+	slates?: readonly Slate[];
+	/** The set references of those slates. Absent: those the rows carry. */
+	references?: readonly Reference[];
+	/** The project's own reference kinds, in the order added, for their folder names. */
+	projectKinds?: readonly string[];
+	/** A reference kind as the app shows it, for the manifests. Absent: the kind as stored. */
+	kindLabel?: (kind: string) => string;
+	/** The setup diagrams with something drawn on them, one per slate (#87). */
 	diagrams?: readonly { id: string; slateId: string }[];
 };
+
+/** What `takeFiles` and `slateFiles` read. One per package: the photo numbers run across it. */
+export type FileContext = {
+	photos: boolean;
+	/** The first stored file of each record: later ones are derived, such as a thumbnail. */
+	firstBlob: Map<string, PhotoBlob>;
+	/** The annotated copy of each photo that has one, by still id (#86). */
+	annotated: Map<string, PhotoBlob>;
+	/** The setup diagram of each slate that has one, by slate id (#87). */
+	diagrams: Map<string, string>;
+	/** The next photo number per slate and camera. */
+	counters: Map<string, number>;
+	/** Records with no stored file. */
+	missing: string[];
+};
+
+const byAge = (a: PhotoBlob, b: PhotoBlob) => a.createdAt - b.createdAt || a.id.localeCompare(b.id);
+
+/** The first stored file of each record, by record id. A copy made from it never is. */
+export function firstBlobs(blobs: readonly PhotoBlob[]): Map<string, PhotoBlob> {
+	const first = new Map<string, PhotoBlob>();
+	for (const b of [...blobs].sort(byAge)) if (b.variant === undefined && !first.has(b.recordId)) first.set(b.recordId, b);
+	return first;
+}
+
+/**
+ * The annotated copy of each photo, by still id: the newest. Pass only the copies that match
+ * their drawing (`$lib/draw/markup` `currentFiles`).
+ */
+export function annotatedBlobs(blobs: readonly PhotoBlob[]): Map<string, PhotoBlob> {
+	const copies = new Map<string, PhotoBlob>();
+	for (const b of [...blobs].sort(byAge)) if (b.variant === 'annotated') copies.set(b.recordId, b);
+	return copies;
+}
+
+/**
+ * A take's files, as they sit in its slate's folder: its photos, named as CRIF names them and
+ * numbered per slate and camera in take order, then the order taken. A photo's annotated copy
+ * follows it, under its name with "-annotated" (#86). A later kind of file of a take (an audio
+ * note) is added here.
+ */
+export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
+	const files: SlateFile[] = [];
+	if (!ctx.photos) return files;
+	const slate = row.slate.slateUID ?? '';
+	for (const still of row.stills) {
+		const blob = ctx.firstBlob.get(still.id);
+		if (!blob) {
+			ctx.missing.push(still.id);
+			continue;
+		}
+		const key = `${row.slate.id}:${photoFileName(slate, row.cameraLetter, 0, '').toLowerCase()}`;
+		const n = (ctx.counters.get(key) ?? 0) + 1;
+		ctx.counters.set(key, n);
+		files.push({
+			media: 'photo',
+			name: photoFileName(slate, row.cameraLetter, n, extensionFor(blob.type, blob.name)),
+			mime: blob.type,
+			size: blob.size,
+			blobId: blob.id,
+			recordId: still.id,
+			pruned: blob.prunedAt !== undefined,
+			...(still.caption ? { caption: still.caption } : {})
+		});
+		const copy = ctx.annotated.get(still.id);
+		if (copy) {
+			files.push({
+				media: 'annotated',
+				name: photoFileName(slate, row.cameraLetter, n, extensionFor(copy.type, copy.name), true),
+				mime: copy.type,
+				size: copy.size,
+				blobId: copy.id,
+				recordId: still.id,
+				pruned: copy.prunedAt !== undefined,
+				...(still.caption ? { caption: still.caption } : {})
+			});
+		}
+	}
+	return files;
+}
+
+/**
+ * A slate's own files, a take's none: its setup diagram (#87), drawn as the package is written. It
+ * goes whether the photos do or not: it is small, and it is the slate's, not a photo.
+ */
+export function slateFiles(slate: Slate, ctx: FileContext): SlateFile[] {
+	const diagramId = ctx.diagrams.get(slate.id);
+	if (!diagramId) return [];
+	return [{ media: 'diagram', name: diagramFileName(slate.slateUID ?? ''), mime: 'image/png', size: DIAGRAM_BYTES, blobId: '', diagramId, recordId: slate.id, pruned: false }];
+}
+
+type Group = { slate: Slate; rows: FlatTake[]; references: Reference[] };
+
+/** The rows and references of each slate, in the order of `slates`, then of the rows. */
+function groupBySlate(rows: readonly FlatTake[], options: WrapOptions): Group[] {
+	const groups = new Map<string, Group>();
+	const group = (slate: Slate) => groups.get(slate.id) ?? groups.set(slate.id, { slate, rows: [], references: [] }).get(slate.id)!;
+	for (const slate of options.slates ?? []) group(slate);
+	for (const row of rows) group(row.slate).rows.push(row);
+	const refs = options.references ? referencesBySlate(options.references) : new Map(rows.map((r) => [r.slate.id, r.references]));
+	for (const g of groups.values()) g.references = refs.get(g.slate.id) ?? [];
+	return [...groups.values()].filter((g) => g.rows.length > 0 || g.references.length > 0);
+}
 
 /**
  * The plan of a wrap package for these rows. Layout:
@@ -56,16 +219,15 @@ export type WrapOptions = {
  *       <project>_<day>_all-fields.csv      plain CSV
  *       <project>_<day>_editorial.ale       ALE
  *       <project>_<day>_data.json           JSON
- *       photos/<slate>/take-<take>/<slate>-<camera>-reference-<n>.<ext>
- *       photos/<slate>/take-<take>/<slate>-<camera>-reference-<n>-annotated.jpg
- *       diagrams/<slate>-setup-diagram.png
+ *       <slate>/
+ *         <slate>_manifest.csv              its takes, files and references
+ *         <slate>-<camera>-reference-<n>.<ext>
+ *         <slate>-<camera>-reference-<n>-annotated.jpg   the photo with its drawing (#86)
+ *         <slate>-setup-diagram.png         the slate's setup diagram (#87)
+ *         <kind>/<reference>/               empty, for what was shot on another device
  *
- * Photos are numbered per slate and camera, in take order then the order taken, so each name is
- * unique in its slate as CRIF asks. A photo's own file is the first stored that is not a copy;
- * other plain files are derived, such as a thumbnail, and left out. An annotated copy (#86) goes
- * beside it under the same number: pass only the copies that match their drawing
- * (`$lib/draw/markup` `currentFiles`); of several, the newest goes. A slate's setup diagram (#87)
- * goes whether the photos do or not: it is small.
+ * A slate gets a folder when it has a take in the rows or a set reference. Names come from
+ * naming.ts; two that would clash once unzipped on a system that ignores case are stepped `-2`.
  */
 export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapPlan {
 	const root = packageName(options.project, options.shootDays);
@@ -76,60 +238,39 @@ export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapP
 		{ kind: 'ale', path: file('editorial'), mime: 'text/plain' },
 		{ kind: 'json', path: file('data'), mime: 'application/json' }
 	];
-	const missingPhotos: string[] = [];
-	const diagrams = diagramEntries(rows, root, options.diagrams ?? []);
-	if (options.photos === false) return { root, entries: [...entries, ...diagrams], missingPhotos };
-
-	const firstBlob = new Map<string, PhotoBlob>();
-	const copyOf = new Map<string, PhotoBlob>();
-	for (const b of [...options.blobs].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))) {
-		if (b.variant === 'annotated') copyOf.set(b.recordId, b);
-		else if (!firstBlob.has(b.recordId)) firstBlob.set(b.recordId, b);
+	const ctx: FileContext = { photos: options.photos !== false, firstBlob: firstBlobs(options.blobs), annotated: annotatedBlobs(options.blobs), diagrams: new Map((options.diagrams ?? []).map((d) => [d.slateId, d.id])), counters: new Map(), missing: [] };
+	const groups = groupBySlate(rows, options);
+	const kindFolder = kindFolders(
+		groups.flatMap((g) => g.references.map((r) => r.kind ?? '')),
+		options.projectKinds ?? []
+	);
+	const slateNames = new Set<string>();
+	const slates: SlateFolder[] = [];
+	for (const g of groups) {
+		const name = uniqueName(slateFolderName(g.slate.slateUID), slateNames);
+		const here = `${root}/${name}`;
+		// Names in the slate's folder, and in each kind's folder in it.
+		const taken = new Set<string>();
+		const manifest = uniqueName(manifestFileName(name), taken);
+		const claim = (f: SlateFile): SlateFile => {
+			const dot = f.name.lastIndexOf('.');
+			return { ...f, name: dot > 0 ? uniqueName(f.name.slice(0, dot), taken, f.name.slice(dot)) : uniqueName(f.name, taken) };
+		};
+		const takes = g.rows.map((row) => ({ row, files: takeFiles(row, ctx).map(claim) }));
+		const own = slateFiles(g.slate, ctx).map(claim);
+		const kinds = new Map<string, { name: string; taken: Set<string> }>();
+		const references = g.references.map((reference) => {
+			const wanted = kindFolder.get(reference.kind ?? '')!;
+			let kind = kinds.get(wanted);
+			if (!kind) kinds.set(wanted, (kind = { name: uniqueName(wanted, taken), taken: new Set() }));
+			return { reference, path: `${name}/${kind.name}/${uniqueName(folderName(reference.name ?? '', 'reference'), kind.taken)}/` };
+		});
+		const folder: SlateFolder = { slate: g.slate, name, takes, files: own, references };
+		slates.push(folder);
+		entries.push({ kind: 'manifest', path: `${here}/${manifest}`, mime: 'text/csv', slateId: g.slate.id, text: slateManifest(folder, options.kindLabel ?? ((k) => k)) });
+		for (const t of takes) for (const f of t.files) entries.push({ kind: 'file', path: `${here}/${f.name}`, slateId: g.slate.id, takeId: t.row.take.id, ...f });
+		for (const f of own) entries.push({ kind: 'file', path: `${here}/${f.name}`, slateId: g.slate.id, ...f });
+		for (const r of references) entries.push({ kind: 'folder', path: `${root}/${r.path}` });
 	}
-	const counters = new Map<string, number>();
-	for (const row of rows) {
-		for (const still of row.stills) {
-			const blob = firstBlob.get(still.id);
-			if (!blob) {
-				missingPhotos.push(still.id);
-				continue;
-			}
-			const counterKey = `${row.slate.id}:${row.cameraLetter}`;
-			const n = (counters.get(counterKey) ?? 0) + 1;
-			counters.set(counterKey, n);
-			const slate = row.slate.slateUID ?? '';
-			const folder = `${root}/photos/${slug(slate.replace(/\s+/g, ''), 'slate')}/take-${slug(row.take.take ?? '', 'none')}`;
-			const copy = copyOf.get(still.id);
-			for (const file of copy ? [blob, copy] : [blob]) {
-				const annotated = file === copy;
-				entries.push({
-					kind: 'photo',
-					path: `${folder}/${photoFileName(slate, row.cameraLetter, n, extensionFor(file.type, file.name), annotated)}`,
-					mime: file.type,
-					blobId: file.id,
-					stillId: still.id,
-					takeId: row.take.id,
-					size: file.size,
-					pruned: file.prunedAt !== undefined,
-					annotated
-				});
-			}
-		}
-	}
-	return { root, entries: [...entries, ...diagrams], missingPhotos };
-}
-
-/** The setup diagrams of the slates in the rows, in slate order. */
-function diagramEntries(rows: readonly FlatTake[], root: string, diagrams: readonly { id: string; slateId: string }[]): WrapEntry[] {
-	const out: WrapEntry[] = [];
-	const seen = new Set<string>();
-	for (const row of rows) {
-		if (seen.has(row.slate.id)) continue;
-		seen.add(row.slate.id);
-		const diagram = diagrams.find((d) => d.slateId === row.slate.id);
-		if (!diagram) continue;
-		const slate = slug((row.slate.slateUID ?? '').replace(/\s+/g, ''), 'slate');
-		out.push({ kind: 'diagram', path: `${root}/diagrams/${slate}-setup-diagram.png`, mime: 'image/png', diagramId: diagram.id, slateId: row.slate.id });
-	}
-	return out;
+	return { root, entries, slates, missingPhotos: ctx.missing };
 }

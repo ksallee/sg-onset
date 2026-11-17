@@ -9,6 +9,7 @@
 	import { formatTime } from '$lib/app/format';
 	import { settings } from '$lib/app/settings.svelte';
 	import { t, tk } from '$lib/i18n/messages';
+	import { takeTypeOf } from '$lib/model/takeType';
 	import type { Take } from '$lib/model/types';
 	import { fieldRef } from '$lib/slates/fields';
 	import { dragSpan, extendTo, toggle, type Selection } from '$lib/slates/selection';
@@ -154,6 +155,7 @@
 					<td class="num">{formatTime(take.startedAt)}</td>
 					<td class="num opt-end">{formatTime(take.endedAt)}</td>
 					<td class="marks">
+						{#if takeTypeOf(take) !== 'main'}<span class="mark type">{tk(`field.take.takeType.${takeTypeOf(take)}`)}</span>{/if}
 						{#if take.circleTake}<span class="mark circled" title={t('slates.table.circled')}>{tk('field.take.circleTake.short')}</span>{/if}
 						{#if take.noGood}<span class="mark ng" title={t('slates.table.noGood')}>{tk('field.take.noGood.short')}</span>{/if}
 					</td>
@@ -285,6 +287,10 @@
 	.mark.ng {
 		background: color-mix(in srgb, var(--destructive) 16%, transparent);
 		color: var(--destructive);
+	}
+	.mark.type {
+		background: var(--fill-2);
+		color: var(--label);
 	}
 	@container take-table (max-width: 620px) {
 		.opt-focusDistance,

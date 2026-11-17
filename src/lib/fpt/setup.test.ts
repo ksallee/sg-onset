@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TransportError } from '$lib/outbox/transport';
 import { memoryKeyValue, resolutionKey } from './cache';
 import { BEARER, fakeFpt, type FakeFpt } from './fakeFpt';
-import { ENTITY_SCOPES, wantedColumns } from './mapping';
+import { ENTITY_SCOPES, VERSION_COLUMNS, wantedColumns } from './mapping';
 import { parseResolution } from './schema';
 import { checkSetup, type SetupReport } from './setup';
 import { rawField, TYPES } from './testkit';
@@ -17,7 +17,8 @@ function world(fields: 'complete' | 'bare' = 'complete') {
 
 const creates = (fpt: FakeFpt) => fpt.requests.filter((r) => r.method === 'POST' && r.path.includes('/schema/'));
 const field = (report: SetupReport, scope: string, name: string) => report.fields.find((f) => f.scope === scope && f.name === name)!;
-const WANTED = ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0);
+/** Every field of ours: on the eight entities, and the client UUID on Version, where videos go. */
+const WANTED = ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length;
 
 describe('checkSetup', () => {
 	it('finds a site that is ready, and changes nothing on it', async () => {
@@ -33,12 +34,29 @@ describe('checkSetup', () => {
 	});
 
 	// corpus endpoints/get_schema.md: /schema is cheap and /fields is not. One read per type.
-	it('reads the type list once and the fields of each of the seven types and Attachment once', async () => {
+	it('reads the type list once and the fields of each of the eight types, Attachment, Shot and Version once', async () => {
 		const { fpt, check } = world();
 		await check();
 		expect(fpt.requests.map((r) => r.path).sort()).toEqual(
-			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
+			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment', 'Shot', 'Version'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
 		);
+	});
+
+	// Videos go up as Versions linked to their take (Kevin, 2026-11-17): a create sent twice must
+	// be refused there too (findings/127).
+	it('creates the client UUID on Version, unique, and the transport may use it', async () => {
+		const { fpt, cache, check } = world('bare');
+		const report = await check();
+		expect(field(report, 'version', 'sg_onset_uuid')).toMatchObject({ entityType: 'Version', status: 'created', unique: true });
+		expect(fpt.fields.Version.sg_onset_uuid.unique?.value).toBe(true);
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.versionUuid).toBe('sg_onset_uuid');
+	});
+
+	it('is not ready while Version lacks it, and says so', async () => {
+		const { fpt, check } = world('bare');
+		const report = await check({ createFields: false });
+		expect(field(report, 'version', 'sg_onset_uuid')).toMatchObject({ entityType: 'Version', status: 'missing' });
+		expect(fpt.fields.Version.sg_onset_uuid).toBeUndefined();
 	});
 
 	it('creates its fields on a bare site, each with what only a create can set', async () => {
@@ -156,6 +174,27 @@ describe('checkSetup', () => {
 		expect(again.ready).toBe(true);
 		expect(again.reverseFields.every((r) => r.status === 'present')).toBe(true);
 		expect(fpt.requests.slice(before).every((r) => r.method === 'GET')).toBe(true);
+	});
+
+	// The slate's Shots link: a multi_entity to Shot (findings/116) that adds a field on Shot listing
+	// the slates (findings/142), so a Shot shows its slates.
+	it('creates the Shots link of the slate, and Flow PT adds the field on Shot that lists the slates', async () => {
+		const { fpt, check } = world('bare');
+		const before = await check({ createFields: false });
+		expect(field(before, 'slate', 'sg_shots')).toMatchObject({ status: 'missing', dataType: 'multi_entity', validTypes: ['Shot'] });
+		expect(before.reverseFields).toContainEqual({ entityType: 'Shot', name: 'slate_sg_shots_slates', displayName: 'Slates <-> Shots', source: 'Slate.sg_shots', status: 'willAppear' });
+		const report = await check();
+		expect(field(report, 'slate', 'sg_shots').status).toBe('created');
+		expect(fpt.fields.Slate.sg_shots.properties?.valid_types?.value).toEqual(['Shot']);
+		expect(fpt.fields.Shot.slate_sg_shots_slates).toMatchObject({ data_type: { value: 'multi_entity' }, properties: { valid_types: { value: ['Slate'] } } });
+	});
+
+	it('does not create the Shots link when Shot already has the field it would add', async () => {
+		const { fpt, check } = world('bare');
+		fpt.fields.Shot.slate_sg_shots_slates = rawField('text', 'Slates Shots');
+		const report = await check();
+		expect(report.ready).toBe(false);
+		expect(field(report, 'slate', 'sg_shots')).toMatchObject({ status: 'blocked', reason: expect.stringContaining('Shot.slate_sg_shots_slates') });
 	});
 
 	it('does not create a link whose added field would collide, and says which', async () => {

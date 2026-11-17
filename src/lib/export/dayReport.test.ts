@@ -29,6 +29,12 @@ describe('dayReport', () => {
 		expect(report()!.slates[0].setups).toEqual([]);
 	});
 
+	it('gives each slate block its set references, in the order logged', () => {
+		const blocks = report()!.slates;
+		expect(blocks[2].references.map((r) => r.name)).toEqual(['Scan 01', 'HDRI_0412']);
+		expect(blocks[0].references).toEqual([]);
+	});
+
 	it('counts slates, takes, circled, no good and photos', () => {
 		expect(report()!.totals).toEqual({ slates: 3, takes: 7, circled: 2, noGood: 1, photos: 3 });
 		expect(report()!.slates[2].totals).toEqual({ takes: 5, circled: 1, noGood: 1, photos: 3 });

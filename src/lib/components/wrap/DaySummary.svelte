@@ -1,11 +1,12 @@
 <script lang="ts">
-	// The day at a glance: six counts in a card, the cameras used, and when the day was last handed
-	// over. The numbers come from wrap/summary.ts.
+	// The day at a glance: six counts in a card, the cameras used, the references logged by kind,
+	// and when the day was last handed over. The numbers come from wrap/summary.ts.
 	import { Camera } from '@lucide/svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Tile from '$lib/components/ios/Tile.svelte';
 	import { t, tk } from '$lib/i18n/messages';
+	import { kindLabel } from '$lib/references/kinds';
 	import type { DaySummary } from '$lib/wrap/summary';
 	import { formatDuration } from '$lib/wrap/summary';
 	import { plural } from '$lib/wrap/make';
@@ -39,6 +40,14 @@
 			<Row title={t('wrap.summary.camera', { letter: c.letter })} subtitle={c.body} detail={tk(plural('wrap.summary.cameraTakes', c.takes), { n: c.takes })}>
 				{#snippet leading()}<Tile icon={Camera} color="var(--tint)" />{/snippet}
 			</Row>
+		{/each}
+	</Section>
+{/if}
+
+{#if summary.references.length}
+	<Section header={t('wrap.summary.references')}>
+		{#each summary.references as r (r.kind)}
+			<Row title={kindLabel(r.kind, tk)} detail={String(r.n)} />
 		{/each}
 	</Section>
 {/if}

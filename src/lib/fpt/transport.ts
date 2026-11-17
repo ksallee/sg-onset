@@ -39,13 +39,24 @@ import { ApiRefusal, createApi, type Filter, type FptOptions } from './api';
 import { resolutionKey } from './cache';
 import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
 import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
-import { ENTITY_SCOPES, isEntityScope, STILLS, type EntityScope } from './mapping';
+import { ENTITY_SCOPES, isEntityScope, SHOTS, STILLS, type EntityScope } from './mapping';
 import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, type Resolution } from './schema';
 import { loadResolution } from './setup';
+import { codeKey, codesOf, linkValue, SHOT, shotChange, shotCodes, shotFilter, shotPlan, shotsOf, type ShotRow, type ShotWork } from './shots';
 import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, variantOf, type StillRemote } from './stills';
+import { takeVersions, type UploadTarget } from './takeVersions';
 import { completionInfo, isMultipart, partLink, UPLOAD_SIZES, URL_LIFE_MS, type UploadSizes } from './uploadPlan';
+import { capturedAtOfCode, retimedCode, VERSION, versionKind, type TakeMedia } from './versions';
+
+/**
+ * What is owed on one slate's Shots field:
+ * - `waiting`: codes not linked yet: no Shot had them, or the write failed.
+ * - `several`: codes more than one Shot has. All of them are linked; someone cleans up in Flow PT.
+ * - `unlink`: codes taken off whose Shots are still linked: the unlink failed, or its turn has not come.
+ */
+export type ShotResult = { slate: string; waiting: string[]; several: string[]; unlink: string[] };
 
 export type FptTransportOptions = FptOptions & {
 	/**
@@ -56,7 +67,29 @@ export type FptTransportOptions = FptOptions & {
 	now?: () => number;
 	/** The upload sizes. For tests: the storage floor is 5 MiB a part. */
 	upload?: Partial<UploadSizes>;
+	/**
+	 * Told, for each slate a push touches the codes of, what is owed on its Shots field: before the
+	 * batch goes, every link and unlink; once they are written, what is left. A batch that gets no
+	 * answer leaves the first word standing, and a later sync makes them (`linkShots`).
+	 */
+	onShots?: (results: ShotResult[]) => unknown;
 };
+
+/** The transport, and the Shot links of slates the server already holds. */
+export interface FptTransport extends Transport {
+	/** Makes what is owed on these slates' Shots fields (`ShotWork`). Never throws. */
+	linkShots(items: ({ slate: string; remoteId: number } & ShotWork)[], signal?: AbortSignal): Promise<ShotResult[]>;
+}
+
+/**
+ * The codes of the Shots of an FPT project, each once, in order: what the slate's VFX shots field
+ * suggests. Every page is read. Throws a `TransportError` when the site cannot be asked.
+ */
+export async function readShotCodes(options: FptOptions, projectId: number, signal?: AbortSignal): Promise<string[]> {
+	const api = createApi(options);
+	// Shot reads are not scoped by the endpoint: the project filter is ours (entity_types/Shot.md).
+	return codesOf(await api.searchAll(SHOT, ['project', 'is', { type: 'Project', id: projectId }], ['code'], signal));
+}
 
 const PROJECT = 'project';
 const STILL = 'still';
@@ -66,9 +99,10 @@ const STILL_KEYS = ['takeId', 'capturedAt', 'caption'];
 type Token = {
 	ref: BlobRef;
 	meta: StillRemote;
-	takeType: string;
-	field: string;
-	filename: string;
+	/** Where the file goes: the take's photos field, or a Version's movie field. */
+	target: UploadTarget;
+	/** The Version the file goes on, for a video (versions.ts). */
+	version?: number;
 	/** The init reply's `data`, whole: it is the `upload_info` of the completion. */
 	info: Record<string, unknown>;
 	completeUpload: string;
@@ -92,11 +126,12 @@ const groupBy =<T>(items: readonly T[], key: (item: T) => string): Map<string, T
 };
 const text = (value: unknown): string | undefined => (typeof value === 'string' && value !== '' ? value : undefined);
 
-export function createFptTransport(options: FptTransportOptions): Transport {
+export function createFptTransport(options: FptTransportOptions): FptTransport {
 	const api = createApi(options);
 	const now = options.now ?? Date.now;
 	const sizes: UploadSizes = { ...UPLOAD_SIZES, ...options.upload };
 	const { projectId } = options;
+	const versions = takeVersions(api, projectId);
 	let resolution: Resolution | undefined;
 
 	/** The site's schema: from memory, the device, or the site. Throws `failed` while the site is not set up. */
@@ -113,7 +148,8 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 
 	/** Our table of an entity type the site named. */
 	function tableOf(entityType: string): string | undefined {
-		if (entityType === ATTACHMENT) return STILL;
+		// A photo is an Attachment, a video a Version (versions.ts): both are stills on the device.
+		if (entityType === ATTACHMENT || entityType === VERSION) return STILL;
 		return resolution ? ENTITY_SCOPES.find((scope) => resolution!.entities[scope] === entityType) : undefined;
 	}
 
@@ -170,6 +206,93 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 		await api.update(res.entities.take, take, { [stillsField(res)]: { multi_entity_update_mode: 'add', value } }, signal);
 	}
 
+	/**
+	 * A photo drawn on again has several annotated copies on Flow PT: one per drawing sent. The take
+	 * shows only the newest, the one uploaded last; the older ones leave its photos field and stay
+	 * as Attachments (an Artist may not delete one, findings/143). Add and remove go in one batch,
+	 * in order, the mode in the body (recipes/009, findings/154): the field never shows none or two.
+	 */
+	async function keepNewestCopy(res: Resolution, take: number, stillId: string, signal?: AbortSignal): Promise<void> {
+		const copies = ((await attachmentsOf([stillId], signal)).get(stillId) ?? []).filter((row) => variantOf(row.attributes.filename) === 'annotated');
+		const [newest, ...older] = copies;
+		if (!newest) return;
+		const held = await stillIds(res, take, signal);
+		const field = stillsField(res);
+		const edit = (mode: 'add' | 'remove', ids: number[]): BatchRequest => ({
+			request_type: 'update',
+			entity: res.entities.take,
+			record_id: take,
+			data: { [field]: { multi_entity_update_mode: mode, value: ids.map((id) => ({ type: ATTACHMENT, id })) } }
+		});
+		const stale = older.filter((row) => held.includes(row.id)).map((row) => row.id);
+		const requests = [...(held.includes(newest.id) ? [] : [edit('add', [newest.id])]), ...(stale.length ? [edit('remove', stale)] : [])];
+		if (requests.length) await api.batch(requests, signal);
+	}
+
+	// ------------------------------------------------------------------ shots
+
+	type SlateWork = { slate: string; remoteId?: RemoteId } & ShotWork;
+	/** Nothing made: everything still owed. */
+	const owedAll = (w: SlateWork): ShotResult => ({ slate: w.slate, waiting: shotCodes(w.link), several: shotCodes(w.check), unlink: shotCodes(w.unlink) });
+
+	/** Tells the app which codes wait. What it does with them is not the push's business. */
+	async function tell(results: ShotResult[]): Promise<void> {
+		if (!results.length || !options.onShots) return;
+		try {
+			await options.onShots(results);
+		} catch {
+			// The links are on the server or will be; a word the app could not keep changes nothing there.
+		}
+	}
+
+	/**
+	 * Brings each slate's Shots field in line with its codes: one search for the Shots of every code,
+	 * in the project; then per slate a `remove` of the Shots of the codes taken off and an `add` of
+	 * the Shots of the codes it holds, each a PUT with the mode in the body (corpus
+	 * recipes/009_multi_entity_safely.md: a bare list would replace the field, the query-string mode
+	 * replaces it too). A `_batch` is not used for these: the mode inside a batch update is not
+	 * measured. Never throws: what did not land is owed, and a later sync makes it. A Shot is
+	 * never created.
+	 */
+	async function writeShots(work: readonly SlateWork[], signal?: AbortSignal): Promise<ShotResult[]> {
+		const codes = [...new Map(work.flatMap((w) => [...w.link, ...w.unlink, ...w.check]).map((c) => [codeKey(c), c.trim()])).values()];
+		if (!codes.length) return work.map((w) => ({ slate: w.slate, waiting: [], several: [], unlink: [] }));
+		let res: Resolution;
+		let shots: ShotRow[];
+		try {
+			res = await resolved(signal);
+			shots = shotsOf(await api.searchAll(SHOT, shotFilter(projectId, codes), ['code'], signal));
+		} catch {
+			return work.map(owedAll);
+		}
+		const field = fieldName(res, 'slate', SHOTS);
+		const out: ShotResult[] = [];
+		let reachable = true;
+		for (const w of work) {
+			const plan = shotPlan(w, shots);
+			if (!reachable || typeof w.remoteId !== 'number') {
+				out.push(owedAll(w));
+				continue;
+			}
+			const write = async (mode: 'add' | 'remove', ids: number[]): Promise<boolean> => {
+				if (!ids.length) return true;
+				if (!reachable) return false;
+				try {
+					await api.update(res.entities.slate, w.remoteId as number, { [field]: linkValue(mode, ids) }, signal);
+					return true;
+				} catch (error) {
+					// No answer, or no session: the rest would fare the same. A refusal is this slate's alone.
+					if (error instanceof TransportError && error.kind !== 'failed') reachable = false;
+					return false;
+				}
+			};
+			const removed = await write('remove', plan.remove);
+			const added = await write('add', plan.add);
+			out.push({ slate: w.slate, waiting: added ? plan.waiting : shotCodes(w.link), several: plan.several, unlink: removed ? [] : plan.removing });
+		}
+		return out;
+	}
+
 	// ------------------------------------------------------------------ push
 
 	type Planned = { refusals: Refusal[]; remoteIds: Record<string, RemoteId>; requests: BatchRequest[]; owners: PushOp[] };
@@ -181,9 +304,11 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 			out.requests.push(r);
 			out.owners.push(o);
 		};
-		const res = ops.some((o) => isEntityScope(o.op.table)) ? await resolved(signal) : undefined;
 		const stills = ops.filter((o) => o.op.table === STILL && o.op.kind !== 'create').map((o) => o.op.recordId);
+		const res = ops.some((o) => isEntityScope(o.op.table)) || stills.length ? await resolved(signal) : undefined;
 		const attachments = await attachmentsOf(stills, signal);
+		// A still with no Attachment may be a video: its Version, by client UUID (versions.ts).
+		const videos = res ? await versions.find(res, stills.filter((id) => !attachments.has(id)), signal) : new Map<string, EntityRow>();
 
 		for (const o of ops) {
 			const op = o.op;
@@ -211,7 +336,20 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 					continue;
 				}
 				const found = attachments.get(op.recordId);
-				if (!found) refuse(o, 'gone');
+				const video = videos.get(op.recordId);
+				if (!found && video) {
+					// A video: its Version. The movie and the server's transcodes are the Version's own.
+					if (op.kind === 'delete') request(o, { request_type: 'delete', entity: VERSION, record_id: video.id });
+					else {
+						const data: Record<string, unknown> = {};
+						for (const [key, edit] of Object.entries(op.changes)) {
+							if (key === 'caption') data.description = text(edit.value) ?? null;
+							else if (key === 'capturedAt') data.code = retimedCode(video.attributes.code, text(edit.value));
+							else return { ...out, refusals: [...out.refusals, { entryId: o.entryId, reason: 'invalid', message: `still.${key} cannot change on the server` }] };
+						}
+						request(o, { request_type: 'update', entity: VERSION, record_id: video.id, data });
+					}
+				} else if (!found) refuse(o, 'gone');
 				else if (op.kind === 'delete') for (const row of found) request(o, { request_type: 'delete', entity: ATTACHMENT, record_id: row.id });
 				else {
 					const stray = Object.keys(op.changes).find((key) => key !== 'caption' && key !== 'capturedAt');
@@ -297,20 +435,40 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 	// ------------------------------------------------------------------ uploads
 
 	const tokenOf = (session: UploadSession) => session.token as Token;
-	const uploadPath = (t: Token) => `/api/v1/entity/${slugOf(t.takeType)}/${t.meta.take}/${t.field}/_upload`;
+	const uploadPath = (t: Token) => `/api/v1/entity/${slugOf(t.target.entityType)}/${t.target.id}/${t.target.field}/_upload`;
 
-	/** Step one: the ticket (corpus endpoints/get_entity_type_id_field_upload.md, findings/044 for multipart). */
+	/** A still's file as a take's media: what its Version needs (versions.ts). */
+	const mediaOf = (ref: Pick<BlobRef, 'recordId' | 'blobId' | 'type'>, meta: StillRemote): TakeMedia => ({
+		recordId: ref.recordId,
+		blobId: ref.blobId,
+		type: ref.type,
+		take: meta.take,
+		...(meta.capturedAt ? { capturedAt: meta.capturedAt } : {}),
+		...(meta.caption ? { caption: meta.caption } : {})
+	});
+
+	/**
+	 * Step one: the ticket (corpus endpoints/get_entity_type_id_field_upload.md, findings/044 for
+	 * multipart). A photo goes to the take's photos field. A video goes to its Version's movie
+	 * field: the Version is found by client UUID or made first (takeVersions.ts).
+	 */
 	async function begin(ref: BlobRef, signal?: AbortSignal): Promise<UploadSession> {
 		const meta = ref.table === STILL ? decodeStillRemote(ref.recordRemoteId) : undefined;
 		if (!meta) throw new TransportError('failed', `the file ${ref.blobId} has no still on a take the server holds`);
 		const res = await resolved(signal);
 		const multipart = isMultipart(ref.size, sizes);
+		let target: UploadTarget = { entityType: res.entities.take, id: meta.take, field: stillsField(res), filename: stillFilename(ref.recordId, ref.blobId, ref.type, ref.variant) };
+		let version: number | undefined;
+		if (versionKind(ref.type)) {
+			const media = mediaOf(ref, meta);
+			version = await versions.ensure(res, media, signal);
+			target = versions.target(version, media);
+		}
 		const t: Token = {
 			ref,
 			meta,
-			takeType: res.entities.take,
-			field: stillsField(res),
-			filename: stillFilename(ref.recordId, ref.blobId, ref.type, ref.variant),
+			target,
+			...(version !== undefined ? { version } : {}),
 			info: {},
 			completeUpload: '',
 			multipart,
@@ -321,7 +479,7 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 		let reply: InitReply;
 		try {
 			// `filename` is required. `multipart_upload=true` opens the multipart upload at once.
-			reply = (await api.get(uploadPath(t), { filename: t.filename, ...(multipart ? { multipart_upload: 'true' } : {}) }, signal)) as InitReply;
+			reply = (await api.get(uploadPath(t), { filename: t.target.filename, ...(multipart ? { multipart_upload: 'true' } : {}) }, signal)) as InitReply;
 		} catch (error) {
 			if (error instanceof ApiRefusal) throw new TransportError('failed', error.failure.title);
 			throw error;
@@ -362,11 +520,20 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 
 	// ------------------------------------------------------------------ the transport
 
-	const transport: Transport = {
+	const transport: FptTransport = {
+		linkShots: (items, signal) => writeShots(items, signal),
+
 		async push(ops: PushOp[], signal?: AbortSignal): Promise<PushResult> {
 			const planned = await plan(ops, signal);
 			if (planned.refusals.length) return { outcome: 'refused', refusals: planned.refusals };
 			if (!planned.requests.length) return { outcome: 'applied', remoteIds: planned.remoteIds };
+			// The slates whose codes change. Until their links are written, every link and unlink is
+			// owed: if the batch lands and its answer is lost, a later sync still makes them.
+			const shotWork = [...new Set(planned.owners)].flatMap((o) => {
+				const change = shotChange(o.op);
+				return change ? [{ owner: o, ...change }] : [];
+			});
+			await tell(shotWork.map((w) => ({ slate: w.owner.op.recordId, waiting: w.link, several: [], unlink: w.unlink })));
 			let rows;
 			try {
 				rows = await api.batch(planned.requests, signal);
@@ -379,6 +546,16 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 				const owner = planned.owners[i];
 				if (owner?.op.kind === 'create' && row.request_type === 'create') planned.remoteIds[owner.entryId] = row.data.id;
 			});
+			if (shotWork.length) {
+				const work = shotWork.map((w) => ({
+					slate: w.owner.op.recordId,
+					remoteId: w.owner.op.kind === 'create' ? planned.remoteIds[w.owner.entryId] : w.owner.remoteId,
+					link: w.link,
+					unlink: w.unlink,
+					check: []
+				}));
+				await tell(await writeShots(work, signal));
+			}
 			return { outcome: 'applied', remoteIds: planned.remoteIds };
 		},
 
@@ -400,6 +577,15 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 						const description = text(row.attributes.description);
 						const remoteId = encodeStillRemote({ take: take.id, ...(capturedAt ? { capturedAt } : {}), ...(description ? { caption: description } : {}) });
 						found.push({ table, id, remoteId });
+					}
+					// The rest may be videos: each a Version, linked to its take by `entity` (versions.ts).
+					const rest = group.map((r) => r.id).filter((id) => !attachments.has(id));
+					for (const [id, row] of await versions.find(res, rest, signal)) {
+						const take = row.relationships.entity?.data as { type?: string; id: number } | null | undefined;
+						if (!take || take.type !== res.entities.take) continue;
+						const capturedAt = capturedAtOfCode(row.attributes.code);
+						const description = text(row.attributes.description);
+						found.push({ table, id, remoteId: encodeStillRemote({ take: take.id, ...(capturedAt ? { capturedAt } : {}), ...(description ? { caption: description } : {}) }) });
 					}
 				} else if (isEntityScope(table)) {
 					const res = await resolved(signal);
@@ -424,15 +610,19 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 					if (row) records.push(...group.map((r) => ({ table, id: r.id, remoteId: projectId, fields: name && r.keys.includes('name') ? { name } : {} })));
 				} else if (table === STILL) {
 					const attachments = await attachmentsOf(group.map((r) => r.id), signal);
+					// A still with no Attachment may be a video: its Version (versions.ts).
+					const rest = group.map((r) => r.id).filter((id) => !attachments.has(id));
+					const videos = rest.length ? await versions.find(await resolved(signal), rest, signal) : new Map<string, EntityRow>();
 					for (const r of group) {
 						const row = attachments.get(r.id)?.[0];
-						if (!row) continue;
+						const video = videos.get(r.id);
+						if (!row && !video) continue;
 						const fields: Record<string, unknown> = {};
-						const description = text(row.attributes.description);
-						const capturedAt = capturedAtOf(row.attributes.display_name);
+						const description = text((row ?? video)!.attributes.description);
+						const capturedAt = row ? capturedAtOf(row.attributes.display_name) : capturedAtOfCode(video!.attributes.code);
 						if (r.keys.includes('caption') && description) fields.caption = description;
 						if (r.keys.includes('capturedAt') && capturedAt) fields.capturedAt = capturedAt;
-						records.push({ table, id: r.id, remoteId: r.remoteId ?? row.id, fields });
+						records.push({ table, id: r.id, remoteId: r.remoteId ?? (row ?? video)!.id, fields });
 					}
 				} else if (isEntityScope(table)) {
 					const res = await resolved(signal);
@@ -509,20 +699,24 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 			} catch (error) {
 				throw new TransportError('failed', error instanceof Error ? error.message : 'bad parts');
 			}
+			// `upload_info` is the init reply verbatim; `upload_data` is required. For a photo it sets the
+			// display name; a Version's movie takes it empty, as measured (findings/013, 022).
+			const data = t.version !== undefined ? {} : { display_name: stillDisplayName(t.meta.capturedAt, t.ref.variant) };
 			try {
-				// `upload_info` is the init reply verbatim; `upload_data` is required, and sets the display name.
-				await api.post(t.completeUpload, { upload_info: info, upload_data: { display_name: stillDisplayName(t.meta.capturedAt, t.ref.variant) } }, signal);
+				await api.post(t.completeUpload, { upload_info: info, upload_data: data }, signal);
 			} catch (error) {
 				if (!(error instanceof ApiRefusal)) throw error;
 				await abort(t, signal);
 				throw new TransportError('failed', error.failure.title);
 			}
+			// A video: the file is in its Version's movie field, and the Version is the id kept.
+			if (t.version !== undefined) return { remoteId: t.version };
 			// The completion landed. Its answer is one space and names no row (findings/039), so the row
 			// is found by its file name. The upload to the field added the photo to it, beside the
 			// earlier ones, and gave it the take's project (findings/134): nothing to put back. What
 			// follows is best effort: `verifyUpload` does it again.
 			try {
-				const [row] = await uploaded(t.filename, signal);
+				const [row] = await uploaded(t.target.filename, signal);
 				if (!row) return {};
 				await caption(row, t.meta, signal);
 				return { remoteId: row.id };
@@ -535,6 +729,7 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 			const meta = blob.table === STILL ? decodeStillRemote(blob.recordRemoteId) : undefined;
 			if (!meta) return { verified: false };
 			const res = await resolved(signal);
+			if (versionKind(blob.type)) return versions.verify(res, mediaOf(blob, meta), blob.size, signal);
 			for (const row of await uploaded(stillFilename(blob.recordId, blob.blobId, blob.type, blob.variant), signal)) {
 				// The url is presigned and re-minted on every read: used once, never kept (field_types/url.md).
 				const url = (row.attributes.this_file as { url?: unknown } | null)?.url;
@@ -547,7 +742,9 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 					continue;
 				}
 				if (size !== blob.size) continue;
-				await link(res, meta.take, [row.id], signal);
+				// An annotated copy: the take shows the newest one only. A photo: on the take, whatever else is.
+				if (blob.variant === 'annotated') await keepNewestCopy(res, meta.take, blob.recordId, signal);
+				else await link(res, meta.take, [row.id], signal);
 				await caption(row, meta, signal);
 				return { verified: true, remoteId: row.id };
 			}

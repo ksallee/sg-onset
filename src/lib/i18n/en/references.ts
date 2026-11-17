@@ -15,6 +15,7 @@ export const references = {
 	'references.header': 'References',
 	'references.footer': 'Captured on other devices. The files stay on them. Tap a kind to add one.',
 	'references.none': 'None yet.',
+	'references.loggedOn': 'Logged on {slate}',
 	'references.add': 'Add a reference',
 	'references.add.kind': 'Add {kind}',
 	'references.new.add': 'Add',

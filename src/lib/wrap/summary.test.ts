@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dayReport } from '$lib/export/dayReport';
-import { input } from '$lib/export/testData';
+import { input, sharedLighting } from '$lib/export/testData';
 import { daySummary, formatDuration, runningTime } from './summary';
 
 describe('runningTime', () => {
@@ -62,6 +62,16 @@ describe('daySummary', () => {
 			{ kind: 'lidarScan', n: 1 }
 		]);
 		expect(daySummary(dayReport(input(), 'd4')!).references).toEqual([{ kind: 'Drone survey', n: 1 }]);
+	});
+	it('counts a lighting reference once, however many slates of the day show it (#107)', () => {
+		expect(daySummary(dayReport(sharedLighting(), 'd3')!).references).toEqual([
+			{ kind: 'hdri360', n: 1 },
+			{ kind: 'lidarScan', n: 1 }
+		]);
+		expect(daySummary(dayReport(sharedLighting(), 'd4')!).references).toEqual([
+			{ kind: 'hdri360', n: 1 },
+			{ kind: 'Drone survey', n: 1 }
+		]);
 	});
 	it('says when the day has no takes', () => {
 		const empty = daySummary({ ...report, slates: [], totals: { slates: 0, takes: 0, circled: 0, noGood: 0, media: {} }, warnings: [] });

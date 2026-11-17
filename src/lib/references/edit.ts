@@ -1,4 +1,5 @@
-// An edit of set references, run on the store: one added, one deleted, or one given another kind.
+// An edit of set references, run on the store: one added, one deleted, or one given another kind;
+// and a slate deleted, whose lighting references move to another slate of its setup first (#107).
 // The switches its kind turns on (HDRI 360, Witness camera, Lidar scan) are set in the same undo
 // entry, and the label says so. A switch the last reference of its kind leaves on is offered to
 // turn off, in the notice in place of Undo; ignored, nothing changes. As the take type does
@@ -8,10 +9,12 @@
 import type { App } from '$lib/app/app.svelte';
 import type { Label } from '$lib/app/undo';
 import { t, tk } from '$lib/i18n/messages';
+import { change } from '$lib/model/patch';
 import { planReferenceEdit } from '$lib/model/takeType';
 import type { LightingSetup, Reference, Slate, Take } from '$lib/model/types';
 import { namesOf, turnOff } from '$lib/take/typeEdit';
 import { switchesText } from '$lib/take/typeText';
+import { deleteMoves } from './lighting';
 
 type Around = { references: Reference[]; takes: Take[]; slates: Slate[]; lightingSetups: LightingSetup[] };
 
@@ -80,4 +83,19 @@ export function setReferenceKind(app: App, ref: Reference, kind: string, label: 
 			await app.edit.set('reference', ref, 'kind', kind);
 		}
 	);
+}
+
+/**
+ * Deletes a slate and what is under it. The lighting references logged on it first move to another
+ * slate of its lighting setup (Kevin, #107; lighting.ts `deleteMoves`): they belong to the setup,
+ * which outlives the slate. One undo entry brings back the slate and puts them back on it.
+ */
+export async function removeSlate(app: App, slate: Slate, label: Label): Promise<void> {
+	const store = app.store;
+	const [slates, days, refs] = await Promise.all([store.list('slate'), store.list('shootDay'), store.list('reference', slate.id)]);
+	const moves = deleteMoves(slate.id, slates, days, refs);
+	await app.edit.group(label, async () => {
+		if (moves) await app.edit.apply('reference', moves.refs.map((r) => change(r, 'slateId', moves.to)));
+		await app.edit.removeTree('slate', slate.id);
+	});
 }

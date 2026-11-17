@@ -4,7 +4,8 @@
 
 import { endKey, fieldsOf, type Scope } from '$lib/model/catalogue';
 import type { Camera, CameraSetup, Lens, LightingSetup, Project, Reference, ShootDay, Slate, Still, Take } from '$lib/model/types';
-import { flatten, naturalCompare, referencesBySlate, selectShootDays, selectSlates, type ExportFilters, type ExportInput } from './selection';
+import { shownBySlate } from '$lib/references/lighting';
+import { flatten, naturalCompare, selectShootDays, selectSlates, type ExportFilters, type ExportInput } from './selection';
 
 export const EXPORT_FORMAT = 'sg-onset-export';
 /** Goes up when a reader of the old version would misread the new one. */
@@ -71,8 +72,9 @@ const sortById = <T extends { id: string }>(rows: T[]) => rows.sort((a, b) => na
 /**
  * The selection as data. Slates: every slate of the picked days in the slate range, with or
  * without takes. Takes: those the filters keep. Gear and lighting setups: those the kept slates and
- * takes point at. Photos: those of the kept takes. Set references: those of the kept slates, by
- * slate, in the order logged.
+ * takes point at. Photos: those of the kept takes. Set references: those the kept slates show, by
+ * slate, in the order logged, each once. A lighting reference logged on a slate outside the
+ * selection is in it too, with that slate's id (#107).
  */
 export function toExportData(input: ExportInput, options: { now: string; filters?: ExportFilters }): ExportData {
 	const filters = options.filters ?? {};
@@ -85,6 +87,7 @@ export function toExportData(input: ExportInput, options: { now: string; filters
 	const lensIds = new Set([...takes.map((t) => t.lensId), ...cameraSetups.map((s) => s.lensId)]);
 	const lightingIds = new Set(slates.map((s) => s.lightingSetupId));
 	const dayIds = new Set(slates.map((s) => s.shootDayId));
+	const shown = shownBySlate(input.slates, input.references);
 	const data = {
 		format: EXPORT_FORMAT,
 		formatVersion: EXPORT_FORMAT_VERSION,
@@ -100,7 +103,7 @@ export function toExportData(input: ExportInput, options: { now: string; filters
 		takes,
 		// An audio note is a still on the device (#89): listed with the photos of its take, in the order taken.
 		stills: rows.flatMap((r) => [...r.stills, ...r.audioNotes].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || a.id.localeCompare(b.id))),
-		references: slates.flatMap((s) => referencesBySlate(input.references).get(s.id) ?? [])
+		references: [...new Set(slates.flatMap((s) => shown.get(s.id) ?? []))]
 	};
 	return canonical(data) as ExportData;
 }

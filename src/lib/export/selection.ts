@@ -1,11 +1,12 @@
 // What an export reads: the records of one project as the store returns them, picked by shoot
 // day, slate range and take flags, and flattened to one row per take (one camera's take) with the
-// slate, shoot day, lighting setup, camera setup, camera, lens and the slate's set references
-// resolved onto it. Pure.
+// slate, shoot day, lighting setup, camera setup, camera, lens and the set references the slate
+// shows resolved onto it: its own, and the lighting references of its lighting setup (#107). Pure.
 
 import type { Scope } from '$lib/model/catalogue';
 import { effectiveFocalLength } from '$lib/model/take';
 import type { Camera, CameraSetup, Lens, LightingSetup, Project, Reference, ShootDay, Slate, Still, Take } from '$lib/model/types';
+import { shownBySlate } from '$lib/references/lighting';
 import { sortReferences } from '$lib/references/log';
 
 /** The records of one project, as `Store.list` returns them. Any order. */
@@ -60,7 +61,10 @@ export type FlatTake = {
 	stills: Still[];
 	/** The take's audio notes, oldest first (#89). */
 	audioNotes: Still[];
-	/** The set references of the slate, in the order logged. */
+	/**
+	 * The set references the slate shows, in the order logged: its own, and the lighting references
+	 * logged on another slate of its lighting setup (lib/references/lighting.ts).
+	 */
 	references: Reference[];
 };
 
@@ -102,7 +106,7 @@ export function selectSlates(input: ExportInput, filters: ExportFilters = {}): S
 		.sort((a, b) => dayIndex.get(a.shootDayId)! - dayIndex.get(b.shootDayId)! || naturalCompare(a.slateUID ?? '', b.slateUID ?? '') || a.id.localeCompare(b.id));
 }
 
-/** The set references of each slate, in the order logged. */
+/** The set references logged on each slate, in the order logged. What a slate shows is `shownBySlate`. */
 export function referencesBySlate(refs: readonly Reference[]): Map<string, Reference[]> {
 	const out = new Map<string, Reference[]>();
 	for (const r of sortReferences(refs)) out.set(r.slateId, [...(out.get(r.slateId) ?? []), r]);
@@ -130,7 +134,7 @@ export function flatten(input: ExportInput, filters: ExportFilters = {}): FlatTa
 	const stills = byTake(input.stills);
 	const audioNotes = byTake(input.audioNotes ?? []);
 	const oldestFirst = (list: readonly Still[] = []) => list.slice().sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || a.id.localeCompare(b.id));
-	const references = referencesBySlate(input.references);
+	const references = shownBySlate(input.slates, input.references);
 
 	const rows: FlatTake[] = [];
 	for (const take of input.takes) {

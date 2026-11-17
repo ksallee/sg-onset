@@ -68,8 +68,9 @@ describe('noteReads', () => {
 		expect(reads.setShot).toEqual(['sg_shots']);
 		expect(reads.slate).toEqual(['code', 'sg_set_shots']);
 		expect(reads.take).toEqual(expect.arrayContaining(['code', 'sg_take_type', 'sg_take_tail', 'sg_slate', 'sg_photos']));
-		expect(reads.reference).toEqual(expect.arrayContaining(['code', 'sg_kind', 'sg_slate']));
-		expect(reads.links).toEqual({ setShotShots: 'sg_shots', slateSetShots: 'sg_set_shots', takeSlate: 'sg_slate', takePhotos: 'sg_photos', referenceSlates: ['sg_slate'] });
+		expect(reads.reference).toEqual(expect.arrayContaining(['code', 'sg_kind', 'sg_slate', 'sg_slates']));
+		// #107: a reference reaches the slate it was logged on, and every slate it shows on.
+		expect(reads.links).toEqual({ setShotShots: 'sg_shots', slateSetShots: 'sg_set_shots', takeSlate: 'sg_slate', takePhotos: 'sg_photos', referenceSlates: ['sg_slate', 'sg_slates'] });
 	});
 });
 
@@ -116,7 +117,7 @@ describe('shotCapture', () => {
 			references: [{ id: 200, attributes: { code: 'HDRI_0412', sg_kind: 'hdri360' }, relationships: { sg_slate: { data: link('Slate', 10) }, sg_slates: { data: [link('Slate', 10), link('Slate', 11)] } } }],
 			files: []
 		};
-		const capture = shotCapture(SHOT, noteRecordsOf(RESOLUTION, rows, ['sg_slate', 'sg_slates']));
+		const capture = shotCapture(SHOT, noteRecordsOf(RESOLUTION, rows));
 		expect(capture.references).toEqual([{ kind: 'hdri360', names: ['HDRI_0412'] }]);
 		expect(capture.items).toEqual(['reference:200']);
 	});

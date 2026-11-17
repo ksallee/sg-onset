@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dayReport } from './dayReport';
-import { input, s42A, t42A1A, t42A1B, t42A2B, t9 } from './testData';
+import { input, s42A, sharedLighting, t42A1A, t42A1B, t42A2B, t9 } from './testData';
 
 describe('dayReport', () => {
 	const report = () => dayReport(input(), 'd3');
@@ -33,6 +33,13 @@ describe('dayReport', () => {
 		const blocks = report()!.slates;
 		expect(blocks[2].references.map((r) => r.name)).toEqual(['Scan 01', 'HDRI_0412']);
 		expect(blocks[0].references).toEqual([]);
+	});
+
+	it('lists in a slate block the lighting references logged on another slate of its lighting setup (#107)', () => {
+		const names = (day: string, slate: string) => dayReport(sharedLighting(), day)!.slates.find((b) => b.slate.slateUID === slate)!.references.map((r) => r.name);
+		expect(names('d3', '10')).toEqual(['HDRI_0412']);
+		expect(names('d4', '50')).toEqual(['HDRI_0412', 'Flight 1']);
+		expect(names('d3', '9')).toEqual([]);
 	});
 
 	it('counts slates, takes, circled, no good and photos', () => {

@@ -127,6 +127,15 @@ export const VERSION_COLUMNS: readonly Column[] = [UUID];
 export const SHOTS: Column = { name: 'sg_shots', display: 'Shots', dataType: 'multi_entity', target: 'shot', note: 'The Shots of the VFX shot codes typed on the slate. Linked at sync.' };
 
 /**
+ * The slates a set reference shows on (#107): every slate of its lighting setup for an HDRI 360, a
+ * 360 video or an HDR reference, its own slate for the rest (lib/references/lighting.ts). Linked at
+ * sync. Beside `sg_slate`, the slate it was logged on, because a field's type cannot change once
+ * made (corpus endpoints/put_schema_type_fields_field). Makes a field on Slate that lists the
+ * references each slate shows (findings/142). See app/sync/referenceSlates.ts.
+ */
+export const REFERENCE_SLATES: Column = { name: 'sg_slates', display: 'Slates', dataType: 'multi_entity', target: 'slate', note: 'The slates it shows on: every slate of its lighting setup for a lighting reference. Linked at sync.' };
+
+/**
  * The Set Shots of a slate: one per VFX shot code typed on it, made at sync (setShots.ts). Makes a
  * field on Set Shot that lists its slates (findings/142).
  */
@@ -360,7 +369,7 @@ export function fieldMap(scope: EntityScope, key: string): FieldMap | undefined 
 }
 
 /** The fields of a scope that are no catalogue field: the links filled at upload and at sync. */
-const EXTRA: Partial<Record<EntityScope, readonly Column[]>> = { take: [STILLS], slate: [SHOTS, DIAGRAMS, SET_SHOTS], setShot: [SET_SHOT_SHOTS, SET_SHOT_MATCHED] };
+const EXTRA: Partial<Record<EntityScope, readonly Column[]>> = { take: [STILLS], slate: [SHOTS, DIAGRAMS, SET_SHOTS], reference: [REFERENCE_SLATES], setShot: [SET_SHOT_SHOTS, SET_SHOT_MATCHED] };
 
 /**
  * The fields a scope's entity must have that are not stock: ours to find or create. A record of

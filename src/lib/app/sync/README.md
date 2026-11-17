@@ -18,6 +18,7 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `clock.ts` | yes | `toSecond`: `app.now()` stamps to the second. |
 | `shots.ts` | yes | Which slates to bring in line, when, and what the sync sheet lists of their Set Shots. Nothing kept. |
 | `notes.ts` | yes | Notes on Shots (#97): the setting per project, what the sheet shows, which Shots get a Note. |
+| `referenceSlates.ts` | yes | The slates each set reference shows on, by Flow PT id, for its Slates field (#107). Nothing kept. |
 | `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. |
 | `engine.ts` | no | `createSyncEngine`: link, check, runner. No runes. |
 | `controller.svelte.ts` | no | `provideSync`, `useSync`: the engine on the real page, as runes. |
@@ -81,6 +82,12 @@ Made by Claude. Kevin can overrule any of them.
     reach through their Set Shots (lib/fpt README, Notes on Shots). A site without Set Shot writes
     none. A site without the Note fields writes none, and the sheet says an admin runs Set Up
     Fields; turning the setting on then runs the setup check again, which only reads.
+14. **The Slates field of each set reference is set when a drain ends,** before the slates, so the
+    Notes on Shots read it (lib/fpt README, "The slates of a set reference"): to the slates it
+    shows on now, in `set` mode, where it differs. At most once a minute, at once on Sync Now, and
+    at once when the device asks for other slates than the last time (a reference logged, a slate
+    made or moved). That last ask is in memory only. Nothing is kept on the device; an earlier
+    build's list, `sg-onset:sync:referenceSlates:<id>`, is removed when the project loads.
 
 ## Not tested without a real site
 

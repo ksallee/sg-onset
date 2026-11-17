@@ -149,22 +149,23 @@ describe('the Note', () => {
 		expect(noteSubject(shotCapture(SHOT, records()), tk)).toBe('Set data for SMP_042_0010');
 	});
 
-	it('lists the element takes by type first, then the takes by slate, the references, the photos', () => {
+	// Kevin, 2026-11-17: the Note sits in a small space in Flow PT. Short headings, one entry a line,
+	// no intro: the subject names the Shot.
+	it('lists the element takes by type first, one a line, then the takes by slate, the references one a line, the photos', () => {
 		expect(noteBody(shotCapture(SHOT, records()), tk)).toBe(
 			[
-				'What was shot on set for SMP_042_0010. SG OnSet updates this Note at each sync that adds to it.',
-				'',
 				'Elements',
 				'Clean plate: 42A take 10',
-				'Clean plate at the tail: 42B take 2',
-				'Balls and chart at the tail: 42A take 3',
+				'Clean plate tail: 42B take 2',
+				'Balls and chart tail: 42A take 3',
 				'',
 				'Takes',
-				'Slate 42A: takes 1, 2, 3, 10',
-				'Slate 42B: takes 1, 2',
+				'42A: 1, 2, 3, 10',
+				'42B: 1, 2',
 				'',
 				'References',
-				'HDRI 360: HDRI_0412, HDRI_0413',
+				'HDRI 360: HDRI_0412',
+				'HDRI 360: HDRI_0413',
 				'Witness camera: WIT_A001',
 				'Drone survey: DRONE_01',
 				'',
@@ -173,20 +174,19 @@ describe('the Note', () => {
 		);
 	});
 
-	it('leaves out a part with nothing in it, and says take for one', () => {
+	it('leaves out a part with nothing in it', () => {
 		const rows = { setShots: [setShotRow(300, [7])], slates: [slateRow(11, '42A', [300])], takes: [takeRow(100, 11, '1')], references: [], files: [] };
-		expect(noteBody(shotCapture(SHOT, noteRecordsOf(RESOLUTION, rows)), tk)).toBe(
-			['What was shot on set for SMP_042_0010. SG OnSet updates this Note at each sync that adds to it.', '', 'Takes', 'Slate 42A: take 1'].join('\n')
-		);
+		expect(noteBody(shotCapture(SHOT, noteRecordsOf(RESOLUTION, rows)), tk)).toBe(['Takes', '42A: 1'].join('\n'));
 	});
 });
 
 describe('what was added', () => {
-	it('is what the Note did not list yet, said in a reply', () => {
-		const before = shotCapture(SHOT, records()).items.filter((i) => !['take:11:10', 'cleanPlate:11:10', 'reference:201', 'photo:502', 'photo:503'].includes(i));
+	// "Added:" then one entry a line. A take already said as an element take is not said twice.
+	it('is what the Note did not list yet, said in a reply, one entry a line', () => {
+		const before = shotCapture(SHOT, records()).items.filter((i) => !['take:11:10', 'cleanPlate:11:10', 'take:11:2', 'reference:201', 'photo:502', 'photo:503'].includes(i));
 		const added = addedSince(shotCapture(SHOT, records()), before);
-		expect(added.items).toEqual(['cleanPlate:11:10', 'photo:502', 'photo:503', 'reference:201', 'take:11:10']);
-		expect(replyBody(added, tk)).toBe(['Added since the last update:', 'Clean plate: 42A take 10', 'Slate 42A: take 10', 'HDRI 360: HDRI_0413', '2 more photos'].join('\n'));
+		expect(added.items).toEqual(['cleanPlate:11:10', 'photo:502', 'photo:503', 'reference:201', 'take:11:10', 'take:11:2']);
+		expect(replyBody(added, tk)).toBe(['Added:', 'Clean plate: 42A take 10', '42A take 2', 'HDRI 360: HDRI_0413', '2 photos'].join('\n'));
 	});
 
 	it('is nothing when the Note lists it all, whatever it listed that is gone', () => {
@@ -196,7 +196,7 @@ describe('what was added', () => {
 
 	it('says one photo', () => {
 		const now = shotCapture(SHOT, records());
-		expect(replyBody(addedSince(now, now.items.filter((i) => i !== 'photo:500')), tk)).toBe(['Added since the last update:', '1 more photo'].join('\n'));
+		expect(replyBody(addedSince(now, now.items.filter((i) => i !== 'photo:500')), tk)).toBe(['Added:', '1 photo'].join('\n'));
 	});
 });
 

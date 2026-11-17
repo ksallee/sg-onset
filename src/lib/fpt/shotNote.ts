@@ -254,34 +254,47 @@ export function noteSubject(capture: ShotCapture, label: Label): string {
 
 const list = (parts: readonly string[]) => parts.join(', ');
 
-/** The lines of a capture: the element takes, the takes, the references, each under its heading when `headed`. */
+/** One element take, one line. */
+const elementLine = (type: string, tail: boolean, t: SlateTake, label: Label) =>
+	label(tail ? 'sync.note.element.tail' : 'sync.note.element', { type: label(`field.take.takeType.${type}`), take: label('sync.note.take', { slate: t.slate, take: t.take }) });
+
+/** One reference, one line. */
+const referenceLines = (capture: ShotCapture, label: Label) => capture.references.flatMap((g) => g.names.map((name) => label('sync.note.reference', { kind: kindLabel(g.kind, (key) => label(key)), name })));
+
+/**
+ * The lines of a capture under their short headings, one entry a line: each element take, each
+ * slate with its take numbers, each reference. Kevin, 2026-11-17: the Note sits in a small space in
+ * Flow PT, so no intro and no sentence that adds nothing; the subject names the Shot.
+ */
 function sections(capture: ShotCapture, label: Label): { heading: string; lines: string[] }[] {
-	const typeLabel = (type: string) => label(`field.take.takeType.${type}`);
-	const elements = capture.elements.map((g) =>
-		label(g.tail ? 'sync.note.element.tail' : 'sync.note.element', {
-			type: typeLabel(g.type),
-			takes: list(g.takes.map((t) => label('sync.note.elementTake', { slate: t.slate, take: t.take })))
-		})
-	);
-	const takes = capture.slates.map((s) => label(s.takes.length === 1 ? 'sync.note.slate.one' : 'sync.note.slate.other', { slate: s.slate, takes: list(s.takes) }));
-	const references = capture.references.map((g) => label('sync.note.reference', { kind: kindLabel(g.kind, (key) => label(key)), names: list(g.names) }));
+	const elements = capture.elements.flatMap((g) => g.takes.map((t) => elementLine(g.type, g.tail, t, label)));
+	const takes = capture.slates.map((s) => label('sync.note.slate', { slate: s.slate, takes: list(s.takes) }));
 	return [
 		{ heading: label('sync.note.elements'), lines: elements },
 		{ heading: label('sync.note.takes'), lines: takes },
-		{ heading: label('sync.note.references'), lines: references }
+		{ heading: label('sync.note.references'), lines: referenceLines(capture, label) }
 	].filter((s) => s.lines.length > 0);
 }
 
-/** The Note: a line on what it is, then each part under its heading, then the photo count. A part with nothing is left out. */
+/** The Note: each part under its heading, then the photo count. A part with nothing is left out. */
 export function noteBody(capture: ShotCapture, label: Label): string {
-	const blocks = [label('sync.note.intro', { shot: capture.shot.code }), ...sections(capture, label).map((s) => [s.heading, ...s.lines].join('\n'))];
+	const blocks = sections(capture, label).map((s) => [s.heading, ...s.lines].join('\n'));
 	if (capture.photos > 0) blocks.push(label('sync.note.photos', { n: capture.photos }));
 	return blocks.join('\n\n');
 }
 
-/** The reply to the Note when a sync added to it: what was added, in the Note's order, short. */
+/**
+ * The reply to the Note when a sync added to it: "Added:", then one entry a line, in the Note's
+ * order. A take said as an element take is not said again as a take.
+ */
 export function replyBody(added: ShotCapture, label: Label): string {
-	const lines = sections(added, label).flatMap((s) => s.lines);
+	const key = (slate: string, take: string) => JSON.stringify([slate, take]);
+	const said = new Set(added.elements.flatMap((g) => g.takes.map((t) => key(t.slate, t.take))));
+	const lines = [
+		...added.elements.flatMap((g) => g.takes.map((t) => elementLine(g.type, g.tail, t, label))),
+		...added.slates.flatMap((s) => s.takes.filter((take) => !said.has(key(s.slate, take))).map((take) => label('sync.note.take', { slate: s.slate, take }))),
+		...referenceLines(added, label)
+	];
 	if (added.photos > 0) lines.push(label(added.photos === 1 ? 'sync.note.reply.photos.one' : 'sync.note.reply.photos.other', { n: added.photos }));
 	return [label('sync.note.reply'), ...lines].join('\n');
 }

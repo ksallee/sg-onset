@@ -3,6 +3,8 @@
 // and keeps the result on the device for the transport. No UI here: the report is data.
 
 import { TransportError } from '$lib/outbox/transport';
+import { t } from '$lib/i18n/messages';
+import { ACTION_FIELDS, ACTION_MENU_ITEM, actionMenuData, actionMenuFilter, actionMenuPlan, actionMenuRowsOf, addProjectData } from './actionMenu';
 import { ApiRefusal, createApi, type Api, type FptOptions } from './api';
 import { resolutionKey } from './cache';
 import { isFieldCreateRefusal, isPermissionRefusal } from './errors';
@@ -70,6 +72,25 @@ export type SetupReport = {
 	reverseFields: ReverseReport[];
 	/** Whether a field create went through. Absent when none was tried. */
 	canCreateFields?: boolean;
+	/**
+	 * The Action Menu Item "Send set data to artists" (#106, actionMenu.ts): one per entity type,
+	 * Shot and Set Shot when its slot is found. Absent when no project was given.
+	 */
+	action?: { title: string; url: string; items: ActionReport[] };
+};
+
+export type ActionReport = {
+	/** `Shot`, or the Set Shot slot. */
+	entityType: string;
+	/**
+	 * - `present`: there, for the project.
+	 * - `added`: this check made it, or added the project to it.
+	 * - `missing`: not there, and the check was told not to create.
+	 * - `needsAdmin`: the account may not create one (findings/156: an Artist gets 400 code 104).
+	 * - `failed`: the site refused, or did not answer. `reason` says what.
+	 */
+	status: 'present' | 'added' | 'missing' | 'needsAdmin' | 'failed';
+	reason?: string;
 };
 
 export type ReverseReport = {
@@ -148,7 +169,14 @@ const reportOf = (plan: FieldPlan, status: FieldReport['status'], reason = plan.
  *
  * Throws a `TransportError` when the site cannot be asked: `unreachable`, `unauthorized`, `failed`.
  */
-export async function checkSetup(options: FptOptions & { createFields?: boolean; signal?: AbortSignal }): Promise<SetupReport> {
+export async function checkSetup(
+	options: FptOptions & {
+		createFields?: boolean;
+		signal?: AbortSignal;
+		/** The Flow PT project the device is linked to, and the item's URL (actionMenu.ts): the Action Menu Item is looked for, and made with `createFields`. */
+		actionMenu?: { projectId: number; url: string };
+	}
+): Promise<SetupReport> {
 	const api = createApi(options);
 	const site = siteOf(options);
 	const { signal } = options;
@@ -195,14 +223,56 @@ export async function checkSetup(options: FptOptions & { createFields?: boolean;
 	const resolution = toResolution(site, entities, settled);
 	if (resolution) await options.schemaCache.set(resolutionKey(site), serializeResolution(resolution));
 	else await options.schemaCache.delete(resolutionKey(site));
+	const action = options.actionMenu ? await actionMenu(api, entities, options.actionMenu, options.createFields !== false, signal) : undefined;
 	return {
 		ready: resolution !== undefined,
 		site,
 		entities,
 		fields,
 		reverseFields: reversesOf(settled, fields),
-		...(allowed !== undefined ? { canCreateFields: allowed } : {})
+		...(allowed !== undefined ? { canCreateFields: allowed } : {}),
+		...(action ? { action } : {})
 	};
+}
+
+/**
+ * The Action Menu Item on Shot, and on Set Shot when its slot is found (#106): looked for by title
+ * and URL, made or given the project with `create`. It decides nothing about readiness and never
+ * throws: the fields are made by then, and a refusal or no answer is said on its line.
+ */
+async function actionMenu(api: Api, entities: EntityResolution[], at: { projectId: number; url: string }, create: boolean, signal?: AbortSignal): Promise<NonNullable<SetupReport['action']>> {
+	const title = t('sync.action.title');
+	const setShot = entities.find((e) => e.scope === 'setShot' && e.status === 'found')?.entityType;
+	const entityTypes = [SHOT, ...(setShot ? [setShot] : [])];
+	const reasonOf = (error: unknown) => (error instanceof ApiRefusal ? error.failure.title : error instanceof TransportError ? error.message || error.kind : String(error));
+	let rows;
+	try {
+		rows = actionMenuRowsOf(await api.searchAll(ACTION_MENU_ITEM, actionMenuFilter(title, at.url), ACTION_FIELDS, signal));
+	} catch (error) {
+		return { title, url: at.url, items: entityTypes.map((entityType) => ({ entityType, status: 'failed', reason: reasonOf(error) })) };
+	}
+	const items: ActionReport[] = [];
+	let denied = false;
+	for (const step of actionMenuPlan({ entityTypes, projectId: at.projectId, title, url: at.url, rows })) {
+		const { entityType } = step;
+		if (step.kind === 'present') items.push({ entityType, status: 'present' });
+		else if (!create) items.push({ entityType, status: 'missing' });
+		else if (denied) items.push({ entityType, status: 'needsAdmin' });
+		else {
+			try {
+				if (step.kind === 'create') await api.create(ACTION_MENU_ITEM, actionMenuData(entityType, at.projectId, title, at.url), signal);
+				else await api.update(ACTION_MENU_ITEM, step.id, addProjectData(at.projectId), signal);
+				items.push({ entityType, status: 'added' });
+			} catch (error) {
+				// An Artist: 400 code 104 "cannot be created by this user" (findings/156). The next would fare the same.
+				if (error instanceof ApiRefusal && isPermissionRefusal(error.failure)) {
+					denied = true;
+					items.push({ entityType, status: 'needsAdmin' });
+				} else items.push({ entityType, status: 'failed', reason: reasonOf(error) });
+			}
+		}
+	}
+	return { title, url: at.url, items };
 }
 
 /** The added fields: those there, and those the links still to create will add. */

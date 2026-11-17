@@ -12,6 +12,9 @@ export default defineConfig({
 				runes: ({ filename }) => filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter(),
+			// Flow PT's Action Menu Item posts a form from another site (#106). SvelteKit's own check
+			// would refuse it; src/hooks.server.ts runs the same check with that one route let through.
+			csrf: { trustedOrigins: ['*'] },
 			// The service worker serves the cached `/` shell for every route when offline, so asset
 			// URLs must be absolute: a relative `./_app/...` breaks on `/proto/take`.
 			paths: { relative: false },

@@ -40,29 +40,15 @@ import { resolutionKey } from './cache';
 import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
 import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
 import { DIAGRAM_SHOWN, diagramFilename, diagramPrefix } from './diagrams';
-import { DIAGRAMS, ENTITY_SCOPES, ENTITY_TYPES, isRecordScope, SET_SHOT_KEY, SET_SHOT_MATCHED, SET_SHOT_SHOTS, SET_SHOTS, SHOTS, STILLS, REFERENCE_SLATES, type RecordScope } from './mapping';
+import { DIAGRAMS, ENTITY_SCOPES, ENTITY_TYPES, isRecordScope, STILLS, REFERENCE_SLATES, type RecordScope } from './mapping';
 import { referenceSlatesWrite, type ReferenceSlates } from './referenceSlates';
 import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, type Resolution } from './schema';
 import { loadResolution } from './setup';
-import {
-	derivedShots,
-	keyCode,
-	linkIdsOf,
-	matches,
-	missingCodes,
-	setShotData,
-	setShotFilter,
-	setShotKey,
-	setShotsOf,
-	severalCodes,
-	slateSetShots,
-	slateWrites,
-	toMatch,
-	type SetShotRow
-} from './setShots';
-import { codesOf, linkValue, SHOT, shotChange, shotCodes, shotFilter, shotsOf, type ShotRow } from './shots';
+import { derivedShots, linkIdsOf, missingCodes, setShotData, setShotKey, severalCodes, slateSetShots, type SetShotRow } from './setShots';
+import { matchSetShots, readSetShots, setShotFields, slateLinks, writeSlateLinks, type SetShotFields, type SlateLinks } from './setShotLinks';
+import { codesOf, linkValue, SHOT, shotChange, shotCodes } from './shots';
 import { writeShotNotes, type NoteResult } from './shotNotes';
 import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, variantOf, type StillRemote } from './stills';
 import { takeVersions, type UploadTarget } from './takeVersions';
@@ -302,14 +288,6 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 		}
 	}
 
-	type SetShotFields = { type: string; key: string; shots: string; matched: string };
-
-	/** The Set Shots of these codes, by key, in the project. */
-	async function readSetShots(f: SetShotFields, codes: readonly string[], signal?: AbortSignal): Promise<SetShotRow[]> {
-		if (!codes.length) return [];
-		return setShotsOf(await api.searchAll(f.type, setShotFilter(projectId, f.key, codes), [f.key, 'code', f.shots, f.matched], signal), f);
-	}
-
 	/**
 	 * Files each code as a new Set Shot, in one `_batch`, with the project and the key. The key is
 	 * unique: if another device filed one of the codes since the lookup, the batch is refused whole
@@ -325,53 +303,8 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 			// One row per request, in request order (recipes/002).
 			return rows.flatMap((row, i) => (row.request_type === 'create' ? [{ id: row.data.id, key: setShotKey(projectId, codes[i]), code: codes[i].trim(), shots: [], matched: false }] : []));
 		} catch {
-			return readSetShots(f, codes, signal).catch(() => []);
+			return readSetShots(api, projectId, f, codes, signal).catch(() => []);
 		}
-	}
-
-	/**
-	 * Matches the Set Shots never matched that hold no Shot: one search for the Shots of their codes,
-	 * then per Set Shot one `_batch` that adds the Shots and ticks the flag, in that order, together
-	 * or not at all (findings/154). A Set Shot no Shot has the code of is tried at the next sync.
-	 * Never throws: what did not land is tried again.
-	 */
-	async function matchSetShots(f: SetShotFields, setShots: SetShotRow[], signal?: AbortSignal): Promise<SetShotRow[]> {
-		const candidates = toMatch(setShots);
-		if (!candidates.length) return setShots;
-		let shots: ShotRow[];
-		try {
-			shots = shotsOf(await api.searchAll(SHOT, shotFilter(projectId, candidates.map((c) => keyCode(c.key))), ['code'], signal));
-		} catch {
-			return setShots;
-		}
-		const made = new Map<number, ShotRow[]>();
-		for (const match of matches(candidates, shots)) {
-			try {
-				await api.batch(
-					[
-						{ request_type: 'update', entity: f.type, record_id: match.id, data: { [f.shots]: linkValue('add', match.shots.map((s) => s.id)) } },
-						{ request_type: 'update', entity: f.type, record_id: match.id, data: { [f.matched]: true } }
-					],
-					signal
-				);
-				made.set(match.id, match.shots);
-			} catch {
-				// Read again at the next sync: landed or not, it is matched once.
-			}
-		}
-		return setShots.map((s) => (made.has(s.id) ? { ...s, shots: made.get(s.id)!, matched: true } : s));
-	}
-
-	/** The Set Shots and Shots each slate holds on Flow PT now, by its id. A slate Flow PT lacks is left out. */
-	async function slateLinks(res: Resolution, ids: readonly number[], signal?: AbortSignal): Promise<Map<number, { setShots: number[]; shots: number[] }>> {
-		const setShotsField = fieldName(res, 'slate', SET_SHOTS);
-		const shotsField = fieldName(res, 'slate', SHOTS);
-		const out = new Map<number, { setShots: number[]; shots: number[] }>();
-		for (let i = 0; i < ids.length; i += 500) {
-			const rows = await api.searchAll(res.entities.slate, ['id', 'in', ids.slice(i, i + 500)], [setShotsField, shotsField], signal);
-			for (const row of rows) out.set(row.id, { setShots: linkIdsOf(row, setShotsField), shots: linkIdsOf(row, shotsField) });
-		}
-		return out;
 	}
 
 	/**
@@ -396,47 +329,27 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 		} catch {
 			return undefined;
 		}
-		const type = res.entities.setShot;
 		// An optional entity is in the resolution only with all its fields and the slate's link to it (schema.ts).
-		if (!type) return undefined;
-		const f: SetShotFields = {
-			type,
-			key: fieldName(res, 'setShot', SET_SHOT_KEY),
-			shots: fieldName(res, 'setShot', SET_SHOT_SHOTS),
-			matched: fieldName(res, 'setShot', SET_SHOT_MATCHED)
-		};
+		const f = setShotFields(res);
+		if (!f) return undefined;
 		const codes = shotCodes(slates.flatMap((s) => s.codes));
-		let current: Map<number, { setShots: number[]; shots: number[] }>;
+		let current: Map<number, SlateLinks>;
 		let setShots: SetShotRow[];
 		try {
-			current = await slateLinks(res, slates.map((s) => s.remoteId), signal);
-			setShots = await readSetShots(f, codes, signal);
+			current = await slateLinks(api, res, slates.map((s) => s.remoteId), signal);
+			setShots = await readSetShots(api, projectId, f, codes, signal);
 		} catch {
 			return undefined;
 		}
 		setShots = [...setShots, ...(await fileSetShots(f, missingCodes(projectId, codes, setShots), signal))];
-		setShots = await matchSetShots(f, setShots, signal);
+		setShots = await matchSetShots(api, projectId, f, setShots, signal);
 
-		let reachable = true;
-		/** One PUT. No answer, or no session: the rest would fare the same. A refusal is this slate's alone. */
-		const write = async (id: number, field: string, value: unknown): Promise<void> => {
-			if (!reachable) return;
-			try {
-				await api.update(res.entities.slate, id, { [field]: value }, signal);
-			} catch (error) {
-				if (error instanceof TransportError && error.kind !== 'failed') reachable = false;
-			}
-		};
-		const out: ShotResult[] = [];
-		for (const slate of slates) {
+		const held = slates.flatMap((slate) => {
 			const now = current.get(slate.remoteId);
-			if (!now) continue;
-			const writes = slateWrites(projectId, slate.codes, now, setShots);
-			if (writes.setShots) await write(slate.remoteId, fieldName(res, 'slate', SET_SHOTS), linkValue('set', writes.setShots, type));
-			if (writes.shots) await write(slate.remoteId, fieldName(res, 'slate', SHOTS), linkValue('set', writes.shots));
-			out.push({ slate: slate.slate, several: severalCodes(projectId, slate.codes, setShots), shots: derivedShots(slateSetShots(projectId, slate.codes, setShots), setShots) });
-		}
-		return out;
+			return now ? [{ slate, now }] : [];
+		});
+		await writeSlateLinks(api, res, projectId, held.map(({ slate, now }) => ({ id: slate.remoteId, codes: slate.codes, now })), setShots, signal);
+		return held.map(({ slate }) => ({ slate: slate.slate, several: severalCodes(projectId, slate.codes, setShots), shots: derivedShots(slateSetShots(projectId, slate.codes, setShots), setShots) }));
 	}
 
 	// ------------------------------------------------------------------ the slates of a set reference

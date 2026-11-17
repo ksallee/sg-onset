@@ -29,8 +29,11 @@ import { linkIdsOf } from './setShots';
 import { SHOT } from './shots';
 import { noteReads, noteRecordsOf, shotCapture, type Label } from './shotNote';
 
-/** What a sync did about one Shot's Note. */
-export type NoteOutcome = 'created' | 'updated' | 'unchanged' | 'failed';
+/**
+ * What a sync did about one Shot's Note. `empty`: nothing was captured for it, so it has no Note;
+ * `unchanged`: its Note lists everything already.
+ */
+export type NoteOutcome = 'created' | 'updated' | 'unchanged' | 'empty' | 'failed';
 export type NoteResult = { shot: number; outcome: NoteOutcome };
 
 const ATTACHMENT = 'Attachment';
@@ -97,9 +100,10 @@ export async function writeShotNotes(api: Api, res: Resolution, projectId: numbe
 			out.push({ shot: id, outcome: 'failed' });
 			continue;
 		}
+		const capture = shotCapture({ id, code: codes.get(id)! }, records);
 		const write = noteWrite({
 			projectId,
-			capture: shotCapture({ id, code: codes.get(id)! }, records),
+			capture,
 			kept: kept.get(shotNoteKey(projectId, id)),
 			people: people.get(id) ?? { tasks: [], to: [] },
 			fields,
@@ -111,7 +115,7 @@ export async function writeShotNotes(api: Api, res: Resolution, projectId: numbe
 				await api.update(NOTE, write.id, write.data, signal);
 				await api.create(REPLY, write.reply, signal);
 			}
-			out.push({ shot: id, outcome: write.kind === 'create' ? 'created' : write.kind === 'update' ? 'updated' : 'unchanged' });
+			out.push({ shot: id, outcome: write.kind === 'create' ? 'created' : write.kind === 'update' ? 'updated' : capture.items.length ? 'unchanged' : 'empty' });
 		} catch (error) {
 			// No answer, or no session: the rest would fare the same. A refusal is this Shot's alone;
 			// one for a key another device took since the lookup is read at the next sync.

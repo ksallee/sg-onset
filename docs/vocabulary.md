@@ -62,6 +62,7 @@ enforces the parts a test can check.
 | Backup | | One zip of everything on the device, every entry and photo, made in Settings, to restore from. Kept off the device. | | | |
 | Snapshot | | An automatic copy of every entry, kept on this device, to take back a mistake. It does not leave the device. | `snapshot` | | |
 | Notes on Shots | | The setting that has SG OnSet write one Note on each Shot with what was shot for it, at sync, and a reply when a sync adds to it. "Note" is the Flow PT Note, a capital N; "Notes" alone is a field of free text. | | | Note, Reply |
+| Send set data to artists | Send Set Data | The Flow PT action Set Up Fields adds on Shot and Set Shot (#106). Run from Flow PT on selected rows after wrap, it opens SG OnSet's page, where **Send** links their Set Shots and slates and writes the Notes on Shots. The setup check calls it "Flow PT action": "item" is rejected. | | | Action Menu Item |
 
 Note for code: the outbox calls a change an "entry" (`counts.entries`). The UI word for a queued
 edit is **Change**; **Entry** is a stored record.

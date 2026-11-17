@@ -10,7 +10,7 @@ import { rawField, TYPES } from './testkit';
 function world(fields: 'complete' | 'bare' = 'complete') {
 	const fpt = fakeFpt({ fields });
 	const cache = memoryKeyValue();
-	const check = (extra: { createFields?: boolean } = {}) =>
+	const check = (extra: { createFields?: boolean; actionMenu?: { projectId: number; url: string } } = {}) =>
 		checkSetup({ site: fpt.site, bearer: async () => BEARER, fetch: fpt.fetch, schemaCache: cache, online: () => fpt.online, ...extra });
 	return { fpt, cache, check };
 }
@@ -388,3 +388,131 @@ describe('checkSetup', () => {
 		await expect(check()).rejects.toMatchObject({ kind: 'unreachable' });
 	});
 });
+
+// #106: Set Up Fields adds the Action Menu Item "Send set data to artists" on Shot and on Set Shot,
+// for the project. Found again by title and URL, never made twice (findings/156_action_menu_item.md).
+describe('checkSetup: the Action Menu Item', () => {
+	const URL_ = 'https://onset.example/action/send-set-data';
+	const TITLE = 'Send set data to artists';
+	const items = (fpt: FakeFpt) => fpt.live('ActionMenuItem');
+	const itemWrites = (fpt: FakeFpt) => fpt.requests.filter((r) => /\/entity\/action_menu_items(\/\d+)?$/.test(r.path) && r.method !== 'GET');
+	function setUp(fields: 'complete' | 'bare' = 'complete') {
+		const w = world(fields);
+		const projectId = w.fpt.seed('Project', { name: 'Show' });
+		return { ...w, projectId, run: (createFields = true, id = projectId) => w.check({ createFields, actionMenu: { projectId: id, url: URL_ } }) };
+	}
+
+	it('is made on Shot and on Set Shot, for the project, pointing at this deploy', async () => {
+		const { fpt, projectId, run } = setUp();
+		const report = await run();
+		expect(report.action).toEqual({
+			title: TITLE,
+			url: URL_,
+			items: [
+				{ entityType: 'Shot', status: 'added' },
+				{ entityType: 'CustomEntity22', status: 'added' }
+			]
+		});
+		expect(items(fpt).map((r) => r.values)).toEqual([
+			{ created_at: expect.any(String), title: TITLE, url: URL_, entity_type: 'Shot', projects: [{ type: 'Project', id: projectId }] },
+			{ created_at: expect.any(String), title: TITLE, url: URL_, entity_type: 'CustomEntity22', projects: [{ type: 'Project', id: projectId }] }
+		]);
+		// It changes nothing about readiness: the fields decide that.
+		expect(report.ready).toBe(true);
+	});
+
+	it('is found again by title and URL: a second run writes nothing', async () => {
+		const { fpt, run } = setUp();
+		await run();
+		const before = itemWrites(fpt).length;
+		const report = await run();
+		expect(report.action?.items.map((i) => i.status)).toEqual(['present', 'present']);
+		expect(itemWrites(fpt).length).toBe(before);
+		expect(items(fpt)).toHaveLength(2);
+	});
+
+	it('only looks when told not to create', async () => {
+		const { fpt, run } = setUp();
+		const report = await run(false);
+		expect(report.action?.items).toEqual([
+			{ entityType: 'Shot', status: 'missing' },
+			{ entityType: 'CustomEntity22', status: 'missing' }
+		]);
+		expect(itemWrites(fpt)).toEqual([]);
+	});
+
+	it('another project is added to the same rows, never a second pair', async () => {
+		const { fpt, projectId, run } = setUp();
+		await run();
+		const other = fpt.seed('Project', { name: 'Other show' });
+		expect((await run(false, other)).action?.items.map((i) => i.status)).toEqual(['missing', 'missing']);
+		const report = await run(true, other);
+		expect(report.action?.items.map((i) => i.status)).toEqual(['added', 'added']);
+		expect(items(fpt)).toHaveLength(2);
+		expect(items(fpt)[0].values.projects).toEqual([
+			{ type: 'Project', id: projectId },
+			{ type: 'Project', id: other }
+		]);
+		// In place, the mode in the body (recipes/009).
+		expect(itemWrites(fpt).filter((r) => r.method === 'PUT').map((r) => r.body)).toEqual([
+			{ projects: { multi_entity_update_mode: 'add', value: [{ type: 'Project', id: other }] } },
+			{ projects: { multi_entity_update_mode: 'add', value: [{ type: 'Project', id: other }] } }
+		]);
+	});
+
+	it('a deploy elsewhere has its own: another URL is another row', async () => {
+		const { fpt, projectId, check } = setUp();
+		await check({ actionMenu: { projectId, url: URL_ } });
+		await check({ actionMenu: { projectId, url: 'https://onset.studio.com/action/send-set-data' } });
+		expect(items(fpt).map((r) => r.values.url)).toEqual([URL_, URL_, 'https://onset.studio.com/action/send-set-data', 'https://onset.studio.com/action/send-set-data']);
+	});
+
+	it('on Shot only while the Set Shot entity is not enabled (#117)', async () => {
+		const { fpt, run } = setUp();
+		delete fpt.types.CustomEntity22;
+		delete fpt.fields.Slate.sg_set_shots;
+		const report = await run();
+		expect(report.action?.items).toEqual([{ entityType: 'Shot', status: 'added' }]);
+		expect(items(fpt).map((r) => r.values.entity_type)).toEqual(['Shot']);
+	});
+
+	it('an account that may not create one is told an Admin must, and the second is not tried', async () => {
+		const { fpt, run } = setUp();
+		fpt.forbidden.add('create:ActionMenuItem');
+		const report = await run();
+		expect(report.action?.items).toEqual([
+			{ entityType: 'Shot', status: 'needsAdmin' },
+			{ entityType: 'CustomEntity22', status: 'needsAdmin' }
+		]);
+		expect(itemWrites(fpt)).toHaveLength(1);
+		// The fields still went.
+		expect(report.ready).toBe(true);
+	});
+
+	it('another refusal is that row’s, with the site’s words; the next is tried', async () => {
+		const { fpt, run } = setUp();
+		fpt.failNext((r) => r.method === 'POST' && r.path.endsWith('/entity/action_menu_items'), { status: 400, body: { errors: [{ status: 400, code: 103, title: 'Something else' }] } });
+		const report = await run();
+		expect(report.action?.items).toEqual([
+			{ entityType: 'Shot', status: 'failed', reason: 'Something else' },
+			{ entityType: 'CustomEntity22', status: 'added' }
+		]);
+	});
+
+	it('no answer while looking for it: said, and the fields made before are kept', async () => {
+		const { fpt, cache, run } = setUp('bare');
+		fpt.failNext((r) => r.path.endsWith('/action_menu_items/_search'), 'network');
+		const report = await run();
+		expect(report.action?.items.map((i) => i.status)).toEqual(['failed', 'failed']);
+		expect(report.ready).toBe(true);
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)).toBeDefined();
+	});
+
+	it('nothing is asked about it without a project', async () => {
+		const { fpt, check } = setUp();
+		const report = await check();
+		expect(report.action).toBeUndefined();
+		expect(fpt.requests.some((r) => r.path.includes('action_menu_items'))).toBe(false);
+	});
+});
+

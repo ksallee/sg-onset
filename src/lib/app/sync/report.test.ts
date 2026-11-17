@@ -107,3 +107,52 @@ describe('setupView: fields', () => {
 		expect(setupView(report({ ready: true })).ready).toBe(true);
 	});
 });
+
+// #106: the Action Menu Item "Send set data to artists", on Shot and on Set Shot.
+describe('setupView: the Action Menu Item', () => {
+	const URL_ = 'https://onset.example/action/send-set-data';
+	const withAction = (items: NonNullable<SetupReport['action']>['items'], over: Partial<SetupReport> = {}) =>
+		setupView(
+			report({
+				entities: [{ scope: 'setShot', kind: 'custom', displayName: 'Set Shot', status: 'found', entityType: 'CustomEntity22' }],
+				action: { title: 'Send set data to artists', url: URL_, items },
+				...over
+			})
+		);
+
+	it('names each entity as the site shows it, with what happened', () => {
+		const view = withAction([
+			{ entityType: 'Shot', status: 'present' },
+			{ entityType: 'CustomEntity22', status: 'failed', reason: 'Something else' }
+		]);
+		expect(view.action).toEqual({
+			title: 'Send set data to artists',
+			url: URL_,
+			lines: [
+				{ entity: 'Shot', entityType: 'Shot', status: 'present' },
+				{ entity: 'Set Shot', entityType: 'CustomEntity22', status: 'failed', reason: 'Something else' }
+			]
+		});
+		expect(view.actionToAdd).toBe(0);
+	});
+
+	it('offers Set Up Fields when it is missing, even with every field there', () => {
+		const view = withAction([
+			{ entityType: 'Shot', status: 'missing' },
+			{ entityType: 'CustomEntity22', status: 'present' }
+		]);
+		expect(view.actionToAdd).toBe(1);
+		expect(view.canSetUpFields).toBe(true);
+		expect(withAction([{ entityType: 'Shot', status: 'missing' }], { canCreateFields: false }).canSetUpFields).toBe(false);
+	});
+
+	it('an account that may not add it is a permission problem', () => {
+		expect(withAction([{ entityType: 'Shot', status: 'needsAdmin' }]).permission).toBe(true);
+	});
+
+	it('none without a project', () => {
+		expect(setupView(report()).action).toBeUndefined();
+		expect(setupView(report()).actionToAdd).toBe(0);
+	});
+});
+

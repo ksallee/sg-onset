@@ -16,6 +16,9 @@ describe('seo', () => {
 		expect(pageMeta('/slates/abc').title).toBe('Slates · SG OnSet');
 		expect(pageMeta('/shoot').index).toBe(false);
 		expect(headFor('/shoot')).toContain('<meta name="robots" content="noindex" />');
+		// The page Flow PT's Send set data to artists opens (#106).
+		expect(pageMeta('/send-set-data').title).toBe('Send Set Data · SG OnSet');
+		expect(pageMeta('/send-set-data').index).toBe(false);
 	});
 
 	it('an unknown path falls back to the app name and does not index', () => {

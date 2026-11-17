@@ -115,8 +115,28 @@ A refusal is `{"error": "<code>"}`:
 | 502 | `unreachable` | the site could not be reached, or did not answer within 10 seconds |
 | 502 | `bad-answer` | the answer was not what the launcher sends, or was over 64 KB |
 
-SvelteKit answers two cases before the proxy runs: 405 for any method but `POST`, and a plain-text
-403 for a form post.
+SvelteKit answers 405 for any method but `POST` before the proxy runs. A form posted from
+another site gets a plain-text 403 from `src/hooks.server.ts`, which runs SvelteKit's own check
+(turned off in `vite.config.ts`) with one route let through, below.
+
+## The Action Menu Item's route
+
+Set Up Fields adds an Action Menu Item, "Send set data to artists", on Shot and Set Shot in Flow
+PT (#106). Its URL is your deploy's address and `/action/send-set-data`, so your deploy points at
+itself. When a person runs it, their browser posts a form there from Flow PT's page.
+
+`POST /action/send-set-data`:
+
+- takes a form from any origin: Flow PT's tab sends `Origin: null` (corpus
+  `findings/156_action_menu_item.md`). It is the one route the form check lets through;
+- reads 1 MB at most, and keeps four values: the selected rows' ids, their entity type, the
+  project id and the site's host. The site must be on the allowlist above. The form also holds
+  the person's login, user id and Flow PT session id: they are dropped, never logged, never
+  passed on;
+- calls nothing and keeps nothing. It answers 303 to `/send-set-data` with the four values, or
+  with `?problem=` and a code;
+- writes nothing. The page it opens writes only when the person taps Send there, signed in to
+  that site with their own session. A forged post can only open that page.
 
 ## Settings
 
@@ -301,4 +321,6 @@ your fork if search engines should not be sent there from your deploy.
 | `src/lib/auth/launcher.ts` | the two calls, and how their answers are read |
 | `src/lib/auth/site.ts` | the site check and the allowlist |
 | `src/routes/auth/session-request/+server.ts`, `src/routes/auth/session-poll/+server.ts` | the two routes, and where `FPT_HOSTS` and `FPT_EXTRA_HOSTS` are read |
+| `src/routes/action/send-set-data/+server.ts`, `src/lib/server/action-route.ts`, `src/lib/send/request.ts` | the Action Menu Item's route and its checks |
+| `src/hooks.server.ts`, `src/lib/server/csrf.ts` | the check that refuses a form from another site |
 | `src/lib/auth/sign-in.ts` | the browser's half |

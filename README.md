@@ -33,7 +33,8 @@ Capture works signed in or not; only sync needs a session.
 
 The app's server forwards the two sign-in calls to Autodesk-hosted sites only
 (`*.shotgrid.autodesk.com`, `*.shotgunstudio.com`). A self-hosted deploy allows its own site with
-`FPT_EXTRA_HOSTS`. See `.env.example`.
+`FPT_EXTRA_HOSTS`. See `.env.example`. To run the app and its sign-in proxy on your own host, see
+[`docs/sign-in-proxy.md`](docs/sign-in-proxy.md).
 
 ## License
 

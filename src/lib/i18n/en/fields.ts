@@ -19,6 +19,8 @@ export const fields = {
 	'scope.still': 'Photo',
 	'scope.template': 'Template',
 	'scope.referenceKind': 'Reference kind',
+	'scope.markup': 'Drawing',
+	'scope.diagram': 'Setup diagram',
 	'scope.clipImport': 'Clip import',
 
 	'unit.mm': 'mm',

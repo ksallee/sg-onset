@@ -3,21 +3,24 @@ import { FIELDS, SCOPES } from '$lib/model/catalogue';
 import { dependsOn, isLocal, isTable, linkKeys, LOCAL_TABLES, PARENTS, TABLES } from './tables';
 
 describe('TABLES', () => {
-	it('has one table per scope, one for stills, one for templates, one for reference kinds and one for clip imports', () => {
-		expect(TABLES).toEqual([...SCOPES, 'still', 'template', 'referenceKind', 'clipImport']);
+	it('has one table per scope, one for stills, templates, reference kinds, drawings on photos, setup diagrams and clip imports', () => {
+		expect(TABLES).toEqual([...SCOPES, 'still', 'template', 'referenceKind', 'markup', 'diagram', 'clipImport']);
 		expect(isTable('take')).toBe(true);
 		expect(isTable('reference')).toBe(true);
 		expect(isTable('template')).toBe(true);
+		expect(isTable('markup')).toBe(true);
 		expect(isTable('outbox')).toBe(false);
 	});
 });
 
 describe('LOCAL_TABLES', () => {
-	it('are the tables kept on the device and never synced: templates, reference kinds and clip imports', () => {
-		expect(LOCAL_TABLES).toEqual(['template', 'referenceKind', 'clipImport']);
+	it('are the tables kept on the device and never synced: templates, reference kinds, the drawings on photos, setup diagrams and clip imports', () => {
+		expect(LOCAL_TABLES).toEqual(['template', 'referenceKind', 'markup', 'diagram', 'clipImport']);
+		expect(isLocal('clipImport')).toBe(true);
+		expect(isLocal('diagram')).toBe(true);
 		expect(isLocal('template')).toBe(true);
 		expect(isLocal('referenceKind')).toBe(true);
-		expect(isLocal('clipImport')).toBe(true);
+		expect(isLocal('markup')).toBe(true);
 		expect(isLocal('take')).toBe(false);
 		expect(isLocal('reference')).toBe(false);
 	});
@@ -39,6 +42,14 @@ describe('references', () => {
 		expect(PARENTS.reference).toEqual({ key: 'slateId', table: 'slate' });
 		expect(linkKeys('reference')).toEqual([{ key: 'slateId', table: 'slate' }]);
 		expect(dependsOn('reference', { id: 'r1', slateId: 's1', name: 'HDRI_0412' })).toEqual(['s1']);
+	});
+
+	it('keeps a drawing under its photo', () => {
+		expect(PARENTS.markup).toEqual({ key: 'stillId', table: 'still' });
+	});
+
+	it('keeps a setup diagram under its slate', () => {
+		expect(PARENTS.diagram).toEqual({ key: 'slateId', table: 'slate' });
 	});
 });
 

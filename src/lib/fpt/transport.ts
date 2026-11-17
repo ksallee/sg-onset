@@ -45,8 +45,24 @@ import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, type Resolution } from './schema';
 import { loadResolution } from './setup';
-import { keyCode, linkIdsOf, matches, missingCodes, setShotData, setShotFilter, setShotKey, setShotsOf, severalCodes, slateWrites, toMatch, type SetShotRow } from './setShots';
+import {
+	derivedShots,
+	keyCode,
+	linkIdsOf,
+	matches,
+	missingCodes,
+	setShotData,
+	setShotFilter,
+	setShotKey,
+	setShotsOf,
+	severalCodes,
+	slateSetShots,
+	slateWrites,
+	toMatch,
+	type SetShotRow
+} from './setShots';
 import { codesOf, linkValue, SHOT, shotChange, shotCodes, shotFilter, shotsOf, type ShotRow } from './shots';
+import { writeShotNotes, type NoteResult } from './shotNotes';
 import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, variantOf, type StillRemote } from './stills';
 import { takeVersions, type UploadTarget } from './takeVersions';
 import { completionInfo, isMultipart, partLink, UPLOAD_SIZES, URL_LIFE_MS, type UploadSizes } from './uploadPlan';
@@ -57,9 +73,10 @@ export type SlateCodes = { slate: string; remoteId: number; codes: readonly stri
 
 /**
  * What a sync of links read of one slate: its codes whose Set Shot holds more than one Shot of
- * that code, for someone to clean up (Kevin, #96). Read at each sync, never kept.
+ * that code, for someone to clean up (Kevin, #96), and the Shots it reaches through its Set Shots,
+ * whose Notes follow (#97). Read at each sync, never kept.
  */
-export type ShotResult = { slate: string; several: string[] };
+export type ShotResult = { slate: string; several: string[]; shots: number[] };
 
 export type FptTransportOptions = FptOptions & {
 	/**
@@ -81,6 +98,12 @@ export interface FptTransport extends Transport {
 	 * the site could not be asked or has no Set Shot: the links wait.
 	 */
 	linkShots(slates: SlateCodes[], signal?: AbortSignal): Promise<ShotResult[] | undefined>;
+	/**
+	 * Writes the Note of each Shot given that needs one, from what Flow PT holds (#97, shotNotes.ts).
+	 * Never throws. Undefined when the site could not be asked, or lacks the Note fields or Set Shot:
+	 * the Notes wait.
+	 */
+	writeNotes(shotIds: number[], signal?: AbortSignal): Promise<NoteResult[] | undefined>;
 }
 
 /**
@@ -399,7 +422,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 			const writes = slateWrites(projectId, slate.codes, now, setShots);
 			if (writes.setShots) await write(slate.remoteId, fieldName(res, 'slate', SET_SHOTS), linkValue('set', writes.setShots, type));
 			if (writes.shots) await write(slate.remoteId, fieldName(res, 'slate', SHOTS), linkValue('set', writes.shots));
-			out.push({ slate: slate.slate, several: severalCodes(projectId, slate.codes, setShots) });
+			out.push({ slate: slate.slate, several: severalCodes(projectId, slate.codes, setShots), shots: derivedShots(slateSetShots(projectId, slate.codes, setShots), setShots) });
 		}
 		return out;
 	}
@@ -636,6 +659,16 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 
 	const transport: FptTransport = {
 		linkShots: (items, signal) => writeShots(items, signal),
+
+		async writeNotes(shotIds, signal) {
+			let res: Resolution;
+			try {
+				res = await resolved(signal);
+			} catch {
+				return undefined;
+			}
+			return writeShotNotes(api, res, projectId, shotIds, signal);
+		},
 
 		async push(ops: PushOp[], signal?: AbortSignal): Promise<PushResult> {
 			const planned = await plan(ops, signal);

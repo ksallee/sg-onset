@@ -39,8 +39,8 @@ describe('linkDue', () => {
 describe('mergeSeveral', () => {
 	it('takes what a sync read: the whole list from a sync of every slate, a slate at a time from a push', () => {
 		const before = { s1: ['SMP_012_0010'], s2: ['SMP_009_0010'] };
-		expect(mergeSeveral(before, [{ slate: 's1', several: [] }, { slate: 's3', several: ['X'] }])).toEqual({ s2: ['SMP_009_0010'], s3: ['X'] });
-		expect(mergeSeveral(before, [{ slate: 's3', several: ['X'] }], true)).toEqual({ s3: ['X'] });
+		expect(mergeSeveral(before, [{ slate: 's1', several: [], shots: [] }, { slate: 's3', several: ['X'], shots: [] }])).toEqual({ s2: ['SMP_009_0010'], s3: ['X'] });
+		expect(mergeSeveral(before, [{ slate: 's3', several: ['X'], shots: [] }], true)).toEqual({ s3: ['X'] });
 		expect(before).toEqual({ s1: ['SMP_012_0010'], s2: ['SMP_009_0010'] });
 	});
 });

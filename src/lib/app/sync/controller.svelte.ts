@@ -70,6 +70,7 @@ export function provideSync(projectId: () => string | undefined, everything: () 
 		unlink: () => engine.unlink(),
 		check: (createFields) => engine.check(createFields),
 		syncNow: () => engine.syncNow(),
+		setNotesOnShots: (on) => engine.setNotesOnShots(on),
 		shotCodes: () => engine.shotCodes()
 	};
 	setContext(KEY, controller);

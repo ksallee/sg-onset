@@ -163,6 +163,29 @@ export const SET_SHOT_MATCHED: Column = {
 	note: 'Ticked when SG OnSet linked the Shots of the code. It never matches a ticked Set Shot again.'
 };
 
+/**
+ * The key of a Note on a Shot (#97): the project and the Shot. A text field made unique refuses a
+ * second Note with the value, on create and on PUT, under a person's session too (corpus
+ * findings/146): one Note per Shot. `Note.meta` was weighed: it needs no admin, but refuses no
+ * duplicate and is written on create only (findings/146, field_types/jsonb.md).
+ */
+export const NOTE_KEY: Column = { name: 'sg_onset_key', display: 'Onset Key', dataType: 'text', unique: true, note: 'The project and the Shot of a Note SG OnSet writes. Unique: one Note per Shot.' };
+
+/**
+ * What the Note on a Shot lists, as ids: its takes, element takes, references and photos (#97).
+ * The next sync compares with it to tell nothing new from something added, with nothing kept on
+ * the device.
+ */
+export const NOTE_CAPTURED: Column = {
+	name: 'sg_onset_captured',
+	display: 'Onset Captured',
+	dataType: 'text',
+	note: 'What the Note lists, as ids. SG OnSet compares with it at the next sync.'
+};
+
+/** Ours on Note, a stock type: Notes on Shots (#97). Optional: a site without them syncs the rest. */
+export const NOTE_COLUMNS: readonly Column[] = [NOTE_KEY, NOTE_CAPTURED];
+
 /** The key whose value a new record takes as `created_at` (corpus findings/070_authored_timestamps.md). */
 export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt', reference: 'loggedAt' };
 

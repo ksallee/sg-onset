@@ -616,3 +616,89 @@ describe('the Slates of a set reference (#107)', () => {
 		expect(slatesOf(s, 'r2')).toEqual(ids(s, 's1'));
 	});
 });
+
+// Notes on Shots (#97): off by default, per project on the device. On, each drain's end writes the
+// Note of every Shot the project's slates reach, from what Flow PT holds (lib/fpt/shotNotes.ts).
+describe('Notes on Shots', () => {
+	type Ref = { type: string; id: number };
+	const later = async (s: S) => {
+		s.fpt.clock.t += 61_000;
+		await settle(s.engine, s.fpt);
+	};
+	const notes = (s: S) => s.fpt.live('Note');
+
+	async function shotSlate(s: S) {
+		const project = { type: 'Project', id: s.fptProject };
+		const shot = s.fpt.seed('Shot', { code: 'SMP_042_0010', project });
+		const person = s.fpt.seed('HumanUser', { name: 'Ana' });
+		s.fpt.seed('Task', { content: 'Comp', project, entity: { type: 'Shot', id: shot }, task_assignees: [{ type: 'HumanUser', id: person }] });
+		await s.edit.create('project', { id: 'p1', name: 'Show' });
+		await s.edit.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.edit.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '42A', vfxShots: ['SMP_042_0010'] });
+		await s.edit.create('take', { id: 't1', slateId: 's1', take: '1' });
+		await linked(s);
+		return { shot, person };
+	}
+
+	it('writes no Note while it is off, as it is at first', async () => {
+		const s = setup();
+		await shotSlate(s);
+		expect(s.engine.state.notesOnShots).toBe(false);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		expect(notes(s)).toEqual([]);
+	});
+
+	it('on, writes the Note at the end of a drain, nothing at a sync with nothing new, a reply when more is shot', async () => {
+		const s = setup();
+		const { shot, person } = await shotSlate(s);
+		await s.engine.setNotesOnShots(true);
+		expect(s.engine.state.notesOnShots).toBe(true);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		expect(notes(s)).toHaveLength(1);
+		const [note] = notes(s);
+		expect(note.values).toMatchObject({ subject: 'Set data for SMP_042_0010', note_links: [{ type: 'Shot', id: shot }], addressings_to: [{ type: 'HumanUser', id: person }] });
+		expect(note.values.content).toContain('Slate 42A: take 1');
+
+		await later(s);
+		expect(s.fpt.live('Reply')).toEqual([]);
+
+		await s.edit.create('take', { id: 't2', slateId: 's1', take: '2', takeType: 'cleanPlate' });
+		await later(s);
+		expect(notes(s)).toHaveLength(1);
+		expect(notes(s)[0].values.content).toContain('Slate 42A: takes 1, 2');
+		expect(s.fpt.live('Reply').map((r) => [r.values.entity, r.values.content])).toEqual([[{ type: 'Note', id: note.id }, 'Added since the last update:\nClean plate: 42A take 2\nSlate 42A: take 2']]);
+	});
+
+	it('is kept per project on the device', async () => {
+		const s = setup();
+		await s.engine.setProject('p1');
+		await s.engine.setNotesOnShots(true);
+		await s.engine.setProject('p2');
+		expect(s.engine.state.notesOnShots).toBe(false);
+		await s.engine.setProject('p1');
+		expect(s.engine.state.notesOnShots).toBe(true);
+		await s.engine.setNotesOnShots(false);
+		expect(await s.kv.get('notes:p1')).toBeUndefined();
+	});
+
+	// The Note fields are optional: the sheet says an admin runs Set Up Fields, and the Notes wait.
+	it('says the Notes wait on a site without the Note fields, and writes them once it is set up', async () => {
+		const s = setup();
+		delete s.fpt.fields.Note.sg_onset_key;
+		delete s.fpt.fields.Note.sg_onset_captured;
+		await shotSlate(s);
+		await s.engine.setNotesOnShots(true);
+		expect(s.engine.state.ready).toBe(true);
+		expect(s.engine.state.notesMissing).toBe(true);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		expect(notes(s)).toEqual([]);
+		expect((await s.engine.check(true))?.ready).toBe(true);
+		expect(s.engine.state.notesMissing).toBe(false);
+		await later(s);
+		expect(notes(s)).toHaveLength(1);
+		expect((notes(s)[0].values.note_links as Ref[])[0].type).toBe('Shot');
+	});
+});

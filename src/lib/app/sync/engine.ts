@@ -12,6 +12,9 @@
 // a minute, at once on Sync Now. Nothing about links is kept on the device (Kevin, #102): only what
 // the last sync read of codes several Shots share, in memory, for the sync sheet.
 //
+// With Notes on Shots on for the project (#97, notes.ts), the same step then writes the Note of
+// every Shot those slates reach, from what Flow PT holds. Nothing about the Notes is kept here.
+//
 // The Slates field of each set reference (#107) is set the same way when a drain ends, to the
 // slates it shows on (referenceSlates.ts): at most once a minute, at once on Sync Now, and at once
 // when what the device holds asks for other slates than the last time. Nothing is kept on the device.
@@ -19,7 +22,7 @@
 import { checkSetup, createFptTransport, readShotCodes, type FptTransport, type KeyValue, type SetupReport, type ShotResult } from '$lib/fpt';
 import { createApi, type FptOptions } from '$lib/fpt/api';
 import { resolutionKey } from '$lib/fpt/cache';
-import { hasScope, parseResolution } from '$lib/fpt/schema';
+import { hasNotes, hasScope, parseResolution } from '$lib/fpt/schema';
 import { browserEnv, runInForeground, type Foreground, type Page } from '$lib/outbox/foreground';
 import { createRunner, type DrainReport, type Progress, type Runner, type StopReason } from '$lib/outbox/runner';
 import { unsynced, type Unsynced } from '$lib/outbox/select';
@@ -27,6 +30,7 @@ import type { DexieStore } from '$lib/store/dexieStore';
 import { syncError, type SyncError } from './errors';
 import { linkOn, linkProblem, type ProjectLink } from './link';
 import { linkStore, type LinkStore } from './links';
+import { notesKey, readNotesOn, shotsToNote, writeNotesOn } from './notes';
 import { PROJECT_FILTER, projectChoices, type ProjectChoice } from './projects';
 import { legacyReferenceSlatesKey, referenceSlateItems } from './referenceSlates';
 import { projectScope, type ProjectScope } from './scope';
@@ -76,6 +80,10 @@ export interface SyncState {
 	several?: Several;
 	/** The site is ready, without Set Shot: the Set Shots and Shot links wait (Kevin, #117). */
 	setShotsMissing?: boolean;
+	/** Notes on Shots is on for the current project, on this device (#97). Off by default. */
+	notesOnShots: boolean;
+	/** The site is ready, without the Note fields: the Notes on Shots wait for Set Up Fields (#97). */
+	notesMissing?: boolean;
 	error?: SyncError;
 }
 
@@ -95,6 +103,11 @@ export interface SyncEngine {
 	/** Drains now. Undefined when the runner may not run. */
 	syncNow(): Promise<DrainReport | undefined>;
 	/**
+	 * Notes on Shots, for the current project on this device (#97). Turned on while the site's
+	 * resolution lacks the Note fields, the setup is checked again: it only reads.
+	 */
+	setNotesOnShots(on: boolean): Promise<void>;
+	/**
 	 * The Shot codes of the linked FPT project, for the slate's VFX shots field. None without a
 	 * link, a session or a network: the field is free text then. Kept a few minutes.
 	 */
@@ -107,7 +120,7 @@ const lastKey = (projectId: string) => `last:${projectId}`;
 export function createSyncEngine(deps: SyncDeps): SyncEngine {
 	const links: LinkStore = linkStore(deps.kv);
 	const listeners = new Set<(state: SyncState) => void>();
-	let state: SyncState = { ready: false, checking: false, creatingFields: false, running: false, online: deps.page.online() };
+	let state: SyncState = { ready: false, checking: false, creatingFields: false, running: false, online: deps.page.online(), notesOnShots: false };
 	let disposed = false;
 
 	type Live = { key: string; runner: Runner; foreground: Foreground; drain(asked: boolean): Promise<DrainReport> };
@@ -153,10 +166,10 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		deps.page.listen('offline', () => set({ online: false }))
 	];
 
-	/** The site passed the check, and whether it has Set Shot: from the resolution kept on the device. */
-	async function readSetup(site: string | null): Promise<{ ready: boolean; setShotsMissing: boolean }> {
+	/** The site passed the check, and whether it has Set Shot and the Note fields: from the resolution kept on the device. */
+	async function readSetup(site: string | null): Promise<{ ready: boolean; setShotsMissing: boolean; notesMissing: boolean }> {
 		const res = site ? parseResolution(await deps.schemaCache.get(resolutionKey(site)), site) : undefined;
-		return { ready: res !== undefined, setShotsMissing: res !== undefined && !hasScope(res, 'setShot') };
+		return { ready: res !== undefined, setShotsMissing: res !== undefined && !hasScope(res, 'setShot'), notesMissing: res !== undefined && !hasNotes(res) };
 	}
 
 	function stopRunner(): void {
@@ -179,7 +192,10 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 	const linkedAt = new Map<string, number>();
 	let linking: Promise<void> = Promise.resolve();
 
-	/** Brings the Set Shots and Shots of every slate of the project Flow PT holds in line with its codes. Never throws. */
+	/**
+	 * Brings the Set Shots and Shots of every slate of the project Flow PT holds in line with its
+	 * codes. Then, with Notes on Shots on, writes the Note of every Shot they reach (#97). Never throws.
+	 */
 	function linkSlates(projectId: string, transport: FptTransport, asked: boolean): Promise<void> {
 		linking = linking.then(async () => {
 			try {
@@ -190,6 +206,8 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 				const items = linkItems(slates, await deps.store.outbox.remoteIds(slates.map((sl) => sl.id)));
 				const results = items.length ? await transport.linkShots(items) : [];
 				if (results) recordShots(projectId, results, true);
+				const shots = results ? shotsToNote(results) : [];
+				if (shots.length && state.projectId === projectId && state.notesOnShots) await transport.writeNotes(shots);
 			} catch {
 				// The next drain brings them in line.
 			}
@@ -280,8 +298,9 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 					async (report) => {
 						await onReport(projectId!, report);
 						if (report.stopped === 'idle' || report.stopped === 'waiting') {
-							await linkSlates(projectId!, transport, asked);
+							// The references first: the Notes written with the slates read their Slates.
 							await linkReferences(projectId!, transport, asked);
+							await linkSlates(projectId!, transport, asked);
 						}
 						return report;
 					},
@@ -308,12 +327,14 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		const stored = projectId ? await links.get(projectId) : undefined;
 		const setup = await readSetup(site);
 		const last = projectId ? Number(await deps.kv.get(lastKey(projectId))) : NaN;
+		const notesOnShots = projectId ? readNotesOn(await deps.kv.get(notesKey(projectId))) : false;
 		// Nothing about links is kept any more: what an older version kept is removed (Kevin, #102).
 		if (projectId) await Promise.all([...legacyKeys(projectId), legacyReferenceSlatesKey(projectId)].map((key) => deps.kv.delete(key))).catch(() => undefined);
 		if (state.projectId !== projectId) return;
 		set({
 			link: linkOn(stored, site),
 			...setup,
+			notesOnShots,
 			lastSyncAt: Number.isFinite(last) && last > 0 ? last : undefined,
 			...(state.report && state.report.site !== site ? { report: undefined } : {})
 		});
@@ -383,6 +404,16 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		async syncNow() {
 			if (!live) return undefined;
 			return live.drain(true);
+		},
+		async setNotesOnShots(on) {
+			const projectId = state.projectId;
+			if (!projectId) return;
+			if (on) await deps.kv.set(notesKey(projectId), writeNotesOn());
+			else await deps.kv.delete(notesKey(projectId));
+			if (state.projectId !== projectId) return;
+			set({ notesOnShots: on });
+			// An admin may have run Set Up Fields on another device since this one kept the schema.
+			if (on && state.notesMissing && state.link) await engine.check(false);
 		},
 		async shotCodes() {
 			const site = deps.site();

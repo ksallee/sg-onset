@@ -17,6 +17,7 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `errors.ts` | yes | `syncError`, `syncErrorText`. |
 | `clock.ts` | yes | `toSecond`: `app.now()` stamps to the second. |
 | `shots.ts` | yes | Which slates to bring in line, when, and what the sync sheet lists of their Set Shots. Nothing kept. |
+| `notes.ts` | yes | Notes on Shots (#97): the setting per project, what the sheet shows, which Shots get a Note. |
 | `referenceSlates.ts` | yes | The slates each set reference shows on, by Flow PT id, for its Slates field (#107). Nothing kept. |
 | `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. |
 | `engine.ts` | no | `createSyncEngine`: link, check, runner. No runes. |
@@ -70,12 +71,23 @@ Made by Claude. Kevin can overrule any of them.
     says an admin enables a custom entity named Set Shot and runs Set Up Fields, and counts the
     slates whose codes wait. After a setup check the runner starts again with a new transport, so
     an entity enabled since is synced at the next drain.
-12. **The Slates field of each set reference is set when a drain ends,** after the slates (lib/fpt
-    README, "The slates of a set reference"): to the slates it shows on now, in `set` mode, where it
-    differs. At most once a minute, at once on Sync Now, and at once when the device asks for other
-    slates than the last time (a reference logged, a slate made or moved). That last ask is in
-    memory only. Nothing is kept on the device; an earlier build's list,
-    `sg-onset:sync:referenceSlates:<id>`, is removed when the project loads.
+12. **Notes on Shots is a setting per project, kept on the device** (#97), `sg-onset:sync:notes:<id>`,
+    beside the link. Off by default: some studios will not want an app writing Notes. It is a
+    choice about what this project writes to its Flow PT project, a device may hold projects of
+    two studios, and one device with it on is enough: the Note is built from what Flow PT holds,
+    whatever device sent it. Not in the store's tables, so not in a backup, as the link is not. The
+    sync sheet shows it under the Flow PT project, once linked.
+13. **The Notes are written where the links are,** when a drain ends, after the slates are brought in
+    line: at most once a minute, at once on Sync Now. The Shots are every Shot the project's slates
+    reach through their Set Shots (lib/fpt README, Notes on Shots). A site without Set Shot writes
+    none. A site without the Note fields writes none, and the sheet says an admin runs Set Up
+    Fields; turning the setting on then runs the setup check again, which only reads.
+14. **The Slates field of each set reference is set when a drain ends,** before the slates, so the
+    Notes on Shots read it (lib/fpt README, "The slates of a set reference"): to the slates it
+    shows on now, in `set` mode, where it differs. At most once a minute, at once on Sync Now, and
+    at once when the device asks for other slates than the last time (a reference logged, a slate
+    made or moved). That last ask is in memory only. Nothing is kept on the device; an earlier
+    build's list, `sg-onset:sync:referenceSlates:<id>`, is removed when the project loads.
 
 ## Not tested without a real site
 

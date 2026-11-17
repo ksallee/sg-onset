@@ -163,14 +163,14 @@ describe('push', () => {
 		await applied(w, [create('camera', 'c1', { projectId: 'p1', cameraModel: 'A' }, { p1: w.projectId })]);
 		const reads = () => w.fpt.count((r) => r.path.startsWith('/api/v1/schema'));
 		// /schema, the nine types, Attachment and Shot, where the photos and Shots fields add one each
-		// (findings/142), and Version, where videos go.
-		expect(reads()).toBe(13);
+		// (findings/142), Version, where videos go, and Note, where the Notes on Shots are keyed (#97).
+		expect(reads()).toBe(14);
 		await applied(w, [create('camera', 'c2', { projectId: 'p1', cameraModel: 'B' }, { p1: w.projectId })]);
-		expect(reads()).toBe(13);
+		expect(reads()).toBe(14);
 		expect(await w.cache.get(resolutionKey(w.fpt.site))).toBeDefined();
 		// Another session on the same device starts from the cache.
 		await w.make().push([create('camera', 'c3', { projectId: 'p1', cameraModel: 'C' }, { p1: w.projectId })]);
-		expect(reads()).toBe(13);
+		expect(reads()).toBe(14);
 	});
 
 	it('does not send to a site that is not set up, and says what is missing', async () => {
@@ -519,7 +519,7 @@ describe('push, the Set Shots and Shots of a slate', () => {
 		expect(ids(none.values.sg_shots)).toEqual([]);
 		expect(shotsField(w, 's1')).toEqual([s.a]);
 		expect(w.fpt.byUuid('Slate', 's1')!.values.sg_vfx_shots).toBe('smp_012_0010, SMP_099_0010');
-		expect(w.shotNews).toEqual([[{ slate: 's1', several: [] }]]);
+		expect(w.shotNews).toEqual([[{ slate: 's1', several: [], shots: [s.a] }]]);
 		// The app never makes a Shot.
 		expect(w.fpt.live('Shot')).toHaveLength(4);
 	});
@@ -544,7 +544,7 @@ describe('push, the Set Shots and Shots of a slate', () => {
 		expect(set.values.sg_onset_matched).toBe(true);
 		// Shot codes are not unique (entity_types/Shot.md). Kevin, #96: all are linked, and the code is named.
 		expect(shotsField(w, 's1')).toEqual([s.a, twin]);
-		expect(w.shotNews.at(-1)).toEqual([{ slate: 's1', several: ['SMP_012_0010'] }]);
+		expect(w.shotNews.at(-1)).toEqual([{ slate: 's1', several: ['SMP_012_0010'], shots: [s.a, twin] }]);
 	});
 
 	it('sets the slate fields whole, with the mode in the body, one field a write', async () => {
@@ -578,8 +578,8 @@ describe('push, the Set Shots and Shots of a slate', () => {
 		expect(shotsField(w, 's2')).toEqual([]);
 		// The first slate's Shots follow its Set Shot at the next sync.
 		expect(await other.linkShots([{ slate: 's1', remoteId: s1, codes: ['SMP_012_0010'] }, { slate: 's2', remoteId: s2, codes: ['SMP_012_0010'] }])).toEqual([
-			{ slate: 's1', several: [] },
-			{ slate: 's2', several: [] }
+			{ slate: 's1', several: [], shots: [] },
+			{ slate: 's2', several: [], shots: [] }
 		]);
 		expect(shotsField(w, 's1')).toEqual([]);
 		expect(ids(set.values.sg_shots)).toEqual([]);
@@ -599,7 +599,7 @@ describe('push, the Set Shots and Shots of a slate', () => {
 			{ type: 'Shot', id: right }
 		];
 		const writes0 = setShotWrites(w).length;
-		expect(await w.transport.linkShots([{ slate: 's1', remoteId: s1, codes: ['SMP_012_0010'] }])).toEqual([{ slate: 's1', several: [] }]);
+		expect(await w.transport.linkShots([{ slate: 's1', remoteId: s1, codes: ['SMP_012_0010'] }])).toEqual([{ slate: 's1', several: [], shots: [left, right] }]);
 		expect(shotsField(w, 's1')).toEqual([left, right]);
 		expect(setShotWrites(w).length).toBe(writes0);
 		expect(set.values.sg_onset_matched).toBeUndefined();
@@ -660,7 +660,7 @@ describe('push, the Set Shots and Shots of a slate', () => {
 		await applied(w, [update('slate', 's1', s1, { vfxShots: [['SMP_012_0010', 'SMP_042_0010'], undefined] })]);
 		expect(shotsField(w, 's1')).toEqual([]);
 		expect(setShotsField(w, 's1')).toEqual([]);
-		expect(w.shotNews.at(-1)).toEqual([{ slate: 's1', several: [] }]);
+		expect(w.shotNews.at(-1)).toEqual([{ slate: 's1', several: [], shots: [] }]);
 	});
 
 	it('asks nothing about Shots for a slate edit that leaves the codes alone', async () => {

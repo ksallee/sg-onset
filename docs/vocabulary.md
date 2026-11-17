@@ -60,6 +60,7 @@ enforces the parts a test can check.
 | Day report | | The printable page of one shoot day, for the VFX supervisor. | | | |
 | Backup | | One zip of everything on the device, every entry and photo, made in Settings, to restore from. Kept off the device. | | | |
 | Snapshot | | An automatic copy of every entry, kept on this device, to take back a mistake. It does not leave the device. | `snapshot` | | |
+| Notes on Shots | | The setting that has SG OnSet write one Note on each Shot with what was shot for it, at sync, and a reply when a sync adds to it. "Note" is the Flow PT Note, a capital N; "Notes" alone is a field of free text. | | | Note, Reply |
 
 Note for code: the outbox calls a change an "entry" (`counts.entries`). The UI word for a queued
 edit is **Change**; **Entry** is a stored record.

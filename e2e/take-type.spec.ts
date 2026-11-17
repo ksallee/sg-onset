@@ -150,3 +150,43 @@ test('a take opened from the slate puts a plate at its tail with a chip; the tab
 	await expect(sheet).toBeHidden();
 	await expect(page.getByRole('table', { name: 'Takes' }).getByText('Balls and chart tail')).toHaveCount(1);
 });
+
+test('bulk edit puts a plate at the tail of many takes, keeping the other; cleared, one notice offers the switch', async ({ page }) => {
+	await openApp(page, '/slates');
+	await page.getByRole('link', { name: /^42A/ }).tap();
+	await expect(page.getByRole('heading', { name: 'Slate 42A', level: 1 })).toBeVisible();
+	await page.waitForFunction(() => !document.documentElement.dataset.nav);
+	await page.getByRole('checkbox', { name: 'Select take 1, A' }).tap();
+	await page.getByRole('button', { name: 'Select All' }).tap();
+	const table = page.getByRole('table', { name: 'Takes' });
+
+	const edit = async (field: string, how: 'Yes' | 'Clear') => {
+		await page.getByRole('toolbar').getByRole('button', { name: 'Edit' }).tap();
+		const sheet = page.getByRole('dialog', { name: 'Edit 5 Takes' });
+		await sheet.getByRole('button', { name: new RegExp(`^${field}`) }).tap();
+		if (how === 'Yes') {
+			await sheet.getByRole('combobox', { name: field }).selectOption({ label: 'Yes' });
+			await sheet.getByRole('button', { name: 'Set on 5 Takes' }).tap();
+		} else {
+			await sheet.getByRole('radio', { name: 'Clear' }).tap();
+			await sheet.getByRole('button', { name: 'Clear on 5 Takes' }).tap();
+		}
+		await expect(sheet).toBeHidden();
+	};
+
+	await edit('Clean plate at the tail', 'Yes');
+	await expect(notice(page, 'Clean plate at the tail set on 5 takes. Slate 42A: Clean plate on')).toBeVisible();
+	await expect(table.getByText('Clean plate tail')).toHaveCount(5);
+
+	// The sample's Street, dusk has the balls on already: only the chart turns on.
+	await edit('Balls and chart at the tail', 'Yes');
+	await expect(notice(page, 'Balls and chart at the tail set on 5 takes. Lighting setup Street, dusk: Colour chart on')).toBeVisible();
+	await expect(table.getByText('Clean plate tail')).toHaveCount(5);
+	await expect(table.getByText('Balls and chart tail')).toHaveCount(5);
+
+	await edit('Clean plate at the tail', 'Clear');
+	await notice(page, 'Slate 42A: Clean plate stays on').getByRole('button', { name: 'Turn Off' }).tap();
+	await expect(notice(page, 'Slate 42A: Clean plate turned off')).toBeVisible();
+	await expect(table.getByText('Clean plate tail')).toHaveCount(0);
+	await expect(table.getByText('Balls and chart tail')).toHaveCount(5);
+});

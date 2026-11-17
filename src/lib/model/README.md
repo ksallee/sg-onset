@@ -213,3 +213,7 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
     its type or at its tail (`takeSwitches`).
 55. **`takeElements` lists the takes shot for an element, by type, each take with that plate at its
     tail among them.** A take typed so is listed once. For the Note on a Shot (#97).
+56. **In bulk edit each plate at the tail is a yes or no of its own** (Kevin, 2026-11-17): Clean
+    plate at the tail, Balls and chart at the tail. Yes puts the plate on every chosen take, No or
+    Clear takes it off, and the other plate stays as it is, as on the take sheet. The switch rule
+    and its one notice apply (`slates/bulk.ts`).

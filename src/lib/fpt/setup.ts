@@ -18,12 +18,15 @@ import {
 	toResolution,
 	type EntityResolution,
 	type FieldPlan,
+	type PlanScope,
 	type RawFields,
 	type Resolution
 } from './schema';
+import { VERSION } from './versions';
 
 export type FieldReport = {
-	scope: EntityScope;
+	/** The scope whose entity holds the field, or `version`: Version, where a take's videos go. */
+	scope: PlanScope;
 	entityType: string;
 	/** The field's name on the site: `sg_focal_length`. */
 	name: string;
@@ -90,19 +93,28 @@ async function inspect(api: Api, signal?: AbortSignal): Promise<{ entities: Enti
 	const types = foundTypes(entities);
 	const fields: Partial<Record<EntityScope, RawFields>> = {};
 	const others: Record<string, RawFields> = {};
+	let version: RawFields | undefined;
 	// The fields of a type that is not in /schema are a 404 (corpus findings/008): only the found ones are read.
 	// Attachment's and Shot's too: the photos field and the Shots field add one there each, checked
-	// for a clash (findings/134, 142).
+	// for a clash (findings/134, 142). Version's: a take's videos go there, under our client UUID
+	// (versions.ts).
 	await Promise.all([
 		...ENTITY_SCOPES.filter((scope) => types[scope]).map(async (scope) => {
 			fields[scope] = await api.fields(types[scope]!, signal);
 		}),
 		...OTHERS.filter((type) => listed[type]).map(async (type) => {
 			others[type] = await api.fields(type, signal);
-		})
+		}),
+		...(listed[VERSION]
+			? [
+					api.fields(VERSION, signal).then((f) => {
+						version = f;
+					})
+				]
+			: [])
 	]);
 	const names = Object.fromEntries(Object.entries(listed).map(([type, t]) => [type, t.name.value]));
-	return { entities, plans: planFields(types, fields, { names, others }) };
+	return { entities, plans: planFields(types, fields, { names, others, version }) };
 }
 
 const reportOf = (plan: FieldPlan, status: FieldReport['status'], reason = plan.reason): FieldReport => ({
@@ -200,6 +212,7 @@ function reversesOf(plans: readonly FieldPlan[], fields: readonly FieldReport[])
 function missing(entities: EntityResolution[], plans: FieldPlan[]): string {
 	const names = [
 		...entities.filter((e) => e.status !== 'found').map((e) => `the ${e.displayName} entity`),
+		...(plans.some((p) => p.scope === 'version') ? [] : [`the ${VERSION} entity`]),
 		...plans.filter((p) => p.status !== 'present').map((p) => `${p.entityType}.${p.name}`)
 	];
 	const shown = names.slice(0, 5).join(', ');

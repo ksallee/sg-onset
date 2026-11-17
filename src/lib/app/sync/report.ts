@@ -75,7 +75,8 @@ export function setupView(report: SetupReport): SetupView {
 		...(e.entityType ? { entityType: e.entityType } : {}),
 		...(e.candidates ? { candidates: e.candidates } : {})
 	}));
-	const nameOf = new Map(report.entities.map((e) => [e.scope, e.displayName]));
+	// A field on Version, where videos go, is named by its type: Version is not one of our entities.
+	const nameOf = new Map<string, string>(report.entities.map((e) => [e.scope, e.displayName]));
 	const fields = Object.fromEntries(STATUSES.map((s) => [s, [] as FieldLine[]])) as Record<FieldStatus, FieldLine[]>;
 	for (const f of report.fields) {
 		fields[f.status].push({

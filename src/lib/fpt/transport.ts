@@ -47,7 +47,9 @@ import { loadResolution } from './setup';
 import { heldIds, missingCodes, setShotData, setShotFilter, setShotKey, setShotMatches, setShotsOf, slateLinks, type SetShotRow } from './setShots';
 import { codesOf, linkValue, SHOT, shotChange, shotCodes, shotFilter, shotsOf, type ShotRow, type ShotWork } from './shots';
 import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, type StillRemote } from './stills';
+import { takeVersions, type UploadTarget } from './takeVersions';
 import { completionInfo, isMultipart, partLink, UPLOAD_SIZES, URL_LIFE_MS, type UploadSizes } from './uploadPlan';
+import { capturedAtOfCode, retimedCode, VERSION, versionKind, type TakeMedia } from './versions';
 
 /**
  * What is owed on one slate's Set Shots and Shots fields:
@@ -106,9 +108,10 @@ const STILL_KEYS = ['takeId', 'capturedAt', 'caption'];
 type Token = {
 	ref: BlobRef;
 	meta: StillRemote;
-	takeType: string;
-	field: string;
-	filename: string;
+	/** Where the file goes: the take's photos field, or a Version's movie field. */
+	target: UploadTarget;
+	/** The Version the file goes on, for a video (versions.ts). */
+	version?: number;
 	/** The init reply's `data`, whole: it is the `upload_info` of the completion. */
 	info: Record<string, unknown>;
 	completeUpload: string;
@@ -137,6 +140,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	const now = options.now ?? Date.now;
 	const sizes: UploadSizes = { ...UPLOAD_SIZES, ...options.upload };
 	const { projectId } = options;
+	const versions = takeVersions(api, projectId);
 	let resolution: Resolution | undefined;
 
 	/** The site's schema: from memory, the device, or the site. Throws `failed` while the site is not set up. */
@@ -153,7 +157,8 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 
 	/** Our table of an entity type the site named. */
 	function tableOf(entityType: string): string | undefined {
-		if (entityType === ATTACHMENT) return STILL;
+		// A photo is an Attachment, a video a Version (versions.ts): both are stills on the device.
+		if (entityType === ATTACHMENT || entityType === VERSION) return STILL;
 		return resolution ? ENTITY_SCOPES.find((scope) => resolution!.entities[scope] === entityType) : undefined;
 	}
 
@@ -350,9 +355,11 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 			out.requests.push(r);
 			out.owners.push(o);
 		};
-		const res = ops.some((o) => isEntityScope(o.op.table)) ? await resolved(signal) : undefined;
 		const stills = ops.filter((o) => o.op.table === STILL && o.op.kind !== 'create').map((o) => o.op.recordId);
+		const res = ops.some((o) => isEntityScope(o.op.table)) || stills.length ? await resolved(signal) : undefined;
 		const attachments = await attachmentsOf(stills, signal);
+		// A still with no Attachment may be a video: its Version, by client UUID (versions.ts).
+		const videos = res ? await versions.find(res, stills.filter((id) => !attachments.has(id)), signal) : new Map<string, EntityRow>();
 
 		for (const o of ops) {
 			const op = o.op;
@@ -380,7 +387,20 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 					continue;
 				}
 				const found = attachments.get(op.recordId);
-				if (!found) refuse(o, 'gone');
+				const video = videos.get(op.recordId);
+				if (!found && video) {
+					// A video: its Version. The movie and the server's transcodes are the Version's own.
+					if (op.kind === 'delete') request(o, { request_type: 'delete', entity: VERSION, record_id: video.id });
+					else {
+						const data: Record<string, unknown> = {};
+						for (const [key, edit] of Object.entries(op.changes)) {
+							if (key === 'caption') data.description = text(edit.value) ?? null;
+							else if (key === 'capturedAt') data.code = retimedCode(video.attributes.code, text(edit.value));
+							else return { ...out, refusals: [...out.refusals, { entryId: o.entryId, reason: 'invalid', message: `still.${key} cannot change on the server` }] };
+						}
+						request(o, { request_type: 'update', entity: VERSION, record_id: video.id, data });
+					}
+				} else if (!found) refuse(o, 'gone');
 				else if (op.kind === 'delete') for (const row of found) request(o, { request_type: 'delete', entity: ATTACHMENT, record_id: row.id });
 				else {
 					const data: Record<string, unknown> = {};
@@ -462,20 +482,40 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	// ------------------------------------------------------------------ uploads
 
 	const tokenOf = (session: UploadSession) => session.token as Token;
-	const uploadPath = (t: Token) => `/api/v1/entity/${slugOf(t.takeType)}/${t.meta.take}/${t.field}/_upload`;
+	const uploadPath = (t: Token) => `/api/v1/entity/${slugOf(t.target.entityType)}/${t.target.id}/${t.target.field}/_upload`;
 
-	/** Step one: the ticket (corpus endpoints/get_entity_type_id_field_upload.md, findings/044 for multipart). */
+	/** A still's file as a take's media: what its Version needs (versions.ts). */
+	const mediaOf = (ref: Pick<BlobRef, 'recordId' | 'blobId' | 'type'>, meta: StillRemote): TakeMedia => ({
+		recordId: ref.recordId,
+		blobId: ref.blobId,
+		type: ref.type,
+		take: meta.take,
+		...(meta.capturedAt ? { capturedAt: meta.capturedAt } : {}),
+		...(meta.caption ? { caption: meta.caption } : {})
+	});
+
+	/**
+	 * Step one: the ticket (corpus endpoints/get_entity_type_id_field_upload.md, findings/044 for
+	 * multipart). A photo goes to the take's photos field. A video goes to its Version's movie
+	 * field: the Version is found by client UUID or made first (takeVersions.ts).
+	 */
 	async function begin(ref: BlobRef, signal?: AbortSignal): Promise<UploadSession> {
 		const meta = ref.table === STILL ? decodeStillRemote(ref.recordRemoteId) : undefined;
 		if (!meta) throw new TransportError('failed', `the file ${ref.blobId} has no still on a take the server holds`);
 		const res = await resolved(signal);
 		const multipart = isMultipart(ref.size, sizes);
+		let target: UploadTarget = { entityType: res.entities.take, id: meta.take, field: stillsField(res), filename: stillFilename(ref.recordId, ref.blobId, ref.type) };
+		let version: number | undefined;
+		if (versionKind(ref.type)) {
+			const media = mediaOf(ref, meta);
+			version = await versions.ensure(res, media, signal);
+			target = versions.target(version, media);
+		}
 		const t: Token = {
 			ref,
 			meta,
-			takeType: res.entities.take,
-			field: stillsField(res),
-			filename: stillFilename(ref.recordId, ref.blobId, ref.type),
+			target,
+			...(version !== undefined ? { version } : {}),
 			info: {},
 			completeUpload: '',
 			multipart,
@@ -486,7 +526,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 		let reply: InitReply;
 		try {
 			// `filename` is required. `multipart_upload=true` opens the multipart upload at once.
-			reply = (await api.get(uploadPath(t), { filename: t.filename, ...(multipart ? { multipart_upload: 'true' } : {}) }, signal)) as InitReply;
+			reply = (await api.get(uploadPath(t), { filename: t.target.filename, ...(multipart ? { multipart_upload: 'true' } : {}) }, signal)) as InitReply;
 		} catch (error) {
 			if (error instanceof ApiRefusal) throw new TransportError('failed', error.failure.title);
 			throw error;
@@ -585,6 +625,15 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 						const remoteId = encodeStillRemote({ take: take.id, ...(capturedAt ? { capturedAt } : {}), ...(description ? { caption: description } : {}) });
 						found.push({ table, id, remoteId });
 					}
+					// The rest may be videos: each a Version, linked to its take by `entity` (versions.ts).
+					const rest = group.map((r) => r.id).filter((id) => !attachments.has(id));
+					for (const [id, row] of await versions.find(res, rest, signal)) {
+						const take = row.relationships.entity?.data as { type?: string; id: number } | null | undefined;
+						if (!take || take.type !== res.entities.take) continue;
+						const capturedAt = capturedAtOfCode(row.attributes.code);
+						const description = text(row.attributes.description);
+						found.push({ table, id, remoteId: encodeStillRemote({ take: take.id, ...(capturedAt ? { capturedAt } : {}), ...(description ? { caption: description } : {}) }) });
+					}
 				} else if (isEntityScope(table)) {
 					const res = await resolved(signal);
 					const field = uuidField(res, table);
@@ -608,15 +657,19 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 					if (row) records.push(...group.map((r) => ({ table, id: r.id, remoteId: projectId, fields: name && r.keys.includes('name') ? { name } : {} })));
 				} else if (table === STILL) {
 					const attachments = await attachmentsOf(group.map((r) => r.id), signal);
+					// A still with no Attachment may be a video: its Version (versions.ts).
+					const rest = group.map((r) => r.id).filter((id) => !attachments.has(id));
+					const videos = rest.length ? await versions.find(await resolved(signal), rest, signal) : new Map<string, EntityRow>();
 					for (const r of group) {
 						const row = attachments.get(r.id)?.[0];
-						if (!row) continue;
+						const video = videos.get(r.id);
+						if (!row && !video) continue;
 						const fields: Record<string, unknown> = {};
-						const description = text(row.attributes.description);
-						const capturedAt = capturedAtOf(row.attributes.display_name);
+						const description = text((row ?? video)!.attributes.description);
+						const capturedAt = row ? capturedAtOf(row.attributes.display_name) : capturedAtOfCode(video!.attributes.code);
 						if (r.keys.includes('caption') && description) fields.caption = description;
 						if (r.keys.includes('capturedAt') && capturedAt) fields.capturedAt = capturedAt;
-						records.push({ table, id: r.id, remoteId: r.remoteId ?? row.id, fields });
+						records.push({ table, id: r.id, remoteId: r.remoteId ?? (row ?? video)!.id, fields });
 					}
 				} else if (isEntityScope(table)) {
 					const res = await resolved(signal);
@@ -693,20 +746,24 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 			} catch (error) {
 				throw new TransportError('failed', error instanceof Error ? error.message : 'bad parts');
 			}
+			// `upload_info` is the init reply verbatim; `upload_data` is required. For a photo it sets the
+			// display name; a Version's movie takes it empty, as measured (findings/013, 022).
+			const data = t.version !== undefined ? {} : { display_name: stillDisplayName(t.meta.capturedAt) };
 			try {
-				// `upload_info` is the init reply verbatim; `upload_data` is required, and sets the display name.
-				await api.post(t.completeUpload, { upload_info: info, upload_data: { display_name: stillDisplayName(t.meta.capturedAt) } }, signal);
+				await api.post(t.completeUpload, { upload_info: info, upload_data: data }, signal);
 			} catch (error) {
 				if (!(error instanceof ApiRefusal)) throw error;
 				await abort(t, signal);
 				throw new TransportError('failed', error.failure.title);
 			}
+			// A video: the file is in its Version's movie field, and the Version is the id kept.
+			if (t.version !== undefined) return { remoteId: t.version };
 			// The completion landed. Its answer is one space and names no row (findings/039), so the row
 			// is found by its file name. The upload to the field added the photo to it, beside the
 			// earlier ones, and gave it the take's project (findings/134): nothing to put back. What
 			// follows is best effort: `verifyUpload` does it again.
 			try {
-				const [row] = await uploaded(t.filename, signal);
+				const [row] = await uploaded(t.target.filename, signal);
 				if (!row) return {};
 				await caption(row, t.meta, signal);
 				return { remoteId: row.id };
@@ -719,6 +776,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 			const meta = blob.table === STILL ? decodeStillRemote(blob.recordRemoteId) : undefined;
 			if (!meta) return { verified: false };
 			const res = await resolved(signal);
+			if (versionKind(blob.type)) return versions.verify(res, mediaOf(blob, meta), blob.size, signal);
 			for (const row of await uploaded(stillFilename(blob.recordId, blob.blobId, blob.type), signal)) {
 				// The url is presigned and re-minted on every read: used once, never kept (field_types/url.md).
 				const url = (row.attributes.this_file as { url?: unknown } | null)?.url;

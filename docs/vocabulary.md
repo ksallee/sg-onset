@@ -41,7 +41,8 @@ enforces the parts a test can check.
 | Lens | | One lens, by serial number. | `lens` | CRIF Tk Lens ID | Lens |
 | Slate | | The number on the clapperboard and the takes shot under it. | `slate` | CRIF Slate; OMC Slate.slateUID | Slate |
 | Take | | One camera setup's run of one slate, from Start to End. | `take` | CRIF Tk Take; VES scope Take | Take |
-| Photo | | A reference photo taken from the take screen, kept on the take. | `still` | VES 1.1 reference | Photos |
+| Photo | | A reference photo taken from the take screen or picked from the photo library or Files, kept on the take. | `still` | VES 1.1 reference | Photos |
+| Video | | A reference video picked from the photo library or Files, kept on the take. "Photos and videos" names both. | `still`, a video file | | Version, linked to the take |
 | Reference | | One thing captured for the slate on another device, logged by name: an HDRI, a scan, a witness clip. The file stays on that device. | `reference` | VES 2.1, 4.2, 5.1 | Set Reference |
 | Reference kind | | What a reference is: HDRI 360, 360 video, HDR reference, Witness camera, Lidar scan, Textured model, Photogrammetry, Splat, Other, or a kind the project adds. | `reference.kind` | | Kind |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
@@ -49,7 +50,7 @@ enforces the parts a test can check.
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
 | Gear | | The cameras, lenses and camera setups of a project. | | | |
 | Wrap | | The destination for the end of the day: the day's summary, what is left to fix, the export and the hand-over. | | | |
-| Wrap package | | One zip of a day's (or several days') files and photos, made on Wrap, for the people after set. | | | |
+| Wrap package | | One zip of a day's (or several days') files, and a folder per slate with its photos, a list of its takes and references, and an empty folder for each reference, made on Wrap, for the people after set. | | | |
 | Camera report | | The VES camera report CSV (CRIF), one row per take. | | VES CRIF | |
 | Day report | | The printable page of one shoot day, for the VFX supervisor. | | | |
 | Backup | | One zip of everything on the device, every entry and photo, made in Settings, to restore from. Kept off the device. | | | |
@@ -183,6 +184,7 @@ gives.
 | Ready, Running, Ended | The take's state. | Rolling, Filed, Idle |
 | New Take | Starts the next take as a copy of the last. | |
 | Photo | Takes a reference photo for the take. | Still, Ref |
+| Add Photos or Videos | In the take sheet: picks photos and videos from the photo library or Files for the take. | Import, Upload: Upload is a sync word |
 | Undo, Redo | Reverse the last edit. | |
 | Sync | Send changes to Flow PT and read back. | Upload, Push |
 | All synced | Nothing waits, signed in. | |

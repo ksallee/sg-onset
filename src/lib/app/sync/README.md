@@ -68,7 +68,7 @@ Made by Claude. Kevin can overrule any of them.
 11. **The Set Shots seen holding a Shot are kept in `localStorage`, per project**
     (`sg-onset:sync:setShots:<id>`), by Flow PT id, as the transport reports them. The transport
     never matches one of them again, so a Set Shot a person emptied stays empty (lib/fpt README,
-    decision 34). Lost, a Set Shot a person emptied may be matched once more.
+    decision 38). Lost, a Set Shot a person emptied may be matched once more.
 
 ## Not tested without a real site
 

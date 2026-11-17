@@ -12,7 +12,7 @@
 
 import { codeName, reverseField, slugOf } from './names';
 import type { RawField, RawFields, SchemaTypes } from './schema';
-import { completeFields, siteTypes, SITE_URL, stockFields, TYPES } from './testkit';
+import { completeFields, siteTypes, SITE_URL, stockFields, TYPES, versionFields } from './testkit';
 
 type Ref = { type: string; id: number };
 export type FakeRow = { type: string; id: number; values: Record<string, unknown>; retired?: boolean };
@@ -63,6 +63,8 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 		this_file: { name: { value: 'File' }, data_type: { value: 'url' }, editable: { value: false } }
 	};
 	fields.Project = { name: { name: { value: 'Project Name' }, data_type: { value: 'text' } } };
+	// A take's videos go up as Versions (entity_types/Version.md). A bare site lacks our client UUID there.
+	fields.Version = versionFields(options.fields !== 'bare');
 	// Shot: `code` is "Shot Code", not unique; `project` is required (findings/entity_types/Shot.md).
 	fields.Shot = {
 		code: { name: { value: 'Shot Code' }, data_type: { value: 'text' } },
@@ -305,7 +307,11 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 				relationships[name] = { data: live.map((r) => ({ ...r, name: String(rows.get(`${r.type}:${r.id}`)!.values.code ?? 'x') })), links: {} };
 			} else if (dataType === 'float') attributes[name] = value === null ? null : Number.isInteger(value) ? (value as number).toFixed(1) : String(value);
 			else if (dataType === 'checkbox') attributes[name] = value === true;
-			else if (dataType === 'url') attributes[name] = row.values.__object ? thisFile(row) : null;
+			else if (dataType === 'url') {
+				// An Attachment's own file, or a field that holds one: Version.sg_uploaded_movie (findings/022).
+				const held = isRef(value) ? rows.get(`${value.type}:${value.id}`) : undefined;
+				attributes[name] = row.values.__object ? thisFile(row) : held?.values.__object ? thisFile(held) : null;
+			}
 			else attributes[name] = value;
 		}
 		return { type: row.type, attributes, relationships, id: row.id, links: { self: `/api/v1/entity/${slugOf(row.type)}/${row.id}` } };
@@ -570,7 +576,17 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 				description: null,
 				__object: found.key
 			});
-			if (found.field) {
+			if (found.field && fieldOf(found.type, found.field)?.data_type.value === 'url') {
+				// A url field holds one file: a new upload replaces it (findings/022). On a Version the
+				// server transcodes it and adds two Attachments named after it (findings/123).
+				owner.values[found.field] = { type: 'Attachment', id: attachment };
+				if (found.type === 'Version') {
+					const stem = found.filename.replace(/\.[^.]+$/, '');
+					for (const name of [`a1b2c3_${stem}.mp4`, `a1b2c3_${stem}_2Dlod.jpeg`]) {
+						fpt.seed('Attachment', { filename: name, project: owner.values.project ?? null, attachment_links: [{ type: 'Version', id: found.id }], display_name: name, description: null });
+					}
+				}
+			} else if (found.field) {
 				// A second upload to the field adds (findings/134).
 				const held = (owner.values[found.field] as Ref[] | undefined) ?? [];
 				owner.values[found.field] = [...held, { type: 'Attachment', id: attachment }];

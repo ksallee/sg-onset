@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TransportError } from '$lib/outbox/transport';
 import { memoryKeyValue, resolutionKey } from './cache';
 import { BEARER, fakeFpt, type FakeFpt } from './fakeFpt';
-import { ENTITY_SCOPES, wantedColumns } from './mapping';
+import { ENTITY_SCOPES, VERSION_COLUMNS, wantedColumns } from './mapping';
 import { parseResolution } from './schema';
 import { checkSetup, type SetupReport } from './setup';
 import { rawField, TYPES } from './testkit';
@@ -17,7 +17,8 @@ function world(fields: 'complete' | 'bare' = 'complete') {
 
 const creates = (fpt: FakeFpt) => fpt.requests.filter((r) => r.method === 'POST' && r.path.includes('/schema/'));
 const field = (report: SetupReport, scope: string, name: string) => report.fields.find((f) => f.scope === scope && f.name === name)!;
-const WANTED = ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0);
+/** Every field of ours: on the eight entities, and the client UUID on Version, where videos go. */
+const WANTED = ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length;
 
 describe('checkSetup', () => {
 	it('finds a site that is ready, and changes nothing on it', async () => {
@@ -33,12 +34,29 @@ describe('checkSetup', () => {
 	});
 
 	// corpus endpoints/get_schema.md: /schema is cheap and /fields is not. One read per type.
-	it('reads the type list once and the fields of each of the nine types, Attachment and Shot once', async () => {
+	it('reads the type list once and the fields of each of the nine types, Attachment, Shot and Version once', async () => {
 		const { fpt, check } = world();
 		await check();
 		expect(fpt.requests.map((r) => r.path).sort()).toEqual(
-			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment', 'Shot'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
+			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment', 'Shot', 'Version'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
 		);
+	});
+
+	// Videos go up as Versions linked to their take (Kevin, 2026-11-17): a create sent twice must
+	// be refused there too (findings/127).
+	it('creates the client UUID on Version, unique, and the transport may use it', async () => {
+		const { fpt, cache, check } = world('bare');
+		const report = await check();
+		expect(field(report, 'version', 'sg_onset_uuid')).toMatchObject({ entityType: 'Version', status: 'created', unique: true });
+		expect(fpt.fields.Version.sg_onset_uuid.unique?.value).toBe(true);
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.versionUuid).toBe('sg_onset_uuid');
+	});
+
+	it('is not ready while Version lacks it, and says so', async () => {
+		const { fpt, check } = world('bare');
+		const report = await check({ createFields: false });
+		expect(field(report, 'version', 'sg_onset_uuid')).toMatchObject({ entityType: 'Version', status: 'missing' });
+		expect(fpt.fields.Version.sg_onset_uuid).toBeUndefined();
 	});
 
 	it('creates its fields on a bare site, each with what only a create can set', async () => {

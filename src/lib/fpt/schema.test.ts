@@ -11,7 +11,10 @@ import {
 	type RawFields,
 	type SchemaTypes
 } from './schema';
-import { completeFields as complete, rawField as raw, TYPES } from './testkit';
+import { completeFields as complete, rawField as raw, TYPES, versionFields } from './testkit';
+
+/** What a site holds on Version: its stock fields, and our client UUID once Set Up Fields ran. */
+const VERSION_DONE = { version: versionFields(true) };
 
 // Shapes: corpus endpoints/get_schema.md and endpoints/get_schema_type_fields.md. Slot numbers
 // differ per site (findings/008_custom_entities.md); these are the probed site's, read 2026-11-11.
@@ -315,6 +318,32 @@ describe('planFields: reverse fields', () => {
 	});
 });
 
+// Videos go up as Versions linked to their take (Kevin, 2026-11-17). Version is stock; only the
+// client UUID is ours, created unique as on every entity (findings/127).
+describe('planFields: Version', () => {
+	const version = (plans: ReturnType<typeof planFields>) => plans.filter((p) => p.scope === 'version');
+
+	it('plans the client UUID on Version, to create unique', () => {
+		const [uuid] = version(planFields(TYPES, complete(), { version: versionFields(false) }));
+		expect(uuid).toMatchObject({ entityType: 'Version', name: 'sg_onset_uuid', displayName: 'Onset UUID', dataType: 'text', status: 'create', unique: true });
+		expect(createInput(uuid).properties).toMatchObject({ unique: true });
+	});
+
+	it('finds it present the next time', () => {
+		expect(version(planFields(TYPES, complete(), VERSION_DONE))).toMatchObject([{ status: 'present', name: 'sg_onset_uuid' }]);
+	});
+
+	it('will not use a Version field of that name that is not unique', () => {
+		const fields = versionFields(false);
+		fields.sg_onset_uuid = raw('text', 'Onset UUID');
+		expect(version(planFields(TYPES, complete(), { version: fields }))).toMatchObject([{ status: 'blocked' }]);
+	});
+
+	it('plans nothing on Version when its fields were not read', () => {
+		expect(version(planFields(TYPES, complete()))).toEqual([]);
+	});
+});
+
 describe('createInput', () => {
 	const bare = { take: { code: raw('text', 'Take Name') }, slate: { code: raw('text', 'Slate Name') } };
 	const plans = planFields(TYPES, bare);
@@ -350,28 +379,40 @@ describe('toResolution', () => {
 		const fields = complete();
 		fields.lens.sg_focal_length = raw('text', 'Focal Length');
 		fields.lens.sg_onset_focal_length = raw('float', 'Onset Focal Length');
-		const res = toResolution('https://x.shotgrid.autodesk.com', resolveEntities(SITE), planFields(TYPES, fields))!;
+		const res = toResolution('https://x.shotgrid.autodesk.com', resolveEntities(SITE), planFields(TYPES, fields, VERSION_DONE))!;
 		expect(res.entities).toEqual(TYPES);
 		expect(res.fields.lens.sg_focal_length).toBe('sg_onset_focal_length');
 		expect(res.fields.take.sg_tilt).toBe('sg_tilt');
+		expect(res.versionUuid).toBe('sg_onset_uuid');
 		expect(res.site).toBe('https://x.shotgrid.autodesk.com');
 	});
 
 	it('is nothing while a field or an entity is missing', () => {
 		const fields = complete();
 		delete fields.take.sg_tilt;
-		expect(toResolution('s', resolveEntities(SITE), planFields(TYPES, fields))).toBeUndefined();
+		expect(toResolution('s', resolveEntities(SITE), planFields(TYPES, fields, VERSION_DONE))).toBeUndefined();
 		const { Slate: _s, ...rest } = SITE;
-		expect(toResolution('s', resolveEntities(rest), planFields(TYPES, complete()))).toBeUndefined();
+		expect(toResolution('s', resolveEntities(rest), planFields(TYPES, complete(), VERSION_DONE))).toBeUndefined();
+	});
+
+	it("is nothing while Version lacks the client UUID, or Version's fields were not read", () => {
+		expect(toResolution('s', resolveEntities(SITE), planFields(TYPES, complete(), { version: versionFields(false) }))).toBeUndefined();
+		expect(toResolution('s', resolveEntities(SITE), planFields(TYPES, complete()))).toBeUndefined();
 	});
 
 	it('survives the cache, and only for its own site', () => {
-		const res = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete()))!;
+		const res = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE))!;
 		const text = serializeResolution(res);
 		expect(parseResolution(text, 'https://a.example')).toEqual(res);
 		expect(parseResolution(text, 'https://b.example')).toBeUndefined();
 		expect(parseResolution('{not json', 'https://a.example')).toBeUndefined();
 		expect(parseResolution(undefined, 'https://a.example')).toBeUndefined();
 		expect(parseResolution(JSON.stringify({ ...res, version: 0 }), 'https://a.example')).toBeUndefined();
+	});
+
+	// A device that synced before videos went up as Versions holds a resolution without it: read again.
+	it('is read again from a cache written before Versions', () => {
+		const { versionUuid: _v, ...before } = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE))!;
+		expect(parseResolution(JSON.stringify(before), 'https://a.example')).toBeUndefined();
 	});
 });

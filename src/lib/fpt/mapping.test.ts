@@ -42,6 +42,10 @@ describe('fieldMaps', () => {
 		expect(fieldMap('take', 'takeType')).toMatchObject({ kind: 'text', columns: [{ name: 'sg_take_type', display: 'Take Type', dataType: 'text' }] });
 	});
 
+	it('keeps the plates at the tail of a take as one text, by their keys', () => {
+		expect(fieldMap('take', 'takeTail')).toMatchObject({ kind: 'stringList', columns: [{ name: 'sg_take_tail', display: 'Take Tail', dataType: 'text' }] });
+	});
+
 	it('stores a length as a number of metres, named with its unit', () => {
 		expect(fieldMap('take', 'focusDistance')).toMatchObject({
 			kind: 'length',

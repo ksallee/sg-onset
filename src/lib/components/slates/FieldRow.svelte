@@ -2,7 +2,8 @@
 	// One field of an entry or a template, as a row of a Section, typed as the catalogue says:
 	// text with the system keyboard (numbers get the decimal one) and its unit after it; a switch
 	// for yes or no (or a picker with "Not set" in a template, `tri`); a picker for an option or a
-	// linked entry. The text follows the stored value, so an undo shows at once. A typed value is
+	// linked entry; a chip per option for a list of options (the plates at a take's tail), each
+	// on or off with a tap. The text follows the stored value, so an undo shows at once. A typed value is
 	// read and checked (`readField`) when the field is left or Return is pressed: saved when it is
 	// good, the issue said under the row when not. `marker`: the value differs from the template.
 	// `suggestions`: for a list, the values to offer as chips while one is typed (the Shot codes of
@@ -54,7 +55,7 @@
 	const id = $props.id();
 	const def = $derived(field.def);
 	const label = $derived(fieldLabel(def, field.end));
-	const kind = $derived(def.type === 'boolean' ? (tri ? 'pick' : 'switch') : def.type === 'enum' || def.type === 'ref' ? 'pick' : 'text');
+	const kind = $derived(def.type === 'boolean' ? (tri ? 'pick' : 'switch') : def.type === 'enum' || def.type === 'ref' ? 'pick' : def.type === 'stringList' && def.options ? 'chips' : 'text');
 	const numeric = $derived(['integer', 'number', 'length', 'rational'].includes(def.type));
 	const unit = $derived(def.unit && def.type !== 'length' ? unitLabel(def.unit) : '');
 
@@ -115,6 +116,13 @@
 		if (def.type === 'enum') return (def.options ?? []).map((o) => ({ value: o, label: optionLabel(def, o) }));
 		return options;
 	});
+	// A list of options: each chip puts its option in or takes it out; none left is no value.
+	const held = $derived(Array.isArray(value) ? (value as unknown[]) : []);
+	function flip(option: string) {
+		const next = (def.options ?? []).filter((o) => (o === option ? !held.includes(o) : held.includes(o)));
+		void onsave(next.length ? next : undefined);
+	}
+
 	const picked = $derived(value === undefined ? '' : String(value));
 	function choose(raw: string) {
 		if (raw === '') return void onsave(undefined);
@@ -123,12 +131,16 @@
 </script>
 
 <div class="field-row" class:invalid={!!error} role="listitem">
-	<svelte:element this={kind === 'switch' ? 'div' : 'label'} class="cell" for={kind === 'switch' ? undefined : id}>
+	<svelte:element this={kind === 'switch' || kind === 'chips' ? 'div' : 'label'} class="cell" for={kind === 'switch' || kind === 'chips' ? undefined : id}>
 		<span class="label">
 			{#if marker}<span class="marker" aria-hidden="true"></span><span class="sr-only">{t('slates.link.marker')}: </span>{/if}{label}
 		</span>
 		{#if kind === 'switch'}
 			<span class="end"><Toggle checked={value === true} label={label} onchange={(v) => onsave(v ? true : undefined)} /></span>
+		{:else if kind === 'chips'}
+			<span class="chips" role="group" aria-label={label}>
+				{#each def.options ?? [] as o (o)}<Chip on={held.includes(o)} onclick={() => flip(o)}>{optionLabel(def, o)}</Chip>{/each}
+			</span>
 		{:else if kind === 'pick'}
 			<select {id} class="pick" class:empty={picked === ''} value={picked} onchange={(e) => choose(e.currentTarget.value)}>
 				<option value="">{tri && def.type === 'boolean' ? t('slates.field.unset') : t('slates.field.none')}</option>
@@ -236,6 +248,14 @@
 	.end {
 		margin-left: auto;
 		margin-block: -6px;
+	}
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 8px;
+		margin-left: auto;
+		padding-block: 6px;
 	}
 	.unit {
 		flex: none;

@@ -19,6 +19,9 @@ describe('bulkFields', () => {
 		expect(keys).not.toContain('startedAt');
 		expect(keys).not.toContain('endedAt');
 	});
+	it('leaves out the plates at the tail until how a bulk edit sets them is decided (#108)', () => {
+		expect(keys).not.toContain('takeTail');
+	});
 });
 
 describe('bulkPreview', () => {

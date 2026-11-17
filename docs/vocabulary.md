@@ -130,6 +130,7 @@ gives.
 |---|---|---|---|---|---|
 | Take | Take | The take as called: 1, 2, 3, PU. | `take` | CRIF Tk Take; OMC SlateUID.hasTake; ALE Take | Name (code) |
 | Type | Type | What the take is for: Main, Clean plate, Balls and chart, Shadow plate, Light pass, Atmosphere (smoke, fog), Element, Other. No value is Main. | `takeType` | ours | Take Type |
+| At the tail | Tail | What the camera caught after the action as it kept running: Clean plate, Balls and chart, either or both. Shown beside the type as "Clean plate tail". | `takeTail` | ours | Take Tail |
 | Start time | Start | When Start was pressed. | `startedAt` | CRIF Tk Start Time Of Take | Start Time |
 | End time | End | When End was pressed. | `endedAt` | | End Time |
 | Circled | Circled | The take is circled: a keeper. | `circleTake` | OMC circleTake; ALE Circled Take | Circled |
@@ -231,6 +232,9 @@ gives.
   **Clean plate** turns on the slate's Clean plate; **Balls and chart** turns on the lighting
   setup's Grey and chrome balls and Colour chart. The notice says a switch left on "stays on"
   ("still" is a banned word), with **Turn Off**.
+- **At the tail**: a plate shot as the camera keeps running after the action. The take keeps its
+  one Type; the tail holds **Clean plate**, **Balls and chart**, or both, and turns on the same
+  switches a take of that type does. Beside the type it reads "Clean plate tail".
 - **MOS** and **wild track** have no field yet. When they come: "MOS" (flag), "Wild track"
   (flag), both sentence case.
 - **Unit** is the shooting unit. **Shoot day** is one unit's day, named "Day {n}".

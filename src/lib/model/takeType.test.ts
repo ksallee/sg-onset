@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { findField } from './catalogue';
 import { nextTake } from './take';
-import { groupType, KIND_SWITCHES, planReferenceEdit, planTypeEdit, storedTakeType, TAKE_TYPES, takeTypeOf, turnOffPatch, typePatch, type SwitchRef } from './takeType';
+import { groupType, KIND_SWITCHES, planReferenceEdit, planTypeEdit, storedTakeType, TAKE_TYPES, takeSwitches, takeTypeOf, turnOffPatch, typePatch, type SwitchRef } from './takeType';
 import type { LightingSetup, Reference, Slate, Take } from './types';
 
 const take = (id: string, slateId: string, rest: Partial<Take> = {}): Take => ({ id, slateId, take: '1', ...rest });
 const slate = (id: string, rest: Partial<Slate> = {}): Slate => ({ id, shootDayId: 'd', slateUID: id, ...rest });
 const lighting = (id: string, rest: Partial<LightingSetup> = {}): LightingSetup => ({ id, projectId: 'p', label: id, ...rest });
 const retype = (t: Take, to: string | undefined) => ({ id: t.id, key: 'takeType', from: t.takeType, to });
+const retail = (t: Take, to: string[] | undefined) => ({ id: t.id, key: 'takeTail', from: t.takeTail, to });
 
 describe('the take type field', () => {
 	it('is a take enum with Main first, not carried to the next take', () => {
@@ -182,6 +183,97 @@ describe('planTypeEdit', () => {
 		expect(plan.take).toEqual([{ id: 'a', key: 'takeType', from: 'main', to: undefined }]);
 		expect(plan.slate).toEqual([]);
 		expect(plan.left).toEqual([]);
+	});
+});
+
+// A plate at the tail of a take (#108) counts as a take of that type: it turns on the same
+// switches, and holds them on.
+describe('takeSwitches', () => {
+	const plate = { scope: 'slate', key: 'cleanPlate' };
+	const balls = { scope: 'lightingSetup', key: 'referenceBalls' };
+	const chart = { scope: 'lightingSetup', key: 'colourChart' };
+	it('holds what its type turns on, and what each plate at its tail turns on, each once', () => {
+		expect(takeSwitches({})).toEqual([]);
+		expect(takeSwitches({ takeType: 'element' })).toEqual([]);
+		expect(takeSwitches({ takeType: 'cleanPlate' })).toEqual([plate]);
+		expect(takeSwitches({ takeTail: ['ballsAndChart'] })).toEqual([balls, chart]);
+		expect(takeSwitches({ takeType: 'lightPass', takeTail: ['cleanPlate', 'ballsAndChart'] })).toEqual([plate, balls, chart]);
+		expect(takeSwitches({ takeType: 'cleanPlate', takeTail: ['cleanPlate'] })).toEqual([plate]);
+	});
+});
+
+describe('planTypeEdit with a tail', () => {
+	it('turns on the slate switch for a clean plate at the tail', () => {
+		const a = take('a', 's1', { takeType: 'lightPass' });
+		const plan = planTypeEdit({ patch: [retail(a, ['cleanPlate'])], takes: [a], slates: [slate('s1')], lightingSetups: [] });
+		expect(plan.take).toEqual([retail(a, ['cleanPlate'])]);
+		expect(plan.slate).toEqual([{ id: 's1', key: 'cleanPlate', from: undefined, to: true }]);
+		expect(plan.on).toEqual<SwitchRef[]>([{ scope: 'slate', id: 's1', key: 'cleanPlate' }]);
+		expect(plan.left).toEqual([]);
+	});
+
+	it('turns on balls and chart on the lighting setup for balls and chart at the tail, only the plate added', () => {
+		const a = take('a', 's1', { takeTail: ['cleanPlate'] });
+		const plan = planTypeEdit({
+			patch: [retail(a, ['cleanPlate', 'ballsAndChart'])],
+			takes: [a],
+			slates: [slate('s1', { lightingSetupId: 'L' })],
+			lightingSetups: [lighting('L')]
+		});
+		expect(plan.slate).toEqual([]);
+		expect(plan.lightingSetup.map((c) => c.key)).toEqual(['referenceBalls', 'colourChart']);
+	});
+
+	it('writes an empty tail as no value, and drops what changes nothing', () => {
+		const a = take('a', 's1', { takeTail: ['cleanPlate'] });
+		const b = take('b', 's1', { takeTail: ['ballsAndChart'] });
+		const plan = planTypeEdit({ patch: [retail(a, []), retail(b, ['ballsAndChart'])], takes: [a, b], slates: [slate('s1', { cleanPlate: true })], lightingSetups: [] });
+		expect(plan.take).toEqual([{ id: 'a', key: 'takeTail', from: ['cleanPlate'], to: undefined }]);
+	});
+
+	it('offers the switch when the last plate at a tail goes, and no take holds it as its type', () => {
+		const a = take('a', 's1', { takeTail: ['cleanPlate'] });
+		const plan = planTypeEdit({ patch: [retail(a, undefined)], takes: [a], slates: [slate('s1', { cleanPlate: true })], lightingSetups: [] });
+		expect(plan.slate).toEqual([]);
+		expect(plan.left).toEqual<SwitchRef[]>([{ scope: 'slate', id: 's1', key: 'cleanPlate' }]);
+	});
+
+	it('offers nothing while a take of the slate holds it as its type', () => {
+		const a = take('a', 's1', { takeTail: ['cleanPlate'] });
+		const b = take('b', 's1', { takeType: 'cleanPlate' });
+		expect(planTypeEdit({ patch: [retail(a, undefined)], takes: [a, b], slates: [slate('s1', { cleanPlate: true })], lightingSetups: [] }).left).toEqual([]);
+	});
+
+	it('offers nothing when a take leaves the type while a tail holds it', () => {
+		const a = take('a', 's1', { takeType: 'cleanPlate', takeTail: ['cleanPlate'] });
+		expect(planTypeEdit({ patch: [retype(a, undefined)], takes: [a], slates: [slate('s1', { cleanPlate: true })], lightingSetups: [] }).left).toEqual([]);
+		const b = take('b', 's1', { takeType: 'cleanPlate' });
+		const c = take('c', 's1', { takeTail: ['cleanPlate'] });
+		expect(planTypeEdit({ patch: [retype(b, 'shadowPlate')], takes: [b, c], slates: [slate('s1', { cleanPlate: true })], lightingSetups: [] }).left).toEqual([]);
+	});
+
+	it('counts balls and chart at the tail across every slate on the lighting setup', () => {
+		const a = take('a', 's1', { takeTail: ['ballsAndChart'] });
+		const b = take('b', 's2', { takeTail: ['ballsAndChart'] });
+		const slates = [slate('s1', { lightingSetupId: 'L' }), slate('s2', { lightingSetupId: 'L' })];
+		const lights = [lighting('L', { referenceBalls: true, colourChart: true })];
+		expect(planTypeEdit({ patch: [retail(a, undefined)], takes: [a, b], slates, lightingSetups: lights }).left).toEqual([]);
+		expect(planTypeEdit({ patch: [retail(a, undefined), retail(b, undefined)], takes: [a, b], slates, lightingSetups: lights }).left).toEqual<SwitchRef[]>([
+			{ scope: 'lightingSetup', id: 'L', key: 'referenceBalls' },
+			{ scope: 'lightingSetup', id: 'L', key: 'colourChart' }
+		]);
+	});
+
+	it('turns on a plate added at the tail while taking another off, in one change', () => {
+		const a = take('a', 's1', { takeTail: ['ballsAndChart'] });
+		const plan = planTypeEdit({
+			patch: [retail(a, ['cleanPlate'])],
+			takes: [a],
+			slates: [slate('s1', { lightingSetupId: 'L' })],
+			lightingSetups: [lighting('L', { referenceBalls: true })]
+		});
+		expect(plan.slate).toEqual([{ id: 's1', key: 'cleanPlate', from: undefined, to: true }]);
+		expect(plan.left).toEqual<SwitchRef[]>([{ scope: 'lightingSetup', id: 'L', key: 'referenceBalls' }]);
 	});
 });
 

@@ -1,13 +1,14 @@
 <script lang="ts">
-	// The take on screen in a sheet: its note, its type (one tap), its template, photos and videos
-	// from the library or Files, and the cameras on it, one of which can be taken off. A full sheet,
-	// so the keyboard never covers the note. Everything is undoable. The rail's Photo stays the
-	// camera, in one press.
+	// The take on screen in a sheet: its note, its type (one tap), the plates at its tail (either or
+	// both, a tap each), its template, photos and videos from the library or Files, and the cameras
+	// on it, one of which can be taken off. A full sheet, so the keyboard never covers the note.
+	// Everything is undoable. The rail's Photo stays the camera, in one press.
 	import InputRow from '$lib/components/ios/InputRow.svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Sheet from '$lib/components/ios/Sheet.svelte';
 	import { t, tk } from '$lib/i18n/messages';
+	import { TAKE_TAILS } from '$lib/model/takeTail';
 	import { TAKE_TYPES } from '$lib/model/takeType';
 	import type { Shoot } from '$lib/take/shoot.svelte';
 	import TakeTemplate from './TakeTemplate.svelte';
@@ -41,6 +42,14 @@
 				<Row title={tk(`field.take.takeType.${type}`)} checked={shoot.type === type} onclick={() => shoot.setType(type)} />
 			{/each}
 		</Section>
+		<Section header={tk('field.take.takeTail')}>
+			{#each TAKE_TAILS as tail (tail)}
+				{@const label = tk(`field.take.takeTail.${tail}`)}
+				<!-- Said "Clean plate at the tail": the Type above has a Clean plate too. -->
+				{#snippet title()}<span aria-hidden="true">{label}</span><span class="sr-only">{t('take.tail.row', { tail: label })}</span>{/snippet}
+				<Row {title} checked={shoot.tail.includes(tail)} onclick={() => shoot.toggleTail(tail)} />
+			{/each}
+		</Section>
 		<TakeTemplate {shoot} />
 	{/if}
 	<Section header={t('photos.title')} footer={t('photos.add.footer')}>
@@ -57,6 +66,14 @@
 </Sheet>
 
 <style>
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+	}
 	.file {
 		position: absolute;
 		width: 1px;

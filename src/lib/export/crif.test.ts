@@ -2,7 +2,7 @@
 // the table's order, strings in quotes and bare numbers, timestamps as YYYY/MM/DD 24HH:MM:SS in
 // local time, focus and height in feet and inches, multi-selects split by vertical tabs.
 import { describe, expect, it } from 'vitest';
-import { CRIF_NEVER_FILLED, crifCsv, crifMissing, crifRecords, exportCrif } from './crif';
+import { CRIF_EXTRA_COLUMNS, CRIF_NEVER_FILLED, crifCsv, crifMissing, crifRecords, exportCrif } from './crif';
 import { flatten } from './selection';
 import { input, kindLabel, s42A, t42A1A, t42A1B } from './testData';
 import { uuidV5 } from './uuid';
@@ -131,6 +131,19 @@ describe('crifCsv', () => {
 		expect(type(t42A1B.id)).toBe('Balls and Chart');
 		expect(records.filter((r) => r.takeId !== t42A1A.id && r.takeId !== t42A1B.id).map((r) => r.values['Tk Type'])).toEqual(expect.arrayContaining(['Main']));
 		expect(crifRecords(flatten(shoot), { ...options, extras: false })[0].values['Tk Type']).toBeUndefined();
+	});
+
+	it('writes the plates at the tail in our column after the type, split by vertical tabs, empty for none', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, takeTail: ['cleanPlate', 'ballsAndChart'] } : t.id === t42A1B.id ? { ...t, takeTail: ['cleanPlate'] } : t));
+		const records = crifRecords(flatten(shoot), { ...options, extras: true });
+		const tail = (id: string) => records.find((r) => r.takeId === id)!.values['Tk Tail'];
+		expect(tail(t42A1A.id)).toBe(`Clean Plate${VT}Balls and Chart`);
+		expect(tail(t42A1B.id)).toBe('Clean Plate');
+		expect(records.filter((r) => r.takeId !== t42A1A.id && r.takeId !== t42A1B.id).every((r) => r.values['Tk Tail'] === '')).toBe(true);
+		const names = CRIF_EXTRA_COLUMNS.map((c) => c.name);
+		expect(names.indexOf('Tk Tail')).toBe(names.indexOf('Tk Type') + 1);
+		expect(crifRecords(flatten(shoot), { ...options, extras: false })[0].values['Tk Tail']).toBeUndefined();
 	});
 });
 

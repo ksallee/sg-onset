@@ -10,13 +10,15 @@ import { fieldRefs, type FieldRef } from './fields';
 
 /** Belong to one take each: never set on many at once. */
 const OWN = new Set(['take', 'startedAt', 'endedAt']);
+/** Not offered yet: how a bulk edit sets the plates at the tail on takes that differ is Kevin's call (#108). */
+const LATER = new Set(['takeTail']);
 
 /** The marks a take can carry: set or cleared on many takes at once. */
 export const MARKS = ['circleTake', 'noGood'] as const;
 
 /** The take fields a bulk edit can set or clear, in catalogue order, ends included. */
 export function bulkFields(): FieldRef[] {
-	return fieldRefs('take').filter((f) => !OWN.has(f.def.key));
+	return fieldRefs('take').filter((f) => !OWN.has(f.def.key) && !LATER.has(f.def.key));
 }
 
 /** The patch that sets `key = value` on the chosen takes; `undefined` clears. Main is stored as no type. */

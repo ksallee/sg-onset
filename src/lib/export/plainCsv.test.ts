@@ -142,6 +142,15 @@ describe('plainCsv', () => {
 		expect(t.cell(flat.findIndex((r) => r.take.id === t9.id), 'takeType')).toBe('<main>');
 	});
 
+	it('writes the plates at the tail by their labels, empty for none', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, takeTail: ['cleanPlate', 'ballsAndChart'] } : t));
+		const flat = flatten(shoot);
+		const t = table(plainCsv(flat, base));
+		expect(t.cell(flat.findIndex((r) => r.take.id === t42A1A.id), 'takeTail')).toBe('<cleanPlate>, <ballsAndChart>');
+		expect(t.cell(flat.findIndex((r) => r.take.id === t9.id), 'takeTail')).toBe('');
+	});
+
 	it('writes enum labels, yes and no, lists and refs', () => {
 		const t = table(plainCsv(rows(), base));
 		const r = a1();

@@ -225,6 +225,7 @@ is its `startedAt`, of a set reference its `loggedAt`.
 | `templateId` | `sg_onset_template` | text | |
 | `take` | `code` | text | |
 | `takeType` | `sg_take_type` | text | the key: `cleanPlate`; empty is Main |
+| `takeTail` | `sg_take_tail` | text | the keys, comma-separated: `cleanPlate, ballsAndChart`; empty is none |
 | `startedAt` | `sg_start_time` | date_time | |
 | `endedAt` | `sg_end_time` | date_time | |
 | `circleTake` | `sg_circled` | checkbox | |
@@ -564,7 +565,7 @@ All seven entities resolve. ShootDay, Slate and Camera are on. Take, Lens, Camer
 Lighting Setup are each one custom entity with that display name; the lens entity is shown as
 "Lens". Take, Camera Setup and Lighting Setup have no field of the site's own yet.
 
-Of the 76 fields we wanted then (78 with `sg_take_type`, #92, and `sg_shots`, #96), five are already there with a fitting type and are used as they are:
+Of the 76 fields we wanted then (79 with `sg_take_type`, #92, `sg_shots`, #96, and `sg_take_tail`, #108), five are already there with a fitting type and are used as they are:
 `ShootDay.sg_shoot_date`, `Slate.sg_shoot_day`, `Slate.sg_set_notes`,
 `Camera.sg_camera_serial_number`, `Lens.sg_lens_serial_number`. Two names are held by a field of
 another type, so ours step aside: `ShootDay.sg_onset_location` and `Lens.sg_onset_focal_length`.

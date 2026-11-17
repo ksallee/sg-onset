@@ -1,16 +1,18 @@
 <script lang="ts">
 	// The takes of the slate being shot, one row per take number. `at` side: a column of rows with
-	// the slate on top, a take's type under its name when it is not Main. `at` top: one strip that
-	// scrolls sideways. The take on screen is marked; a running take shows a square and its time.
+	// the slate on top, under a take's name its type when it is not Main and the plates at its tail.
+	// `at` top: one strip that scrolls sideways. The take on screen is marked; a running take shows a square and its time.
 	// The slate opens the slate picker.
 	import { Ban, ChevronDown, CircleCheck, Images } from '@lucide/svelte';
 	import { formatTime } from '$lib/app/format';
-	import { t, tk } from '$lib/i18n/messages';
+	import { t } from '$lib/i18n/messages';
+	import { groupTail } from '$lib/model/takeTail';
 	import { groupType } from '$lib/model/takeType';
 	import { groupPhase, groupTimes } from '$lib/take/phase';
 	import { groupMark } from '$lib/take/marks';
 	import { elapsedMs, formatElapsed } from '$lib/take/record';
 	import type { Shoot, TakeGroup } from '$lib/take/shoot.svelte';
+	import { typeWords } from '$lib/take/typeText';
 
 	let { shoot, at, onslate }: { shoot: Shoot; at: 'side' | 'top'; onslate: () => void } = $props();
 
@@ -21,11 +23,8 @@
 		return shoot.stills.value.filter((s) => ids.has(s.takeId)).length;
 	};
 	const shown = $derived(shoot.group?.number);
-	/** The take's type, when it is not Main. */
-	const typed = (g: TakeGroup) => {
-		const type = groupType(g.takes);
-		return type && type !== 'main' ? tk(`field.take.takeType.${type}`) : '';
-	};
+	/** The take's type, when it is not Main, and the plates at its tail. */
+	const typed = (g: TakeGroup) => typeWords(groupType(g.takes), groupTail(g.takes)).join(', ');
 
 	// The take on screen stays in view, moved only when out of it, without a scroll animation.
 	let el = $state<HTMLElement | null>(null);
@@ -195,15 +194,14 @@
 		font-weight: 600;
 		letter-spacing: -0.31px;
 	}
-	/* The take type, when it is not Main: a line of its own, so it is never cut. */
+	/* The take type, when it is not Main, and the plates at its tail: lines of their own, wrapped
+	   so a plate at the tail is never cut. */
 	.type {
 		font-size: 13px;
 		line-height: 18px;
 		font-weight: 600;
 		color: var(--label);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		overflow-wrap: anywhere;
 	}
 	.state {
 		display: flex;

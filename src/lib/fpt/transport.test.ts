@@ -784,6 +784,58 @@ describe('a still', () => {
 	});
 });
 
+describe('a setup diagram', () => {
+	const png = (size: number) => new Blob([new Uint8Array(size)], { type: 'image/png' });
+	/** A slate on the server, and the ref of a diagram image of it, as the runner hands it over. */
+	async function slate(w: World) {
+		const ids = await shoot(w);
+		const ref = (size: number, blobId: string): BlobRef => ({ table: 'slate', recordId: 's1', blobId, size, type: 'image/png', variant: 'diagram', recordRemoteId: ids.s1 });
+		return { slate: ids.s1 as number, ref };
+	}
+	const diagrams = (w: World, slate: number) => (w.fpt.rows.get(`Slate:${slate}`)!.values.sg_setup_diagram as { id: number }[] | undefined) ?? [];
+	async function upload(w: World, ref: BlobRef): Promise<RemoteId | undefined> {
+		const s = await w.transport.beginUpload(ref);
+		const part = await w.transport.uploadPart(s, { index: 0, data: png(ref.size) });
+		return (await w.transport.finishUpload(s, [part])).remoteId;
+	}
+
+	it('goes up as an Attachment in the slate’s setup diagram field, named for the slate', async () => {
+		const w = world();
+		const s = await slate(w);
+		const ref = s.ref(4000, 'b-dg1');
+		const id = await upload(w, ref);
+		const init = w.fpt.requests.find((r) => r.path.endsWith('/_upload') && r.method === 'GET')!;
+		expect(init.path).toBe(`/api/v1/entity/slates/${s.slate}/sg_setup_diagram/_upload`);
+		expect(init.query.get('filename')).toBe('onset_diagram_s1_b-dg1.png');
+		const row = attachments(w).find((a) => a.id === id)!;
+		expect(row.values).toMatchObject({ filename: 'onset_diagram_s1_b-dg1.png', display_name: 'Setup diagram' });
+		expect(await w.transport.verifyUpload(ref, id)).toEqual({ verified: true, remoteId: id });
+		expect(diagrams(w, s.slate).map((r) => r.id)).toEqual([id]);
+	});
+
+	it('shows one diagram on the slate once it is drawn again: the old image leaves the field, kept', async () => {
+		const w = world();
+		const s = await slate(w);
+		const first = s.ref(4000, 'b-dg1');
+		const second = s.ref(4100, 'b-dg2');
+		const old = await upload(w, first);
+		await w.transport.verifyUpload(first, old);
+		const neu = await upload(w, second);
+		expect(await w.transport.verifyUpload(second, neu)).toEqual({ verified: true, remoteId: neu });
+		expect(diagrams(w, s.slate).map((r) => r.id)).toEqual([neu]);
+		expect(attachments(w).map((a) => a.id)).toContain(old);
+		// A late check of the old image leaves it off.
+		expect(await w.transport.verifyUpload(first, old)).toMatchObject({ verified: true });
+		expect(diagrams(w, s.slate).map((r) => r.id)).toEqual([neu]);
+	});
+
+	it('waits for its slate on the server', async () => {
+		const w = world();
+		const ref: BlobRef = { table: 'slate', recordId: 's1', blobId: 'b', size: 10, type: 'image/png', variant: 'diagram' };
+		expect(await kindOf(w.transport.beginUpload(ref))).toBe('failed');
+	});
+});
+
 describe('upload', () => {
 	it('sends a photo in one PUT, as an Attachment in the stills field of its take', async () => {
 		const w = world();

@@ -15,8 +15,8 @@ export type FileInfo = {
 	id: string;
 	recordId: string;
 	createdAt: number;
-	variant?: 'annotated';
-	/** For an annotated copy: the key of the drawing it was made from. */
+	variant?: 'annotated' | 'diagram';
+	/** For a file the app made: the key of the drawing it was made from. */
 	source?: string;
 	verifiedAt?: number;
 	prunedAt?: number;

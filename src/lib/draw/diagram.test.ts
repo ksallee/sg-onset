@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Camera, CameraSetup, Lens, Take } from '$lib/model/types';
 import type { Figure, Shape } from './drawing';
-import { cameraCaptions, cameraFov, DIAGRAM_SIZE, placeCameras, setupCameraIds, slateCameras, type SlateCamera } from './diagram';
+import { cameraCaptions, cameraFov, DIAGRAM_SIZE, diagramKey, diagramPlan, placeCameras, setupCameraIds, slateCameras, type SlateCamera } from './diagram';
 import { fieldOfView } from './optics';
 
 const setups: CameraSetup[] = [
@@ -107,6 +107,40 @@ describe('cameraCaptions', () => {
 	it('gives the field of view of a camera of the slate', () => {
 		expect(cameraFov(cams)(of('sA'))).toBe(47.24);
 		expect(cameraFov(cams)(of('sB'))).toBeUndefined();
+	});
+});
+
+describe('diagramKey', () => {
+	const diagram = { id: 'dg', slateId: 's1', ...DIAGRAM_SIZE, shapes: [] as Shape[] };
+	const cams: SlateCamera[] = [{ setupId: 'sA', label: 'A', lens: 'S4/i 32 mm', focal: 32, fov: 47.2 }];
+	it('is the same for the same drawing and the same cameras', () => {
+		const same = { ...diagram, id: 'other' };
+		expect(diagramKey(diagram, cams)).toBe(diagramKey(same, cams));
+		expect(diagramKey(diagram, cams)).toMatch(/^[0-9a-f]{8}$/);
+	});
+	it('changes with a shape, and with a camera’s lens or focal length', () => {
+		const light: Figure = { kind: 'symbol', id: 'l', symbol: 'light', ink: 'black', at: { x: 1, y: 1 }, rotation: 0, size: 48 };
+		expect(diagramKey({ ...diagram, shapes: [light] }, cams)).not.toBe(diagramKey(diagram, cams));
+		expect(diagramKey(diagram, [{ ...cams[0], focal: 50, fov: 31 }])).not.toBe(diagramKey(diagram, cams));
+	});
+});
+
+describe('diagramPlan', () => {
+	const light: Figure = { kind: 'symbol', id: 'l', symbol: 'light', ink: 'black', at: { x: 1, y: 1 }, rotation: 0, size: 48 };
+	const diagram = { id: 'dg', slateId: 's1', ...DIAGRAM_SIZE, shapes: [light] as Shape[] };
+	const file = (id: string, createdAt: number, over: Record<string, unknown> = {}) => ({ id, recordId: 's1', createdAt, variant: 'diagram' as const, ...over });
+	it('asks for an image when there is none made from the diagram as it is, and drops the stale unsent ones', () => {
+		expect(diagramPlan(diagram, 'k2', [file('d1', 1, { source: 'k1' }), file('d0', 0, { source: 'k0', verifiedAt: 5 })])).toEqual({ make: 'k2', drop: ['d1'] });
+	});
+	it('does nothing when the image is there', () => {
+		expect(diagramPlan(diagram, 'k2', [file('d2', 2, { source: 'k2' })])).toEqual({ drop: [] });
+	});
+	it('makes no image of a blank diagram, nor of none, and drops what is unsent', () => {
+		expect(diagramPlan({ ...diagram, shapes: [] }, 'k2', [file('d1', 1, { source: 'k1' })])).toEqual({ drop: ['d1'] });
+		expect(diagramPlan(undefined, 'k2', [file('d1', 1, { source: 'k1' })])).toEqual({ drop: ['d1'] });
+	});
+	it('looks at the diagram images of the slate only', () => {
+		expect(diagramPlan(diagram, 'k2', [{ id: 'p', recordId: 's1', createdAt: 1 }])).toEqual({ make: 'k2', drop: [] });
 	});
 });
 

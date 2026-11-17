@@ -8,7 +8,9 @@ import { t } from '$lib/i18n/messages';
 import { sortSetups } from '$lib/gear/setups';
 import { effectiveFocalLength, isPrime } from '$lib/model/take';
 import type { Camera, CameraSetup, Lens, Take } from '$lib/model/types';
-import type { Drawing, Figure, Shape, Size } from './drawing';
+import { crc32 } from '$lib/store/crc32';
+import { isBlank, styleFor, type Drawing, type Figure, type Shape, type Size } from './drawing';
+import type { FileInfo } from './markup';
 import { fieldOfView, squeezeOf } from './optics';
 
 /** One slate's diagram. The sheet is 1600 by 1200 units, as the exported image. */
@@ -104,6 +106,29 @@ export function cameraCaptions(cameras: readonly SlateCamera[]): (f: Figure) => 
 /** The field of view of a camera of the slate, for its wedge. */
 export function cameraFov(cameras: readonly SlateCamera[]): (f: Figure) => number | undefined {
 	return (f) => cameraOf(cameras, f)?.fov;
+}
+
+/**
+ * A short fingerprint of what the diagram's image shows: its shapes, with the cameras placed, and
+ * what each camera says. A lens swapped, or a zoom's focal length on a later take, changes it.
+ */
+export function diagramKey(diagram: Drawing, cameras: readonly SlateCamera[]): string {
+	const shapes = placeCameras(diagram.shapes, cameras, diagram, styleFor(diagram).symbol);
+	const text = JSON.stringify({ width: diagram.width, height: diagram.height, shapes, cameras });
+	return crc32(new TextEncoder().encode(text)).toString(16).padStart(8, '0');
+}
+
+/**
+ * What to do so the slate's diagram image on Flow PT matches the diagram: `make` an image of the
+ * one with key `key`, and `drop` the images that no longer match and were not seen on Flow PT.
+ * The store refuses to drop one whose upload has left. A blank diagram, or none, gets no image.
+ */
+export function diagramPlan(diagram: Drawing | undefined, key: string, files: readonly FileInfo[]): { make?: string; drop: string[] } {
+	const images = files.filter((f) => f.variant === 'diagram').sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id));
+	const wanted = diagram && !isBlank(diagram);
+	const current = wanted ? images.find((f) => f.source === key) : undefined;
+	const drop = images.filter((f) => f !== current && f.verifiedAt === undefined && f.prunedAt === undefined).map((f) => f.id);
+	return wanted && !current ? { make: key, drop } : { drop };
 }
 
 /** The symbols that stand for a camera setup of the slate: they place themselves, so they are not deleted. */

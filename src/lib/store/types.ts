@@ -25,13 +25,16 @@ export type BlobMeta = {
 	remoteId?: RemoteId;
 	/** When the local bytes were freed. The file is then on the server only. */
 	prunedAt?: number;
-	/** A copy made from the record's first file: `annotated`, a photo with its drawing on it. */
+	/**
+	 * A file made by the app: `annotated`, a photo with its drawing flattened on it, a file of the
+	 * still; `diagram`, a slate's setup diagram as an image, a file of the slate.
+	 */
 	variant?: BlobVariant;
-	/** What a copy was made from: for an annotated copy, the key of the drawing (`$lib/draw/markup`). */
+	/** What it was made from: the key of the drawing (`$lib/draw/markup`, `$lib/draw/diagram`). */
 	source?: string;
 };
 
-export type BlobVariant = 'annotated';
+export type BlobVariant = 'annotated' | 'diagram';
 
 export type StorageStatus = {
 	/** The browser has promised not to evict our data under pressure. */

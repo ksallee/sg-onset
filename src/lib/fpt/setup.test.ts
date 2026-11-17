@@ -33,11 +33,11 @@ describe('checkSetup', () => {
 	});
 
 	// corpus endpoints/get_schema.md: /schema is cheap and /fields is not. One read per type.
-	it('reads the type list once and the fields of each of the seven types and Attachment once', async () => {
+	it('reads the type list once and the fields of each of the seven types, Attachment and Shot once', async () => {
 		const { fpt, check } = world();
 		await check();
 		expect(fpt.requests.map((r) => r.path).sort()).toEqual(
-			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
+			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment', 'Shot'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
 		);
 	});
 
@@ -156,6 +156,27 @@ describe('checkSetup', () => {
 		expect(again.ready).toBe(true);
 		expect(again.reverseFields.every((r) => r.status === 'present')).toBe(true);
 		expect(fpt.requests.slice(before).every((r) => r.method === 'GET')).toBe(true);
+	});
+
+	// The slate's Shots link: a multi_entity to Shot (findings/116) that adds a field on Shot listing
+	// the slates (findings/142), so a Shot shows its slates.
+	it('creates the Shots link of the slate, and Flow PT adds the field on Shot that lists the slates', async () => {
+		const { fpt, check } = world('bare');
+		const before = await check({ createFields: false });
+		expect(field(before, 'slate', 'sg_shots')).toMatchObject({ status: 'missing', dataType: 'multi_entity', validTypes: ['Shot'] });
+		expect(before.reverseFields).toContainEqual({ entityType: 'Shot', name: 'slate_sg_shots_slates', displayName: 'Slates <-> Shots', source: 'Slate.sg_shots', status: 'willAppear' });
+		const report = await check();
+		expect(field(report, 'slate', 'sg_shots').status).toBe('created');
+		expect(fpt.fields.Slate.sg_shots.properties?.valid_types?.value).toEqual(['Shot']);
+		expect(fpt.fields.Shot.slate_sg_shots_slates).toMatchObject({ data_type: { value: 'multi_entity' }, properties: { valid_types: { value: ['Slate'] } } });
+	});
+
+	it('does not create the Shots link when Shot already has the field it would add', async () => {
+		const { fpt, check } = world('bare');
+		fpt.fields.Shot.slate_sg_shots_slates = rawField('text', 'Slates Shots');
+		const report = await check();
+		expect(report.ready).toBe(false);
+		expect(field(report, 'slate', 'sg_shots')).toMatchObject({ status: 'blocked', reason: expect.stringContaining('Shot.slate_sg_shots_slates') });
 	});
 
 	it('does not create a link whose added field would collide, and says which', async () => {

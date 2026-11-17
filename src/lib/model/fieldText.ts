@@ -19,6 +19,17 @@ const NO = ['no', 'n', 'false', '0'];
 const toNumber = (text: string) => Number(text.replace(',', '.'));
 const squash = (text: string) => text.toLowerCase().replace(/\s+/g, '');
 
+/** What separates the items of a list typed as text: a comma, a semicolon, a line from a paste. */
+export const LIST_SEPARATOR = /[,;\v]/;
+
+/** The items of a list typed as text, trimmed, empty ones dropped. */
+export function parseList(text: string): string[] {
+	return text
+		.split(LIST_SEPARATOR)
+		.map((item) => item.trim())
+		.filter((item) => item !== '');
+}
+
 /** The stored value `text` spells for a field of this type, or null when it spells none. */
 function read(def: FieldDef, text: string, system: UnitSystem): FieldValue | null {
 	switch (def.type) {
@@ -46,10 +57,7 @@ function read(def: FieldDef, text: string, system: UnitSystem): FieldValue | nul
 			return m ? { width: toNumber(m[1]), height: toNumber(m[2]) } : null;
 		}
 		case 'stringList':
-			return text
-				.split(/[,;\v]/)
-				.map((item) => item.trim())
-				.filter((item) => item !== '');
+			return parseList(text);
 	}
 }
 

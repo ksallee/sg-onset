@@ -16,6 +16,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `schema.ts` | yes | Entities by display name, the field plan, the `Resolution` kept per site. |
 | `payload.ts` | yes | A record to the `data` of a create or update. A row back to our keys. |
 | `stills.ts` | yes | A still's remote id, file name and display name. |
+| `shots.ts` | yes | A slate's VFX shot codes matched to Shots: the search, what to link and unlink, what waits. |
 | `errors.ts` | yes | What a refusal or a missing answer means. |
 | `token.ts` | yes | The bearer's `exp`, and when to renew it. |
 | `uploadPlan.ts` | yes | Upload sizes, URL life, the completion body. |
@@ -62,6 +63,7 @@ if (report.ready) {
 | `reference` | custom, "Set Reference" | display name |
 | `still` | Attachment, in `sg_photos` on the take | file name |
 | `project` | Project | given: `projectId` |
+| (none) | Shot, in `sg_shots` on the slate | code, in the project. Read and linked, never written |
 
 Custom entities are matched trimmed and whatever the case, among `CustomEntityNN` types only.
 Never by slot number.
@@ -118,7 +120,7 @@ visible and editable, and no create property stops it (corpus findings/142):
 | our field | added on the linked type |
 |---|---|
 | `entity` | `sg_<source display name, plural>`, shown `<source> <-> <field>`: `Take.sg_slate` adds `Slate.sg_takes` |
-| `multi_entity` | `<source slug>_<field>_<source slug>s`: `Take.sg_photos` adds `Attachment.custom_entity09_sg_photos_custom_entity09s` |
+| `multi_entity` | `<source slug>_<field>_<source slug>s`: `Take.sg_photos` adds `Attachment.custom_entity09_sg_photos_custom_entity09s`, `Slate.sg_shots` adds `Shot.slate_sg_shots_slates`, shown "Slates <-> Shots" |
 
 - `planFields` predicts each name (`names.ts`, `reverseField`), from what the site calls the
   source entity. The plural of a built-in or of "Lens" is our English rule; the corpus measured
@@ -155,8 +157,9 @@ names follow `docs/vocabulary.md` (its FPT column): Dutch Angle, Start Time, Cir
 | ref | entity | `{type, id}` |
 
 Every entity also gets `sg_onset_uuid` (text, unique): the record id on the device. The take gets
-`sg_photos` (multi-entity to Attachment). `created_at` of a take is its `startedAt`, of a set
-reference its `loggedAt`.
+`sg_photos` (multi-entity to Attachment). The slate gets `sg_shots`, "Shots" (multi-entity to
+Shot): see "Shot links". `created_at` of a take is its `startedAt`, of a set reference its
+`loggedAt`.
 
 **shootDay**
 
@@ -202,7 +205,7 @@ reference its `loggedAt`.
 | `setup` | `sg_setup` | text | |
 | `lightingSetupId` | `sg_lighting_setup` | entity | |
 | `description` | `description` | text | |
-| `vfxShots` | `sg_vfx_shots` | text | |
+| `vfxShots` | `sg_vfx_shots` | text | as typed; the Shots of the codes go to `sg_shots` |
 | `elementType` | `sg_element_type` | text | |
 | `interiorExterior` | `sg_interior_exterior` | text | |
 | `scriptTime` | `sg_script_time` | text | |
@@ -328,6 +331,36 @@ These are the names asked for. The name on a site can differ: see decision 3.
    (never `HEAD`: it is 403), compare the size, make sure the take's `sg_photos` holds it. A row
    with no bytes is deleted. Only ids are returned.
 
+## Shot links
+
+A slate's VFX shot codes are text on the device and in `sg_vfx_shots`. At sync the transport also
+links the slate to the Shots of the project that have those codes, in `sg_shots`, so a Shot shows
+its slates in the field Flow PT adds on Shot (findings/142). `shots.ts` holds the rules,
+`transport.ts` the calls.
+
+1. A push whose create or update of a slate carries `vfxShots` tells the app (`onShots`) what it
+   owes on each of those slates: every code to link, every code taken off to unlink. Then the
+   batch goes as always, with no Shot in it.
+2. Once the batch is applied: one `_search` of Shot, `project is <the project>` and
+   `code in [<every code>]`, every page. Shot reads are not scoped by the endpoint
+   (entity_types/Shot.md).
+3. Per slate, a `PUT` with `{"multi_entity_update_mode": "remove", "value": [...]}` for the Shots
+   of the codes the edit took off, then one with `add` for the Shots of every code it holds
+   (recipes/009). `add` of a Shot already linked changes nothing (field_types/multi_entity.md).
+4. The app is told what is still owed (`ShotResult`): `waiting`, codes no Shot has or whose `add`
+   failed; `several`, codes more than one Shot has; `unlink`, codes whose `remove` failed.
+5. `linkShots` does steps 2 and 3 for slates the server holds, from what is owed: it links what
+   waits, unlinks what is owed, and looks again at the codes several Shots share without linking
+   them. The app calls it when a drain ends (app/sync README).
+
+- A code matches as Flow PT matches text: trimmed, whatever the case (field_types/text.md).
+- Shot codes are not unique: a code several Shots have links them all, and is named so someone
+  cleans up (Kevin, #96).
+- A link someone made in Flow PT stays: only the Shots of codes taken off on the device are
+  unlinked. A bare list, or the mode in the query string, would replace the field (recipes/009).
+- None of it can fail a push. A write that gets no answer is owed, and made at a later sync.
+- A Shot is never created, renamed or changed.
+
 ## Decisions
 
 Made by Claude. Kevin can overrule any of them.
@@ -350,7 +383,7 @@ Made by Claude. Kevin can overrule any of them.
    rate, so a 23.976 timecode cannot be kept in it; `duration` is integer minutes (corpus
    findings/145, field_types/timecode.md). Text keeps `HH:MM:SS:FF` as the stock cut fields do.
 8. **A list of strings is one text,** comma-separated. An item with a comma would split.
-   `vfxShots` are not links to Shots.
+   `vfxShots` stays text as typed; its Shots are linked beside it in `sg_shots` (Shot links).
 9. **The record's name is `code`:** slate id, take number, camera model, lens model, setup labels.
    A shoot day's `code` is its date, and the date is a date field too.
 10. **Notes are `sg_set_notes`.** The stock `notes` field links Note records.
@@ -395,7 +428,6 @@ Made by Claude. Kevin can overrule any of them.
     custom field through an `sg_` entity field (findings/138), so a take's slate comes back as its
     client UUID with no second request. A photo's take comes from its `attachment_links`
     (findings/134), also with no second request.
-
 26. **A set reference is a row of the project custom entity "Set Reference", linked to its slate**
     (Kevin, 2026-11-17). Each studio enables the slot and names it in the web interface, as for
     Take: no call does (findings/114, findings/122, 400 code 111). Until it is there the setup check
@@ -404,6 +436,18 @@ Made by Claude. Kevin can overrule any of them.
 27. **The kind of a set reference is text:** a built-in key (`hdri360`), as an enum keeps its key
     (decision 7), or a project's own kind as typed. No list field: a project adds kinds, and a list
     would need an admin for each.
+28. **Shot links go by single `PUT`, after the batch.** The `multi_entity_update_mode` wrapper is
+    measured on `PUT /entity/<type>/<id>` only; inside a `_batch` update it is not. A link in the
+    batch would also let one dead Shot id refuse the whole batch ("Value is not legal",
+    recipes/002). So the slate lands first, and its links follow.
+29. **A code with no Shot waits, and is asked about again.** The device keeps it (app/sync), and a
+    later sync links it once a Shot has it (Kevin, #96). A code whose Shot is there but unlinked
+    is never linked again: someone unlinked it in Flow PT on purpose.
+30. **A code several Shots have links them all, and is listed** (Kevin, #96). Shot codes are not
+    unique (entity_types/Shot.md), and nothing on the device tells them apart. Later syncs look at
+    the code again, never linking: it leaves the list once one Shot or none has it.
+31. **An unlink that fails is owed, and made at a later sync,** until Flow PT matches the slate
+    (Kevin, #96). It is dropped once the slate holds the code again.
 
 ## Where FPT did not fit the contract
 
@@ -455,6 +499,12 @@ Still open:
    target, and how it pluralises a display name outside the custom slots measured.
 5. Whether a part PUT's `Content-Type` sets the stored type of a multipart file.
 6. A real browser run of the whole upload (the measurements are a process reading headers).
+7. Whether `{"multi_entity_update_mode": "add" | "remove", "value": [...]}` works inside a `_batch`
+   update as it does on a single `PUT`, and whether two updates of one record in one batch apply
+   in order. Until then Shot links are single `PUT`s after the batch (decision 28).
+8. The name of the field a multi_entity on Slate adds on Shot. Predicted `slate_sg_shots_slates`
+   from the measured `version_sg_ai_generated_from_versions` (field_types/multi_entity.md) and the
+   slot form of findings/142; Slate itself was not measured.
 
 ## On the probed site, read 2026-11-11
 
@@ -464,7 +514,7 @@ All seven entities resolve. ShootDay, Slate and Camera are on. Take, Lens, Camer
 Lighting Setup are each one custom entity with that display name; the lens entity is shown as
 "Lens". Take, Camera Setup and Lighting Setup have no field of the site's own yet.
 
-Of the 76 fields we wanted then (77 with `sg_take_type`, #92), five are already there with a fitting type and are used as they are:
+Of the 76 fields we wanted then (78 with `sg_take_type`, #92, and `sg_shots`, #96), five are already there with a fitting type and are used as they are:
 `ShootDay.sg_shoot_date`, `Slate.sg_shoot_day`, `Slate.sg_set_notes`,
 `Camera.sg_camera_serial_number`, `Lens.sg_lens_serial_number`. Two names are held by a field of
 another type, so ours step aside: `ShootDay.sg_onset_location` and `Lens.sg_onset_focal_length`.

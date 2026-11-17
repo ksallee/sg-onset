@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { findField } from './catalogue';
 import { nextTake } from './take';
-import { groupType, planTypeEdit, storedTakeType, TAKE_TYPES, takeTypeOf, turnOffPatch, typePatch, type SwitchRef } from './takeType';
-import type { LightingSetup, Slate, Take } from './types';
+import { groupType, KIND_SWITCHES, planReferenceEdit, planTypeEdit, storedTakeType, TAKE_TYPES, takeTypeOf, turnOffPatch, typePatch, type SwitchRef } from './takeType';
+import type { LightingSetup, Reference, Slate, Take } from './types';
 
 const take = (id: string, slateId: string, rest: Partial<Take> = {}): Take => ({ id, slateId, take: '1', ...rest });
 const slate = (id: string, rest: Partial<Slate> = {}): Slate => ({ id, shootDayId: 'd', slateUID: id, ...rest });
@@ -196,5 +196,109 @@ describe('turnOffPatch', () => {
 			slate: [{ id: 's1', key: 'cleanPlate', from: true, to: undefined }],
 			lightingSetup: [{ id: 'L', key: 'referenceBalls', from: true, to: undefined }]
 		});
+	});
+
+	it('turns off a switch a reference kind turned on', () => {
+		const refs: SwitchRef[] = [
+			{ scope: 'lightingSetup', id: 'L', key: 'hdri' },
+			{ scope: 'slate', id: 's1', key: 'lidar' }
+		];
+		expect(turnOffPatch(refs, [slate('s1', { lidar: true })], [lighting('L', { hdri: true })])).toEqual({
+			slate: [{ id: 's1', key: 'lidar', from: true, to: undefined }],
+			lightingSetup: [{ id: 'L', key: 'hdri', from: true, to: undefined }]
+		});
+	});
+});
+
+// Set references (#93): a reference of kind HDRI 360, Witness camera or Lidar scan follows the
+// rule of the take type.
+describe('KIND_SWITCHES', () => {
+	it('turns on the lighting setup HDRI, the slate Witness camera and the slate Lidar scan', () => {
+		expect(KIND_SWITCHES).toEqual({
+			hdri360: [{ scope: 'lightingSetup', key: 'hdri' }],
+			witnessCamera: [{ scope: 'slate', key: 'witnessCamera' }],
+			lidarScan: [{ scope: 'slate', key: 'lidar' }]
+		});
+	});
+});
+
+describe('planReferenceEdit', () => {
+	const ref = (id: string, slateId: string, kind: string): Reference => ({ id, slateId, kind, name: id });
+
+	it('turns on the slate switch when a lidar scan or a witness camera clip is logged', () => {
+		const plan = planReferenceEdit({ before: [], after: [ref('r1', 's1', 'lidarScan')], takes: [], slates: [slate('s1')], lightingSetups: [] });
+		expect(plan.slate).toEqual([{ id: 's1', key: 'lidar', from: undefined, to: true }]);
+		expect(plan.on).toEqual<SwitchRef[]>([{ scope: 'slate', id: 's1', key: 'lidar' }]);
+		expect(plan.left).toEqual([]);
+		const witness = planReferenceEdit({ before: [], after: [ref('r2', 's1', 'witnessCamera')], takes: [], slates: [slate('s1')], lightingSetups: [] });
+		expect(witness.slate).toEqual([{ id: 's1', key: 'witnessCamera', from: undefined, to: true }]);
+	});
+
+	it('turns on the HDRI of the lighting setup for an HDRI 360, and nothing with no lighting setup', () => {
+		const r = ref('r1', 's1', 'hdri360');
+		const plan = planReferenceEdit({ before: [], after: [r], takes: [], slates: [slate('s1', { lightingSetupId: 'L' })], lightingSetups: [lighting('L')] });
+		expect(plan.lightingSetup).toEqual([{ id: 'L', key: 'hdri', from: undefined, to: true }]);
+		expect(plan.on).toEqual<SwitchRef[]>([{ scope: 'lightingSetup', id: 'L', key: 'hdri' }]);
+		expect(planReferenceEdit({ before: [], after: [r], takes: [], slates: [slate('s1')], lightingSetups: [] }).on).toEqual([]);
+	});
+
+	it('turns nothing on for the other kinds, a project kind, or a switch already on', () => {
+		for (const kind of ['video360', 'hdrReference', 'texturedModel', 'photogrammetry', 'splat', 'other', 'Drone survey']) {
+			const plan = planReferenceEdit({ before: [], after: [ref('r', 's1', kind)], takes: [], slates: [slate('s1', { lightingSetupId: 'L' })], lightingSetups: [lighting('L')] });
+			expect(plan.on, kind).toEqual([]);
+		}
+		expect(planReferenceEdit({ before: [], after: [ref('r', 's1', 'lidarScan')], takes: [], slates: [slate('s1', { lidar: true })], lightingSetups: [] }).slate).toEqual([]);
+	});
+
+	it('never turns a switch off', () => {
+		const plan = planReferenceEdit({ before: [ref('r1', 's1', 'lidarScan')], after: [], takes: [], slates: [slate('s1', { lidar: true })], lightingSetups: [] });
+		expect(plan.slate).toEqual([]);
+	});
+
+	it('offers the switch when the last reference of its kind goes', () => {
+		const plan = planReferenceEdit({ before: [ref('r1', 's1', 'lidarScan')], after: [], takes: [], slates: [slate('s1', { lidar: true })], lightingSetups: [] });
+		expect(plan.left).toEqual<SwitchRef[]>([{ scope: 'slate', id: 's1', key: 'lidar' }]);
+	});
+
+	it('offers nothing while another reference of the kind stays, or for a switch already off', () => {
+		const a = ref('a', 's1', 'witnessCamera');
+		const b = ref('b', 's1', 'witnessCamera');
+		expect(planReferenceEdit({ before: [a, b], after: [b], takes: [], slates: [slate('s1', { witnessCamera: true })], lightingSetups: [] }).left).toEqual([]);
+		expect(planReferenceEdit({ before: [a], after: [], takes: [], slates: [slate('s1')], lightingSetups: [] }).left).toEqual([]);
+	});
+
+	it('counts HDRI 360 references across every slate on the lighting setup', () => {
+		const a = ref('a', 's1', 'hdri360');
+		const b = ref('b', 's2', 'hdri360');
+		const slates = [slate('s1', { lightingSetupId: 'L' }), slate('s2', { lightingSetupId: 'L' })];
+		const lights = [lighting('L', { hdri: true })];
+		expect(planReferenceEdit({ before: [a, b], after: [b], takes: [], slates, lightingSetups: lights }).left).toEqual([]);
+		expect(planReferenceEdit({ before: [a], after: [], takes: [], slates, lightingSetups: lights }).left).toEqual<SwitchRef[]>([{ scope: 'lightingSetup', id: 'L', key: 'hdri' }]);
+	});
+
+	it('turns on the new kind and offers the old one when a kind changes', () => {
+		const before = ref('r1', 's1', 'lidarScan');
+		const after = { ...before, kind: 'witnessCamera' };
+		const plan = planReferenceEdit({ before: [before], after: [after], takes: [], slates: [slate('s1', { lidar: true })], lightingSetups: [] });
+		expect(plan.slate).toEqual([{ id: 's1', key: 'witnessCamera', from: undefined, to: true }]);
+		expect(plan.left).toEqual<SwitchRef[]>([{ scope: 'slate', id: 's1', key: 'lidar' }]);
+	});
+
+	it('does nothing for an edit that keeps the kind', () => {
+		const r = ref('r1', 's1', 'lidarScan');
+		const plan = planReferenceEdit({ before: [r], after: [{ ...r, device: 'BLK360' }], takes: [], slates: [slate('s1', { lidar: true })], lightingSetups: [] });
+		expect(plan).toEqual({ slate: [], lightingSetup: [], on: [], left: [] });
+	});
+
+	it('counts what a take holds as well, but only for its own switch', () => {
+		// No take type and no kind share a switch today: a clean plate take keeps nothing of a lidar scan.
+		const plan = planReferenceEdit({
+			before: [ref('r1', 's1', 'lidarScan')],
+			after: [],
+			takes: [take('t', 's1', { takeType: 'cleanPlate' })],
+			slates: [slate('s1', { lidar: true, cleanPlate: true })],
+			lightingSetups: []
+		});
+		expect(plan.left).toEqual<SwitchRef[]>([{ scope: 'slate', id: 's1', key: 'lidar' }]);
 	});
 });

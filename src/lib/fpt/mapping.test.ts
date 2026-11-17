@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { endKey, FIELDS } from '$lib/model/catalogue';
 import { linkKeys } from '$lib/store/tables';
-import { ENTITY_SCOPES, ENTITY_TYPES, fieldMap, fieldMaps, mappingTable, SHOTS, STILLS, UUID, wantedColumns, type EntityScope } from './mapping';
+import { CREATED_AT, ENTITY_SCOPES, ENTITY_TYPES, fieldMap, fieldMaps, mappingTable, SHOTS, STILLS, UUID, wantedColumns, type EntityScope } from './mapping';
 import { codeName } from './names';
 
 const names = (scope: EntityScope) => wantedColumns(scope).map((c) => c.name);
@@ -79,6 +79,7 @@ describe('fieldMaps', () => {
 		expect(fieldMap('cameraSetup', 'cameraLabel')!.columns[0]).toMatchObject(code);
 		expect(fieldMap('lightingSetup', 'label')!.columns[0]).toMatchObject(code);
 		expect(fieldMap('slate', 'description')!.columns[0]).toMatchObject({ name: 'description', stock: true });
+		expect(fieldMap('reference', 'name')!.columns[0]).toMatchObject(code);
 	});
 
 	it('names a shoot day by its date as well', () => {
@@ -86,7 +87,7 @@ describe('fieldMaps', () => {
 	});
 
 	it('keeps notes off the stock notes field, which links Note records', () => {
-		for (const scope of ['lightingSetup', 'slate', 'take'] as const) {
+		for (const scope of ['lightingSetup', 'slate', 'take', 'reference'] as const) {
 			expect(fieldMap(scope, 'notes')!.columns[0]).toMatchObject({ name: 'sg_set_notes', dataType: 'text' });
 		}
 	});
@@ -98,6 +99,7 @@ describe('fieldMaps', () => {
 		expect(fieldMap('take', 'cameraSetupId')!.columns[0]).toMatchObject({ name: 'sg_camera_setup', target: 'cameraSetup' });
 		expect(fieldMap('cameraSetup', 'lensId')!.columns[0]).toMatchObject({ name: 'sg_lens', target: 'lens' });
 		expect(fieldMap('slate', 'lightingSetupId')!.columns[0]).toMatchObject({ name: 'sg_lighting_setup', target: 'lightingSetup' });
+		expect(fieldMap('reference', 'slateId')!.columns[0]).toMatchObject({ name: 'sg_slate', dataType: 'entity', target: 'slate' });
 	});
 
 	it('keeps the template link, as text', () => {
@@ -156,10 +158,22 @@ describe('wantedColumns', () => {
 		expect(names('cameraSetup').sort()).toEqual(['sg_camera', 'sg_lens', 'sg_onset_uuid', 'sg_sort_order']);
 		expect(fieldMap('cameraSetup', 'order')).toMatchObject({ kind: 'integer', columns: [{ name: 'sg_sort_order', display: 'Sort Order', dataType: 'number' }] });
 	});
+
+	it('lists what a set reference needs: its slate, its kind as text, and the rest of the log', () => {
+		expect(names('reference').sort()).toEqual(['sg_card_or_roll', 'sg_count', 'sg_device', 'sg_kind', 'sg_logged_at', 'sg_onset_uuid', 'sg_set_notes', 'sg_slate']);
+		expect(fieldMap('reference', 'kind')).toMatchObject({ kind: 'text', columns: [{ name: 'sg_kind', display: 'Kind', dataType: 'text' }] });
+		expect(fieldMap('reference', 'cardOrRoll')!.columns[0]).toMatchObject({ name: 'sg_card_or_roll', display: 'Card or Roll' });
+		expect(fieldMap('reference', 'count')!.columns[0]).toMatchObject({ name: 'sg_count', dataType: 'number' });
+		expect(fieldMap('reference', 'templateId')).toBeUndefined();
+	});
+
+	it('dates a set reference by when it was logged, as a take by its start', () => {
+		expect(CREATED_AT).toEqual({ take: 'startedAt', reference: 'loggedAt' });
+	});
 });
 
 describe('ENTITY_TYPES', () => {
-	it('names the three built-in types and the four display names to find', () => {
+	it('names the three built-in types and the five display names to find', () => {
 		expect(ENTITY_TYPES).toEqual({
 			shootDay: { kind: 'builtin', entityType: 'ShootDay', displayName: 'Shoot Day' },
 			slate: { kind: 'builtin', entityType: 'Slate', displayName: 'Slate' },
@@ -167,7 +181,8 @@ describe('ENTITY_TYPES', () => {
 			take: { kind: 'custom', displayName: 'Take' },
 			lens: { kind: 'custom', displayName: 'Lens', aliases: ['Lenses'] },
 			cameraSetup: { kind: 'custom', displayName: 'Camera Setup' },
-			lightingSetup: { kind: 'custom', displayName: 'Lighting Setup' }
+			lightingSetup: { kind: 'custom', displayName: 'Lighting Setup' },
+			reference: { kind: 'custom', displayName: 'Set Reference' }
 		});
 	});
 });

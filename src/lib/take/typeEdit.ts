@@ -30,7 +30,8 @@ async function readAround(app: App, takeIds: readonly string[]): Promise<Around>
 	return { takes, slates, lightingSetups };
 }
 
-const namesOf = (around: Pick<Around, 'slates' | 'lightingSetups'>): SwitchNames => ({
+/** The names a notice gives the slates and lighting setups read. */
+export const namesOf = (around: Pick<Around, 'slates' | 'lightingSetups'>): SwitchNames => ({
 	slate: (id) => around.slates.find((s) => s.id === id)?.slateUID ?? '',
 	lightingSetup: (id) => around.lightingSetups.find((l) => l.id === id)?.label ?? ''
 });
@@ -58,8 +59,8 @@ export async function applyTakeEdit(app: App, patch: Patch, label: Label): Promi
 	}
 }
 
-/** Turns off the switches given that are still on, as one undo entry. */
-async function turnOff(app: App, refs: readonly SwitchRef[]): Promise<void> {
+/** Turns off the switches given that are still on, as one undo entry. The set references' Turn Off too. */
+export async function turnOff(app: App, refs: readonly SwitchRef[]): Promise<void> {
 	const ids = (scope: SwitchRef['scope']) => [...new Set(refs.filter((r) => r.scope === scope).map((r) => r.id))];
 	const slates = present(await Promise.all(ids('slate').map((id) => app.store.get('slate', id))));
 	const lightingSetups = present(await Promise.all(ids('lightingSetup').map((id) => app.store.get('lightingSetup', id))));

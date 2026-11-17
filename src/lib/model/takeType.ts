@@ -1,11 +1,15 @@
 // The take type: what a take is for. No value is Main. Two types file the take with what its slate
 // and lighting setup record: a clean plate turns on the slate's Clean plate, balls and chart turn on
 // the lighting setup's Grey and chrome balls and Colour chart. The app turns a switch on, never off.
-// A switch still on when no take holds its type any more is offered to turn off. Pure.
+// A switch still on when no take holds its type any more is offered to turn off.
+//
+// A set reference follows the same rule (#93): an HDRI 360 turns on the lighting setup's HDRI, a
+// witness camera clip the slate's Witness camera, a lidar scan the slate's Lidar scan. Removing the
+// last one offers the switch to turn off. Pure.
 
 import { FIELDS } from './catalogue';
 import { applyPatch, change, type Change, type Patch } from './patch';
-import type { LightingSetup, Slate, Take } from './types';
+import type { LightingSetup, Reference, Slate, Take } from './types';
 
 type TakeTypeDef = Extract<(typeof FIELDS)[number], { scope: 'take'; key: 'takeType' }>;
 
@@ -13,8 +17,8 @@ type TakeTypeDef = Extract<(typeof FIELDS)[number], { scope: 'take'; key: 'takeT
 export const TAKE_TYPES: TakeTypeDef['options'] = FIELDS.find((d): d is TakeTypeDef => d.scope === 'take' && d.key === 'takeType')!.options;
 export type TakeType = TakeTypeDef['options'][number];
 
-/** One yes-or-no field a type turns on. */
-export type SwitchKey = { scope: 'slate'; key: 'cleanPlate' } | { scope: 'lightingSetup'; key: 'referenceBalls' | 'colourChart' };
+/** One yes-or-no field a take type or a kind of set reference turns on. */
+export type SwitchKey = { scope: 'slate'; key: 'cleanPlate' | 'witnessCamera' | 'lidar' } | { scope: 'lightingSetup'; key: 'referenceBalls' | 'colourChart' | 'hdri' };
 /** That field on one record. */
 export type SwitchRef = SwitchKey & { id: string };
 
@@ -26,6 +30,19 @@ export const TYPE_SWITCHES: Readonly<Partial<Record<TakeType, readonly SwitchKey
 		{ scope: 'lightingSetup', key: 'colourChart' }
 	]
 };
+
+/**
+ * The switches each kind of set reference turns on, by the kind's key (lib/references/kinds.ts).
+ * The other kinds, and a project's own, turn on nothing.
+ */
+export const KIND_SWITCHES: Readonly<Record<string, readonly SwitchKey[]>> = {
+	hdri360: [{ scope: 'lightingSetup', key: 'hdri' }],
+	witnessCamera: [{ scope: 'slate', key: 'witnessCamera' }],
+	lidarScan: [{ scope: 'slate', key: 'lidar' }]
+};
+
+/** The switches a reference of `kind` turns on. */
+const kindSwitches = (kind: string | undefined): readonly SwitchKey[] => (kind && Object.hasOwn(KIND_SWITCHES, kind) ? KIND_SWITCHES[kind] : []);
 
 const isType = (value: unknown): value is TakeType => (TAKE_TYPES as readonly unknown[]).includes(value);
 
@@ -129,6 +146,67 @@ export function planTypeEdit(input: TypeEditInput): TypeEditPlan {
 	const left = [...leaving.values()].filter((r) => isOn(r, slatesAfter, lightsAfter) && !held(r));
 
 	return { take, slate, lightingSetup, on, left };
+}
+
+export type ReferenceEditInput = {
+	/** Before the edit: every reference of the slates it touches, and of every slate on their lighting setups. */
+	before: readonly Reference[];
+	/** The same after it: a reference added, one gone, one of another kind. */
+	after: readonly Reference[];
+	/** The takes of those slates: a take holds a switch its type turns on. */
+	takes: readonly Take[];
+	slates: readonly Slate[];
+	lightingSetups: readonly LightingSetup[];
+};
+
+export type SwitchPlan = Omit<TypeEditPlan, 'take'>;
+
+/**
+ * What an edit of set references does to the switches: the switches the kinds added turn on, and
+ * those the kinds gone leave on with nothing to hold them. A reference holds its kind's switch on
+ * its slate, or on its slate's lighting setup; a take holds its type's. Never one turned off.
+ */
+export function planReferenceEdit(input: ReferenceEditInput): SwitchPlan {
+	const slates = new Map(input.slates.map((s) => [s.id, s]));
+	const lights = new Map(input.lightingSetups.map((l) => [l.id, l]));
+	const where = (s: SwitchKey, slateId: string): SwitchRef[] => {
+		if (s.scope === 'slate') return slates.has(slateId) ? [{ ...s, id: slateId }] : [];
+		const id = slates.get(slateId)?.lightingSetupId;
+		return id && lights.has(id) ? [{ ...s, id }] : [];
+	};
+	const refsOf = (r: Reference) => kindSwitches(r.kind).flatMap((s) => where(s, r.slateId));
+
+	const before = new Map(input.before.map((r) => [r.id, r]));
+	const after = new Map(input.after.map((r) => [r.id, r]));
+	/** The same reference, holding the same switches. */
+	const same = (a: Reference | undefined, b: Reference) => a !== undefined && a.kind === b.kind && a.slateId === b.slateId;
+	const turnOn = new Map<string, SwitchRef>();
+	const leaving = new Map<string, SwitchRef>();
+	for (const r of input.after) {
+		if (same(before.get(r.id), r)) continue;
+		for (const s of refsOf(r)) turnOn.set(refKey(s), s);
+	}
+	for (const r of input.before) {
+		if (same(after.get(r.id), r)) continue;
+		for (const s of refsOf(r)) leaving.set(refKey(s), s);
+	}
+
+	const isOn = (r: SwitchRef, slateList: Map<string, Slate>, lightList: Map<string, LightingSetup>) =>
+		(r.scope === 'slate' ? slateList.get(r.id)?.[r.key] : lightList.get(r.id)?.[r.key]) === true;
+	const on = [...turnOn.values()].filter((r) => !isOn(r, slates, lights));
+	const slate = on.filter((r) => r.scope === 'slate').map((r) => change(slates.get(r.id)!, r.key, true));
+	const lightingSetup = on.filter((r) => r.scope === 'lightingSetup').map((r) => change(lights.get(r.id)!, r.key, true));
+
+	const slatesAfter = new Map(applyPatch(input.slates, slate).map((s) => [s.id, s]));
+	const lightsAfter = new Map(applyPatch(input.lightingSetups, lightingSetup).map((l) => [l.id, l]));
+	/** Some reference after the edit, or some take, holds the switch on that record. */
+	const holds = (switches: readonly SwitchKey[], slateId: string, r: SwitchRef) =>
+		switches.some((s) => s.scope === r.scope && s.key === r.key) && (r.scope === 'slate' ? slateId === r.id : slatesAfter.get(slateId)?.lightingSetupId === r.id);
+	const held = (r: SwitchRef) =>
+		input.after.some((x) => holds(kindSwitches(x.kind), x.slateId, r)) || input.takes.some((t) => holds(TYPE_SWITCHES[takeTypeOf(t)] ?? [], t.slateId, r));
+	const left = [...leaving.values()].filter((r) => isOn(r, slatesAfter, lightsAfter) && !held(r));
+
+	return { slate, lightingSetup, on, left };
 }
 
 /** Turns off the switches given that are still on, per table. */

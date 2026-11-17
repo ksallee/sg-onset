@@ -67,6 +67,25 @@ describe('createData', () => {
 		expect(data).toEqual({ project: { type: 'Project', id: 70 }, sg_onset_uuid: 't1', sg_slate: { type: 'Slate', id: 21 }, code: '1' });
 	});
 
+	it('builds a set reference: a row linked to its slate, its kind as text, dated when it was logged', () => {
+		const fields = { slateId: 's1', kind: 'hdri360', name: 'HDRI_0412', device: 'Ricoh Theta Z1', cardOrRoll: 'A003', count: 7, notes: 'Noon sun', loggedAt: '2026-11-17T10:22:33.000Z' };
+		expect(ok(createData(RESOLUTION, 'reference', 'r1', fields, links, PROJECT))).toEqual({
+			project: { type: 'Project', id: 70 },
+			sg_onset_uuid: 'r1',
+			created_at: '2026-11-17T10:22:33Z',
+			sg_slate: { type: 'Slate', id: 21 },
+			sg_kind: 'hdri360',
+			code: 'HDRI_0412',
+			sg_device: 'Ricoh Theta Z1',
+			sg_card_or_roll: 'A003',
+			sg_count: 7,
+			sg_set_notes: 'Noon sun',
+			sg_logged_at: '2026-11-17T10:22:33Z'
+		});
+		// A project's own kind is sent as typed.
+		expect(ok(createData(RESOLUTION, 'reference', 'r2', { slateId: 's1', kind: 'Drone survey', name: 'Flight 1' }, links, PROJECT))).toMatchObject({ sg_kind: 'Drone survey', code: 'Flight 1' });
+	});
+
 	it('builds each of the other scopes', () => {
 		expect(ok(createData(RESOLUTION, 'shootDay', 'd1', { projectId: 'p1', shootDate: '2026-11-11', shootDay: 12, cameraUnit: 'Main' }, links, PROJECT))).toEqual({
 			project: { type: 'Project', id: 70 },

@@ -15,6 +15,7 @@ import { fieldLabel, optionLabel, unitLabel } from '$lib/i18n/modelText';
 import { t, tk } from '$lib/i18n/messages';
 import type { PlainLabels } from '$lib/export/plainCsv';
 import { download } from '$lib/pwa/files';
+import { kindLabel } from '$lib/references/kinds';
 import { memorySink, opfsSink, removeExport } from '$lib/store/backup';
 import { packagePlan, type PackageEntry } from './assembly';
 import { defaultChoice, pickedDays, readiness, setSpan, toggleDay, toggleFile, type FileKind, type Span, type TextKind, type WrapChoice } from './choice';
@@ -36,7 +37,9 @@ export const plainLabels: PlainLabels = {
 	option: (def, option) => optionLabel(def, option),
 	unit: (unit) => (unit === 'ft' ? t('wrap.unit.ft') : unitLabel(unit)),
 	yes: t('wrap.yes'),
-	no: t('wrap.no')
+	no: t('wrap.no'),
+	references: t('wrap.report.references'),
+	kind: (kind) => kindLabel(kind, tk)
 };
 
 const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -56,7 +59,7 @@ function readLog(): ExportLog {
 
 export type Phase = 'idle' | 'building' | 'ready' | 'failed' | 'cancelled' | 'handed';
 
-type Loaded = { input: ExportInput; blobs: PhotoBlob[] } | undefined;
+type Loaded = { input: ExportInput; blobs: PhotoBlob[]; kinds: string[] } | undefined;
 
 export class Wrap {
 	readonly #app: App;
@@ -86,7 +89,7 @@ export class Wrap {
 	readonly readiness = $derived(readiness(this.choice, this.days.length));
 	/** The summary of the current day: every take, no filters. */
 	readonly report = $derived.by<DayReport | undefined>(() => (this.input && this.#current.shootDay ? dayReport(this.input, this.#current.shootDay.id) : undefined));
-	readonly summary = $derived.by(() => (this.report ? daySummary(this.report) : undefined));
+	readonly summary = $derived.by(() => (this.report ? daySummary(this.report, this.data.value?.kinds ?? []) : undefined));
 	readonly made = $derived.by(() => (this.input ? makeTexts(this.input, this.choice, this.days.map((d) => d.id), { now: new Date().toISOString(), timeZone: timeZone(), labels: plainLabels }) : undefined));
 	readonly reports = $derived.by(() => {
 		const input = this.input;
@@ -119,11 +122,11 @@ export class Wrap {
 		this.#app = app;
 		this.#current = current;
 		this.data = live<Loaded>(
-			['project', 'shootDay', 'lightingSetup', 'cameraSetup', 'camera', 'lens', 'slate', 'take', 'still', 'blobs'],
+			['project', 'shootDay', 'lightingSetup', 'cameraSetup', 'camera', 'lens', 'slate', 'take', 'still', 'reference', 'referenceKind', 'blobs'],
 			async (store) => {
 				const projectId = current.project?.id;
 				if (!projectId) return undefined;
-				const [projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills] = await Promise.all([
+				const [projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills, references, kinds] = await Promise.all([
 					store.list('project'),
 					store.list('shootDay', projectId),
 					store.list('lightingSetup', projectId),
@@ -132,12 +135,14 @@ export class Wrap {
 					store.list('lens', projectId),
 					store.list('slate'),
 					store.list('take'),
-					store.list('still')
+					store.list('still'),
+					store.list('reference'),
+					store.list('referenceKind', projectId)
 				]);
-				const input = projectInput(projectId, { projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills });
+				const input = projectInput(projectId, { projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills, references });
 				if (!input) return undefined;
 				const blobs = (await Promise.all(input.stills.map((s) => store.blobsOf(s.id)))).flat();
-				return { input, blobs };
+				return { input, blobs, kinds: kinds.map((k) => k.name) };
 			},
 			undefined
 		);

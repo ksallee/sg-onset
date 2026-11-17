@@ -10,7 +10,7 @@
 
 import type { Project, Reference, ShootDay, Slate } from '$lib/model/types';
 import type { BlobMeta } from '$lib/store/types';
-import { exportFileName, extensionFor, folderName, kindFolders, manifestFileName, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
+import { audioFileName, exportFileName, extensionFor, folderName, kindFolders, manifestFileName, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
 import { referencesBySlate, type FlatTake } from './selection';
 import { slateManifest } from './slateManifest';
 
@@ -18,10 +18,10 @@ import { slateManifest } from './slateManifest';
 export type PhotoBlob = Pick<BlobMeta, 'id' | 'recordId' | 'type' | 'size' | 'createdAt' | 'name' | 'prunedAt'>;
 
 /**
- * What a file in a slate's folder is. A photo today. Videos (#94), audio notes (#89) and
- * annotated copies (#86) of a take, and the setup diagram (#87) of a slate, add theirs.
+ * What a file in a slate's folder is: a photo (a video is one too, #94), an audio note (#89).
+ * Annotated copies (#86) of a take, and the setup diagram (#87) of a slate, add theirs.
  */
-export type Media = 'photo';
+export type Media = 'photo' | 'audio';
 
 /** A file in a slate's folder: one of a take's, or the slate's own. Its bytes are a stored file. */
 export type SlateFile = {
@@ -32,7 +32,7 @@ export type SlateFile = {
 	size: number;
 	/** The stored file, read with `store.blob(id)`. */
 	blobId: string;
-	/** The record it is the file of: a still. */
+	/** The record it is the file of: a still, a photo's or an audio note's. */
 	recordId: string;
 	/** The bytes left the device after Flow PT verified them: fetch them or skip the file. */
 	pruned: boolean;
@@ -76,7 +76,7 @@ export type WrapPlan = {
 	entries: WrapEntry[];
 	/** The slate folders, in order. */
 	slates: SlateFolder[];
-	/** Photos with no stored file at all. */
+	/** Photos and audio notes with no stored file at all. */
 	missingPhotos: string[];
 };
 
@@ -86,7 +86,7 @@ export type WrapOptions = {
 	shootDays: readonly ShootDay[];
 	/** The files of the photos, as `store.blobsOf(still.id)` returns them. */
 	blobs: readonly PhotoBlob[];
-	/** Include the photos. Default true. */
+	/** Include the photos, and the audio notes with them. Default true. */
 	photos?: boolean;
 	/**
 	 * The slates of the days picked, as `selectSlates` gives them, so a slate with set references
@@ -103,10 +103,11 @@ export type WrapOptions = {
 
 /** What `takeFiles` and `slateFiles` read. One per package: the photo numbers run across it. */
 export type FileContext = {
+	/** The photos and the audio notes go in. */
 	photos: boolean;
 	/** The first stored file of each record: later ones are derived, such as a thumbnail. */
 	firstBlob: Map<string, PhotoBlob>;
-	/** The next photo number per slate and camera. */
+	/** The next number per slate and camera, of photos and of audio notes. */
 	counters: Map<string, number>;
 	/** Records with no stored file. */
 	missing: string[];
@@ -120,33 +121,40 @@ export function firstBlobs(blobs: readonly PhotoBlob[]): Map<string, PhotoBlob> 
 }
 
 /**
- * A take's files, as they sit in its slate's folder: its photos, named as CRIF names them and
- * numbered per slate and camera in take order, then the order taken. A later kind of file of a
- * take (a video, an audio note, an annotated copy) is added here.
+ * A take's files, as they sit in its slate's folder: its photos, named as CRIF names them, then
+ * its audio notes (#89), named in the same form. Each numbered per slate and camera in take order,
+ * then the order taken. A later kind of file of a take (an annotated copy) is added here. The audio
+ * notes follow the Photos switch, as videos do.
  */
 export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
 	const files: SlateFile[] = [];
 	if (!ctx.photos) return files;
 	const slate = row.slate.slateUID ?? '';
-	for (const still of row.stills) {
-		const blob = ctx.firstBlob.get(still.id);
-		if (!blob) {
-			ctx.missing.push(still.id);
-			continue;
+	const lists = [
+		{ media: 'photo', stills: row.stills, name: photoFileName },
+		{ media: 'audio', stills: row.audioNotes, name: audioFileName }
+	] as const;
+	for (const { media, stills, name } of lists) {
+		for (const still of stills) {
+			const blob = ctx.firstBlob.get(still.id);
+			if (!blob) {
+				ctx.missing.push(still.id);
+				continue;
+			}
+			const key = `${row.slate.id}:${name(slate, row.cameraLetter, 0, '').toLowerCase()}`;
+			const n = (ctx.counters.get(key) ?? 0) + 1;
+			ctx.counters.set(key, n);
+			files.push({
+				media,
+				name: name(slate, row.cameraLetter, n, extensionFor(blob.type, blob.name)),
+				mime: blob.type,
+				size: blob.size,
+				blobId: blob.id,
+				recordId: still.id,
+				pruned: blob.prunedAt !== undefined,
+				...(still.caption ? { caption: still.caption } : {})
+			});
 		}
-		const key = `${row.slate.id}:${photoFileName(slate, row.cameraLetter, 0, '').toLowerCase()}`;
-		const n = (ctx.counters.get(key) ?? 0) + 1;
-		ctx.counters.set(key, n);
-		files.push({
-			media: 'photo',
-			name: photoFileName(slate, row.cameraLetter, n, extensionFor(blob.type, blob.name)),
-			mime: blob.type,
-			size: blob.size,
-			blobId: blob.id,
-			recordId: still.id,
-			pruned: blob.prunedAt !== undefined,
-			...(still.caption ? { caption: still.caption } : {})
-		});
 	}
 	return files;
 }

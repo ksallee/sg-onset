@@ -98,7 +98,8 @@ export function toExportData(input: ExportInput, options: { now: string; filters
 		lenses: sortById(input.lenses.filter((l) => lensIds.has(l.id))),
 		slates,
 		takes,
-		stills: rows.flatMap((r) => r.stills),
+		// An audio note is a still on the device (#89): listed with the photos of its take, in the order taken.
+		stills: rows.flatMap((r) => [...r.stills, ...r.audioNotes].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || a.id.localeCompare(b.id))),
 		references: slates.flatMap((s) => referencesBySlate(input.references).get(s.id) ?? [])
 	};
 	return canonical(data) as ExportData;

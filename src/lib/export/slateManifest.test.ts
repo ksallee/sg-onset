@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseCsv } from '$lib/model/csv';
 import { flatten, selectSlates } from './selection';
 import { MANIFEST_COLUMNS, slateManifest } from './slateManifest';
-import { day3, input, kindLabel, project } from './testData';
+import { day3, input, kindLabel, project, t42A1A } from './testData';
 import { wrapPlan, type PhotoBlob, type SlateFolder } from './wrapPackage';
 
 const blobs: PhotoBlob[] = [
@@ -49,6 +49,21 @@ describe('slateManifest', () => {
 			['Take', '10', 'A', '']
 		]);
 		expect(rows.map((r) => r[9])).not.toContain('42A/42A-A-reference-3.jpg');
+	});
+
+	// #89: an audio note's row says so, under its take, after the photos.
+	it('lists an audio note under its take as Audio note', () => {
+		const all = { ...input(), audioNotes: [{ id: 'an1', takeId: t42A1A.id, capturedAt: '2026-11-10T22:30:00.000Z' }] };
+		const filters = { shootDayIds: ['d3'] };
+		const withNote = [...blobs, { id: 'ba', recordId: 'an1', type: 'audio/mp4', size: 40, createdAt: 5 }];
+		const folder = wrapPlan(flatten(all, filters), { project, shootDays: [day3], blobs: withNote, slates: selectSlates(all, filters), references: all.references }).slates[2];
+		const rows = read(slateManifest(folder, kindLabel)).slice(1);
+		expect(rows.slice(0, 4).map((r) => [r[0], r[1], r[2], r[8], r[9]])).toEqual([
+			['Take', '1', 'A', '', ''],
+			['Photo', '1', 'A', '42A-A-reference-1.heic', '42A/42A-A-reference-1.heic'],
+			['Photo', '1', 'A', '42A-A-reference-2.jpg', '42A/42A-A-reference-2.jpg'],
+			['Audio note', '1', 'A', '42A-A-audio-note-1.m4a', '42A/42A-A-audio-note-1.m4a']
+		]);
 	});
 
 	it('lists the references last, in the order logged, each with the folder that waits for it, from the package root', () => {

@@ -1,8 +1,11 @@
 // Audio notes (#89) on stored data, slate 42A of the sample: made from the take sheet with the
-// microphone, kept on the take, played back there, taken off and put back. Chromium hears its fake
-// microphone (a tone); Playwright's WebKit has none, and its session refuses stored Blobs, so the
-// recording is checked on Chromium only. A refused microphone is checked everywhere.
+// microphone, kept on the take, played back there, taken off and put back, and in the wrap
+// package. Chromium hears its fake microphone (a tone); Playwright's WebKit has none, and its
+// session refuses stored Blobs, so the recording is checked on Chromium only. A refused microphone
+// is checked everywhere.
+import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
+import { entryBlob, readZip } from '../src/lib/store/zipRead';
 import { expect, openApp, test } from './fixtures';
 
 // Chromium's fake microphone, granted with no prompt. Launch options are per worker: top level.
@@ -111,5 +114,38 @@ test.describe('audio notes', () => {
 		await expect(sheet.getByRole('status').filter({ hasText: 'The microphone is not allowed for SG OnSet. Allow it in Settings, then try again.' })).toBeVisible();
 		await expect(sheet.getByRole('button', { name: 'Add Audio Note' })).toBeVisible();
 		await expect(sheet.getByRole('listitem').filter({ hasText: 'Audio note 1' })).toHaveCount(0);
+	});
+
+	test('lands in the wrap package, in its slate folder, named in the manifest', async ({ page, browserName }) => {
+		test.skip(browserName !== 'chromium', 'no fake microphone in Playwright WebKit, and its session refuses stored Blobs');
+		// No share sheet: the hand-over is a download.
+		await page.addInitScript(() => {
+			Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+			Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+		});
+		await openShoot(page);
+		const sheet = await openSheet(page);
+		await sheet.getByRole('button', { name: 'Add Audio Note' }).tap();
+		const save = sheet.getByRole('button', { name: /^Save Audio Note/ });
+		await expect(save).toContainText('0:01', { timeout: 8_000 });
+		await save.tap();
+		await sheet.getByRole('button', { name: 'Done' }).tap();
+		await expect(notice(page, 'Audio note added to take 3')).toBeVisible();
+
+		await page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Wrap' }).tap();
+		await expect(page.getByRole('heading', { name: 'Wrap', level: 1 })).toBeVisible();
+		await page.getByRole('button', { name: 'Make Wrap Package' }).tap();
+		const download = page.getByRole('button', { name: 'Download Wrap Package' });
+		await expect(download).toBeVisible();
+		const [file] = await Promise.all([page.waitForEvent('download'), download.tap()]);
+		const zip = new Blob([await readFile((await file.path())!)]);
+		const entries = await readZip(zip);
+		const root = file.suggestedFilename().replace(/\.zip$/, '');
+		const note = entries.find((e) => /\/42A\/42A-[A-Z]-audio-note-1\.(m4a|webm)$/.test(e.name));
+		expect(note, entries.map((e) => e.name).join('\n')).toBeDefined();
+		expect(note!.size).toBeGreaterThan(0);
+		const manifest = await (await entryBlob(zip, entries.find((e) => e.name === `${root}/42A/42A_manifest.csv`)!)).text();
+		const path = note!.name.slice(root.length + 1);
+		expect(manifest.split('\r\n').some((line) => line.startsWith('Audio note,3,') && line.includes(`,${path},`))).toBe(true);
 	});
 });

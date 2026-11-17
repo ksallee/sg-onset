@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { KINDS } from '$lib/references/kinds';
-import { dayPart, exportFileName, extensionFor, folderName, kindFolderName, kindFolders, manifestFileName, photoFileName, slateFolderName, slug, uniqueName } from './naming';
+import { audioFileName, dayPart, exportFileName, extensionFor, folderName, kindFolderName, kindFolders, manifestFileName, photoFileName, slateFolderName, slug, uniqueName } from './naming';
 import { day3, day4, project } from './testData';
 
 describe('slug', () => {
@@ -198,7 +198,25 @@ describe('photoFileName', () => {
 	});
 });
 
+// #89: an audio note of a take, beside its photos. CRIF names no audio: ours, in the photos' form.
+describe('audioFileName', () => {
+	it('is SLATE-CAMERALETTER-audio-note-N, whitespace removed, the letter left out with no camera', () => {
+		expect(audioFileName('42A', 'A', 1, 'm4a')).toBe('42A-A-audio-note-1.m4a');
+		expect(audioFileName('22 ac', ' B ', 2, 'webm')).toBe('22ac-B-audio-note-2.webm');
+		expect(audioFileName('9', '', 1, 'm4a')).toBe('9-audio-note-1.m4a');
+	});
+
+	it('never takes a photo name', () => {
+		expect(audioFileName('42A', 'A', 1, 'jpg')).not.toBe(photoFileName('42A', 'A', 1, 'jpg'));
+	});
+});
+
 describe('extensionFor', () => {
+	it('names an audio note M4A or WebM, as it was recorded', () => {
+		expect(extensionFor('audio/mp4')).toBe('m4a');
+		expect(extensionFor('audio/webm')).toBe('webm');
+	});
+
 	it('reads the type, then the file name', () => {
 		expect(extensionFor('image/jpeg')).toBe('jpg');
 		expect(extensionFor('image/heic')).toBe('heic');

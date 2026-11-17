@@ -301,6 +301,10 @@ render:
 - `folderName`: a slug that keeps underscores, for a name typed as it is on a device.
 - Photos follow CRIF: `<slate>-<camera>-reference-<n>.<ext>`, whitespace removed, numbered per
   slate and camera in take order, then the order taken. The extension comes from the file type.
+  A video is a photo here (#94).
+- Audio notes (#89) take the same form, as CRIF names none: `<slate>-<camera>-audio-note-<n>.<ext>`,
+  numbered the same way on their own. The extension is the one the browser wrote: `m4a` from
+  Safari, `webm` from a browser with no AAC.
 
 ### Layout
 
@@ -319,6 +323,7 @@ Night-Train_2026-11-10-day03/
     42A_manifest.csv
     42A-A-reference-1.heic
     42A-A-reference-2.jpg
+    42A-A-audio-note-1.m4a
     lidar-scan/Scan-01/
     hdri-360/HDRI_0412/
   50/
@@ -331,8 +336,13 @@ Night-Train_2026-11-10-day03/
   with references and no take left by the filters still gets its folder, so its references land.
 - The slate folder: the slate as its photo names start, whitespace removed. `42A`.
 - In it, its manifest, `<slate folder>_manifest.csv` (below), and the photos of its takes, named as
-  CRIF, with no folder per take: the manifest says which take each is from. With the Photos switch
-  off the photos are left out; the slate folders, manifests and reference folders stay.
+  CRIF, each take's audio notes after its photos, with no folder per take: the manifest says which
+  take each is from. With the Photos switch off the photos and audio notes are left out; the slate
+  folders, manifests and reference folders stay. Audio notes follow that switch as videos do,
+  until Kevin decides otherwise (#89).
+- An audio note is a still whose first file is audio. `withAudioNotes` (`wrap/input.ts`) holds
+  them apart in `ExportInput.audioNotes`, so the camera report, the day report and the day summary
+  count photos only, and the JSON lists them with the photos of their take.
 - For each set reference, an empty folder inside a folder for its kind, in the order logged:
   `hdri-360/HDRI_0412/`. The files shot on the other device go in it on a laptop.
 - Kind folders: a built-in kind by its English label, fixed, so a folder does not change with the
@@ -378,7 +388,7 @@ Reference,,,,,,,HDRI 360,HDRI_0412,42A/hdri-360/HDRI_0412/,Ricoh Theta Z1,A003,7
   reference listed on every slate of its lighting setup, its folder in the slate it was logged
   on). A folder's path ends in a slash.
 - Headers in English, fixed, as CRIF's, so a script does not break with the app's language. What
-  is `Take`, `Photo` or `Reference`.
+  is `Take`, `Photo`, `Audio note` or `Reference`.
 - A file whose bytes are not in the package (freed after Flow PT kept them) has no row.
 - Byte order mark, so Excel reads accents; CRLF; a line break in a value becomes a space; a cell a
   spreadsheet would run as a formula gets a `'` in front, as in the all fields file.
@@ -398,10 +408,11 @@ writes the plan's folder entries that way, and its test reads the entry back.
 - Windows' Extract All fails on a path past 260 characters. Each name part is 60 at most; a long
   project name, slate, kind and reference name together, unzipped deep in a folder, can pass it.
 
-### Adding a kind of file (#94, #89, #86, #87)
+### Adding a kind of file (#86, #87)
 
 A slate folder holds the files of its takes and its own files. Videos (#94), audio notes (#89)
-and annotated copies (#86) are a take's; the setup diagram (#87) is the slate's own. To add one:
+and annotated copies (#86) are a take's; the setup diagram (#87) is the slate's own. Audio notes
+went this way: `audioFileName`, `Media` `audio`, `Audio note`, `FlatTake.audioNotes`. To add one:
 
 1. Name it in `naming.ts`, next to `photoFileName`. The name must be unique in the slate folder:
    number it per slate and camera as photos are, or build it from the photo it copies

@@ -20,7 +20,7 @@ import { memorySink, opfsSink, removeExport } from '$lib/store/backup';
 import { packagePlan, type PackageEntry } from './assembly';
 import { defaultChoice, pickedDays, readiness, setSpan, toggleDay, toggleFile, type FileKind, type Span, type TextKind, type WrapChoice } from './choice';
 import { sizeVerdict } from './estimate';
-import { projectInput } from './input';
+import { projectInput, withAudioNotes } from './input';
 import { exportedLine, lastExport, LOG_KEY, noteExport, parseLog, type ExportLog } from './lastExport';
 import { makeTexts } from './make';
 import { defaultPaper, reportBody, reportDocument } from './report';
@@ -149,10 +149,11 @@ export class Wrap {
 					store.list('reference'),
 					store.list('referenceKind', projectId)
 				]);
-				const input = projectInput(projectId, { projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills, references });
-				if (!input) return undefined;
-				const blobs = (await Promise.all(input.stills.map((s) => store.blobsOf(s.id)))).flat();
-				return { input, blobs, kinds: kinds.map((k) => k.name) };
+				const all = projectInput(projectId, { projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills, references });
+				if (!all) return undefined;
+				const blobs = (await Promise.all(all.stills.map((s) => store.blobsOf(s.id)))).flat();
+				// An audio note is a still whose file is audio (#89): the exports read it apart.
+				return { input: withAudioNotes(all, blobs), blobs, kinds: kinds.map((k) => k.name) };
 			},
 			undefined
 		);

@@ -1,6 +1,8 @@
 // The records of one project out of whole tables, as the export modules read them. Pure.
 
 import type { ExportInput } from '$lib/export/selection';
+import { firstBlobs, type PhotoBlob } from '$lib/export/wrapPackage';
+import { isAudio } from '$lib/media/audioFormat';
 import type { Camera, CameraSetup, Lens, LightingSetup, Project, Reference, ShootDay, Slate, Still, Take } from '$lib/model/types';
 
 export type AllTables = {
@@ -38,4 +40,15 @@ export function projectInput(projectId: string, all: AllTables): ExportInput | u
 		stills: all.stills.filter((s) => takeIds.has(s.takeId)),
 		references: all.references.filter((r) => slateIds.has(r.slateId))
 	};
+}
+
+/**
+ * The input with its audio notes (#89) held apart from the photos and videos: a still whose first
+ * stored file is audio. The camera report counts photos, the wrap package names each its own way.
+ * `blobs`: the stills' files, as `store.blobsOf` gives them.
+ */
+export function withAudioNotes(input: ExportInput, blobs: readonly PhotoBlob[]): ExportInput {
+	const first = firstBlobs(blobs);
+	const audio = (id: string) => isAudio(first.get(id)?.type ?? '');
+	return { ...input, stills: input.stills.filter((s) => !audio(s.id)), audioNotes: input.stills.filter((s) => audio(s.id)) };
 }

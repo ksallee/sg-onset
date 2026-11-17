@@ -18,7 +18,10 @@ export type ExportInput = {
 	lenses: Lens[];
 	slates: Slate[];
 	takes: Take[];
+	/** The photos and videos. */
 	stills: Still[];
+	/** The audio notes (#89): stills whose file is audio, held apart by `withAudioNotes` (wrap/input.ts). */
+	audioNotes?: Still[];
 	references: Reference[];
 };
 
@@ -51,8 +54,10 @@ export type FlatTake = {
 	cameraLetter: string;
 	/** In mm. A prime's own focal length wins over the take's (model decision 30). */
 	focalLength?: { start: number; end: number; source: 'lens' | 'take' };
-	/** The take's photos, oldest first. */
+	/** The take's photos and videos, oldest first. */
 	stills: Still[];
+	/** The take's audio notes, oldest first (#89). */
+	audioNotes: Still[];
 	/** The set references of the slate, in the order logged. */
 	references: Reference[];
 };
@@ -115,8 +120,14 @@ export function flatten(input: ExportInput, filters: ExportFilters = {}): FlatTa
 	const cameras = byId(input.cameras);
 	const lenses = byId(input.lenses);
 	const slateById = byId(slates);
-	const stills = new Map<string, Still[]>();
-	for (const still of input.stills) stills.set(still.takeId, [...(stills.get(still.takeId) ?? []), still]);
+	const byTake = (list: readonly Still[]) => {
+		const out = new Map<string, Still[]>();
+		for (const still of list) out.set(still.takeId, [...(out.get(still.takeId) ?? []), still]);
+		return out;
+	};
+	const stills = byTake(input.stills);
+	const audioNotes = byTake(input.audioNotes ?? []);
+	const oldestFirst = (list: readonly Still[] = []) => list.slice().sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || a.id.localeCompare(b.id));
 	const references = referencesBySlate(input.references);
 
 	const rows: FlatTake[] = [];
@@ -138,7 +149,8 @@ export function flatten(input: ExportInput, filters: ExportFilters = {}): FlatTa
 			lens,
 			cameraLetter: cameraSetup?.cameraLabel ?? '',
 			focalLength: effectiveFocalLength(take, lens),
-			stills: (stills.get(take.id) ?? []).slice().sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || a.id.localeCompare(b.id)),
+			stills: oldestFirst(stills.get(take.id)),
+			audioNotes: oldestFirst(audioNotes.get(take.id)),
 			references: references.get(slate.id) ?? []
 		});
 	}

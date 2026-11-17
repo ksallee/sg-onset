@@ -140,7 +140,11 @@ Setup (`lightingSetup.label`), Set References (the slate's, see above), Camera M
 Plate, Balls and Chart, Shadow Plate, Light Pass, Atmosphere, Element, Other; Main for none), Tk
 Tail (the plates at the take's tail, Clean Plate and Balls and Chart, split by vertical tabs as a
 multi-select is; empty for none), Tk Timecode End, Tk Lens Make, Tk
-Anamorphic Squeeze, Tk Subject Distance and End, Tk Photos (the count).
+Anamorphic Squeeze, Tk Subject Distance and End, Tk Photos (the count of photos only).
+
+Photos only (Kevin, 2026-11-17, #89): Tk Photos and the Set Media flag Photos count the take's
+photos, never its videos (`CrifOptions.videos`, from `ExportInput.videos`) nor its audio notes.
+CRIF has no column for either, and none is added.
 
 `crifMissing(record)` lists the required columns a row leaves empty. `CRIF_NEVER_FILLED` names the
 four we have no field for: VFX Work, Script Location, Camera Head, Film Stock. `exportCrif` leaves
@@ -154,7 +158,7 @@ Lost in CRIF:
   carries its own take's value. A reader that keeps the first row of a slate keeps the first take's.
 - Seconds are the finest time. Times are local, with no zone in the file.
 - Sensor size and resolution, colour chart and lidar outside Set Media, template links, gear ids.
-- Photos only as the Photos flag and a count.
+- Photos only as the Photos flag and a count. Videos and audio notes not at all.
 - Set references of a slate with no take in the file: CRIF has no row for them.
 
 ## Plain CSV: every field
@@ -352,7 +356,7 @@ Night-Train_2026-11-10-day03/
   takes · 2 circled · 1 no good · 2 photos, 1 video, 1 audio note".
 - A still's kind is its first file's. `withMediaKinds` (`wrap/input.ts`) holds the audio notes
   apart in `ExportInput.audioNotes` and names the videos in `ExportInput.videos`. The camera
-  report counts photos and videos; the JSON lists the audio notes with the photos of their take.
+  report counts photos only; the JSON lists the audio notes with the photos of their take.
 - For each set reference, an empty folder inside a folder for its kind, in the order logged:
   `hdri-360/HDRI_0412/`. The files shot on the other device go in it on a laptop.
 - Kind folders: a built-in kind by its English label, fixed, so a folder does not change with the

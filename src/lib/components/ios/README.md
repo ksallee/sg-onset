@@ -114,8 +114,8 @@ The app is built for an iPad. A page is never a centred phone column there.
 - A full sheet is a form sheet from 700 px: a card in the middle. A sheet with a text field is a
   full sheet, so the keyboard never covers the field.
 - The capture path is a `Workspace`, in the shell too: it fills the same space.
-- Sizes come from the room an element has (container queries, `bind:clientWidth`), not from the
-  window: the sidebar takes 80 or 248 px of it.
+- Sizes come from the room an element has (container queries, `clientSize` from `size.ts`), not
+  from the window: the sidebar takes 80 or 248 px of it.
 - Touch targets are `var(--touch, 44px)` tall at least; capture targets `var(--target)`. Both grow
   at the large button size.
 - Motion: `data-motion="full|reduced"` on `<html>` is the setting, resolved. Style against it,
@@ -159,6 +159,12 @@ The app is built for an iPad. A page is never a centred phone column there.
 - `layer.svelte.ts`: Screen context, `portal`, the overlay stack (Escape and Tab go to the top one;
   a sheet under another scales to .94 and dims), focus trap and return, `reducedMotion()`. A
   panel that is not a Sheet joins the stack with `use:layer={onclose}`: Escape closes it alone.
+- `size.ts` `clientSize(set)`: the room an element has, for a layout that follows it.
+  `<div {@attach clientSize((w) => (width = w))}>`. Use it, never `bind:clientWidth` or
+  `bind:clientHeight`: those read the size and set state inside a ResizeObserver callback, and
+  WebKit throws a ResizeObserver loop when a style sheet is still loading (#99). Outside
+  `listMotion` (a FLIP has to start before the frame is drawn), a ResizeObserver callback of ours
+  reads no size and sets no state: it asks for the next frame.
 - Pure, tested: `ios/detent.ts` `snapDetent`, `ios/swipe.ts` `swipeState`, `ios/largeTitle.ts`
   `titleProgress`, `ios/direction.ts` `navDirection` and `pageMotion` (moved by `pageStage.ts`).
 - Pure, tested: `ios/keys.ts` `trapStep` (Sheet's focus trap) and `radioStep` (Segmented's

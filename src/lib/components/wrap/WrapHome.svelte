@@ -83,7 +83,8 @@
 		const plan = wrap.plan;
 		if (!plan || !wrap.choice.files.includes(kind)) return undefined;
 		if (kind === 'photos') {
-			const n = plan.entries.filter((e) => e.kind === 'photo').length;
+			// A photo's annotated copy goes with it: it is not one more photo.
+			const n = plan.entries.filter((e) => e.kind === 'photo' && !e.annotated).length;
 			return n ? tk(plural('wrap.note.photos.count', n), { n, size: formatBytes(plan.photoBytes) }) : tk(plural('wrap.note.photos.count', 0), { n: 0, size: formatBytes(0) });
 		}
 		const entry = plan.entries.find((e) => e.kind === kind);

@@ -1,15 +1,16 @@
-// The tables of the store, from the model: one per scope, one for stills and one for templates.
-// Which key holds the parent, which keys link to other records, which tables stay on the device.
-// Pure.
+// The tables of the store, from the model: one per scope, one for stills, one for templates and
+// one for the drawings on photos. Which key holds the parent, which keys link to other records,
+// which tables stay on the device. Pure.
 
+import type { Markup } from '$lib/draw/markup';
 import { FIELDS, SCOPES, type Scope } from '$lib/model/catalogue';
 import type { TemplateRecord } from '$lib/model/template';
 import type { RecordOf, Still } from '$lib/model/types';
 
-export const TABLES = [...SCOPES, 'still', 'template'] as const;
+export const TABLES = [...SCOPES, 'still', 'template', 'markup'] as const;
 export type TableName = (typeof TABLES)[number];
 
-export type RowOf<T extends TableName> = T extends Scope ? RecordOf<T> : T extends 'template' ? TemplateRecord : Still;
+export type RowOf<T extends TableName> = T extends Scope ? RecordOf<T> : T extends 'template' ? TemplateRecord : T extends 'markup' ? Markup : Still;
 
 export function isTable(name: string): name is TableName {
 	return (TABLES as readonly string[]).includes(name);
@@ -17,9 +18,10 @@ export function isTable(name: string): name is TableName {
 
 /**
  * The tables kept on the device and never synced: nothing is queued for them. Flow PT has no
- * place for a template; a slate or take keeps the id of its template as text.
+ * place for a template; a slate or take keeps the id of its template as text. A photo's drawing
+ * reaches Flow PT as the photo's annotated copy, a file of the still (`$lib/draw/markup`).
  */
-export const LOCAL_TABLES = ['template'] as const satisfies readonly TableName[];
+export const LOCAL_TABLES = ['template', 'markup'] as const satisfies readonly TableName[];
 
 export function isLocal(name: string): boolean {
 	return (LOCAL_TABLES as readonly string[]).includes(name);
@@ -38,7 +40,8 @@ export const PARENTS: Record<TableName, Link | undefined> = {
 	slate: { key: 'shootDayId', table: 'shootDay' },
 	take: { key: 'slateId', table: 'slate' },
 	still: { key: 'takeId', table: 'take' },
-	template: { key: 'projectId', table: 'project' }
+	template: { key: 'projectId', table: 'project' },
+	markup: { key: 'stillId', table: 'still' }
 };
 
 /** Every key of `table` that holds the id of another record: the parent, then the catalogue's refs. */

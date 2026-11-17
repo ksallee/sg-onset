@@ -43,8 +43,10 @@ function recordStores(tables: readonly TableName[]): Record<string, string> {
 	return Object.fromEntries(tables.map((table) => [table, PARENTS[table] ? `id, ${PARENTS[table].key}` : 'id']));
 }
 
+/** The record tables added after version 1, each in its own version below. */
+const LATER_TABLES: readonly TableName[] = ['template', 'markup'];
 /** The record tables of version 1, fixed: a table added later comes in its own version. */
-const V1_TABLES = TABLES.filter((t) => t !== 'template');
+const V1_TABLES = TABLES.filter((t) => !LATER_TABLES.includes(t));
 
 export const VERSIONS: readonly SchemaVersion[] = [
 	{
@@ -64,7 +66,9 @@ export const VERSIONS: readonly SchemaVersion[] = [
 		stores: { snapshots: 'id, at, *blobIds', snapshotData: 'id' }
 	},
 	// Templates, kept on the device (tables.ts LOCAL_TABLES).
-	{ version: 3, stores: recordStores(['template']) }
+	{ version: 3, stores: recordStores(['template']) },
+	// The drawings on photos, kept on the device beside their still (tables.ts LOCAL_TABLES).
+	{ version: 4, stores: recordStores(['markup']) }
 ];
 
 export const SCHEMA_VERSION = VERSIONS[VERSIONS.length - 1].version;

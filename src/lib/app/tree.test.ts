@@ -8,7 +8,8 @@ describe('childTables', () => {
 		expect(childTables('shootDay')).toEqual(['slate']);
 		expect(childTables('slate')).toEqual(['take']);
 		expect(childTables('take')).toEqual(['still']);
-		expect(childTables('still')).toEqual([]);
+		expect(childTables('still')).toEqual(['markup']);
+		expect(childTables('markup')).toEqual([]);
 	});
 });
 

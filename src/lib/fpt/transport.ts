@@ -44,7 +44,7 @@ import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, type Resolution } from './schema';
 import { loadResolution } from './setup';
-import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, type StillRemote } from './stills';
+import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, variantOf, type StillRemote } from './stills';
 import { completionInfo, isMultipart, partLink, UPLOAD_SIZES, URL_LIFE_MS, type UploadSizes } from './uploadPlan';
 
 export type FptTransportOptions = FptOptions & {
@@ -214,13 +214,17 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 				if (!found) refuse(o, 'gone');
 				else if (op.kind === 'delete') for (const row of found) request(o, { request_type: 'delete', entity: ATTACHMENT, record_id: row.id });
 				else {
-					const data: Record<string, unknown> = {};
-					for (const [key, edit] of Object.entries(op.changes)) {
-						if (key === 'caption') data.description = text(edit.value) ?? null;
-						else if (key === 'capturedAt') data.display_name = stillDisplayName(text(edit.value));
-						else return { ...out, refusals: [...out.refusals, { entryId: o.entryId, reason: 'invalid', message: `still.${key} cannot change on the server` }] };
+					const stray = Object.keys(op.changes).find((key) => key !== 'caption' && key !== 'capturedAt');
+					if (stray) return { ...out, refusals: [...out.refusals, { entryId: o.entryId, reason: 'invalid', message: `still.${stray} cannot change on the server` }] };
+					// Every file of the still: the photo and its annotated copy, each keeping its own name.
+					for (const row of found) {
+						const data: Record<string, unknown> = {};
+						for (const [key, edit] of Object.entries(op.changes)) {
+							if (key === 'caption') data.description = text(edit.value) ?? null;
+							else data.display_name = stillDisplayName(text(edit.value), variantOf(row.attributes.filename));
+						}
+						request(o, { request_type: 'update', entity: ATTACHMENT, record_id: row.id, data });
 					}
-					request(o, { request_type: 'update', entity: ATTACHMENT, record_id: found[0].id, data });
 				}
 			} else if (isEntityScope(op.table) && res) {
 				const entity = res.entities[op.table];
@@ -306,7 +310,7 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 			meta,
 			takeType: res.entities.take,
 			field: stillsField(res),
-			filename: stillFilename(ref.recordId, ref.blobId, ref.type),
+			filename: stillFilename(ref.recordId, ref.blobId, ref.type, ref.variant),
 			info: {},
 			completeUpload: '',
 			multipart,
@@ -507,7 +511,7 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 			}
 			try {
 				// `upload_info` is the init reply verbatim; `upload_data` is required, and sets the display name.
-				await api.post(t.completeUpload, { upload_info: info, upload_data: { display_name: stillDisplayName(t.meta.capturedAt) } }, signal);
+				await api.post(t.completeUpload, { upload_info: info, upload_data: { display_name: stillDisplayName(t.meta.capturedAt, t.ref.variant) } }, signal);
 			} catch (error) {
 				if (!(error instanceof ApiRefusal)) throw error;
 				await abort(t, signal);
@@ -531,7 +535,7 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 			const meta = blob.table === STILL ? decodeStillRemote(blob.recordRemoteId) : undefined;
 			if (!meta) return { verified: false };
 			const res = await resolved(signal);
-			for (const row of await uploaded(stillFilename(blob.recordId, blob.blobId, blob.type), signal)) {
+			for (const row of await uploaded(stillFilename(blob.recordId, blob.blobId, blob.type, blob.variant), signal)) {
 				// The url is presigned and re-minted on every read: used once, never kept (field_types/url.md).
 				const url = (row.attributes.this_file as { url?: unknown } | null)?.url;
 				if (typeof url !== 'string') continue;

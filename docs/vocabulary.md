@@ -42,6 +42,9 @@ enforces the parts a test can check.
 | Slate | | The number on the clapperboard and the takes shot under it. | `slate` | CRIF Slate; OMC Slate.slateUID | Slate |
 | Take | | One camera setup's run of one slate, from Start to End. | `take` | CRIF Tk Take; VES scope Take | Take |
 | Photo | | A reference photo taken from the take screen, kept on the take. | `still` | VES 1.1 reference | Photos |
+| Drawing | | What is drawn over a photo: lines, text and measurements. Kept beside the photo, which stays as taken. | `markup` | | |
+| Annotated copy | | The photo with its drawing on it, one image. Sent to Flow PT and put in the wrap package beside the photo, its name ending "-annotated". | `variant: 'annotated'` | | Photos |
+| Measurement | | A dimension line on a drawing with the length typed for it. | `dimension` | | |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
 | Change | | One edit waiting to sync. | outbox entry | | |
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
@@ -168,6 +171,7 @@ gives.
 | Ready, Running, Ended | The take's state. | Rolling, Filed, Idle |
 | New Take | Starts the next take as a copy of the last. | |
 | Photo | Takes a reference photo for the take. | Still, Ref |
+| Move, Draw, Text, Measure | The drawing's tools: pick and move, draw a line, write, draw a dimension line and type its length. | Pen, Annotate, Dimension |
 | Undo, Redo | Reverse the last edit. | |
 | Sync | Send changes to Flow PT and read back. | Upload, Push |
 | All synced | Nothing waits, signed in. | |

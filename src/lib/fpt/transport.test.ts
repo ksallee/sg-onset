@@ -607,6 +607,33 @@ describe('upload', () => {
 		expect(init.query.get('multipart_upload')).toBeNull();
 	});
 
+	it('sends the annotated copy beside the photo, named with an -annotated suffix, and finds both again', async () => {
+		const w = world();
+		const s = await still(w, 'ph1', { caption: 'Chart' });
+		const original = s.ref(1200);
+		const copy: BlobRef = { ...s.ref(900, 'b-flat'), variant: 'annotated' };
+		await send(w, original);
+		const sent = await send(w, copy);
+		const row = attachments(w).find((a) => a.id === sent.remoteId)!;
+		expect(row.values).toMatchObject({ filename: 'onset_ph1_b-flat-annotated.jpg', display_name: 'Photo 2026-11-11T09:01:02.000Z annotated', description: 'Chart' });
+		expect(stills(w, s.take)).toHaveLength(2);
+		expect(await w.transport.verifyUpload(copy, sent.remoteId)).toEqual({ verified: true, remoteId: row.id });
+		expect(await w.transport.verifyUpload(original)).toMatchObject({ verified: true });
+		// The still is found back by either file, with its capture time.
+		const [found] = await w.transport.lookup([{ table: 'still', id: 'ph1' }]);
+		expect(found.remoteId).toBe(encodeStillRemote({ take: s.take, capturedAt: '2026-11-11T09:01:02.000Z', caption: 'Chart' }));
+	});
+
+	it('writes a new caption on the photo and on its annotated copy', async () => {
+		const w = world();
+		const s = await still(w, 'ph1', { caption: 'Chart' });
+		await send(w, s.ref(1200));
+		await send(w, { ...s.ref(900, 'b-flat'), variant: 'annotated' });
+		const edit = update('still', 'ph1', s.remote, { caption: ['Chart', 'Grey ball'] });
+		expect(await w.transport.push([edit])).toMatchObject({ outcome: 'applied' });
+		expect(attachments(w).map((a) => a.values.description)).toEqual(['Grey ball', 'Grey ball']);
+	});
+
 	// corpus findings/044_multipart_upload.md.
 	it('sends a large file in parts and completes with the ETag of each, in order', async () => {
 		const w = world({ upload: { singlePutMax: 10, partSize: 6 } });

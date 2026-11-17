@@ -261,7 +261,7 @@ export class Shoot {
 
 	removeStill(still: Still) {
 		const take = this.takes.value.find((t) => t.id === still.takeId);
-		void this.#app.edit.remove('still', still.id, this.#label('take.edit.photoRemoved', { take: take?.take ?? '' }));
+		void this.#app.edit.removeTree('still', still.id, this.#label('take.edit.photoRemoved', { take: take?.take ?? '' }));
 	}
 
 	toggleMark(mark: Mark) {

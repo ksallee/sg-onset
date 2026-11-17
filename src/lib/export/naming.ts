@@ -62,10 +62,13 @@ export function exportFileName(project: Project, days: readonly ShootDay[], kind
 	return `${packageName(project, days)}_${kind}.${EXPORT_KINDS[kind]}`;
 }
 
-/** CRIF: the slate and camera letter with whitespace removed, then "-reference-N". */
-export function photoFileName(slate: string, cameraLetter: string, n: number, ext: string): string {
+/**
+ * CRIF: the slate and camera letter with whitespace removed, then "-reference-N". The annotated
+ * copy of a photo, its drawing flattened on it, takes the same name with "-annotated".
+ */
+export function photoFileName(slate: string, cameraLetter: string, n: number, ext: string, annotated = false): string {
 	const parts = [slug(slate.replace(/\s+/g, ''), 'slate'), cameraLetter.replace(/\s+/g, '') === '' ? '' : slug(cameraLetter.replace(/\s+/g, ''), '')];
-	return `${parts.filter((p) => p !== '').join('-')}-reference-${n}.${ext}`;
+	return `${parts.filter((p) => p !== '').join('-')}-reference-${n}${annotated ? '-annotated' : ''}.${ext}`;
 }
 
 const MIME_EXT: Record<string, string> = {

@@ -274,6 +274,12 @@ Every entity also gets `sg_onset_uuid` (text, unique): the record id on the devi
 | the still id and the blob id | `filename` | `onset_<still>_<blob>.jpg`, lowercase, no space. Read-only after upload |
 | the take, found back | `attachment_links` | set by the upload |
 
+A still's annotated copy (#86: the photo with its drawing flattened on it) is a second file of the
+still, uploaded to the same field: `filename` `onset_<still>_<blob>-annotated.jpg`, `display_name`
+`Photo 2026-11-11T09:01:02.000Z annotated`. The still's prefix finds both; `capturedAtOf` reads
+either display name. A caption or capture time written on the still goes on both files. A copy
+made again after the drawing changed is a new file: the one sent before stays (store decision 26).
+
 These are the names asked for. The name on a site can differ: see decision 3.
 
 ## How a push goes

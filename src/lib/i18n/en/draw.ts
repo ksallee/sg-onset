@@ -1,0 +1,44 @@
+// Strings of the drawing canvas: drawing on a photo (#86). Owned by the drawing area
+// (`src/lib/draw`, `src/lib/components/draw`).
+
+export const draw = {
+	'draw.done': 'Done',
+	'draw.undo': 'Undo',
+	'draw.redo': 'Redo',
+	'draw.delete': 'Delete',
+	'draw.tools': 'Tools',
+	'draw.tool.move': 'Move',
+	'draw.tool.draw': 'Draw',
+	'draw.tool.text': 'Text',
+	'draw.tool.measure': 'Measure',
+	'draw.inks': 'Colour',
+	'draw.ink.red': 'Red',
+	'draw.ink.yellow': 'Yellow',
+	'draw.ink.blue': 'Blue',
+	'draw.ink.white': 'White',
+	'draw.ink.black': 'Black',
+	'draw.hint.move': 'Tap a line, a text or a measurement to pick it. Drag to move it. Tap it again to change its words.',
+	'draw.hint.draw': 'Draw with a finger or the Pencil.',
+	'draw.hint.text': 'Tap where the text goes.',
+	'draw.hint.measure': 'Drag from one end to the other, then type the length.',
+
+	'draw.text.title': 'Text',
+	'draw.text.label': 'Text',
+	'draw.text.footer': 'Leave it empty to take the text off.',
+	'draw.value.title': 'Measurement',
+	'draw.value.label': 'Length',
+	'draw.value.footer.metric': 'A number alone is metres. Feet and inches work too: 8\' 2".',
+	'draw.value.footer.imperial': 'A number alone is feet. Metres work too: 2.5 m.',
+	'draw.value.invalid': 'Type a length: 2.5 m, or 8\' 2".',
+
+	'draw.photo.open': 'Draw on photo {n}',
+	'draw.photo.title': 'Photo {n} of Take {take}',
+	'draw.photo.canvas': 'Photo {n} and its drawing',
+	'draw.photo.gone': 'This photo is in Flow PT only now. Its file left this device after Flow PT kept it.',
+	'draw.photo.drawn': 'Photo {n} has a drawing',
+
+	'draw.edit.draw': 'Line drawn on photo {n}',
+	'draw.edit.text': 'Text on photo {n} changed',
+	'draw.edit.measure': 'Measurement on photo {n} changed',
+	'draw.edit.change': 'Drawing on photo {n} changed'
+} as const;

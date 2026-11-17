@@ -45,6 +45,22 @@ describe('packagePlan', () => {
 		expect(plan.pruned).toEqual([{ takeId: 't42A2A', slate: '42A', take: '2', cameraLetter: 'A', count: 1 }]);
 	});
 
+	it('marks the annotated copy of a photo, and does not count a pruned copy as one more photo', () => {
+		const copies: PhotoBlob[] = [
+			...blobs,
+			{ id: 'b2flat', recordId: 'st2', type: 'image/jpeg', size: 500, createdAt: 4, variant: 'annotated' },
+			{ id: 'b3flat', recordId: 'st3', type: 'image/jpeg', size: 500, createdAt: 5, variant: 'annotated', prunedAt: 9 }
+		];
+		const p = packagePlan(rows, defaultChoice(), { ...base, blobs: copies });
+		expect(p.entries.filter((e) => e.kind === 'photo').map((e) => [e.path.split('/').at(-1), e.kind === 'photo' && e.annotated === true])).toEqual([
+			['42A-A-reference-1.jpg', false],
+			['42A-A-reference-1-annotated.jpg', true],
+			['42A-A-reference-2.jpg', false]
+		]);
+		expect(p.photoBytes).toBe(3500);
+		expect(p.pruned).toEqual([{ takeId: 't42A2A', slate: '42A', take: '2', cameraLetter: 'A', count: 1 }]);
+	});
+
 	it('lists photos with no file at all', () => {
 		const p = packagePlan(rows, defaultChoice(), { ...base, blobs: blobs.slice(0, 1) });
 		expect(p.missing).toEqual(['st2', 'st3']);

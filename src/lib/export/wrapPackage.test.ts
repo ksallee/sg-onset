@@ -42,6 +42,20 @@ describe('wrapPlan', () => {
 		expect(photos[2]).toMatchObject({ blobId: 'b3', pruned: true });
 	});
 
+	it('puts the annotated copy of a photo beside it, with the same number and an -annotated suffix', () => {
+		const withCopy: PhotoBlob[] = [...blobs, { id: 'b2flat', recordId: 'st2', type: 'image/jpeg', size: 150, createdAt: 0, variant: 'annotated' }];
+		const p = wrapPlan(flatten(input(), { shootDayIds: ['d3'] }), { project, shootDays: [day3], blobs: withCopy });
+		const photos = p.entries.filter((x) => x.kind === 'photo');
+		expect(photos.map((x) => x.path.split('/').slice(1).join('/'))).toEqual([
+			'photos/42A/take-1/42A-A-reference-1.heic',
+			'photos/42A/take-1/42A-A-reference-1-annotated.jpg',
+			'photos/42A/take-1/42A-A-reference-2.jpg',
+			'photos/42A/take-2/42A-A-reference-3.jpg'
+		]);
+		expect(photos[0]).toMatchObject({ blobId: 'b2', annotated: false });
+		expect(photos[1]).toMatchObject({ blobId: 'b2flat', stillId: 'st2', annotated: true, mime: 'image/jpeg', size: 150 });
+	});
+
 	it('names the photos that have no file at all', () => {
 		const p = wrapPlan(flatten(input(), { shootDayIds: ['d3'] }), { project, shootDays: [day3], blobs: blobs.filter((b) => b.recordId !== 'st3') });
 		expect(p.missingPhotos).toEqual(['st3']);

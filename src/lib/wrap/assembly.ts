@@ -10,7 +10,8 @@ import { zipSize } from './estimate';
 
 export type PackageEntry =
 	| { kind: TextKind | 'report'; path: string; mime: string; size: number }
-	| { kind: 'photo'; path: string; mime: string; size: number; blobId: string };
+	/** `annotated`: a photo's copy with its drawing flattened on it (#86), beside the photo. */
+	| { kind: 'photo'; path: string; mime: string; size: number; blobId: string; annotated?: true };
 
 /** Photos on one take that are in Flow PT only: their bytes were freed after it verified them. */
 export type PrunedTake = { takeId: string; slate: string; take: string; cameraLetter: string; count: number };
@@ -60,12 +61,12 @@ export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sourc
 		if (e.pruned) {
 			const row = byTake.get(e.takeId);
 			const p = pruned.get(e.takeId) ?? { takeId: e.takeId, slate: row?.slate.slateUID ?? '', take: row?.take.take ?? '', cameraLetter: row?.cameraLetter ?? '', count: 0 };
-			p.count += 1;
+			if (!e.annotated) p.count += 1;
 			pruned.set(e.takeId, p);
 			continue;
 		}
 		photoBytes += e.size;
-		entries.push({ kind: 'photo', path: e.path, mime: e.mime, size: e.size, blobId: e.blobId });
+		entries.push({ kind: 'photo', path: e.path, mime: e.mime, size: e.size, blobId: e.blobId, ...(e.annotated ? { annotated: true as const } : {}) });
 	}
 	return { root: plan.root, fileName: `${plan.root}.zip`, entries, pruned: [...pruned.values()], missing: plan.missingPhotos, photoBytes, bytes: zipSize(entries) };
 }

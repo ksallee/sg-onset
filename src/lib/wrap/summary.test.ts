@@ -51,8 +51,15 @@ describe('daySummary', () => {
 		]);
 		expect(s.todo[1]).toMatchObject({ takeId: 't42A1B', slateId: '6f1c0d2e-0000-4000-8000-000000000042' });
 	});
+	it('counts the set references of the day by kind', () => {
+		expect(s.references).toEqual([
+			{ kind: 'hdri360', n: 1 },
+			{ kind: 'lidarScan', n: 1 }
+		]);
+		expect(daySummary(dayReport(input(), 'd4')!).references).toEqual([{ kind: 'Drone survey', n: 1 }]);
+	});
 	it('says when the day has no takes', () => {
 		const empty = daySummary({ ...report, slates: [], totals: { slates: 0, takes: 0, circled: 0, noGood: 0, photos: 0 }, warnings: [] });
-		expect(empty).toMatchObject({ takes: 0, runningMs: 0, cameras: [], todo: [] });
+		expect(empty).toMatchObject({ takes: 0, runningMs: 0, cameras: [], todo: [], references: [] });
 	});
 });

@@ -156,14 +156,14 @@ describe('push', () => {
 		const w = world();
 		await applied(w, [create('camera', 'c1', { projectId: 'p1', cameraModel: 'A' }, { p1: w.projectId })]);
 		const reads = () => w.fpt.count((r) => r.path.startsWith('/api/v1/schema'));
-		// /schema, the seven types, and Attachment, where the photos field adds one (findings/142).
-		expect(reads()).toBe(9);
+		// /schema, the eight types, and Attachment, where the photos field adds one (findings/142).
+		expect(reads()).toBe(10);
 		await applied(w, [create('camera', 'c2', { projectId: 'p1', cameraModel: 'B' }, { p1: w.projectId })]);
-		expect(reads()).toBe(9);
+		expect(reads()).toBe(10);
 		expect(await w.cache.get(resolutionKey(w.fpt.site))).toBeDefined();
 		// Another session on the same device starts from the cache.
 		await w.make().push([create('camera', 'c3', { projectId: 'p1', cameraModel: 'C' }, { p1: w.projectId })]);
-		expect(reads()).toBe(9);
+		expect(reads()).toBe(10);
 	});
 
 	it('does not send to a site that is not set up, and says what is missing', async () => {

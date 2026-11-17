@@ -8,7 +8,7 @@ interface. The implementation here is IndexedDB through Dexie. A Capacitor store
 | module | pure | what it does |
 |---|---|---|
 | `types.ts` | types | `Store`, `BlobMeta`, `StorageStatus`, `BackupSource`, `BackupTarget`. |
-| `tables.ts` | yes | The tables, from the model: one per scope, `still` and `template`. Parent keys, link keys, `dependsOn`, `LOCAL_TABLES`. |
+| `tables.ts` | yes | The tables, from the model: one per scope, `still`, `template` and `referenceKind`. Parent keys, link keys, `dependsOn`, `LOCAL_TABLES`. |
 | `schema.ts` | yes | The IndexedDB schema by version. How to add a version. |
 | `storage.ts` | yes | `storageStatus`, `prunable`, `BLOB_KEEP_MS`. |
 | `dexieStore.ts` | no | `openStore`: the `Store` on Dexie. |
@@ -80,9 +80,13 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
 ## Tables
 
 - One per scope (`project`, `shootDay`, `lightingSetup`, `cameraSetup`, `slate`, `take`,
-  `camera`, `lens`), `still` and `template`. Key `id`, index on the parent key.
+  `camera`, `lens`, `reference`), `still`, `template` and `referenceKind`. Key `id`, index on the
+  parent key.
 - `template`: a live template, under its project (schema version 3). Kept on the device: it is in
   the backup and on the undo stack, and nothing is queued for it (`LOCAL_TABLES`).
+- `reference`: a set reference, under its slate (schema version 4). Synced like a take.
+- `referenceKind`: a kind of set reference the project added, `{ id, projectId, name }` (schema
+  version 4). Kept on the device, as a template is.
 - `blobs`: one row per file, without the bytes. `blobData`: the bytes.
 - `outbox`: the queue. `remotes`: client UUID to server id. `trash`: removed records.
   `meta`: the queue counter (`seq`, also the change counter of the snapshots) and the times of the
@@ -262,6 +266,10 @@ Made by Claude. Kevin can overrule any of them.
 25. **Templates stay on the device.** Flow PT has no place for them; a slate or take keeps its
     template's id as text. The store skips the outbox for a table in `LOCAL_TABLES`. A backup
     made under schema an older version is refused (decision 13).
+26. **A project's own kinds of set reference stay on the device, as templates do.** Flow PT has no
+    place for the list; each reference carries its kind as text, so Flow PT sees every kind used.
+    Schema version 4 adds them with the references: a backup made before it is refused
+    (decision 13), a snapshot from before it needs `acceptOlderSchema`.
 
 ## What a real iPad must still prove
 

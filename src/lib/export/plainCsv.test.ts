@@ -4,7 +4,7 @@ import { parseCsv } from '$lib/model/csv';
 import { BOM } from './csvWrite';
 import { plainColumns, plainCsv, type PlainLabels } from './plainCsv';
 import { flatten } from './selection';
-import { input, t42A1A, t9 } from './testData';
+import { input, kindLabel, t42A1A, t9 } from './testData';
 
 /** Stand-in for the i18n helpers: the label is the key, so the test sees which field it is. */
 const labels: PlainLabels = {
@@ -13,7 +13,9 @@ const labels: PlainLabels = {
 	option: (def, option) => `<${option}>`,
 	unit: (unit) => ({ mm: 'mm', m: 'm', deg: '°', Hz: 'fps', K: 'K', px: 'px', ft: 'ft' })[unit] ?? unit,
 	yes: 'yes',
-	no: 'no'
+	no: 'no',
+	references: 'REFERENCES',
+	kind: kindLabel
 };
 
 const base = { labels, header: 'labels', units: 'inline', lengths: 'metric' } as const;
@@ -27,10 +29,21 @@ describe('plainColumns', () => {
 	it('has a column for every catalogue field and every end value', () => {
 		const keys = plainColumns(base).map((c) => c.key);
 		for (const def of FIELDS) {
+			// A slate has many set references: they share one column, not one each.
+			if (def.scope === 'reference') continue;
 			expect(keys).toContain(`${def.scope}.${def.key}`);
 			if ('end' in def && def.end) expect(keys).toContain(`${def.scope}.${def.key}End`);
 		}
 		expect(new Set(keys).size).toBe(keys.length);
+	});
+
+	it('puts the set references of the slate in one column, after the slate fields', () => {
+		const cols = plainColumns(base);
+		const keys = cols.map((c) => c.key);
+		expect(keys.filter((k) => k.startsWith('reference.'))).toEqual([]);
+		const at = keys.indexOf('slate.references');
+		expect(keys[at - 1]).toBe('slate.notes');
+		expect(cols[at].header).toBe('REFERENCES');
 	});
 
 	it('puts the end column right after its start', () => {
@@ -75,6 +88,12 @@ describe('plainCsv', () => {
 		expect(both[0][0]).toBe('name');
 		expect(both[1][0]).toBe('project.name');
 		expect(both).toHaveLength(10);
+	});
+
+	it('writes the set references of the slate one per line in their cell', () => {
+		const t = table(plainCsv(rows(), base));
+		expect(t.cell(a1(), 'REFERENCES')).toBe('Lidar scan: Scan 01\nHDRI 360: HDRI_0412 (Ricoh Theta Z1, A003, ×7, Noon sun)');
+		expect(t.cell(rows().findIndex((r) => r.take.id === t9.id), 'REFERENCES')).toBe('');
 	});
 
 	it('writes values with their units inline', () => {

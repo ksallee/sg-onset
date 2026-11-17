@@ -5,8 +5,9 @@ Use a test project on the site, never a show.
 
 ## Before
 
-- The site has the four custom entities enabled for projects, named exactly **Take**, **Lens**,
-  **Camera Setup** and **Lighting Setup**. ShootDay, Slate and Camera are switched on.
+- The site has the five custom entities enabled for projects, named exactly **Take**, **Lens**,
+  **Camera Setup**, **Lighting Setup** and **Set Reference**. ShootDay, Slate and Camera are
+  switched on.
 - You can create fields on the site (Admin), or an Admin is at hand.
 - The site's field Trash is empty: a retired field still holds its name until then.
 
@@ -19,14 +20,15 @@ Use a test project on the site, never a show.
 3. Open the sync sheet. Under **Flow PT Project**, tap **Link a Project** and pick the test project.
    Check the list: no templates, no demo show.
 4. The check runs at once and only reads. Under **Setup**, read the report:
-   - **Entities**: all seven found. If one says "Enable a custom entity, name it …", the name is
+   - **Entities**: all eight found. If one says "Enable a custom entity, name it …", the name is
      what the app looks for.
    - **Fields**: on a fresh site most are **To create**. Nothing has been created yet: check the
      site's fields of Take, nothing new.
    - **Fields Flow PT Adds**: one line per link field, each **Will appear**. Flow PT adds a field
      on the linked entity for every link field (corpus findings/142). Expect, on a site that calls
      the entities as above: `sg_takes` on Slate, Camera, Lens and Camera Setup; `sg_camera_setups`
-     on Camera and Lens; `sg_slates` on Shoot Day and Lighting Setup; and on Attachment (File)
+     on Camera and Lens; `sg_slates` on Shoot Day and Lighting Setup; `sg_set_references` on Slate;
+     and on Attachment (File)
      `custom_entityNN_sg_photos_custom_entityNNs`, with the Take's slot number. A link that would
      add a name an entity already has is under **Cannot be made yet**, naming that field: nothing
      was created for it.

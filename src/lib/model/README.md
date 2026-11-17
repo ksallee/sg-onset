@@ -7,7 +7,7 @@ ids and times in. Each module has its test beside it.
 
 | module | what it does |
 |---|---|
-| `catalogue.ts` | `FIELDS`: every field as data. Scope, key, value type, stored unit, label message key, start/end flag, range, and what CRIF, OMC, OpenTrackIO, ALE, USD and VES call it. |
+| `catalogue.ts` | `FIELDS`: every field as data. Scope, key, value type, stored unit, label message key, start/end flag, range, and what CRIF, OMC, OpenTrackIO, ALE, USD and VES call it. The scopes: project, shoot day, lighting setup, camera setup, slate, take, camera, lens, set reference. |
 | `types.ts` | Record types per scope, derived from the catalogue. |
 | `rational.ts` | `{ num, denom }` for frame rates and squeeze. Parse and format. |
 | `length.ts` | Metres stored, feet and inches typed and shown. Keeps what was typed. |
@@ -159,3 +159,18 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
 40. **A camera setup has an `order`, set by hand.** Setups with an order come first, by it; the
     rest follow by the old rule: single letters, then names, each alphabetical. A move numbers
     every setup from 1, so a new setup lands at the end.
+
+### Set references (Claude, 2026-11-17, from Kevin's decisions on #93)
+
+41. **A set reference is a scope of its own, under the slate** (`reference`, `slateId`). A slate has
+    many, each with its own kind, device, file or folder name, card or roll, count and notes.
+    Reason: a list per slate, synced one row each to the "Set Reference" entity.
+42. **The kind is text, not an enum:** a built-in key (`hdri360`, `lidarScan`) or a kind the project
+    added, as typed (`lib/references/kinds.ts`). Reason: a project adds its own kinds, and an enum
+    would refuse them.
+43. **Only the name is required** (decision 36). The add flow always sets a kind; none shows as Other.
+44. **`loggedAt` orders the list.** Set when the reference is added, never a form field. Records have
+    no order of their own in the store.
+45. **The count is a whole number from 1.** What it counts (files, frames, brackets) is the crew's.
+46. **The lighting setup's HDRI fields and the slate's Witness camera, Lidar scan and Clean plate
+    switches stay as they are,** with their CRIF and VES names. The log is added beside them.

@@ -219,14 +219,35 @@ describe('checkSetup', () => {
 		expect(fpt.fields.CustomEntity22.slate_sg_set_shots_slates).toMatchObject({ properties: { valid_types: { value: ['Slate'] } } });
 	});
 
-	it('is not ready until an admin enables the Set Shot entity, and says so', async () => {
+	// Kevin, #117: Set Shot is optional. Its absence is a note: the rest is ready, its links wait.
+	it('is ready without the Set Shot entity, and names it as optional', async () => {
 		const { fpt, cache, check } = world();
 		delete fpt.types.CustomEntity22;
+		delete fpt.fields.Slate.sg_set_shots;
 		const report = await check();
-		expect(report.ready).toBe(false);
-		expect(report.entities.find((e) => e.scope === 'setShot')).toEqual({ scope: 'setShot', kind: 'custom', displayName: 'Set Shot', status: 'missing' });
-		expect(field(report, 'slate', 'sg_set_shots')).toMatchObject({ status: 'blocked' });
-		expect(await cache.get(resolutionKey(fpt.site))).toBeUndefined();
+		expect(report.ready).toBe(true);
+		expect(report.entities.find((e) => e.scope === 'setShot')).toEqual({ scope: 'setShot', kind: 'custom', displayName: 'Set Shot', status: 'missing', optional: true });
+		expect(report.fields.some((f) => f.scope === 'setShot' || f.name === 'sg_set_shots')).toBe(false);
+		expect(creates(fpt)).toEqual([]);
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.entities.setShot).toBeUndefined();
+	});
+
+	it('makes the Set Shot fields once an admin enabled it, on Set Up Fields', async () => {
+		const { fpt, cache, check } = world();
+		const slot = fpt.types.CustomEntity22;
+		const fields = fpt.fields.CustomEntity22;
+		delete fpt.types.CustomEntity22;
+		delete fpt.fields.Slate.sg_set_shots;
+		await check();
+		fpt.types.CustomEntity22 = slot;
+		fpt.fields.CustomEntity22 = { code: fields.code, project: fields.project };
+		const before = await check({ createFields: false });
+		expect(before.ready).toBe(true);
+		expect(field(before, 'setShot', 'sg_onset_matched')).toMatchObject({ status: 'missing', dataType: 'checkbox' });
+		expect(field(before, 'slate', 'sg_set_shots')).toMatchObject({ status: 'missing' });
+		const report = await check();
+		expect(field(report, 'setShot', 'sg_onset_matched').status).toBe('created');
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.entities.setShot).toBe('CustomEntity22');
 	});
 
 	it('does not create the Shots link when Shot already has the field it would add', async () => {

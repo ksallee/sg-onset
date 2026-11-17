@@ -26,7 +26,10 @@ export function typeOf(resolution: Resolution, target: Target): string {
 	if (target === 'project') return 'Project';
 	if (target === 'attachment') return 'Attachment';
 	if (target === 'shot') return 'Shot';
-	return resolution.entities[target];
+	const type = resolution.entities[target];
+	// Only an optional entity can be missing, and no record of the device links one (mapping.ts).
+	if (!type) throw new Error(`${target} is not set up on this site`);
+	return type;
 }
 
 /** The name on the site of the client UUID field of a scope. */
@@ -129,7 +132,7 @@ export function updateData(
 function uuidPath(resolution: Resolution, scope: EntityScope, column: Column): string | undefined {
 	const target = column.target;
 	if (!target || target === 'project' || target === 'attachment' || target === 'shot') return undefined;
-	return `${fieldName(resolution, scope, column)}.${resolution.entities[target]}.${uuidField(resolution, target)}`;
+	return `${fieldName(resolution, scope, column)}.${typeOf(resolution, target)}.${uuidField(resolution, target)}`;
 }
 
 /** The fields to ask the server for, to read these keys. An unknown key asks for nothing. */

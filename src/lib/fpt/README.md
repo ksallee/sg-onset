@@ -20,7 +20,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `versions.ts` | yes | A take's media that go up as a Version (a video; an audio note next): kind, file name, name, create, the file read back. |
 | `takeVersions.ts` | no | The Version of a take's media: found by client UUID, made, its file checked. |
 | `shots.ts` | yes | A slate's VFX shot codes: as typed, as Flow PT matches them, the Shot search, the in-place write. |
-| `setShots.ts` | yes | One Set Shot per code: its key, the lookup, what to file, what to match, what each slate links and unlinks. |
+| `setShots.ts` | yes | One Set Shot per code: its key, the lookup, what to file, what to match, what a slate links (`derivedShots`). |
 | `errors.ts` | yes | What a refusal or a missing answer means. |
 | `token.ts` | yes | The bearer's `exp`, and when to renew it. |
 | `uploadPlan.ts` | yes | Upload sizes, URL life, the completion body. |
@@ -65,7 +65,7 @@ if (report.ready) {
 | `cameraSetup` | custom, "Camera Setup" | display name |
 | `lightingSetup` | custom, "Lighting Setup" | display name |
 | `reference` | custom, "Set Reference" | display name |
-| `setShot` | custom, "Set Shot", in `sg_set_shots` on the slate | display name. One row per VFX shot code, made at sync, no table on the device |
+| `setShot` | custom, "Set Shot", in `sg_set_shots` on the slate | display name. Optional. One row per VFX shot code, made at sync, no table on the device |
 | `still` | Attachment, in `sg_photos` on the take | file name |
 | `still` with a video file | Version, `entity` the take, the file in `sg_uploaded_movie` | client UUID |
 | `project` | Project | given: `projectId` |
@@ -79,7 +79,7 @@ Never by slot number.
 
 ```ts
 type SetupReport = {
-	ready: boolean; // every entity found, every field there
+	ready: boolean; // every required entity found, every field of theirs there
 	site: string;
 	entities: {
 		scope: EntityScope;
@@ -88,6 +88,7 @@ type SetupReport = {
 		status: 'found' | 'missing' | 'ambiguous';
 		entityType?: string; // 'CustomEntity09'; for a built-in type also when missing
 		candidates?: string[]; // ambiguous: every type with that display name
+		optional?: true; // the site syncs without it: Set Shot (Kevin, #117)
 	}[];
 	fields: {
 		scope: EntityScope;
@@ -111,7 +112,9 @@ type SetupReport = {
 };
 ```
 
-- `missing` entity: an admin enables it in the web interface. No API call does.
+- `missing` entity: an admin enables it in the web interface. No API call does. A missing optional
+  entity is a note: the report is ready, nothing is planned on it or for the links to it, and what
+  needs it waits (decision 44).
 - `needsAdmin`: the person may not create fields. An Artist gets 500 code 105 "User doesn't have
   permission to create a Field" (corpus findings/132). The check stops at that first refusal and
   the sheet says only that an Admin must run Set Up Fields.
@@ -303,7 +306,8 @@ its `startedAt`, of a set reference its `loggedAt`.
 | the project | `project` | entity | |
 | the code as first typed | `code` | text | its name. Anyone may rename it: nothing moves |
 | the key | `sg_onset_key`, "Onset Key" | text, unique | `<project id>:<code, trimmed, lowercase>` |
-| the real Shots | `sg_shots`, "Shots" | multi_entity to Shot | set at sync, or by hand in Flow PT |
+| the real Shots | `sg_shots`, "Shots" | multi_entity to Shot | set by the app's match, or by hand in Flow PT |
+| matched | `sg_onset_matched`, "Onset Matched" | checkbox | ticked when the app matched it: never again |
 
 `Slate.sg_set_shots` adds `slate_sg_set_shots_slates` on Set Shot, so a Set Shot lists its slates.
 `Set Shot.sg_shots` adds `custom_entityNN_sg_shots_custom_entityNNs` on Shot, so a Shot lists its
@@ -412,46 +416,45 @@ A video (`versionKind` of its type) goes the same way to another place (`takeVer
 
 A slate's VFX shot codes are text on the device and in `sg_vfx_shots`. At the shoot the Shots
 rarely exist yet: editorial makes them at turnover, often after wrap (Kevin, #102). So at sync each
-code is filed as a Set Shot, one row per code in the project, linked from the slate in
-`sg_set_shots`. A Set Shot links the real Shots in its `sg_shots`: the transport sets it when a Shot
-has the code, and anyone can set it in Flow PT's grid, which covers the time after wrap. The slate
-also links its Set Shots' Shots in its own `sg_shots` (#96), so artists stay one click from the
-slate; otherwise the path is Shot, Set Shots, slates. `setShots.ts` holds the rules, `transport.ts`
-the calls.
+code is filed as a Set Shot, one row per code in the project, and the slate links its Set Shots in
+`sg_set_shots`.
 
-1. A push whose create or update of a slate carries `vfxShots` tells the app (`onShots`) what it
-   owes on each of those slates: every code to link, every code taken off to unlink. Then the
-   batch goes as always, with no Shot or Set Shot in it.
-2. Once the batch is applied: one `_search` of Shot, `project is <the project>` and
-   `code in [<every code>]`, every page (Shot reads are not scoped by the endpoint,
-   entity_types/Shot.md); and one of Set Shot, `project is <the project>` and
-   `sg_onset_key in [<the key of every code>]`.
-3. Every code to link that has no Set Shot is filed: one `_batch` of creates, each with the project,
-   the code as typed and the key. If the batch is refused or gets no answer, the codes are looked
-   up again (decision 37).
-4. A Set Shot of a code to link that holds no Shot, and was never seen holding one, is linked to
-   every Shot that has the code: a `PUT` with `add`. The app is told every Set Shot that holds a
-   Shot (`onMatched`), and gives that list back on the next sync (`matched`).
-5. Per slate, one `PUT` per field and mode, with `{"multi_entity_update_mode": ..., "value": [...]}`
-   (recipes/009): `remove` the Set Shots of the codes taken off, `remove` their Shots, `add` the Set
-   Shots of the codes it holds, `add` their Shots. `add` of a link already there changes nothing
-   (field_types/multi_entity.md).
-6. The app is told what is still owed (`ShotResult`): `waiting`, codes with no Set Shot yet, a Set
-   Shot with no Shot yet, or a write that failed; `several`, codes more than one Shot has;
-   `unlink`, codes whose `remove` failed.
-7. `linkShots` does steps 2 to 5 for slates the server holds, from what is owed: it links what
-   waits, unlinks what is owed, and looks again at the codes several Shots share without linking
-   them. The app calls it when a drain ends (app/sync README).
+Links to Shots are made in one place, the Set Shot's `sg_shots`: by the app's match on the code,
+once, or by a person in Flow PT's grid, which covers the time after wrap. The slate's own
+`sg_shots` (#96) is derived: the Shots of its Set Shots, so artists stay one click from the slate.
+A wrong link is fixed on the Set Shot; one made by hand on the slate is overwritten at the next
+sync. Nothing about links is kept on the device. `setShots.ts` holds the rules, `transport.ts` the
+calls (Kevin, 2026-11-17, replacing #96's link rules).
+
+`linkShots` takes slates Flow PT holds, each with the codes it holds now:
+
+1. One search of the slates, by id, for what they link now; one of Set Shot, `project is <the
+   project>` and `sg_onset_key in [<the key of every code>]`.
+2. Every code with no Set Shot is filed: one `_batch` of creates, each with the project, the code as
+   typed and the key. If the batch is refused or gets no answer, the codes are looked up again
+   (decision 37).
+3. Every Set Shot never matched that holds no Shot: one search of Shot, `project is <the project>`
+   and `code in [<their codes>]`, every page (Shot reads are not scoped by the endpoint,
+   entity_types/Shot.md). Per Set Shot some Shot has the code of, one `_batch` of two updates: `add`
+   the Shots to its `sg_shots`, tick `sg_onset_matched`. Together or not at all, in that order
+   (findings/154).
+4. Per slate, each field that differs is set whole, one `PUT` a field, with
+   `{"multi_entity_update_mode": "set", "value": [...]}` (recipes/009): `sg_set_shots` to the Set
+   Shots of its codes, `sg_shots` to every Shot of those Set Shots (`slateWrites`, `derivedShots`).
+5. The answer is, per slate, the codes whose Set Shot holds several Shots of that code: for the
+   sync sheet, never kept.
+
+A push whose create or update of a slate carries `vfxShots` runs it for those slates once its batch
+has landed. The app runs it for every slate of the project Flow PT holds when a drain ends
+(app/sync README). On a site without Set Shot it does nothing and answers nothing: the links wait.
 
 - A code matches as Flow PT matches text: trimmed, whatever the case (field_types/text.md). The key
   holds it so, and a unique field compares the same way (findings/127).
-- Shot codes are not unique: a code several Shots have links them all, and is named so someone
-  cleans up (Kevin, #96).
-- A link someone made in Flow PT stays: only the links of codes taken off on the device are
-  unlinked. A bare list, or the mode in the query string, would replace the field (recipes/009).
-- None of it can fail a push. A write that gets no answer is owed, and made at a later sync.
-- A Shot is never created, renamed or changed. A Set Shot is created, and linked to Shots while it
-  has none; never renamed, never deleted.
+- Shot codes are not unique: a match takes every Shot with the code, and the code is named so
+  someone cleans up (Kevin, #96).
+- None of it can fail a push. What did not land is worked out again at the next sync.
+- A Shot is never created, renamed or changed. A Set Shot is created, matched once, never renamed,
+  never deleted.
 
 ## Decisions
 
@@ -529,21 +532,18 @@ Made by Claude. Kevin can overrule any of them.
 27. **The kind of a set reference is text:** a built-in key (`hdri360`), as an enum keeps its key
     (decision 7), or a project's own kind as typed. No list field: a project adds kinds, and a list
     would need an admin for each.
-28. **Shot links go by single `PUT`, after the batch, one field each.** A link in the slate's
-    batch would let one dead Shot id refuse the whole batch ("Value is not legal", recipes/002).
-    So the slate lands first, and its links follow, up to four `PUT`s a slate. The
-    `multi_entity_update_mode` wrapper works in a `_batch` update too, and several updates of one
-    record apply in order (findings/154), so the four could be one batch; kept apart, a refused
-    `remove` does not hold back the `add`s. Two fields with the wrapper in one `PUT` are not
-    measured.
-29. **A code with no Shot waits, and is asked about again.** The device keeps it (app/sync), and a
-    later sync links it once a Shot has it (Kevin, #96). A code whose Shot is there but unlinked
-    is never linked again: someone unlinked it in Flow PT on purpose.
-30. **A code several Shots have links them all, and is listed** (Kevin, #96). Shot codes are not
-    unique (entity_types/Shot.md), and nothing on the device tells them apart. Later syncs look at
-    the code again, never linking: it leaves the list once one Shot or none has it.
-31. **An unlink that fails is owed, and made at a later sync,** until Flow PT matches the slate
-    (Kevin, #96). It is dropped once the slate holds the code again.
+28. **Shot links follow the batch, never in it.** A link in the slate's batch would let one dead
+    Shot id refuse the whole batch ("Value is not legal", recipes/002). So the slate lands first,
+    and its links follow: one `PUT` a field, up to two a slate. The mode works in a `_batch`
+    update too (findings/154); kept apart, a refused field does not hold back the other. Two fields
+    with the mode in one `PUT` are not measured. A Set Shot's match is a batch of two updates of
+    the one row, so its Shots and its flag land together.
+29. Superseded by Kevin on 2026-11-17 (#102): a code with no Shot no longer waits on the device. See
+    38 to 42.
+30. Superseded by Kevin on 2026-11-17 (#102): a code several Shots have is listed from what each
+    sync reads. See 43.
+31. Superseded by Kevin on 2026-11-17 (#102): no unlink is owed on the device; each sync sets the
+    slate's links whole. See 41 and 42.
 32. **A video goes up as a Version linked to its take** (Kevin, 2026-11-17, #94), for Flow PT's
     player and transcode. A photo stays an Attachment. On the device both are stills; the file's
     type decides, so nothing changes in the store or the outbox. The still's create sends nothing,
@@ -560,34 +560,49 @@ Made by Claude. Kevin can overrule any of them.
     Attachments the server adds after it (findings/123).
 35. **Deleting a video deletes its Version only.** The movie and the server's transcodes are
     Attachments of the Version; what Flow PT does with them then is not measured.
-40. **Every code typed is a Set Shot, a row of the project custom entity "Set Shot"** (Kevin, #102),
-    even when a Shot has the code: it is then linked at once. Not flagged rows in Shot: they fire
+36. **Every code typed is a Set Shot, a row of the project custom entity "Set Shot"** (Kevin, #102),
+    even when a Shot has the code: it is then matched at once. Not flagged rows in Shot: they fire
     task templates and event scripts, count in shot lists and bids, need Shot create rights, and
     duplicate the Shot editorial makes, with no merge in Flow PT. Each studio enables the slot and
-    names it, as for Take (findings/122). Until it is there nothing syncs, and the sync sheet names
-    it. No Versions on it.
-41. **A Set Shot is never made twice for one code in a project.** It is looked up by key before it
+    names it, as for Take (findings/122). No Versions on it. It is optional (decision 44).
+37. **A Set Shot is never made twice for one code in a project.** It is looked up by key before it
     is made, and the key is a text field created unique, which refuses a second row, case and
     outer spaces ignored, in a `_batch` too (findings/127). The key is `<project id>:<code>`:
     whether `unique` spans projects is unmeasured (findings/136), and two shows may share a code.
     A refused or unanswered create is looked up again, never sent blind. A deleted Set Shot frees
     its key (findings/136): a later sync of a slate with the code files a new one.
-42. **A Set Shot is matched once.** The transport links it to the Shots of its code while it holds
-    none and was never seen holding one. The device keeps the Set Shots it saw holding a Shot
-    (app/sync), so one a person emptied stays empty: a Shot a person unlinked is never linked
-    again (Kevin, #96). Another device that never saw it holding a Shot may match it once more.
-    Once it holds a Shot, a Shot made later with its code is not added: someone sets it by hand.
-39. **A Set Shot is matched by the code typed on set,** which its key holds, not by its name now.
-    Renaming a Set Shot is free and moves nothing (Kevin, #102).
-40. **A slate links its Set Shots' Shots,** or the Shots of the code while the Set Shot is not
-    there yet (#96). A code taken off unlinks both, but never a Shot a code it holds links. A Shot
-    set on a Set Shot after its slates were linked is not added to those slates: the Set Shot
-    reaches it, and the next edit of a slate's codes links it.
-41. **A code several Shots have is a Set Shot with more than one Shot of that code.** A Set Shot
-    holding Shots of other codes, a shot editorial split, is not listed.
-42. **A Set Shot is never deleted.** A code taken off a slate unlinks that slate from its Set Shot,
-    which stays, with its Shots, for the other slates that list the code. One no slate lists any
-    more stays too, until someone deletes it in Flow PT. Open for Kevin (#102).
+38. **Links to Shots are made in one place: the Set Shot's Shots** (Kevin, 2026-11-17). The app's
+    match fills it, or a person in Flow PT's grid. Several Shots for a shot editorial splits.
+39. **The app matches a Set Shot once, and the Set Shot says so.** It links a Set Shot never matched
+    that holds no Shot to every Shot with the code typed on set, and ticks `sg_onset_matched` in
+    the same batch. A ticked Set Shot is never matched again, on any device: one a person emptied
+    after a match stays empty (Kevin, 2026-11-17). One a person filled is left alone and not ticked;
+    emptied before the app ever matched it, it may be matched once. A Set Shot no Shot has the code
+    of is tried at each sync: that is the late link. Once it holds a Shot, a Shot made later with
+    its code is not added: someone sets it by hand. The code is the one the key holds, not the Set
+    Shot's name now: renaming a Set Shot is free and moves nothing (Kevin, #102).
+40. **A slate's Set Shots are those of its codes, and its Shots those of its Set Shots** (Kevin,
+    2026-11-17). Both fields are set whole, in `set` mode, and written only when they differ. A
+    link made by hand on the slate is overwritten: a wrong link is fixed on the Set Shot. One rule,
+    `derivedShots`, so a page with no data on the device works it out the same way (#106).
+41. **Nothing about links is kept on the device.** Each sync reads the slates' links and their Set
+    Shots, and sets what differs: a code taken off is unlinked at the next sync even if the write
+    failed, and a Shot set on a Set Shot in the grid reaches its slates at the next sync. #96's
+    lists of codes waiting and unlinks owed, and its rule that a Shot a person unlinked from a slate
+    is never linked again, are gone (Kevin, 2026-11-17).
+42. **Every slate of the project Flow PT holds is brought in line when a drain ends,** at most once a
+    minute, at once on Sync Now, and the slates of a push right after it (app/sync README).
+43. **A code several Shots have is a Set Shot with more than one Shot of that code** (Kevin, #96),
+    named in the sync sheet from what the last sync read. A Set Shot holding Shots of other codes,
+    a shot editorial split, is not named.
+44. **Set Shot is optional** (Kevin, #117). The resolution holds it only once the entity, its three
+    fields and the slate's `sg_set_shots` are all there; until then the rest syncs, the setup check
+    names it as a note, and the sync sheet says to enable it and how many slates wait. Nothing is
+    dropped: the codes are on the slates, and the first sync after an admin enables it and runs Set
+    Up Fields files the Set Shots and links them all. Set Reference follows in its own change.
+45. **A Set Shot is never deleted** (Kevin, #102). A code renamed or taken off a slate unlinks that
+    slate from its Set Shot, which stays, with any Shots set on it, even when no slate lists it.
+    Anyone can delete a stray one in Flow PT.
 
 ## Where FPT did not fit the contract
 

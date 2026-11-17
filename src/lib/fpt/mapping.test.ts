@@ -9,7 +9,11 @@ import {
 	fieldMap,
 	fieldMaps,
 	mappingTable,
+	isOptionalColumn,
+	isRecordScope,
+	OPTIONAL_SCOPES,
 	SET_SHOT_KEY,
+	SET_SHOT_MATCHED,
 	SET_SHOT_SHOTS,
 	SET_SHOTS,
 	SHOTS,
@@ -179,11 +183,29 @@ describe('wantedColumns', () => {
 	});
 
 	// The key guards the create: a text field made unique refuses a second row (findings/127).
-	it('asks of a Set Shot a unique key and its Shots, and nothing of the device', () => {
-		expect(wantedColumns('setShot')).toEqual([SET_SHOT_KEY, SET_SHOT_SHOTS]);
+	it('asks of a Set Shot a unique key, its Shots and whether the app matched it, and nothing of the device', () => {
+		expect(wantedColumns('setShot')).toEqual([SET_SHOT_KEY, SET_SHOT_SHOTS, SET_SHOT_MATCHED]);
 		expect(SET_SHOT_KEY).toMatchObject({ name: 'sg_onset_key', display: 'Onset Key', dataType: 'text', unique: true });
 		expect(SET_SHOT_SHOTS).toMatchObject({ name: 'sg_shots', display: 'Shots', dataType: 'multi_entity', target: 'shot' });
+		// Kevin, #102: the app matches a Set Shot once, and a flag on it in Flow PT records it.
+		expect(SET_SHOT_MATCHED).toMatchObject({ name: 'sg_onset_matched', display: 'Onset Matched', dataType: 'checkbox' });
 		expect(fieldMaps('setShot').map((m) => m.key)).toEqual(['projectId']);
+	});
+
+	// Kevin, #117: a site without Set Shot syncs the rest; the Set Shot and the links to it wait.
+	it('makes the Set Shot optional, with its fields and the slate field that links it', () => {
+		expect(OPTIONAL_SCOPES).toEqual(['setShot']);
+		for (const column of wantedColumns('setShot')) expect(isOptionalColumn('setShot', column)).toBe(true);
+		expect(isOptionalColumn('slate', SET_SHOTS)).toBe(true);
+		expect(isOptionalColumn('slate', SHOTS)).toBe(false);
+		expect(isOptionalColumn('take', UUID)).toBe(false);
+	});
+
+	it('tells the scopes of records on the device from the Set Shot', () => {
+		expect(isRecordScope('slate')).toBe(true);
+		expect(isRecordScope('reference')).toBe(true);
+		expect(isRecordScope('setShot')).toBe(false);
+		expect(isRecordScope('still')).toBe(false);
 	});
 
 	it('leaves out the stock fields', () => {

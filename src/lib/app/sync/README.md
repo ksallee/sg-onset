@@ -16,7 +16,7 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `projects.ts` | yes | `PROJECT_FILTER`, `projectChoices`: the FPT projects a person picks from. |
 | `errors.ts` | yes | `syncError`, `syncErrorText`. |
 | `clock.ts` | yes | `toSecond`: `app.now()` stamps to the second. |
-| `shots.ts` | yes | What is owed on the slates' Set Shots and Shots fields: kept, pruned, made again, listed. The Set Shots seen holding a Shot. |
+| `shots.ts` | yes | Which slates to bring in line, when, and what the sync sheet lists of their Set Shots. Nothing kept. |
 | `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. |
 | `engine.ts` | no | `createSyncEngine`: link, check, runner. No runes. |
 | `controller.svelte.ts` | no | `provideSync`, `useSync`: the engine on the real page, as runes. |
@@ -49,26 +49,26 @@ Made by Claude. Kevin can overrule any of them.
 5. **The project list** leaves out templates, the demo show and archived projects (corpus
    findings/018). One page of 500.
 6. **Last sync** is when a drain last ended with nothing it could move (`idle` or `waiting`).
-7. **What is owed on the slates' Set Shots and Shots fields is kept in `localStorage`, per
-   project** (`sg-onset:sync:shots:<id>`), as the transport reports it (lib/fpt README, Set Shots
-   and Shot links): codes with no Set Shot or no Shot yet, codes several Shots have, unlinks not
-   made. Not in the store's tables, like the link. Lost, nothing breaks: the codes are on the
-   slate, and the next edit of a slate's codes writes its entry again.
-8. **It is made when a drain ends,** at most once a minute, at once on Sync Now: one Shot search
-   and one Set Shot search, then the Set Shots still missing are filed and matched, and for the
-   slates Flow PT holds an `add` of what waits and a `remove` of what is owed. A code taken off
-   the slate since, or a slate deleted, leaves the list; an owed unlink goes once the slate holds
-   the code again. A code no Shot has stays on the list, and each sync looks again.
-9. **The sync sheet lists, by slate, the codes several Shots have** under "VFX shots to check". A
-   row opens the slate. A code no Shot has yet is filed as a Set Shot, which is expected, and is
-   not listed (Kevin, #102). An owed unlink needs no one and is not listed either.
+7. **Nothing about links is kept on the device** (Kevin, 2026-11-17, #102). Each sync reads Flow
+   PT and sets what differs (lib/fpt README, Set Shots and Shot links). #96's list of codes
+   waiting, codes several Shots have and unlinks owed (`sg-onset:sync:shots:<id>`), and the
+   matched Set Shots this change first kept (`sg-onset:sync:setShots:<id>`), are no longer read:
+   both keys are removed when the project loads.
+8. **Every slate of the current project Flow PT holds is brought in line when a drain ends,** at
+   most once a minute, at once on Sync Now: its Set Shots set to those of its codes, its Shots to
+   those of its Set Shots. A slate with no codes is in it too, so a code taken off is unlinked even
+   if the write at its push failed. A push links the slates whose codes it touched right after its
+   batch.
+9. **The sync sheet lists, by slate, the codes several Shots have** under "VFX shots to check",
+   from what the last sync read, in memory. A row opens the slate. A code no Shot has yet is filed
+   as a Set Shot, which is expected, and is not listed (Kevin, #102).
 10. **The slate's VFX shots field offers the linked project's Shot codes** while one is typed, as
     chips (`slates/shotSuggest.ts`). Read with a link, a session and a network, every page, kept
     five minutes. Offline nothing is offered and the field is free text.
-11. **The Set Shots seen holding a Shot are kept in `localStorage`, per project**
-    (`sg-onset:sync:setShots:<id>`), by Flow PT id, as the transport reports them. The transport
-    never matches one of them again, so a Set Shot a person emptied stays empty (lib/fpt README,
-    decision 38). Lost, a Set Shot a person emptied may be matched once more.
+11. **A site without Set Shot syncs the rest** (Kevin, #117). The sync sheet's "Set Shots" section
+    says an admin enables a custom entity named Set Shot and runs Set Up Fields, and counts the
+    slates whose codes wait. After a setup check the runner starts again with a new transport, so
+    an entity enabled since is synced at the next drain.
 
 ## Not tested without a real site
 

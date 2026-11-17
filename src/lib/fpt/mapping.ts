@@ -20,6 +20,26 @@ export function isEntityScope(name: string): name is EntityScope {
 	return (ENTITY_SCOPES as readonly string[]).includes(name);
 }
 
+/**
+ * The scopes a site may lack: the rest syncs, and what needs them waits until an admin enables the
+ * entity and runs Set Up Fields (Kevin, #117). Set Reference follows in its own change.
+ */
+export const OPTIONAL_SCOPES = ['setShot'] as const satisfies readonly EntityScope[];
+export type OptionalScope = (typeof OPTIONAL_SCOPES)[number];
+/** The scopes every site must have before anything syncs. */
+export type RequiredScope = Exclude<EntityScope, OptionalScope>;
+
+export function isOptionalScope(name: string): name is OptionalScope {
+	return (OPTIONAL_SCOPES as readonly string[]).includes(name);
+}
+
+/** The scopes of records on the device. A Set Shot is none: the transport makes it from a slate's codes. */
+export type RecordScope = Exclude<EntityScope, 'setShot'>;
+
+export function isRecordScope(name: string): name is RecordScope {
+	return isEntityScope(name) && name !== 'setShot';
+}
+
 /** What an entity field points at. `shot`: Flow PT's own Shot, which the app never writes. */
 export type Target = EntityScope | 'project' | 'attachment' | 'shot';
 
@@ -121,7 +141,18 @@ export const SET_SHOTS: Column = { name: 'sg_set_shots', display: 'Set Shots', d
 export const SET_SHOT_KEY: Column = { name: 'sg_onset_key', display: 'Onset Key', dataType: 'text', unique: true, note: 'The project and the shot code typed on set. Unique: one Set Shot per code.' };
 
 /** The real Shots of a Set Shot. Several for a shot editorial splits. Makes a field on Shot that lists its Set Shots. */
-export const SET_SHOT_SHOTS: Column = { ...SHOTS, note: 'The Shots of this shot code. Set at sync when a Shot has the code, or by hand.' };
+export const SET_SHOT_SHOTS: Column = { ...SHOTS, note: 'The Shots of this shot code. Set by SG OnSet when a Shot has the code, or by hand.' };
+
+/**
+ * Whether the app matched the Set Shot: linked it to the Shots of its code. It matches one once,
+ * on any device, so a Set Shot a person emptied after a match stays empty (Kevin, #102).
+ */
+export const SET_SHOT_MATCHED: Column = {
+	name: 'sg_onset_matched',
+	display: 'Onset Matched',
+	dataType: 'checkbox',
+	note: 'Ticked when SG OnSet linked the Shots of the code. It never matches a ticked Set Shot again.'
+};
 
 /** The key whose value a new record takes as `created_at` (corpus findings/070_authored_timestamps.md). */
 export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt', reference: 'loggedAt' };
@@ -306,7 +337,7 @@ export function fieldMap(scope: EntityScope, key: string): FieldMap | undefined 
 }
 
 /** The fields of a scope that are no catalogue field: the links filled at upload and at sync. */
-const EXTRA: Partial<Record<EntityScope, readonly Column[]>> = { take: [STILLS], slate: [SHOTS, DIAGRAMS, SET_SHOTS], setShot: [SET_SHOT_SHOTS] };
+const EXTRA: Partial<Record<EntityScope, readonly Column[]>> = { take: [STILLS], slate: [SHOTS, DIAGRAMS, SET_SHOTS], setShot: [SET_SHOT_SHOTS, SET_SHOT_MATCHED] };
 
 /**
  * The fields a scope's entity must have that are not stock: ours to find or create. A record of
@@ -315,6 +346,14 @@ const EXTRA: Partial<Record<EntityScope, readonly Column[]>> = { take: [STILLS],
 export function wantedColumns(scope: EntityScope): Column[] {
 	const own = MAPS[scope].flatMap((m) => m.columns).filter((c) => !c.stock);
 	return [scope === 'setShot' ? SET_SHOT_KEY : UUID, ...own, ...(EXTRA[scope] ?? [])];
+}
+
+/**
+ * A field a site may lack and still sync: one of an optional scope, or one that links it. It is
+ * made once the entity is there.
+ */
+export function isOptionalColumn(scope: EntityScope, column: Column): boolean {
+	return isOptionalScope(scope) || (column.target !== undefined && isOptionalScope(column.target));
 }
 
 /** The mapping as rows, for the README and for a person checking it. */

@@ -243,8 +243,9 @@ gives.
 - **Entry** for a stored thing. "Item" is vague; "record" means to shoot.
 - **Reference** is a set reference: one thing captured on another device, logged by name. A
   **Photo** is taken in the app and kept on the take. "Set Reference" is the Flow PT entity.
-- **Set Shot** is the Flow PT entity that holds one VFX shot code typed on set, until it links
-  editorial's Shot. The app makes it and never shows it; only the sync sheet's footer names it.
+- **Set Shot** is the Flow PT entity that holds one VFX shot code typed on set, and links
+  editorial's Shots once they exist. Links to Shots are fixed there, not on the slate. The app
+  makes it and never shows it; only the sync sheet and the setup check name it.
 - **Lidar scan** for the kind of reference, as for the slate's switch. Flow PT shows "LiDAR".
 - **Photo**, not still. On set, "stills" means the unit stills photographer.
 - **Wrap** names the destination, the crew word for the end of the shooting day. Rejected: Export

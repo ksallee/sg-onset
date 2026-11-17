@@ -6,7 +6,8 @@ Use a test project on the site, never a show.
 ## Before
 
 - The site has the six custom entities enabled for projects, named exactly **Take**, **Lens**,
-  **Camera Setup**, **Lighting Setup**, **Set Reference** and **Set Shot**. ShootDay, Slate and
+  **Camera Setup**, **Lighting Setup**, **Set Reference** and **Set Shot**. Set Shot is optional:
+  try without it once (Also try, **Without Set Shot**). ShootDay, Slate and
   Camera are switched on.
 - You can create fields on the site (Admin), or an Admin is at hand.
 - The site's field Trash is empty: a retired field still holds its name until then.
@@ -72,7 +73,8 @@ Use a test project on the site, never a show.
   the slate, **Set Shots <-> Shots** its Set Shot. No new Shot was made.
 - Set Shot rows in the test project, one per code typed, never two for one code: Name is the code
   as first typed, **Onset Key** is `<project id>:<code in lower case>`, **Shots** links the Shot
-  of that code, or nothing for `TST_010_0099`. **Slates <-> Set Shots** lists the slates.
+  of that code, or nothing for `TST_010_0099`. **Onset Matched** is ticked on those the app
+  linked. **Slates <-> Set Shots** lists the slates.
 - The slate of step 11: **Setup Diagram** holds one Attachment, `onset_diagram_<slate>_<file>.png`,
   display name `Setup diagram`, the second drawing: the light where you left it. The first image is
   still a File in the project, off the slate's field. Open it: 1600 by 1200, white, the cameras with
@@ -95,13 +97,21 @@ Use a test project on the site, never a show.
   renewed a minute before it ends.
 - **Shot links.** Make the Shot `TST_010_0099` in Flow PT, wait a minute, tap **Sync Now**: its
   Set Shot links it, and so does the slate. Take a code off the slate: its Set Shot and its Shot
-  are unlinked from the slate; the Set Shot stays. Link the slate to another Shot from the Shot's
-  page in Flow PT, then edit the slate's codes in the app: that link stays.
+  are unlinked from the slate; the Set Shot stays.
+- **The slate follows its Set Shots.** The slate's **Shots** is worked out at each sync from its Set
+  Shots. Link the slate to another Shot by hand in Flow PT, wait a minute, tap **Sync Now**: that
+  link is gone. To fix a wrong link, edit the Set Shot, not the slate.
 - **Set Shot by hand.** Type `TST_020_0010` on a slate, with no Shot of that code. In Flow PT,
   set the Set Shot's **Shots** to any Shot. Wait a minute, tap **Sync Now**: the slate links that
   Shot. Rename the Set Shot: the next slate with `TST_020_0010` links the same row.
-- **A wrong match.** Empty a Set Shot's **Shots** that the app filled. Type its code on a new
-  slate and sync: the Set Shot stays empty.
+- **A wrong match.** Empty a Set Shot's **Shots** that the app filled (**Onset Matched** is
+  ticked). Type its code on a new slate, on another iPad if you have one, and sync: the Set Shot
+  stays empty, and the slates that list its code lose that Shot at the next sync.
+- **Without Set Shot.** On a test site without the Set Shot slot, link and check: Setup says
+  **Ready to sync**, and Set Shot reads "Optional. To use it, enable a custom entity, name it Set
+  Shot". Capture a slate with VFX shot codes: it syncs, its codes stay as text, and the sync sheet's
+  **Set Shots** section counts it under **Slates waiting**. Enable the slot, tap **Set Up Fields**,
+  then **Sync Now**: the Set Shots appear, linked, and the section goes.
 - **Two Shots, one code.** Make two Shots `TST_030_0010`, a code not typed yet. Type it on a new
   slate: the slate and its new Set Shot link both, and the sync sheet lists the code as **Several
   Shots**. Delete one of the two in Flow PT, wait a minute, tap **Sync Now**: the line goes. A

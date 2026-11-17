@@ -71,12 +71,14 @@ describe('resolveEntities', () => {
 		expect(status('reference')).toMatchObject({ status: 'found', entityType: 'CustomEntity21' });
 	});
 
-	// Kevin, #102: one more slot, enabled and named by an admin as for Take (findings/122).
-	it('asks for a Set Shot entity, and gives no types until there is one', () => {
+	// Kevin, #102: one more slot, enabled and named by an admin as for Take (findings/122). Optional
+	// (Kevin, #117): a site without it syncs the rest.
+	it('asks for a Set Shot entity, says it is optional, and gives the other types without it', () => {
 		const { CustomEntity22: _setShot, ...before } = SITE;
-		expect(resolveEntities(before).find((e) => e.scope === 'setShot')).toEqual({ scope: 'setShot', kind: 'custom', displayName: 'Set Shot', status: 'missing' });
-		expect(entityTypesOf(resolveEntities(before))).toBeUndefined();
-		expect(status('setShot')).toMatchObject({ status: 'found', entityType: 'CustomEntity22' });
+		expect(resolveEntities(before).find((e) => e.scope === 'setShot')).toEqual({ scope: 'setShot', kind: 'custom', displayName: 'Set Shot', status: 'missing', optional: true });
+		const { setShot: _type, ...rest } = TYPES;
+		expect(entityTypesOf(resolveEntities(before))).toEqual(rest);
+		expect(status('setShot')).toMatchObject({ status: 'found', entityType: 'CustomEntity22', optional: true });
 	});
 
 	// findings/122: a hidden built-in type is absent from /schema.
@@ -297,11 +299,11 @@ describe('planFields: reverse fields', () => {
 		});
 	});
 
-	it('does not create the Set Shots link of the slate until the site has the Set Shot entity', () => {
+	it('plans no Set Shots link on the slate until the site has the Set Shot entity: it waits, blocking nothing', () => {
 		const { setShot: _setShot, ...types } = TYPES;
 		const fields = complete();
 		delete fields.slate.sg_set_shots;
-		expect(one(planFields(types, fields), 'slate', 'sg_set_shots')).toMatchObject({ status: 'blocked', reason: 'links Set Shot, which the site does not have yet' });
+		expect(one(planFields(types, fields), 'slate', 'sg_set_shots')).toBeUndefined();
 	});
 
 	it('does not create the Shots link when Shot already has the name it would add', () => {
@@ -409,6 +411,34 @@ describe('toResolution', () => {
 		expect(parseResolution('{not json', 'https://a.example')).toBeUndefined();
 		expect(parseResolution(undefined, 'https://a.example')).toBeUndefined();
 		expect(parseResolution(JSON.stringify({ ...res, version: 0 }), 'https://a.example')).toBeUndefined();
+	});
+
+	// Kevin, #117: Set Shot is optional. Until it and its fields are there, it is left out, with the
+	// slate field that links it, and the rest is ready.
+	it('leaves the Set Shot out while the site lacks it or one of its fields, and the rest is ready', () => {
+		const { CustomEntity22: _slot, ...noSlot } = SITE;
+		const { setShot: _type, ...types } = TYPES;
+		const fields = complete();
+		delete fields.slate.sg_set_shots;
+		const res = toResolution('https://a.example', resolveEntities(noSlot), planFields(types, fields, VERSION_DONE))!;
+		expect(res.entities.setShot).toBeUndefined();
+		expect(res.fields.setShot).toBeUndefined();
+		expect(res.fields.slate.sg_set_shots).toBeUndefined();
+		expect(res.fields.slate.sg_shots).toBe('sg_shots');
+		expect(parseResolution(serializeResolution(res), 'https://a.example')).toEqual(res);
+
+		const half = complete();
+		delete half.setShot.sg_onset_matched;
+		const without = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, half, VERSION_DONE))!;
+		expect(without.entities.setShot).toBeUndefined();
+		expect(without.fields.slate.sg_set_shots).toBeUndefined();
+	});
+
+	it('is read again from a cache whose Set Shot lacks a field asked for since', () => {
+		const res = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE))!;
+		expect(res.fields.setShot?.sg_onset_matched).toBe('sg_onset_matched');
+		const { sg_onset_matched: _m, ...older } = res.fields.setShot!;
+		expect(parseResolution(JSON.stringify({ ...res, fields: { ...res.fields, setShot: older } }), 'https://a.example')).toBeUndefined();
 	});
 
 	// A device that synced before videos went up as Versions holds a resolution without it: read again.

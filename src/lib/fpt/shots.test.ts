@@ -61,27 +61,26 @@ describe('shotsOf and codesOf', () => {
 
 describe('linkValue', () => {
 	// The mode goes in the body; a bare list would replace the whole field (recipes/009).
-	it('adds or removes in place, by Shot', () => {
+	it('adds, removes or sets in place, by Shot', () => {
 		expect(linkValue('add', [7, 9])).toEqual({ multi_entity_update_mode: 'add', value: [{ type: 'Shot', id: 7 }, { type: 'Shot', id: 9 }] });
 		expect(linkValue('remove', [8])).toEqual({ multi_entity_update_mode: 'remove', value: [{ type: 'Shot', id: 8 }] });
+		expect(linkValue('set', [])).toEqual({ multi_entity_update_mode: 'set', value: [] });
 	});
-	it('adds or removes rows of another type: a Set Shot', () => {
-		expect(linkValue('add', [300], 'CustomEntity22')).toEqual({ multi_entity_update_mode: 'add', value: [{ type: 'CustomEntity22', id: 300 }] });
+	it('links rows of another type: a Set Shot', () => {
+		expect(linkValue('set', [300], 'CustomEntity22')).toEqual({ multi_entity_update_mode: 'set', value: [{ type: 'CustomEntity22', id: 300 }] });
 	});
 });
 
 describe('shotChange', () => {
 	it('reads the codes a new slate brings', () => {
-		expect(shotChange({ kind: 'create', table: 'slate', recordId: 's1', fields: { slateUID: '12A', vfxShots: ['SMP_012_0010'] } })).toEqual({ link: ['SMP_012_0010'], unlink: [] });
+		expect(shotChange({ kind: 'create', table: 'slate', recordId: 's1', fields: { slateUID: '12A', vfxShots: ['SMP_012_0010', ' smp_012_0010'] } })).toEqual(['SMP_012_0010']);
 	});
-	it('reads the codes an edit takes off and the codes the slate holds', () => {
-		expect(
-			shotChange({ kind: 'update', table: 'slate', recordId: 's1', changes: { vfxShots: { base: ['SMP_012_0010', 'SMP_042_0010'], value: ['smp_042_0010', 'SMP_012_0020'] } } })
-		).toEqual({ link: ['smp_042_0010', 'SMP_012_0020'], unlink: ['SMP_012_0010'] });
-		expect(shotChange({ kind: 'update', table: 'slate', recordId: 's1', changes: { vfxShots: { base: ['SMP_012_0010'], value: undefined } } })).toEqual({
-			link: [],
-			unlink: ['SMP_012_0010']
-		});
+	it('reads the codes a slate holds after an edit of them, none when they were cleared', () => {
+		expect(shotChange({ kind: 'update', table: 'slate', recordId: 's1', changes: { vfxShots: { base: ['SMP_012_0010', 'SMP_042_0010'], value: ['smp_042_0010', 'SMP_012_0020'] } } })).toEqual([
+			'smp_042_0010',
+			'SMP_012_0020'
+		]);
+		expect(shotChange({ kind: 'update', table: 'slate', recordId: 's1', changes: { vfxShots: { base: ['SMP_012_0010'], value: undefined } } })).toEqual([]);
 	});
 	it('has nothing to do for a slate with no codes, another field, another table or a delete', () => {
 		expect(shotChange({ kind: 'create', table: 'slate', recordId: 's1', fields: { slateUID: '12A' } })).toBeUndefined();

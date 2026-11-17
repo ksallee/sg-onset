@@ -1,11 +1,13 @@
 <script lang="ts">
-	// The take on screen in a sheet: its note, its template, and the cameras on it, one of which can be taken
-	// off. A full sheet, so the keyboard never covers the note. Everything is undoable.
+	// The take on screen in a sheet: its note, its type (one tap), its template, and the cameras on
+	// it, one of which can be taken off. A full sheet, so the keyboard never covers the note.
+	// Everything is undoable.
 	import InputRow from '$lib/components/ios/InputRow.svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Sheet from '$lib/components/ios/Sheet.svelte';
-	import { t } from '$lib/i18n/messages';
+	import { t, tk } from '$lib/i18n/messages';
+	import { TAKE_TYPES } from '$lib/model/takeType';
 	import type { Shoot } from '$lib/take/shoot.svelte';
 	import TakeTemplate from './TakeTemplate.svelte';
 
@@ -24,7 +26,14 @@
 	<Section header={t('note.label')}>
 		<InputRow label={t('marks.note')} bind:value={note} placeholder={t('note.placeholder')} onchange={(text) => shoot.setNote(text)} />
 	</Section>
-	{#if shoot.group}<TakeTemplate {shoot} />{/if}
+	{#if shoot.group}
+		<Section header={tk('field.take.takeType')}>
+			{#each TAKE_TYPES as type (type)}
+				<Row title={tk(`field.take.takeType.${type}`)} checked={shoot.type === type} onclick={() => shoot.setType(type)} />
+			{/each}
+		</Section>
+		<TakeTemplate {shoot} />
+	{/if}
 	{#if on.length > 1}
 		<Section header={t('take.cameras')}>
 			{#each on as col (col.id)}

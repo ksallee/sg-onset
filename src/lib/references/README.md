@@ -16,7 +16,7 @@ textured models, photogrammetry sets, splats. The files stay on those devices; t
 
 - Model: the `reference` scope of the catalogue, under the slate (`slateId`). Fields: kind,
   name (the file or folder), device, card or roll, count, notes, and `loggedAt` for the order.
-  Model README, decisions 41 to 46.
+  Model README, decisions 45 to 50.
 - Store: the `reference` table, synced; the `referenceKind` table, `{ id, projectId, name }`, kept
   on the device (store README, decision 26). Schema version 4.
 - Flow PT: one row of the project custom entity "Set Reference" per reference, linked to its

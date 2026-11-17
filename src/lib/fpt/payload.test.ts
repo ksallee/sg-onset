@@ -199,6 +199,11 @@ describe('updateData', () => {
 		expect(ok(updateData(RESOLUTION, 'take', { tStop: edit(4, 2.8), circleTake: edit(true) }, {}, PROJECT))).toEqual({ sg_t_stop: '4.0', sg_circled: true });
 	});
 
+	it('sends the take type as its key; Main, no value, clears it', () => {
+		expect(ok(updateData(RESOLUTION, 'take', { takeType: edit('cleanPlate') }, {}, PROJECT))).toEqual({ sg_take_type: 'cleanPlate' });
+		expect(ok(updateData(RESOLUTION, 'take', { takeType: edit(undefined, 'cleanPlate') }, {}, PROJECT))).toEqual({ sg_take_type: null });
+	});
+
 	// corpus findings/field_types: null clears text, float, number, date_time and entity; a checkbox takes false.
 	it('clears a field with null, and a checkbox with false', () => {
 		expect(

@@ -14,6 +14,9 @@ import { createEditor, type EditEvent, type Editor } from './editor';
 import { toSecond } from './sync/clock';
 import { EMPTY_UNDO, type UndoState } from './undo';
 
+/** A question an edit raises, asked in its notice in place of Undo: the take type's Turn Off. */
+export type Offer = { text: string; action: string; run: () => unknown };
+
 export interface App {
 	/** On-device storage. Read with the `live` helpers; write through `edit`. */
 	readonly store: DexieStore;
@@ -24,8 +27,10 @@ export interface App {
 	readonly canUndo: boolean;
 	readonly canRedo: boolean;
 	/** The last thing the editor did, until dismissed: what a notice shows. */
-	readonly lastEdit: (EditEvent & { at: number }) | null;
+	readonly lastEdit: (EditEvent & { at: number; offer?: Offer }) | null;
 	dismissEdit(): void;
+	/** Puts an offer on the notice of the last edit, which shows it in place of Undo, for its full time. */
+	offer(offer: Offer): void;
 	/** A client UUID for a new record. */
 	newId(): string;
 	/** The clock, ms, to the second: FPT keeps times to the second (sync/clock.ts). */
@@ -77,6 +82,9 @@ function open(): App {
 		},
 		dismissEdit() {
 			last = null;
+		},
+		offer(offer) {
+			if (last) last = { ...last, offer, at: Date.now() };
 		},
 		newId: () => crypto.randomUUID(),
 		now: () => toSecond(Date.now())

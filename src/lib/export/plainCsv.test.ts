@@ -133,6 +133,15 @@ describe('plainCsv', () => {
 		expect(t.cell(r, 'TAKE: focalLength (unit)')).toBe('');
 	});
 
+	it('writes the take type, Main for a take with none', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, takeType: 'element' } : t));
+		const flat = flatten(shoot);
+		const t = table(plainCsv(flat, base));
+		expect(t.cell(flat.findIndex((r) => r.take.id === t42A1A.id), 'takeType')).toBe('<element>');
+		expect(t.cell(flat.findIndex((r) => r.take.id === t9.id), 'takeType')).toBe('<main>');
+	});
+
 	it('writes enum labels, yes and no, lists and refs', () => {
 		const t = table(plainCsv(rows(), base));
 		const r = a1();

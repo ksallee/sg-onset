@@ -121,6 +121,17 @@ describe('crifCsv', () => {
 		const none = crifRecords(flatten(input(), { slateFrom: '9', slateTo: '9' }), { ...options, extras: true, kindLabel });
 		expect(none[0].values['Set References']).toBe('');
 	});
+
+	it('writes the take type in our column, Main for a take with none', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, takeType: 'cleanPlate' } : t.id === t42A1B.id ? { ...t, takeType: 'ballsAndChart' } : t));
+		const records = crifRecords(flatten(shoot), { ...options, extras: true });
+		const type = (id: string) => records.find((r) => r.takeId === id)!.values['Tk Type'];
+		expect(type(t42A1A.id)).toBe('Clean Plate');
+		expect(type(t42A1B.id)).toBe('Balls and Chart');
+		expect(records.filter((r) => r.takeId !== t42A1A.id && r.takeId !== t42A1B.id).map((r) => r.values['Tk Type'])).toEqual(expect.arrayContaining(['Main']));
+		expect(crifRecords(flatten(shoot), { ...options, extras: false })[0].values['Tk Type']).toBeUndefined();
+	});
 });
 
 describe('crifMissing', () => {

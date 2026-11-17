@@ -137,21 +137,20 @@ export const sync = {
 	'sync.notes.setup': 'An admin runs Set Up Fields first. It adds two fields to Note. Until then no Note is written.',
 
 	// The Note on a Shot and its reply, written in Flow PT from what Flow PT holds (lib/fpt/shotNote.ts). Always English.
+	// Kevin, 2026-11-17: it sits in a small space in Flow PT. Short headings, one entry a line, no intro.
 	'sync.note.subject': 'Set data for {shot}',
-	'sync.note.intro': 'What was shot on set for {shot}. SG OnSet updates this Note at each sync that adds to it.',
 	'sync.note.elements': 'Elements',
-	'sync.note.element': '{type}: {takes}',
-	'sync.note.element.tail': '{type} at the tail: {takes}',
-	'sync.note.elementTake': '{slate} take {take}',
+	'sync.note.element': '{type}: {take}',
+	'sync.note.element.tail': '{type} tail: {take}',
+	'sync.note.take': '{slate} take {take}',
 	'sync.note.takes': 'Takes',
-	'sync.note.slate.one': 'Slate {slate}: take {takes}',
-	'sync.note.slate.other': 'Slate {slate}: takes {takes}',
+	'sync.note.slate': '{slate}: {takes}',
 	'sync.note.references': 'References',
-	'sync.note.reference': '{kind}: {names}',
+	'sync.note.reference': '{kind}: {name}',
 	'sync.note.photos': 'Photos: {n}',
-	'sync.note.reply': 'Added since the last update:',
-	'sync.note.reply.photos.one': '{n} more photo',
-	'sync.note.reply.photos.other': '{n} more photos',
+	'sync.note.reply': 'Added:',
+	'sync.note.reply.photos.one': '{n} photo',
+	'sync.note.reply.photos.other': '{n} photos',
 
 	// The Action Menu Item Set Up Fields adds on Shot and Set Shot (#106, lib/fpt/actionMenu.ts).
 	// The title is written to Flow PT and found again by it: always English, never reworded lightly.

@@ -92,7 +92,7 @@ describe('noteWrite', () => {
 			data: {
 				project: { type: 'Project', id: P },
 				subject: 'Set data for SMP_042_0010',
-				content: expect.stringContaining('Slate 42A: takes 1, 2'),
+				content: expect.stringContaining('42A: 1, 2'),
 				note_links: [{ type: 'Shot', id: 7 }],
 				tasks: people.tasks,
 				addressings_to: people.to,
@@ -124,12 +124,12 @@ describe('noteWrite', () => {
 			id: 900,
 			data: {
 				subject: 'Set data for SMP_042_0010',
-				content: expect.stringContaining('Slate 42A: takes 1, 2'),
+				content: expect.stringContaining('42A: 1, 2'),
 				sg_onset_captured: now.items.join(' '),
 				addressings_to: { multi_entity_update_mode: 'add', value: [ref('Group', 5)] },
 				tasks: { multi_entity_update_mode: 'add', value: [ref('Task', 41)] }
 			},
-			reply: { entity: { type: 'Note', id: 900 }, content: ['Added since the last update:', 'Clean plate: 42A take 2', 'Slate 42A: take 2'].join('\n') }
+			reply: { entity: { type: 'Note', id: 900 }, content: ['Added:', 'Clean plate: 42A take 2'].join('\n') }
 		});
 	});
 

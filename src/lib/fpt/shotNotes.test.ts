@@ -95,15 +95,13 @@ describe('writeNotes', () => {
 		});
 		expect(note.values.content).toBe(
 			[
-				'What was shot on set for SMP_042_0010. SG OnSet updates this Note at each sync that adds to it.',
-				'',
 				'Elements',
 				'Clean plate: 42A take 2',
-				'Balls and chart at the tail: 42B take 1',
+				'Balls and chart tail: 42B take 1',
 				'',
 				'Takes',
-				'Slate 42A: takes 1, 2',
-				'Slate 42B: take 1',
+				'42A: 1, 2',
+				'42B: 1',
 				'',
 				'References',
 				'HDRI 360: HDRI_0412',
@@ -113,7 +111,7 @@ describe('writeNotes', () => {
 		);
 		expect(String(note.values.sg_onset_captured).split(' ')).toContain('reference:' + w.fpt.byUuid(REFERENCE, 'r1')!.id);
 		// The other Shot gets 42B only.
-		expect(noteOf(w.fpt, s.b).values.content).toContain('Slate 42B: take 1');
+		expect(noteOf(w.fpt, s.b).values.content).toContain('42B: 1');
 		expect(noteOf(w.fpt, s.b).values.content).not.toContain('42A');
 		// One create each, not in a batch: validated, as recipes/026 makes it. No author is named.
 		const creates = writes(w.fpt);
@@ -152,11 +150,11 @@ describe('writeNotes', () => {
 		expect(put).toMatchObject({ method: 'PUT', path: `/api/v1/entity/notes/${note.id}` });
 		expect(put.body).toMatchObject({ addressings_to: { multi_entity_update_mode: 'add', value: [{ type: 'HumanUser', id: s.other }] } });
 		expect(reply).toMatchObject({ method: 'POST', path: '/api/v1/entity/replies' });
-		expect(reply.body).toEqual({ entity: { type: 'Note', id: note.id }, content: ['Added since the last update:', 'Clean plate at the tail: 42A take 3', 'Slate 42A: take 3'].join('\n') });
+		expect(reply.body).toEqual({ entity: { type: 'Note', id: note.id }, content: ['Added:', 'Clean plate tail: 42A take 3'].join('\n') });
 		expect(writes(w.fpt).length).toBe(before + 2);
 		const after = noteOf(w.fpt, s.a);
 		expect(after.id).toBe(note.id);
-		expect(after.values.content).toContain('Slate 42A: takes 1, 2, 3');
+		expect(after.values.content).toContain('42A: 1, 2, 3');
 		expect(after.values.addressings_to).toEqual([
 			{ type: 'Group', id: s.group },
 			{ type: 'HumanUser', id: s.person },

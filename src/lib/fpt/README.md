@@ -544,37 +544,38 @@ newly assigned to the Shot's Tasks are added, and nobody is removed.
 3. Never throws. No answer or no session stops the writes; a refusal is that Shot's alone. What did
    not land is worked out again at the next sync.
 
-A sample, for a Shot with two slates:
+A sample, for a Shot with two slates. The Note sits in a small space in Flow PT (Kevin,
+2026-11-17): short headings, one entry a line, no intro, since the subject names the Shot.
 
 ```
 Subject: Set data for SMP_042_0010
 
-What was shot on set for SMP_042_0010. SG OnSet updates this Note at each sync that adds to it.
-
 Elements
 Clean plate: 42A take 10
-Clean plate at the tail: 42B take 2
-Balls and chart at the tail: 42A take 3
+Clean plate tail: 42B take 2
+Balls and chart tail: 42A take 3
 
 Takes
-Slate 42A: takes 1, 2, 3, 10
-Slate 42B: takes 1, 2
+42A: 1, 2, 3, 10
+42B: 1, 2
 
 References
-HDRI 360: HDRI_0412, HDRI_0413
+HDRI 360: HDRI_0412
+HDRI 360: HDRI_0413
 Witness camera: WIT_A001
 
 Photos: 3
 ```
 
-And the Reply after a later sync:
+And the Reply after a later sync that added a clean plate at the tail of take 11, take 12, an
+HDRI and two photos. A take said as an element take is not said again:
 
 ```
-Added since the last update:
-Clean plate at the tail: 42A take 11
-Slate 42A: take 11
+Added:
+Clean plate tail: 42A take 11
+42A take 12
 HDRI 360: HDRI_0414
-2 more photos
+2 photos
 ```
 
 The words are in the message catalogue, `sync.note.*`, always English.

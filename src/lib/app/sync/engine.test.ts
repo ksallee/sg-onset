@@ -697,7 +697,7 @@ describe('Notes on Shots', () => {
 		expect(notes(s)).toHaveLength(1);
 		const [note] = notes(s);
 		expect(note.values).toMatchObject({ subject: 'Set data for SMP_042_0010', note_links: [{ type: 'Shot', id: shot }], addressings_to: [{ type: 'HumanUser', id: person }] });
-		expect(note.values.content).toContain('Slate 42A: take 1');
+		expect(note.values.content).toContain('42A: 1');
 
 		await later(s);
 		expect(s.fpt.live('Reply')).toEqual([]);
@@ -705,8 +705,8 @@ describe('Notes on Shots', () => {
 		await s.edit.create('take', { id: 't2', slateId: 's1', take: '2', takeType: 'cleanPlate' });
 		await later(s);
 		expect(notes(s)).toHaveLength(1);
-		expect(notes(s)[0].values.content).toContain('Slate 42A: takes 1, 2');
-		expect(s.fpt.live('Reply').map((r) => [r.values.entity, r.values.content])).toEqual([[{ type: 'Note', id: note.id }, 'Added since the last update:\nClean plate: 42A take 2\nSlate 42A: take 2']]);
+		expect(notes(s)[0].values.content).toContain('42A: 1, 2');
+		expect(s.fpt.live('Reply').map((r) => [r.values.entity, r.values.content])).toEqual([[{ type: 'Note', id: note.id }, 'Added:\nClean plate: 42A take 2']]);
 	});
 
 	it('is kept per project on the device', async () => {

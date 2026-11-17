@@ -1,6 +1,7 @@
 <script lang="ts">
 	// One reference, opened from the slate's list: its kind picked, its other fields typed and
-	// checked, each saved as it is left, and Delete. Read live, so an undo shows at once.
+	// checked, each saved as it is left, and Delete. A kind or a delete may turn a switch on or
+	// offer one off (lib/references/edit.ts). Read live, so an undo shows at once.
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Sheet from '$lib/components/ios/Sheet.svelte';
@@ -11,6 +12,7 @@
 	import { t, tk } from '$lib/i18n/messages';
 	import { fieldLabel } from '$lib/i18n/modelText';
 	import { findField } from '$lib/model/catalogue';
+	import { removeReference, setReferenceKind } from '$lib/references/edit';
 	import { kindLabel } from '$lib/references/kinds';
 	import { fieldRefs } from '$lib/slates/fields';
 
@@ -36,7 +38,13 @@
 		const r = ref;
 		if (!r) return;
 		open = false;
-		await app.edit.remove('reference', r.id, { key: 'edit.removed', params: { what: `${tk('scope.reference')} ${r.name ?? ''}` } });
+		await removeReference(app, r, { key: 'edit.removed', params: { what: `${tk('scope.reference')} ${r.name ?? ''}` } });
+	}
+	// A kind turns its switch on, and the kind it leaves may offer one off.
+	async function setKind(kind: string) {
+		const r = ref;
+		if (!r || kind === r.kind) return;
+		await setReferenceKind(app, r, kind, { key: 'edit.changed', params: { field: fieldLabel(kindDef) } });
 	}
 </script>
 
@@ -46,7 +54,7 @@
 			<div class="pick" role="listitem">
 				<label class="cell" for={kindId}>
 					<span class="label">{fieldLabel(kindDef)}</span>
-					<select id={kindId} value={ref.kind || 'other'} onchange={(e) => save('kind', e.currentTarget.value, fieldLabel(kindDef))}>
+					<select id={kindId} value={ref.kind || 'other'} onchange={(e) => setKind(e.currentTarget.value)}>
 						{#each options as k (k)}<option value={k}>{label(k)}</option>{/each}
 					</select>
 				</label>

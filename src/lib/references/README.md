@@ -11,6 +11,16 @@ textured models, photogrammetry sets, splats. The files stay on those devices; t
 |---|---|
 | `kinds.ts` | `KINDS`, the built-in kinds. `kindChoices` with the project's own kinds, `kindLabel`, `kindProblem` for a new project kind. |
 | `log.ts` | `sortReferences`, `nextReferenceName`, `lastOfKind`, `newReference`, `referenceDetail` (a row), `referenceLine` (a file), `countByKind` (Wrap). |
+| `edit.ts` | Not pure: `addReference`, `removeReference`, `setReferenceKind` on the store, with the switches. |
+
+## Switches
+
+A reference of kind HDRI 360, Witness camera or Lidar scan turns on the lighting setup's HDRI, or
+the slate's Witness camera or Lidar scan, in the same undo entry, as a take type does (#92). The
+app never turns one off: when the last reference of that kind goes (for HDRI, across every slate on
+the lighting setup), the notice says the switch stays on and offers Turn Off. Ignored, nothing
+changes. The switches stay editable. The rule is `planReferenceEdit` in `model/takeType.ts`, the
+words `take/typeText.ts`, the Turn Off `take/typeEdit.ts`.
 
 ## Where it lives
 

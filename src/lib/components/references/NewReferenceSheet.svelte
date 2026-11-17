@@ -1,7 +1,8 @@
 <script lang="ts">
 	// The second tap of adding a reference: its name, under the kind picked. The name is suggested
 	// after the last reference of that kind in the project and can be typed over; Add or Return
-	// files it. The device and the card or roll come from that last one (lib/references/log.ts).
+	// files it. The device and the card or roll come from that last one (lib/references/log.ts). An
+	// HDRI 360, a witness camera clip or a lidar scan turns its switch on (lib/references/edit.ts).
 	import Button from '$lib/components/ios/Button.svelte';
 	import InputRow from '$lib/components/ios/InputRow.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
@@ -12,6 +13,7 @@
 	import { findField } from '$lib/model/catalogue';
 	import type { Reference } from '$lib/model/types';
 	import { kindLabel } from '$lib/references/kinds';
+	import { addReference } from '$lib/references/edit';
 	import { lastOfKind, newReference, nextReferenceName } from '$lib/references/log';
 
 	let { open = $bindable(false), kind, slateId, project }: { open?: boolean; kind: string; slateId: string; project: Reference[] } = $props();
@@ -36,7 +38,7 @@
 		busy = true;
 		try {
 			const ref = newReference(app.newId(), slateId, kind, name, new Date(app.now()).toISOString(), last);
-			await app.edit.create('reference', ref, { label: { key: 'edit.created', params: { what: `${tk('scope.reference')} ${ref.name}` } } });
+			await addReference(app, ref, { key: 'edit.created', params: { what: `${tk('scope.reference')} ${ref.name}` } });
 			open = false;
 		} finally {
 			busy = false;

@@ -1,19 +1,22 @@
 // The reference log (#93) on the sample project: a reference added in two taps, a kind then the
 // name, seen on the slate, in Wrap and in the day report; the next name suggested; a project's own
-// kind from Settings; a reference edited and deleted, and the delete undone. Role and label
-// selectors only. Every test starts on an empty device.
+// kind from Settings; a reference edited and deleted, and the delete undone; a lidar scan turning the
+// slate's switch on, and its delete offering Turn Off. Role and label selectors only. Every test
+// starts on an empty device.
 import type { Page } from '@playwright/test';
 import { expect, openApp, test } from './fixtures';
 
 /** Until a push or pop has finished: a page still sliding in is not where it lands. */
 const settled = (page: Page) => page.waitForFunction(() => !document.documentElement.dataset.nav);
 
-async function open42A(page: Page) {
+async function openSlate(page: Page, slate: string) {
 	await openApp(page, '/slates');
-	await page.getByRole('link', { name: /^42A/ }).tap();
-	await expect(page.getByRole('heading', { name: 'Slate 42A', level: 1 })).toBeVisible();
+	await page.getByRole('link', { name: new RegExp(`^${slate}`) }).tap();
+	await expect(page.getByRole('heading', { name: `Slate ${slate}`, level: 1 })).toBeVisible();
 	await settled(page);
 }
+const open42A = (page: Page) => openSlate(page, '42A');
+const notice = (page: Page, text: string) => page.getByRole('status').filter({ hasText: text });
 
 const references = (page: Page) => page.getByRole('list').filter({ has: page.getByRole('group', { name: 'Add a reference' }) });
 
@@ -86,4 +89,28 @@ test('a kind the project adds in Settings is one to log; a reference is edited, 
 	await expect(references(page).getByText('None yet.')).toBeVisible();
 	await page.getByRole('status').getByRole('button', { name: 'Undo' }).tap();
 	await expect(references(page).getByRole('button', { name: /^Flight 1\b/ })).toBeVisible();
+});
+
+test('a lidar scan turns the slate switch on; deleting the last one offers Turn Off', async ({ page }) => {
+	// 42B has no lidar scan yet.
+	await openSlate(page, '42B');
+	const lidar = page.getByRole('switch', { name: 'Lidar scan' });
+	await expect(lidar).not.toBeChecked();
+
+	await page.getByRole('button', { name: 'Add Lidar scan' }).tap();
+	const sheet = page.getByRole('dialog', { name: 'Lidar scan' });
+	await sheet.getByRole('textbox', { name: 'File or folder' }).fill('Scan 01');
+	await sheet.getByRole('button', { name: 'Add' }).tap();
+	await expect(notice(page, 'Reference Scan 01 added. Slate 42B: Lidar scan on')).toBeVisible();
+	await expect(lidar).toBeChecked();
+
+	// The switch stays editable, and the app never turns it off by itself.
+	await references(page).getByRole('button', { name: /^Scan 01\b/ }).tap();
+	await page.getByRole('dialog', { name: 'Scan 01' }).getByRole('button', { name: 'Delete Reference' }).tap();
+	const offer = notice(page, 'Slate 42B: Lidar scan stays on');
+	await expect(offer).toBeVisible();
+	await expect(lidar).toBeChecked();
+	await offer.getByRole('button', { name: 'Turn Off' }).tap();
+	await expect(notice(page, 'Slate 42B: Lidar scan turned off')).toBeVisible();
+	await expect(lidar).not.toBeChecked();
 });

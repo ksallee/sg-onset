@@ -189,3 +189,9 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
 49. **The count is a whole number from 1.** What it counts (files, frames, brackets) is the crew's.
 50. **The lighting setup's HDRI fields and the slate's Witness camera, Lidar scan and Clean plate
     switches stay as they are,** with their CRIF and VES names. The log is added beside them.
+51. **A reference of kind HDRI 360, Witness camera or Lidar scan follows the rule of the take type**
+    (Kevin, 2026-11-17; decisions 43 and 44): logging one turns on the lighting setup's `hdri`, or
+    the slate's `witnessCamera` or `lidar`, in the same undo entry. Deleting the last one, or giving
+    it another kind, offers Turn Off; the HDRI counts every slate on the lighting setup. A reference
+    and a take both hold a switch their kind or type turns on (`takeType.ts`, `KIND_SWITCHES`,
+    `planReferenceEdit`). No kind and no take type share a switch today.

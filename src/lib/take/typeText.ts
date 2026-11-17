@@ -1,19 +1,23 @@
-// What a notice says of the switches a take type turns on: "Slate 12A: Clean plate on", one clause
-// for the slates and one for the lighting setups. Pure.
+// What a notice says of the switches a take type or a kind of set reference turns on: "Slate 12A:
+// Clean plate on", one clause for the slates and one for the lighting setups. Pure.
 
 import type { Label } from '$lib/app/undo';
 import { t, tk, type MessageKey } from '$lib/i18n/messages';
 import { fieldLabel } from '$lib/i18n/modelText';
-import { findField } from '$lib/model/catalogue';
-import { TYPE_SWITCHES, type SwitchRef } from '$lib/model/takeType';
+import { FIELDS, findField } from '$lib/model/catalogue';
+import { KIND_SWITCHES, TYPE_SWITCHES, type SwitchKey, type SwitchRef } from '$lib/model/takeType';
 
 /** The name of a slate and of a lighting setup, by id. */
 export type SwitchNames = { slate(id: string): string; lightingSetup(id: string): string };
 
 type How = 'on' | 'stays' | 'off';
 
-/** Each switch once, in the order the forms show them. */
-const ORDER = Object.values(TYPE_SWITCHES).flatMap((list) => list ?? []);
+/** Each switch once, in the order the forms show them: the catalogue's. */
+const at = (s: SwitchKey) => FIELDS.findIndex((d) => d.scope === s.scope && d.key === s.key);
+const ORDER = [...Object.values(TYPE_SWITCHES), ...Object.values(KIND_SWITCHES)]
+	.flatMap((list) => list ?? [])
+	.filter((s, i, all) => all.findIndex((x) => x.scope === s.scope && x.key === s.key) === i)
+	.sort((a, b) => at(a) - at(b));
 
 /** One clause per scope, slates first: "Slate 12A: Clean plate on". */
 function clauses(refs: readonly SwitchRef[], how: How, names: SwitchNames): { key: MessageKey; params: { where: string; switches: string } }[] {

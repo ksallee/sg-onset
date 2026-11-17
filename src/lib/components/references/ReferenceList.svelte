@@ -12,6 +12,7 @@
 	import { live, liveList } from '$lib/app/live.svelte';
 	import { t, tk } from '$lib/i18n/messages';
 	import type { Reference, Slate } from '$lib/model/types';
+	import { removeReference } from '$lib/references/edit';
 	import { kindChoices, kindLabel } from '$lib/references/kinds';
 	import { referenceDetail, sortReferences } from '$lib/references/log';
 	import NewReferenceSheet from './NewReferenceSheet.svelte';
@@ -56,7 +57,7 @@
 	}
 
 	async function remove(r: Reference) {
-		await app.edit.remove('reference', r.id, { key: 'edit.removed', params: { what: `${tk('scope.reference')} ${r.name ?? ''}` } });
+		await removeReference(app, r, { key: 'edit.removed', params: { what: `${tk('scope.reference')} ${r.name ?? ''}` } });
 	}
 </script>
 

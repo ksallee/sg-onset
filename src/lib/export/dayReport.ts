@@ -5,7 +5,8 @@
 import { isZoom } from '$lib/model/take';
 import type { MediaCounts } from '$lib/wrap/mediaCount';
 import type { Camera, Lens, LightingSetup, Reference, Slate } from '$lib/model/types';
-import { flatten, referencesBySlate, selectSlates, type ExportFilters, type ExportInput, type FlatTake } from './selection';
+import { shownBySlate } from '$lib/references/lighting';
+import { flatten, selectSlates, type ExportFilters, type ExportInput, type FlatTake } from './selection';
 
 export type DayReportHeader = {
 	project?: string;
@@ -28,7 +29,7 @@ export type DayReportSlate = {
 	setups: DayReportSetup[];
 	/** The takes, in the flat order: take number, then camera letter. */
 	takes: FlatTake[];
-	/** The set references, in the order logged. */
+	/** The set references the slate shows, in the order logged: the lighting setup's too (#107). */
 	references: Reference[];
 	totals: DayReportTotals;
 };
@@ -108,7 +109,7 @@ export function dayReport(input: ExportInput, shootDayId: string, filters: Omit<
 	const picked = { ...filters, shootDayIds: [shootDayId] };
 	const rows = flatten(input, picked);
 	const lighting = new Map(input.lightingSetups.map((l) => [l.id, l]));
-	const references = referencesBySlate(input.references);
+	const references = shownBySlate(input.slates, input.references);
 	const takeFilters = !!(filters.circledOnly || filters.excludeNoGood);
 	const videos = new Set(input.videos ?? []);
 	const slates = selectSlates(input, picked)

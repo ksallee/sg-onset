@@ -3,6 +3,7 @@
 // edit the same one (docs/areas.md). A key lives in one file only: `messages.test.ts` checks.
 
 import { auth } from './auth';
+import { clips } from './clips';
 import { common } from './common';
 import { draw } from './draw';
 import { fields } from './fields';
@@ -18,7 +19,7 @@ import { validation } from './validation';
 import { wrap } from './wrap';
 
 /** The catalogue by area, as the files hold it. */
-export const AREAS = { common, take, slates, gear, templates, settings, auth, fields, validation, import: importMessages, sync, wrap, references, draw } as const;
+export const AREAS = { common, take, slates, gear, templates, settings, auth, fields, validation, import: importMessages, sync, wrap, references, draw, clips } as const;
 
 export const en = {
 	...common,
@@ -34,5 +35,6 @@ export const en = {
 	...sync,
 	...wrap,
 	...references,
-	...draw
+	...draw,
+	...clips
 } as const;

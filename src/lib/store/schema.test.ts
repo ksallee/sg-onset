@@ -22,7 +22,7 @@ describe('VERSIONS', () => {
 			expect(stores[name]).toBeTypeOf('string');
 			expect((TABLES as readonly string[]).includes(name)).toBe(false);
 		}
-		const later = ['template', 'reference', 'referenceKind', 'markup', 'diagram'];
+		const later = ['template', 'reference', 'referenceKind', 'markup', 'diagram', 'clipImport'];
 		expect(Object.keys(stores).sort()).toEqual([...TABLES.filter((t) => !later.includes(t)), ...INTERNAL_TABLES].sort());
 	});
 
@@ -40,6 +40,10 @@ describe('VERSIONS', () => {
 
 	it('adds the diagram table, the setup diagrams, in version 6, and nothing else', () => {
 		expect(VERSIONS[5]).toEqual({ version: 6, stores: { diagram: 'id, slateId' } });
+	});
+
+	it('adds the clip imports in version 7, and nothing else', () => {
+		expect(VERSIONS[6]).toEqual({ version: 7, stores: { clipImport: 'id, shootDayId' } });
 	});
 
 	it('adds the snapshot tables in their own version, and nothing else', () => {

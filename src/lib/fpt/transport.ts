@@ -43,8 +43,9 @@ import { resolutionKey } from './cache';
 import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
 import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
 import { DIAGRAM_SHOWN, diagramFilename, diagramPrefix } from './diagrams';
-import { DIAGRAMS, ENTITY_SCOPES, fieldMaps, isRecordScope, SET_SHOT_KEY, SET_SHOT_MATCHED, SET_SHOT_SHOTS, SET_SHOTS, SHOTS, STILLS, type RecordScope } from './mapping';
+import { DIAGRAMS, ENTITY_SCOPES, fieldMaps, isRecordScope, SET_SHOT_KEY, SET_SHOT_MATCHED, SET_SHOT_SHOTS, SET_SHOTS, SHOTS, STILLS, REFERENCE_SLATES, type RecordScope } from './mapping';
 import { applyListOps, isListTable, landed, listFields, LIST_KEYS, LIST_TABLES, readList, writeList, type ListEntry, type ListOp, type ListRead, type ListTable } from './lists';
+import { referenceSlatesWrite, type ReferenceSlates } from './referenceSlates';
 import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, PROJECT as PROJECT_TYPE, type Resolution } from './schema';
@@ -113,13 +114,19 @@ const SHARED_SCOPES = ['camera', 'lens', 'lightingSetup'] as const;
 /** Pages of 500 read of each shared table: 20,000 records. A list that reaches it is not judged whole. */
 const SHARED_PAGES = 40;
 
-/** The transport, and the Shot links of slates the server already holds. */
+/** The transport, and the links of records the server already holds. */
 export interface FptTransport extends Transport {
 	/**
 	 * Brings these slates' Set Shots and Shots in line with their codes. Never throws. Undefined when
 	 * the site could not be asked or has no Set Shot: the links wait.
 	 */
 	linkShots(slates: SlateCodes[], signal?: AbortSignal): Promise<ShotResult[] | undefined>;
+	/**
+	 * Sets the Slates field of these set references to the slates each shows on, where it differs
+	 * (#107, referenceSlates.ts). Never throws. Answers the references whose write did not land;
+	 * undefined when the site could not be asked.
+	 */
+	linkReferenceSlates(items: readonly ReferenceSlates[], signal?: AbortSignal): Promise<string[] | undefined>;
 	/**
 	 * Writes the Note of each Shot given that needs one, from what Flow PT holds (#97, shotNotes.ts).
 	 * Never throws. Undefined when the site could not be asked, or lacks the Note fields or Set Shot:
@@ -459,6 +466,54 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 		return out;
 	}
 
+	// ------------------------------------------------------------------ the slates of a set reference
+
+	/**
+	 * Sets each set reference's Slates field to the slates it shows on (#107, referenceSlates.ts):
+	 * reads what the rows hold now, then one `PUT` in `set` mode, the mode in the body
+	 * (recipes/009), for each that differs. A slate linked by hand in Flow PT is overwritten, as on
+	 * a slate's Shots (Kevin, #102). Nothing is kept on the device: what did not land is worked out
+	 * again at the next sync. A refusal is that reference's alone; no answer stops the rest.
+	 */
+	async function writeReferenceSlates(items: readonly ReferenceSlates[], signal?: AbortSignal): Promise<string[] | undefined> {
+		if (!items.length) return [];
+		let res: Resolution;
+		const current = new Map<number, number[]>();
+		try {
+			res = await resolved(signal);
+			const field = fieldName(res, 'reference', REFERENCE_SLATES);
+			const ids = items.map((i) => i.remoteId);
+			for (let i = 0; i < ids.length; i += 500) {
+				const rows = await api.searchAll(res.entities.reference, ['id', 'in', ids.slice(i, i + 500)], [field], signal);
+				for (const row of rows) current.set(row.id, linkIdsOf(row, field));
+			}
+		} catch {
+			return undefined;
+		}
+		const field = fieldName(res, 'reference', REFERENCE_SLATES);
+		const failed: string[] = [];
+		let reachable = true;
+		for (const item of items) {
+			const now = current.get(item.remoteId);
+			// A row Flow PT no longer has: its delete is the outbox's business.
+			if (!now) continue;
+			const slates = referenceSlatesWrite(item.slates, now);
+			if (!slates) continue;
+			if (!reachable) {
+				failed.push(item.reference);
+				continue;
+			}
+			try {
+				await api.update(res.entities.reference, item.remoteId, { [field]: linkValue('set', slates, res.entities.slate) }, signal);
+			} catch (error) {
+				// No answer, or no session: the rest would fare the same.
+				if (error instanceof TransportError && error.kind !== 'failed') reachable = false;
+				failed.push(item.reference);
+			}
+		}
+		return failed;
+	}
+
 	// ------------------------------------------------------------------ the shared lists
 
 	/** The Project field of a list on this site. Undefined: the site lacks the shared lists (#110). */
@@ -781,6 +836,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 
 	const transport: FptTransport = {
 		linkShots: (items, signal) => writeShots(items, signal),
+		linkReferenceSlates: (items, signal) => writeReferenceSlates(items, signal),
 
 		async readShared(signal) {
 			try {

@@ -21,6 +21,7 @@ export const fields = {
 	'scope.referenceKind': 'Reference kind',
 	'scope.markup': 'Drawing',
 	'scope.diagram': 'Setup diagram',
+	'scope.clipImport': 'Clip import',
 
 	'unit.mm': 'mm',
 	'unit.m': 'm',

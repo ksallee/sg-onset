@@ -546,6 +546,87 @@ describe('the Set Shots and Shots of a slate', () => {
 	});
 });
 
+describe('the Slates of a set reference (#107)', () => {
+	const REFERENCE = 'CustomEntity21';
+	const fptId = (s: S, type: string, uuid: string) => s.fpt.byUuid(type, uuid)!.id;
+	const slatesOf = (s: S, uuid: string) => ((s.fpt.byUuid(REFERENCE, uuid)?.values.sg_slates as { id: number }[] | undefined) ?? []).map((r) => r.id).sort((a, b) => a - b);
+	const ids = (s: S, ...uuids: string[]) => uuids.map((u) => fptId(s, 'Slate', u)).sort((a, b) => a - b);
+
+	/** 12A and 12B on the stage's lighting, an HDRI and a lidar scan logged on 12A. */
+	async function stage(s: S) {
+		await s.edit.create('project', { id: 'p1', name: 'Show' });
+		await s.edit.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.edit.create('lightingSetup', { id: 'l1', projectId: 'p1', label: 'Stage' });
+		await s.edit.create('lightingSetup', { id: 'l2', projectId: 'p1', label: 'Street' });
+		await s.edit.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '12A', lightingSetupId: 'l1' });
+		await s.edit.create('slate', { id: 's2', shootDayId: 'd1', slateUID: '12B', lightingSetupId: 'l1' });
+		await s.edit.create('reference', { id: 'r1', slateId: 's1', kind: 'hdri360', name: 'HDRI_0412', loggedAt: '2026-11-11T10:00:00.000Z' });
+		await s.edit.create('reference', { id: 'r2', slateId: 's1', kind: 'lidarScan', name: 'Scan 01', loggedAt: '2026-11-11T10:01:00.000Z' });
+	}
+
+	it('links a lighting reference to every slate of its lighting setup, now or later; any other to its slate', async () => {
+		const s = setup();
+		await stage(s);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		expect(slatesOf(s, 'r1')).toEqual(ids(s, 's1', 's2'));
+		expect(slatesOf(s, 'r2')).toEqual(ids(s, 's1'));
+		// The slate it was logged on stays its Slate.
+		expect(s.fpt.byUuid(REFERENCE, 'r1')!.values.sg_slate).toEqual({ type: 'Slate', id: fptId(s, 'Slate', 's1') });
+
+		await s.edit.create('slate', { id: 's3', shootDayId: 'd1', slateUID: '12C', lightingSetupId: 'l1' });
+		await settle(s.engine, s.fpt);
+		expect(slatesOf(s, 'r1')).toEqual(ids(s, 's1', 's2', 's3'));
+
+		// 12B moves to the street: taken off.
+		await s.edit.set('slate', (await s.store.get('slate', 's2'))!, 'lightingSetupId', 'l2');
+		await settle(s.engine, s.fpt);
+		expect(slatesOf(s, 'r1')).toEqual(ids(s, 's1', 's3'));
+	});
+
+	// Kevin, #107: derived as a slate's Shots are (#102). Nothing is kept on the device.
+	it('overwrites a slate linked by hand in Flow PT at the next sync, and keeps nothing on the device', async () => {
+		const s = setup();
+		await stage(s);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		const byHand = s.fpt.seed('Slate', { code: '99' });
+		const row = s.fpt.byUuid(REFERENCE, 'r1')!;
+		row.values.sg_slates = [...(row.values.sg_slates as object[]), { type: 'Slate', id: byHand }];
+		await settle(s.engine, s.fpt);
+		expect(slatesOf(s, 'r1')).toEqual(ids(s, 's1', 's2'));
+		expect(await s.kv.get('referenceSlates:p1')).toBeUndefined();
+	});
+
+	it('removes the list an earlier build kept', async () => {
+		const s = setup();
+		await s.kv.set('referenceSlates:p1', '{"v":1,"refs":{}}');
+		await s.engine.setProject('p1');
+		expect(await s.kv.get('referenceSlates:p1')).toBeUndefined();
+	});
+
+	it('writes again at a later sync what did not land', async () => {
+		const s = setup();
+		await stage(s);
+		await linked(s);
+		s.world.visible = true;
+		// Every write of a reference's Slates fails during the first sync, from each drain's end that
+		// runs then (a drain a store change started, too), and lands at a later one.
+		const site = s.fpt.fetch;
+		let failing = true;
+		s.fpt.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
+			failing && init?.method === 'PUT' && String(input).includes('/api/v1/entity/custom_entity21s/') ? new Response('{}', { status: 503 }) : site(input, init)) as typeof fetch;
+		await settle(s.engine, s.fpt);
+		expect(slatesOf(s, 'r1')).toEqual([]);
+		failing = false;
+		await settle(s.engine, s.fpt);
+		expect(slatesOf(s, 'r1')).toEqual(ids(s, 's1', 's2'));
+		expect(slatesOf(s, 'r2')).toEqual(ids(s, 's1'));
+	});
+});
+
 // Notes on Shots (#97): off by default, per project on the device. On, each drain's end writes the
 // Note of every Shot the project's slates reach, from what Flow PT holds (lib/fpt/shotNotes.ts).
 describe('Notes on Shots', () => {

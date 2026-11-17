@@ -28,7 +28,7 @@ export type DaySummary = {
 	/** The time any camera ran, overlaps counted once. Takes with no end are left out. */
 	runningMs: number;
 	cameras: CameraUse[];
-	/** The set references of the day, how many of each kind. */
+	/** The set references the day's slates show, how many of each kind, each once (#107). */
 	references: { kind: string; n: number }[];
 	todo: TodoItem[];
 };
@@ -83,10 +83,7 @@ export function daySummary(report: DayReport, projectKinds: readonly string[] = 
 		media: report.totals.media,
 		runningMs: runningTime(rows.map((r) => r.take)),
 		cameras: [...cameras.values()].sort((a, b) => a.letter.localeCompare(b.letter, 'en', { numeric: true })),
-		references: countByKind(
-			report.slates.flatMap((s) => s.references),
-			projectKinds
-		),
+		references: countByKind([...new Set(report.slates.flatMap((s) => s.references))], projectKinds),
 		todo
 	};
 }

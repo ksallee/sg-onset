@@ -70,7 +70,9 @@ export const VERSIONS: readonly SchemaVersion[] = [
 	// The drawings on photos, kept on the device beside their still (tables.ts LOCAL_TABLES).
 	{ version: 5, stores: recordStores(['markup']) },
 	// The setup diagrams, one per slate, kept on the device (tables.ts LOCAL_TABLES).
-	{ version: 6, stores: recordStores(['diagram']) }
+	{ version: 6, stores: recordStores(['diagram']) },
+	// What each import of the DIT's clips wrote, under its shoot day, kept on the device (#109).
+	{ version: 7, stores: recordStores(['clipImport']) }
 ];
 
 export const SCHEMA_VERSION = VERSIONS[VERSIONS.length - 1].version;

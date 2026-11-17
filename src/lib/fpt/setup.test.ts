@@ -234,6 +234,18 @@ describe('checkSetup', () => {
 		expect(fpt.fields.Shot.slate_sg_shots_slates).toMatchObject({ data_type: { value: 'multi_entity' }, properties: { valid_types: { value: ['Slate'] } } });
 	});
 
+	// The slates a set reference shows on (#107): a multi_entity to Slate beside `sg_slate`, which adds
+	// a field on Slate listing them (findings/142).
+	it('creates the Slates link of the set reference, and Flow PT adds the field on Slate that lists them', async () => {
+		const { fpt, check } = world('bare');
+		const before = await check({ createFields: false });
+		expect(field(before, 'reference', 'sg_slates')).toMatchObject({ status: 'missing', dataType: 'multi_entity', validTypes: ['Slate'] });
+		expect(before.reverseFields).toContainEqual({ entityType: 'Slate', name: 'custom_entity21_sg_slates_custom_entity21s', displayName: 'Set References <-> Slates', source: 'CustomEntity21.sg_slates', status: 'willAppear' });
+		const report = await check();
+		expect(field(report, 'reference', 'sg_slates').status).toBe('created');
+		expect(fpt.fields.Slate.custom_entity21_sg_slates_custom_entity21s).toMatchObject({ data_type: { value: 'multi_entity' }, properties: { valid_types: { value: ['CustomEntity21'] } } });
+	});
+
 	// Kevin, #102: the Set Shot gets its unique key and its Shots, the slate its Set Shots. Each link
 	// adds a field on the type it links (findings/142).
 	it('creates the Set Shot fields and the Set Shots link of the slate, and says what Flow PT adds', async () => {

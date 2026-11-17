@@ -20,6 +20,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `versions.ts` | yes | A take's media that go up as a Version (a video, an audio note): kind, file name, name, create, the file read back. |
 | `takeVersions.ts` | no | The Version of a take's media: found by client UUID, made, its file checked. |
 | `shots.ts` | yes | A slate's VFX shot codes: as typed, as Flow PT matches them, the Shot search, the in-place write. |
+| `referenceSlates.ts` | yes | A set reference's Slates field: what to set it to, if anything (#107). |
 | `setShots.ts` | yes | One Set Shot per code: its key, the lookup, what to file, what to match, what a slate links (`derivedShots`). |
 | `shotNote.ts` | yes | The Note on a Shot (#97) from the records as Flow PT holds them: what was captured, as text and as ids, and the reply with what a sync added. |
 | `notePlan.ts` | yes | The Note's key and lookup, who it is to, and what a sync writes: the Note, a rewrite and a reply, or nothing. |
@@ -31,7 +32,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `cache.ts` | port | `KeyValue`: where a site's resolution is kept. Memory and `localStorage` forms. |
 | `api.ts` | no | The calls. The only module that calls `fetch`. Uses `sg-widgets-core`'s clients. |
 | `setup.ts` | no | `checkSetup`: the readiness report, and field creation. |
-| `transport.ts` | no | `createFptTransport`: the `Transport`. |
+| `transport.ts` | no | `createFptTransport`: the `Transport`, with `linkShots` and `linkReferenceSlates`. |
 | `fakeFpt.ts`, `testkit.ts` | no | A site behind a `fetch`, in the corpus's shapes. For tests. |
 
 ## Plugging it in
@@ -179,8 +180,9 @@ Every entity of the device also gets `sg_onset_uuid` (text, unique): the record 
 So does Version, where a take's videos go. The take gets `sg_photos` (multi-entity to Attachment).
 The slate gets `sg_shots`, "Shots" (multi-entity to Shot), and `sg_set_shots`, "Set Shots"
 (multi-entity to Set Shot): see "Set Shots and Shot links"; and `sg_setup_diagram`, "Setup
-Diagram" (multi-entity to Attachment): see "A slate's setup diagram". `created_at` of a take is
-its `startedAt`, of a set reference its `loggedAt`.
+Diagram" (multi-entity to Attachment): see "A slate's setup diagram". The set reference gets
+`sg_slates`, "Slates" (multi-entity to Slate): see "The slates of a set reference". `created_at` of
+a take is its `startedAt`, of a set reference its `loggedAt`.
 
 **shootDay**
 
@@ -304,9 +306,12 @@ its `startedAt`, of a set reference its `loggedAt`.
 | `count` | `sg_count` | number | |
 | `notes` | `sg_set_notes` | text | |
 | `loggedAt` | `sg_logged_at`, and `created_at` on create | date_time | |
+| the slates it shows on | `sg_slates` | multi_entity | linked at sync |
 
 `Set Reference.sg_slate` adds `Slate.sg_set_references`, shown "Set Reference <-> Slate"
-(findings/142), so a slate in Flow PT lists its references.
+(findings/142), so a slate in Flow PT lists the references logged on it. `Set Reference.sg_slates`
+adds `Slate.custom_entityNN_sg_slates_custom_entityNNs`, shown "Set References <-> Slates", so a
+slate lists every reference it shows, the lighting setup's HDRIs included.
 
 **setShot** (a Set Shot, one row per VFX shot code in the project; no record on the device)
 
@@ -491,6 +496,31 @@ has landed. The app runs it for every slate of the project Flow PT holds when a 
 - None of it can fail a push. What did not land is worked out again at the next sync.
 - A Shot is never created, renamed or changed. A Set Shot is created, matched once, never renamed,
   never deleted.
+
+## The slates of a set reference
+
+An HDRI 360, a 360 video or an HDR reference shows on every slate of its slate's lighting setup,
+now or later; any other kind on its own slate (#107, lib/references README). In Flow PT the Set
+Reference links all of them in `sg_slates`, so each slate and its Shots reach it. `sg_slate` stays
+the slate it was logged on. The field is derived, as a slate's Shots are (decisions 58 and 59):
+`referenceSlates.ts` holds the rule, `app/sync/referenceSlates.ts` the slates from the device,
+`transport.ts` the calls.
+
+1. When a drain ends, before the slates and their Notes (app/sync README, decision 14), the app
+   works out from the records on the device the slates each reference Flow PT holds shows on, by
+   Flow PT id.
+2. The transport reads what the references' `sg_slates` hold now, one search per 500.
+3. Per reference that differs, a `PUT` with `{"multi_entity_update_mode": "set", "value": [...]}`
+   (recipes/009). A refusal is that reference's alone; no answer stops the rest.
+
+- Nothing is kept on the device. A slate made on the lighting setup, a slate moved to another, a
+  reference given another kind: each shows at the next sync.
+- A slate linked by hand in Flow PT is overwritten. A slate deleted leaves the field by itself:
+  Flow PT drops a deleted row from a multi-entity list (field_types/multi_entity.md).
+- A slate Flow PT does not hold yet is left out, and added at a later sync.
+- A reference whose row Flow PT no longer has is skipped: its delete is the outbox's business.
+- The Note on a Shot reads a reference's slates from `sg_slate` and `sg_slates` (`shotNote.ts`), so
+  a lighting reference is listed on every Shot of its lighting setup's slates.
 
 ## Notes on Shots
 
@@ -772,8 +802,20 @@ Made by Claude. Kevin can overrule any of them.
     makes an AAC mp4 of either, with no thumbnail (findings/152). The code says `Audio note`, so a
     change of its time keeps the word. The kind comes from the type the device stored, never from
     the Version's `content_type`: the server reads an Opus WebM as `video/webm` (findings/152).
+58. **The slates a set reference shows on get a multi-entity field beside `sg_slate`** (#107). A
+    field's type cannot change once made (endpoints/put_schema_type_fields_field: a `PUT` of
+    `data_type` answers 200 and changes nothing), so `sg_slate` stays an entity field, the slate it
+    was logged on, and `sg_slates` links every slate it shows on. A link to the Lighting Setup was
+    weighed: a slate and its Shots would reach the reference only through a second hop, and the
+    issue asks that each slate reach it. A site set up before this lacks `sg_slates`: its cached
+    resolution is read again, and it is not ready until an admin runs Set Up Fields once more.
+59. **`sg_slates` is derived, as a slate's Shots are** (Kevin, 2026-11-17; decisions 40 and 41). At
+    each sync it is set whole, in `set` mode, to the slates the reference shows on, and written only
+    when it differs. A slate linked by hand in Flow PT is overwritten. Nothing is kept on the device.
+    One `PUT` per reference: the mode works in a `_batch` update too (findings/154), but a batch is
+    all or nothing, and one reference deleted in Flow PT would refuse the writes of every other.
 
-58. **Templates and reference kinds are JSON in two text fields of the Project** (#110). Flow PT has
+60. **Templates and reference kinds are JSON in two text fields of the Project** (#110). Flow PT has
     no entity for either, and Kevin wants no new required custom entity (#117): a site without the
     fields syncs the rest. The Project is the one the device syncs with, so the list is the show's,
     and Set Up Fields makes the fields as it makes the others. A text field keeps the string as
@@ -781,19 +823,19 @@ Made by Claude. Kevin can overrule any of them.
     field would filter, but none was ever made: the corpus found two stock ones, and Note.meta is
     written on create only (field_types/jsonb.md). A custom entity per list was weighed: it would
     give one row per entry and a unique client UUID, but it is one more slot each studio enables.
-59. **One field per list,** so an edit of a kind never writes over a template another device saved
+61. **One field per list,** so an edit of a kind never writes over a template another device saved
     at the same moment, and the reverse.
-60. **A list is written whole, read again, and checked.** No conditional write exists: `If-Match`
+62. **A list is written whole, read again, and checked.** No conditional write exists: `If-Match`
     is ignored (recipes/005). Two devices that write one list within a second may lose one write,
     and the check finds it and sends it again. The window is the time between the search and the
     `PUT`.
-61. **A list holds the keys the device has, but the project:** a template's `name`, `scope` and
+63. **A list holds the keys the device has, but the project:** a template's `name`, `scope` and
     `values`, a kind's `name`. The project is the field's own; a device reading it puts the entry
     under its own project.
-62. **A list this version cannot read is never written over.** Its entries need a person, with the
+64. **A list this version cannot read is never written over.** Its entries need a person, with the
     field named, until an admin empties it in Flow PT. It is left out of a read too, so nothing on
     the device is judged removed from it.
-63. **Cameras, lenses and lighting setups are read back from their entities,** every row of the
+65. **Cameras, lenses and lighting setups are read back from their entities,** every row of the
     project with a client UUID. A row made by hand in Flow PT has none and is left out: matching it
     to the device's gear by name is not done.
 
@@ -894,7 +936,7 @@ Still open:
     not)? Not needed: text holds the JSON.
 21. What an entity field that links a deleted row reads back, and whether a write of a link to a
     deleted row is refused. A lens removed on one device while another's takes use it: the other
-    device sends it back as a new row (app/sync README, decision 17), and its takes already on
+    device sends it back as a new row (app/sync README, decision 18), and its takes already on
     Flow PT keep a link to the deleted row.
 
 ## On the probed site, read 2026-11-11
@@ -912,7 +954,7 @@ another type, so ours step aside: `ShootDay.sg_onset_location` and `Lens.sg_onse
 The other 69 are created under their plain names.
 
 Set Reference came after this read (#93). The probed site needs that slot enabled and named before
-sync goes on; Set Up Fields then makes its eight fields.
+sync goes on; Set Up Fields then makes its nine fields, `sg_slates` (#107) among them.
 
 Set Shot came after too (#102). Kevin enabled the slot on 2026-11-17; its schema was not read here.
 Set Up Fields makes its two fields, `sg_onset_key` and `sg_shots`, and the slate's `sg_set_shots`.

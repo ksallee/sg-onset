@@ -114,3 +114,12 @@ export function input(): ExportInput {
 		references: [ref50, ref42AHdri, ref42AScan]
 	};
 }
+
+/**
+ * The same shoot with 10 (day 3) and 50 (day 4) on 42A's lighting setup (#107): 42A's HDRI shows
+ * on 42A, 10 and 50; its lidar scan on 42A alone.
+ */
+export function sharedLighting(): ExportInput {
+	const all = input();
+	return { ...all, slates: all.slates.map((s) => (s.id === s10.id || s.id === s50.id ? { ...s, lightingSetupId: dusk.id } : s)) };
+}

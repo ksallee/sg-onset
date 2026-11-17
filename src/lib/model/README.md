@@ -217,3 +217,16 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
     plate at the tail, Balls and chart at the tail. Yes puts the plate on every chosen take, No or
     Clear takes it off, and the other plate stays as it is, as on the take sheet. The switch rule
     and its one notice apply (`slates/bulk.ts`).
+
+### Lighting references (Kevin, 2026-11-17, issue #107)
+
+57. **A reference of kind HDRI 360, 360 video or HDR reference belongs to the lighting setup of its
+    slate,** and shows on every slate of that lighting setup, now or later. It keeps its `slateId`,
+    the slate it was logged on; nothing else is stored. The slates it shows on follow from the
+    lighting setups as they are now (`lib/references/lighting.ts`), so it moves with its slate to
+    another lighting setup, as the switches of decision 51 do. The other kinds stay per slate.
+58. **Deleting the slate a lighting reference was logged on first moves it to another slate of the
+    lighting setup** (Kevin, 2026-11-17): the first left in slate order, shoot day then slate as a
+    person counts, in the same undo entry as the delete. The other kinds go with the slate. With no
+    other slate on the setup, it goes with the slate too (`lib/references/lighting.ts`,
+    `deleteMoves`; `lib/references/edit.ts`, `removeSlate`).

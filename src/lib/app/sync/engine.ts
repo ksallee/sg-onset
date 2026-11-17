@@ -15,6 +15,10 @@
 // With Notes on Shots on for the project (#97, notes.ts), the same step then writes the Note of
 // every Shot those slates reach, from what Flow PT holds. Nothing about the Notes is kept here.
 //
+// The Slates field of each set reference (#107) is set the same way when a drain ends, to the
+// slates it shows on (referenceSlates.ts): at most once a minute, at once on Sync Now, and at once
+// when what the device holds asks for other slates than the last time. Nothing is kept on the device.
+//
 // Then the lists a show shares are read back from Flow PT and merged with this device's (#110,
 // shared.ts): cameras, lenses, lighting setups, templates and reference kinds. At most once a
 // minute, at once on Sync Now. No drain runs while they are merged, and they are not read while a
@@ -35,13 +39,14 @@ import { linkOn, linkProblem, type ProjectLink } from './link';
 import { linkStore, type LinkStore } from './links';
 import { notesKey, readNotesOn, shotsToNote, writeNotesOn } from './notes';
 import { PROJECT_FILTER, projectChoices, type ProjectChoice } from './projects';
+import { legacyReferenceSlatesKey, referenceSlateItems } from './referenceSlates';
 import { projectScope, type ProjectScope } from './scope';
 import { heldBack } from './queue';
 import { keepKept, mergeShared, usedIds, USERS, type Kept } from './shared';
 import { CODES_MS, legacyKeys, linkDue, linkItems, mergeSeveral, projectSlates, type Several } from './shots';
 
 export interface SyncDeps {
-	store: Pick<DexieStore, 'get' | 'rows' | 'outbox' | 'remoteId' | 'subscribe' | 'reconcile'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
+	store: Pick<DexieStore, 'get' | 'list' | 'rows' | 'outbox' | 'remoteId' | 'subscribe' | 'reconcile'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
 	/** The signed-in site, or null. */
 	site(): string | null;
 	/** A live session (`auth.canSync`). */
@@ -228,6 +233,35 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		return linking;
 	}
 
+	// ------------------------------------------------------------------ the Slates of set references
+
+	/** When each project last set its references' Slates, and what it asked for then. In memory only. */
+	const referencesLinked = new Map<string, { at: number; asked: string }>();
+	let linkingReferences: Promise<void> = Promise.resolve();
+
+	/** Sets each set reference's Slates field to the slates it shows on, where it differs. Never throws. */
+	function linkReferences(projectId: string, transport: FptTransport, asked: boolean): Promise<void> {
+		linkingReferences = linkingReferences.then(async () => {
+			try {
+				const days = await deps.store.list('shootDay', projectId);
+				const slates = projectSlates(days, await deps.store.list('slate'), projectId);
+				const slateIds = new Set(slates.map((s) => s.id));
+				const refs = (await deps.store.list('reference')).filter((r) => slateIds.has(r.slateId));
+				const items = referenceSlateItems(refs, slates, await deps.store.outbox.remoteIds([...slates, ...refs].map((r) => r.id)));
+				const wanted = JSON.stringify(items);
+				const last = referencesLinked.get(projectId);
+				// A new reference, a slate made or moved: at once. Else once a minute, for an edit made in Flow PT.
+				if (last?.asked === wanted && !linkDue(last.at, deps.page.now(), asked)) return;
+				const failed = items.length ? await transport.linkReferenceSlates(items) : [];
+				if (failed && !failed.length) referencesLinked.set(projectId, { at: deps.page.now(), asked: wanted });
+				else referencesLinked.delete(projectId);
+			} catch {
+				// The next drain sets them.
+			}
+		});
+		return linkingReferences;
+	}
+
 	// ------------------------------------------------------------------ the shared lists
 
 	/** When each project last read its lists back. */
@@ -327,6 +361,8 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 					async (report) => {
 						await onReport(projectId!, report);
 						if (report.stopped === 'idle' || report.stopped === 'waiting') {
+							// The references first: the Notes written with the slates read their Slates.
+							await linkReferences(projectId!, transport, asked);
 							await linkSlates(projectId!, transport, asked);
 							await pullShared(projectId!, transport, asked, () => runner.running);
 						}
@@ -357,7 +393,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		const last = projectId ? Number(await deps.kv.get(lastKey(projectId))) : NaN;
 		const notesOnShots = projectId ? readNotesOn(await deps.kv.get(notesKey(projectId))) : false;
 		// Nothing about links is kept any more: what an older version kept is removed (Kevin, #102).
-		if (projectId) await Promise.all(legacyKeys(projectId).map((key) => deps.kv.delete(key))).catch(() => undefined);
+		if (projectId) await Promise.all([...legacyKeys(projectId), legacyReferenceSlatesKey(projectId)].map((key) => deps.kv.delete(key))).catch(() => undefined);
 		if (state.projectId !== projectId) return;
 		set({
 			link: linkOn(stored, site),

@@ -14,6 +14,7 @@
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import ReferenceList from '$lib/components/references/ReferenceList.svelte';
+	import { removeSlate } from '$lib/references/edit';
 	import DiagramRow from '$lib/components/draw/DiagramRow.svelte';
 	import { useApp } from '$lib/app/app.svelte';
 	import { useCurrent } from '$lib/app/current.svelte';
@@ -120,7 +121,7 @@
 	async function remove() {
 		const s = slate;
 		if (!s) return;
-		await app.edit.removeTree('slate', s.id, { key: 'edit.removed', params: { what: t('slates.slate', { slate: s.slateUID ?? '' }) } });
+		await removeSlate(app, s, { key: 'edit.removed', params: { what: t('slates.slate', { slate: s.slateUID ?? '' }) } });
 		await goto('/slates');
 	}
 	const menu = $derived([

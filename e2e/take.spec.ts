@@ -1,6 +1,8 @@
 // The take screen (Shoot) on stored data: the sample project, slate 42A of today. Role and label
 // selectors only: the markup moves. Every test starts on an empty device.
+import { truncateSync, writeFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
+import { movie } from '../src/lib/media/testFiles';
 import { expect, openApp, test } from './fixtures';
 
 const rail = (page: Page) => page.getByRole('toolbar', { name: 'Capture' });
@@ -161,6 +163,64 @@ test.describe('take screen', () => {
 		await expect(photo).toHaveCount(0);
 		await rail(page).getByRole('button', { name: 'Undo' }).tap();
 		await expect(photo).toBeVisible();
+	});
+
+	test('the take sheet adds several photos and videos from the library, at the time each was taken', async ({ page, browserName }) => {
+		await openShoot(page);
+		const strip = page.getByRole('region', { name: 'Photos and videos' });
+		const pick = async (files: { name: string; mimeType: string; buffer: Buffer }[]) => {
+			await page.getByRole('button', { name: /^(Add Note|Note:)/ }).first().tap();
+			const sheet = page.getByRole('dialog', { name: 'Take 3' });
+			const [chooser] = await Promise.all([page.waitForEvent('filechooser'), sheet.getByRole('button', { name: 'Add Photos or Videos' }).tap()]);
+			// Several at once, from the library or Files: not the camera.
+			expect(chooser.isMultiple()).toBe(true);
+			await chooser.setFiles(files);
+			return sheet;
+		};
+		// The clip says it was shot on 13 November, before the photos, which say nothing: it comes first.
+		const clip = { name: 'witness.mov', mimeType: 'video/quicktime', buffer: Buffer.from(movie('2026-11-13T14:05:22-0600')) };
+		const sheet = await pick([{ name: 'a.png', mimeType: 'image/png', buffer: PNG }, clip, { name: 'b.png', mimeType: 'image/png', buffer: PNG }]);
+		if (browserName === 'webkit') {
+			// Playwright's WebKit session refuses stored Blobs (see the Photo test above).
+			await expect(page.getByRole('status').filter({ hasText: '3 photos and videos did not save.' })).toBeVisible();
+			await expect(strip.getByRole('img')).toHaveCount(0);
+			return;
+		}
+		await expect(sheet.getByRole('button', { name: /^Add Photos or Videos/ })).toContainText('3');
+		await sheet.getByRole('button', { name: 'Done' }).tap();
+		await expect(strip.getByRole('img')).toHaveCount(3);
+		await expect(strip.getByRole('img', { name: 'Video 1 of take 3' })).toBeVisible();
+		await expect(strip.getByRole('img', { name: 'Photo 2 of take 3' })).toBeVisible();
+		await expect(page.getByRole('status').filter({ hasText: '3 photos and videos added to take 3' })).toBeVisible();
+
+		// One Undo takes the lot off.
+		await rail(page).getByRole('button', { name: 'Undo' }).tap();
+		await expect(strip.getByRole('img')).toHaveCount(0);
+
+		// Kept on the device as a photo is.
+		await pick([clip]);
+		await page.getByRole('dialog', { name: 'Take 3' }).getByRole('button', { name: 'Done' }).tap();
+		await page.reload();
+		await expect(strip.getByRole('img', { name: 'Video 1 of take 3' })).toBeVisible();
+		await page.getByRole('button', { name: 'Remove video 1' }).tap();
+		await expect(strip.getByRole('img')).toHaveCount(0);
+	});
+
+	test('a video over 100 MB is taken, and the notice says its size', async ({ page, browserName }, testInfo) => {
+		// Playwright's WebKit session refuses stored Blobs (see the Photo test above).
+		test.skip(browserName === 'webkit', 'stored files: Chromium only');
+		// A clip that says when it was shot, made 101 MB long without writing the bytes.
+		const path = testInfo.outputPath('long.mov');
+		writeFileSync(path, movie('2026-11-13T14:05:22-0600'));
+		truncateSync(path, 101_000_000);
+		await openShoot(page);
+		await page.getByRole('button', { name: /^(Add Note|Note:)/ }).first().tap();
+		const sheet = page.getByRole('dialog', { name: 'Take 3' });
+		const [chooser] = await Promise.all([page.waitForEvent('filechooser'), sheet.getByRole('button', { name: 'Add Photos or Videos' }).tap()]);
+		await chooser.setFiles(path);
+		await sheet.getByRole('button', { name: 'Done' }).tap();
+		await expect(page.getByRole('status').filter({ hasText: 'This video is 101 MB. It takes room on this iPad and a long time to sync.' })).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Photos and videos' }).getByRole('img', { name: 'Video 1 of take 3' })).toBeVisible();
 	});
 
 	test('Circled marks the take, again unmarks it', async ({ page }) => {

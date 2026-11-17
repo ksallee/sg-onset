@@ -3,6 +3,7 @@
 
 import { bulkEdit } from '$lib/model/bulkEdit';
 import { change, type Change, type Patch } from '$lib/model/patch';
+import { storedTakeType } from '$lib/model/takeType';
 import type { Take } from '$lib/model/types';
 import { sameValue } from '$lib/model/value';
 import { fieldRefs, type FieldRef } from './fields';
@@ -18,10 +19,16 @@ export function bulkFields(): FieldRef[] {
 	return fieldRefs('take').filter((f) => !OWN.has(f.def.key));
 }
 
+/** The patch that sets `key = value` on the chosen takes; `undefined` clears. Main is stored as no type. */
+export function bulkPatch(takes: readonly Take[], ids: Iterable<string>, key: string, value: unknown): Patch {
+	const stored = key === 'takeType' ? storedTakeType(value as string | undefined) : value;
+	return bulkEdit(takes, ids, key as keyof Take & string, stored as never).patch;
+}
+
 /** Of the chosen takes, which `key = value` would change and which already hold it. In take order. */
 export function bulkPreview(takes: readonly Take[], ids: Iterable<string>, key: string, value: unknown): { change: string[]; already: string[] } {
 	const chosen = new Set(ids);
-	const { patch } = bulkEdit(takes, chosen, key as keyof Take & string, value as never);
+	const patch = bulkPatch(takes, chosen, key, value);
 	const changing = new Set(patch.map((c) => c.id));
 	const there = takes.filter((t) => chosen.has(t.id));
 	return { change: there.filter((t) => changing.has(t.id)).map((t) => t.id), already: there.filter((t) => !changing.has(t.id)).map((t) => t.id) };

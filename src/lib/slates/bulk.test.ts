@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Take } from '$lib/model/types';
-import { bulkFields, bulkPreview, linkPreview } from './bulk';
+import { bulkFields, bulkPatch, bulkPreview, linkPreview } from './bulk';
 
 const takes: Take[] = [
 	{ id: 'a', slateId: 's', take: '1', tStop: 2.8 },
@@ -30,6 +30,26 @@ describe('bulkPreview', () => {
 	});
 	it('ignores ids that are not there', () => {
 		expect(bulkPreview(takes, ['a', 'zz'], 'tStop', 2.8)).toEqual({ change: [], already: ['a'] });
+	});
+	it('counts a take with no type as Main already', () => {
+		const typed: Take[] = [
+			{ id: 'a', slateId: 's', takeType: 'cleanPlate' },
+			{ id: 'b', slateId: 's' }
+		];
+		expect(bulkPreview(typed, ['a', 'b'], 'takeType', 'main')).toEqual({ change: ['a'], already: ['b'] });
+	});
+});
+
+describe('bulkPatch', () => {
+	it('sets the field on the chosen takes that do not hold the value', () => {
+		expect(bulkPatch(takes, ['a', 'b'], 'tStop', 4)).toEqual([{ id: 'a', key: 'tStop', from: 2.8, to: 4 }]);
+	});
+	it('writes Main as no value', () => {
+		const typed: Take[] = [
+			{ id: 'a', slateId: 's', takeType: 'cleanPlate' },
+			{ id: 'b', slateId: 's' }
+		];
+		expect(bulkPatch(typed, ['a', 'b'], 'takeType', 'main')).toEqual([{ id: 'a', key: 'takeType', from: 'cleanPlate', to: undefined }]);
 	});
 });
 

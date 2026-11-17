@@ -1,6 +1,6 @@
 <script lang="ts">
 	// Shoot's own edit notice (the shell shows none on a focus page): the last labelled edit with
-	// Undo, an undo with Redo, for a few seconds. It sits at the foot of the main column, clear of
+	// Undo, an undo with Redo, for a few seconds. An offer the edit raised (app.offer) shows instead. It sits at the foot of the main column, clear of
 	// the rail and the dock under the thumb. It shows at once; it goes by itself.
 	import { useApp } from '$lib/app/app.svelte';
 	import { t, tk } from '$lib/i18n/messages';
@@ -16,6 +16,7 @@
 		if (issue) return { text: issue };
 		if (!edit) return null;
 		if (edit.kind === 'tooLate') return { text: t('notice.tooLate') };
+		if (edit.offer) return { text: edit.offer.text, action: edit.offer.action, run: edit.offer.run };
 		if (!what) return null;
 		if (edit.kind === 'undone') return { text: t('notice.undone', { what }), action: t('notice.redo'), run: () => app.edit.redo() };
 		if (edit.kind === 'redone') return { text: t('notice.redone', { what }), action: t('notice.undo'), run: () => app.edit.undo() };

@@ -15,15 +15,16 @@ describe('projectInput', () => {
 			lenses: [...ours.lenses, { id: 'nx', projectId: 'p2' }],
 			slates: [...ours.slates, { id: 'sx', shootDayId: 'dx' }],
 			takes: [...ours.takes, { id: 'tx', slateId: 'sx' }],
-			stills: [...ours.stills, { id: 'px', takeId: 'tx', capturedAt: '' }]
+			stills: [...ours.stills, { id: 'px', takeId: 'tx', capturedAt: '' }],
+			references: [...ours.references, { id: 'rx', slateId: 'sx', name: 'Other scan' }]
 		};
 		const got = projectInput('p1', tables)!;
 		expect(got.project).toBe(ours.project);
-		for (const key of ['shootDays', 'lightingSetups', 'cameraSetups', 'cameras', 'lenses', 'slates', 'takes', 'stills'] as const) {
+		for (const key of ['shootDays', 'lightingSetups', 'cameraSetups', 'cameras', 'lenses', 'slates', 'takes', 'stills', 'references'] as const) {
 			expect(got[key].map((r) => r.id).sort()).toEqual(ours[key].map((r) => r.id).sort());
 		}
 	});
 	it('is undefined for a project that is not there', () => {
-		expect(projectInput('nope', { projects: [], shootDays: [], lightingSetups: [], cameraSetups: [], cameras: [], lenses: [], slates: [], takes: [], stills: [] })).toBeUndefined();
+		expect(projectInput('nope', { projects: [], shootDays: [], lightingSetups: [], cameraSetups: [], cameras: [], lenses: [], slates: [], takes: [], stills: [], references: [] })).toBeUndefined();
 	});
 });

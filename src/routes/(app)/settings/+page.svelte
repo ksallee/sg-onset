@@ -13,13 +13,14 @@
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Toggle from '$lib/components/ios/Toggle.svelte';
+	import ReferenceKindsSheet from '$lib/components/references/ReferenceKindsSheet.svelte';
 	import { auth } from '$lib/auth/session.svelte';
 	import { removeSample } from '$lib/app/actions';
 	import { useApp } from '$lib/app/app.svelte';
 	import { dayName } from '$lib/app/context';
 	import { useCurrent } from '$lib/app/current.svelte';
 	import { formatDate } from '$lib/app/format';
-	import { liveRecord } from '$lib/app/live.svelte';
+	import { liveList, liveRecord } from '$lib/app/live.svelte';
 	import { APPEARANCES, BUTTON_SIZES, MOTIONS, type Settings } from '$lib/app/settings';
 	import { settings } from '$lib/app/settings.svelte';
 	import { useShell } from '$lib/app/shell.svelte';
@@ -70,6 +71,10 @@
 		const n = dayName(d);
 		return [t(n.key, n.params), formatDate(d.shootDate)].filter(Boolean).join(' · ');
 	});
+
+	// The project's own kinds of reference, beside the built-in ones.
+	const kinds = liveList('referenceKind', () => current.project?.id);
+	let kindsOpen = $state(false);
 
 	// The sample project, if this device holds it.
 	const sample = liveRecord('project', () => s.sampleProjectId);
@@ -167,6 +172,7 @@
 			<Section header={t('settings.project')} footer={sampleAction(!!sample.value) === 'delete' ? t('settings.sample.footer') : t('settings.project.footer')}>
 				<InputRow label={t('settings.project.name')} bind:value={name} onchange={rename} error={nameError} oninput={() => (nameError = '')} autocapitalize="words" enterkeyhint="done" />
 				<Row title={t('settings.project.day')} detail={day} />
+				<Row title={t('references.kinds')} detail={kinds.value.length ? String(kinds.value.length) : undefined} chevron onclick={() => (kindsOpen = true)} />
 				<Row title={t('settings.project.switch')} class="tint" onclick={() => shell.openContext()} />
 				{#if sampleAction(!!sample.value) === 'delete'}
 					<Row title={t('settings.sample.remove')} destructive onclick={askDropSample} />
@@ -200,6 +206,8 @@
 			<PrototypeNotice />
 		{/snippet}
 	</SideColumns>
+
+	<ReferenceKindsSheet bind:open={kindsOpen} projectId={current.project?.id} />
 
 	<ActionSheet
 		bind:open={confirmSample}

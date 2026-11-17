@@ -15,12 +15,12 @@
 	import { settings } from '$lib/app/settings.svelte';
 	import { t, tk } from '$lib/i18n/messages';
 	import { fieldLabel } from '$lib/i18n/modelText';
-	import { bulkEdit } from '$lib/model/bulkEdit';
 	import type { TemplateRecord } from '$lib/model/template';
 	import type { Take } from '$lib/model/types';
 	import { sameValue } from '$lib/model/value';
-	import { bulkFields, bulkPreview, linkPreview, MARKS } from '$lib/slates/bulk';
+	import { bulkFields, bulkPatch, bulkPreview, linkPreview, MARKS } from '$lib/slates/bulk';
 	import type { FieldRef } from '$lib/slates/fields';
+	import { applyTakeEdit } from '$lib/take/typeEdit';
 	import FieldRow from './FieldRow.svelte';
 	import { useRefs } from './refs.svelte';
 	import { valueText } from './values';
@@ -51,12 +51,20 @@
 	let field = $state<FieldRef | null>(null);
 	let fieldOpen = $state(false);
 	let mode = $state<'set' | 'clear'>('set');
+	// What would be set follows every keystroke. What the row shows changes on a save only: given
+	// each keystroke back, the row would rewrite the text as it is typed ("5." does not read).
 	let pending = $state<{ ok: true; value: unknown } | { ok: false }>({ ok: false });
+	let saved = $state<unknown>(undefined);
 	function pick(f: FieldRef) {
 		field = f;
 		mode = 'set';
-		pending = f.def.type === 'boolean' ? { ok: true, value: true } : { ok: false };
+		saved = f.def.type === 'boolean' ? true : undefined;
+		pending = saved === undefined ? { ok: false } : { ok: true, value: saved };
 		fieldOpen = true;
+	}
+	function save(v: unknown) {
+		saved = v;
+		pending = { ok: true, value: v };
 	}
 	const target = $derived(mode === 'clear' ? { ok: true as const, value: undefined } : pending.ok && pending.value !== undefined ? pending : null);
 	const preview = $derived(field && target ? bulkPreview(chosen, ids, field.key, target.value) : null);
@@ -78,9 +86,10 @@
 
 	async function apply() {
 		if (!field || !target || !preview?.change.length) return;
-		const { patch } = bulkEdit(chosen, ids, field.key as keyof Take & string, target.value as never);
+		const patch = bulkPatch(chosen, ids, field.key, target.value);
 		const label = { key: mode === 'clear' ? 'slates.bulk.done.clear' : 'slates.bulk.done.set', params: { field: fieldLabel(field.def, field.end), n: patch.length } };
-		await app.edit.apply('take', patch, label);
+		// A change of take type turns its switches on and offers to turn off what it leaves on: one notice.
+		await applyTakeEdit(app, patch, label);
 		fieldOpen = false;
 		open = false;
 	}
@@ -144,12 +153,12 @@
 						<FieldRow
 							scope="take"
 							{field}
-							value={pending.ok ? pending.value : undefined}
+							value={saved}
 							{units}
 							tri
 							options={refs.options(field.def.key)}
 							onlive={(read) => (pending = read)}
-							onsave={(v) => (pending = { ok: true, value: v })}
+							onsave={save}
 						/>
 					{/key}
 				</Section>

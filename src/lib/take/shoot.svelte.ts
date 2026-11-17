@@ -10,20 +10,25 @@ import { live, liveList } from '$lib/app/live.svelte';
 import { settings } from '$lib/app/settings.svelte';
 import type { Label } from '$lib/app/undo';
 import { fieldLabel, issueText } from '$lib/i18n/modelText';
-import { t } from '$lib/i18n/messages';
+import { t, tk } from '$lib/i18n/messages';
 import type { FieldDef } from '$lib/model/catalogue';
+import { groupType, typePatch, type TakeType } from '$lib/model/takeType';
 import type { FieldValue, Lens, Still, Take } from '$lib/model/types';
+import { readCaptureTime } from '$lib/media/readCaptureTime';
 import { sameValue } from '$lib/model/value';
 import { sortTemplates } from '$lib/templates/list';
 import { canStepEntry, commitEntry, pressEntry, startEntry, stepEntry, type EntryKey, type FieldEntry } from './entry';
 import { entrySpec, isLocked, numberFields, shownValue, slotKey, visibleFields, type EntrySpec } from './fields';
 import { activeSetupIds, cameraColumns, groupTakes, NO_SETUP, type TakeGroup } from './groups';
 import { groupMark, groupNote, markPatch, newStill, notePatch, photoTake, type Mark } from './marks';
+import { addedLabel, failedLabel, mediaKind, pickedAt, pickedType, type MediaKind } from './library';
+import { sizeNotice } from './videoSize';
 import { groupPhase, groupTimes, runningGroup } from './phase';
 import { nextSecondIn } from './record';
 import { recentValues } from './recent';
 import { addCameraTake, nextTakes, pressTarget, shownGroup, startEndPlan } from './startEnd';
 import { groupChanged, groupLink, groupLinkPatch, groupResetPatch, groupUnlinkPatch, type GroupLink } from './template';
+import { applyTakeEdit } from './typeEdit';
 
 /** The field in the keypad: whose, which, start or end value. */
 export interface OpenField {
@@ -42,6 +47,8 @@ export class Shoot {
 	readonly lenses;
 	/** The stills of every take of the slate. */
 	readonly stills;
+	/** The type of each still's stored file, by still id: a photo or a video. */
+	readonly stillTypes;
 	/** The project's templates. */
 	readonly templates;
 
@@ -55,12 +62,14 @@ export class Shoot {
 	entry = $state.raw<FieldEntry>(startEntry(''));
 	/** What is wrong with what was typed. */
 	issue = $state<string | null>(null);
-	/** A photo that did not save. */
+	/** About photos and videos just added: some did not save, or a video is large. */
 	photoIssue = $state<string | null>(null);
 	/** The clock, moved each whole second of the running take. */
 	now = $state(Date.now());
 	/** Photos taken this visit, shown from the file while the store writes it. */
 	pending = $state.raw<Record<string, string>>({});
+	/** The type of each of those files. */
+	pendingTypes = $state.raw<Record<string, string>>({});
 	/** When the page opened: its notice says only what was done since. */
 	readonly openedAt = Date.now();
 	/** Photos the store is still writing. */
@@ -92,6 +101,8 @@ export class Shoot {
 	readonly circled = $derived(this.group ? groupMark(this.group, 'circleTake') : false);
 	readonly noGood = $derived(this.group ? groupMark(this.group, 'noGood') : false);
 	readonly note = $derived(this.group ? groupNote(this.group) : '');
+	/** The type every camera of the take on screen has; undefined when they differ. */
+	readonly type = $derived(this.group ? groupType(this.group.takes) : undefined);
 	/** The take templates to pick from, by name. */
 	readonly takeTemplates = $derived.by(() => sortTemplates(this.templates.value.filter((tp) => tp.scope === 'take')));
 	/** The template the take on screen follows. */
@@ -121,6 +132,15 @@ export class Shoot {
 				return (await Promise.all(ids.map((id) => store.list('still', id)))).flat();
 			},
 			[]
+		);
+		this.stillTypes = live<Record<string, string>>(
+			['still', 'take', 'blobs'],
+			async (store) => {
+				const ids = this.stills.value.map((s) => s.id);
+				const metas = await Promise.all(ids.map((id) => store.blobsOf(id)));
+				return Object.fromEntries(ids.flatMap((id, i) => (metas[i][0] ? [[id, metas[i][0].type]] : [])));
+			},
+			{}
 		);
 
 		// The clock runs while a take does, on its whole seconds.
@@ -224,44 +244,97 @@ export class Shoot {
 		});
 	}
 
-	/**
-	 * A photo from the camera: on the picked camera's take. It shows at once, from the file; the
-	 * store writes it behind and nothing waits for that. If the write fails, the photo goes and
-	 * the notice says so.
-	 */
+	/** A photo or a video, by its file's type. */
+	kindOf(still: Still): MediaKind {
+		return mediaKind(this.pendingTypes[still.id] ?? this.stillTypes.value[still.id] ?? '');
+	}
+
+	/** A photo from the camera, taken now. */
 	addPhoto(file: File) {
+		this.#addFiles([{ file, at: this.#app.now() }]);
+	}
+
+	/**
+	 * Photos and videos picked from the library or Files, from the take sheet. Each lands as a
+	 * photo from the camera does, at the time its file says it was taken, else now. A file that is
+	 * neither is left out. One Undo for the lot.
+	 */
+	async addFiles(files: readonly File[]) {
+		const picked = files.flatMap((file) => {
+			const type = pickedType(file.name, file.type);
+			if (!type) return [];
+			// A file from Files can come with no type: it gets the one its name says.
+			return [type === file.type ? file : new File([file], file.name, { type, lastModified: file.lastModified })];
+		});
+		if (!picked.length) return;
+		const now = this.#app.now();
+		const times = await Promise.all(picked.map((file) => readCaptureTime(file)));
+		this.#addFiles(picked.map((file, i) => ({ file, at: pickedAt(times[i], now) })));
+	}
+
+	/**
+	 * Files on the picked camera's take. They show at once, from the files; the store writes them
+	 * behind and nothing waits for that. A file whose write fails goes, and the notice says so.
+	 */
+	#addFiles(items: readonly { file: File; at: number }[]) {
 		const slate = this.slate;
-		if (!slate) return;
-		const at = this.#app.now();
-		const id = this.#app.newId();
+		if (!slate || !items.length) return;
 		const existing = photoTake(this.group, this.setupId);
 		// No take yet on this slate: the photo makes the next one, not started.
 		const [made] = existing ? [] : nextTakes({ groups: this.groups, active: [this.setupId], setups: this.setups.value, slateId: slate.id, newId: () => this.#app.newId() });
 		const take = existing ?? made;
-		const still = newStill(take.id, id, at);
-		const url = URL.createObjectURL(file);
-		this.pending = { ...this.pending, [id]: url };
-		this.unsaved = [...this.unsaved, still];
+		const added = items.map((item) => ({ file: item.file, kind: mediaKind(item.file.type), still: newStill(take.id, this.#app.newId(), item.at) }));
+		this.pending = { ...this.pending, ...Object.fromEntries(added.map((a) => [a.still.id, URL.createObjectURL(a.file)])) };
+		this.pendingTypes = { ...this.pendingTypes, ...Object.fromEntries(added.map((a) => [a.still.id, a.file.type])) };
+		this.unsaved = [...this.unsaved, ...added.map((a) => a.still)];
 		if (made) this.selected = made.take;
-		const label = this.#label('take.edit.photo', { take: take.take ?? '' });
+		const label = addedLabel(
+			added.map((a) => a.kind),
+			take.take ?? ''
+		);
+		const failed: typeof added = [];
 		const run = async () => {
 			if (made) await this.#app.edit.create('take', made);
-			await this.#app.edit.create('still', still, { attach: { blob: file, name: file.name }, label });
+			for (const a of added) {
+				try {
+					await this.#app.edit.create('still', a.still, { attach: { blob: a.file, name: a.file.name }, label });
+				} catch {
+					failed.push(a);
+				}
+			}
 		};
-		void (made ? this.#app.edit.group(label, run) : run())
-			.catch(() => {
-				this.photoIssue = t('take.photo.failed');
-				setTimeout(() => (this.photoIssue = null), 6000);
-				const { [id]: gone, ...rest } = this.pending;
-				URL.revokeObjectURL(gone);
-				this.pending = rest;
-			})
-			.finally(() => (this.unsaved = this.unsaved.filter((s) => s.id !== id)));
+		void (made || added.length > 1 ? this.#app.edit.group(label, run) : run())
+			// The take did not save: none of them did.
+			.catch(() => failed.splice(0, failed.length, ...added))
+			.finally(() => {
+				const ids = new Set(added.map((a) => a.still.id));
+				this.unsaved = this.unsaved.filter((s) => !ids.has(s.id));
+				// What did not save is said first; else the size of a large video (videoSize.ts). Neither blocks anything.
+				const saved = added.filter((a) => !failed.includes(a));
+				const notice = failed.length ? failedLabel(failed.map((a) => a.kind)) : sizeNotice(saved.map((a) => ({ type: a.file.type, size: a.file.size })));
+				if (notice) this.#notice(t(notice.key, notice.params));
+				if (!failed.length) return;
+				const gone = new Set(failed.map((a) => a.still.id));
+				const urls = [...gone].map((id) => this.pending[id]);
+				this.pending = Object.fromEntries(Object.entries(this.pending).filter(([id]) => !gone.has(id)));
+				this.pendingTypes = Object.fromEntries(Object.entries(this.pendingTypes).filter(([id]) => !gone.has(id)));
+				// The files are let go once their thumbnails are off the screen, not while one still loads.
+				setTimeout(() => urls.forEach((url) => URL.revokeObjectURL(url)), 1000);
+			});
+	}
+
+	/** A notice about photos and videos just added, for six seconds. A newer one is not cut short. */
+	#notice(text: string) {
+		this.photoIssue = text;
+		setTimeout(() => {
+			if (this.photoIssue === text) this.photoIssue = null;
+		}, 6000);
 	}
 
 	removeStill(still: Still) {
 		const take = this.takes.value.find((t) => t.id === still.takeId);
-		void this.#app.edit.removeTree('still', still.id, this.#label('take.edit.photoRemoved', { take: take?.take ?? '' }));
+		const key = this.kindOf(still) === 'video' ? 'take.edit.videoRemoved' : 'take.edit.photoRemoved';
+		void this.#app.edit.removeTree('still', still.id, this.#label(key, { take: take?.take ?? '' }));
 	}
 
 	toggleMark(mark: Mark) {
@@ -276,6 +349,15 @@ export class Shoot {
 		const group = this.group;
 		if (!group) return;
 		void this.#app.edit.apply('take', notePatch(group, text), this.#label('take.edit.note', { take: group.number }));
+	}
+
+	/** Types every camera of the take on screen. A clean plate or balls and chart turns its switches on (typeEdit.ts). */
+	setType(type: TakeType) {
+		const group = this.group;
+		if (!group) return;
+		const patch = typePatch(group.takes, type);
+		if (!patch.length) return;
+		void applyTakeEdit(this.#app, patch, this.#label('take.edit.type', { take: group.number, type: tk(`field.take.takeType.${type}`) }));
 	}
 
 	/** Links every camera of the take on screen to a take template and fills its values. */

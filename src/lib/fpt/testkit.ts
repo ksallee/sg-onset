@@ -12,6 +12,7 @@ export function siteTypes(): SchemaTypes {
 	return {
 		Attachment: type('File'),
 		Project: type('Project'),
+		Shot: type('Shot'),
 		ShootDay: type('Shoot Day'),
 		Slate: type('Slate'),
 		Camera: type('Camera'),
@@ -19,8 +20,10 @@ export function siteTypes(): SchemaTypes {
 		CustomEntity10: type('Camera Setup'),
 		CustomEntity11: type('Lighting Setup'),
 		CustomEntity19: type('Lens'),
+		CustomEntity21: type('Set Reference'),
 		CustomEntity29: type('Location'),
-		CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection')
+		CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection'),
+		Version: type('Version')
 	};
 }
 
@@ -31,7 +34,8 @@ export const TYPES: Record<EntityScope, string> = {
 	take: 'CustomEntity09',
 	cameraSetup: 'CustomEntity10',
 	lightingSetup: 'CustomEntity11',
-	lens: 'CustomEntity19'
+	lens: 'CustomEntity19',
+	reference: 'CustomEntity21'
 };
 
 export function rawField(dataType: string, display: string, extra: { unique?: boolean; validTypes?: string[]; editable?: boolean } = {}): RawField {
@@ -67,11 +71,24 @@ export function completeFields(): Record<EntityScope, RawFields> {
 	const out = bareFields();
 	for (const scope of ENTITY_SCOPES) {
 		for (const c of wantedColumns(scope)) {
-			const target = c.target === 'attachment' ? 'Attachment' : c.target && c.target !== 'project' ? TYPES[c.target] : undefined;
+			const target = c.target === 'attachment' ? 'Attachment' : c.target === 'shot' ? 'Shot' : c.target && c.target !== 'project' ? TYPES[c.target] : undefined;
 			out[scope][c.name] = rawField(c.dataType, c.display, { unique: c.unique, validTypes: target ? [target] : undefined });
 		}
 	}
 	return out;
+}
+
+/**
+ * Version's fields (corpus entity_types/Version.md): the stock ones a video needs, and with
+ * `ours` the client UUID Set Up Fields makes. `entity` lists the site's enabled custom entities.
+ */
+export function versionFields(ours = true): RawFields {
+	return {
+		...stockFields(),
+		entity: rawField('entity', 'Link', { validTypes: ['Asset', 'Shot', 'Sequence', 'ShootDay', 'Camera', 'Slate', ...Object.values(TYPES).filter((t) => t.startsWith('CustomEntity'))] }),
+		sg_uploaded_movie: rawField('url', 'Uploaded Movie'),
+		...(ours ? { sg_onset_uuid: rawField('text', 'Onset UUID', { unique: true }) } : {})
+	};
 }
 
 /** The probed site's habit: Lens.sg_focal_length is a text field of the site's own. */
@@ -88,7 +105,8 @@ export function jwtWith(claims: Record<string, unknown>): string {
 	return `${b64({ alg: 'HS256' })}.${b64(claims)}.c2lnbmF0dXJl`;
 }
 
-const resolve = (fields: Record<EntityScope, RawFields>): Resolution => toResolution(SITE_URL, resolveEntities(siteTypes()), planFields(TYPES, fields))!;
+const resolve = (fields: Record<EntityScope, RawFields>): Resolution =>
+	toResolution(SITE_URL, resolveEntities(siteTypes()), planFields(TYPES, fields, { version: versionFields() }))!;
 
 export const RESOLUTION: Resolution = resolve(completeFields());
 export const STEPPED_ASIDE: Resolution = resolve(steppedAsideFields());

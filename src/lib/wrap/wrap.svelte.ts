@@ -10,12 +10,13 @@ import { live } from '$lib/app/live.svelte';
 import { settings } from '$lib/app/settings.svelte';
 import { currentFiles } from '$lib/draw/markup';
 import { dayReport, type DayReport } from '$lib/export/dayReport';
-import type { ExportInput } from '$lib/export/selection';
+import { selectSlates, type ExportInput } from '$lib/export/selection';
 import type { PhotoBlob } from '$lib/export/wrapPackage';
 import { fieldLabel, optionLabel, unitLabel } from '$lib/i18n/modelText';
 import { t, tk } from '$lib/i18n/messages';
 import type { PlainLabels } from '$lib/export/plainCsv';
 import { download } from '$lib/pwa/files';
+import { kindLabel } from '$lib/references/kinds';
 import { memorySink, opfsSink, removeExport } from '$lib/store/backup';
 import { packagePlan, type PackageEntry } from './assembly';
 import { defaultChoice, pickedDays, readiness, setSpan, toggleDay, toggleFile, type FileKind, type Span, type TextKind, type WrapChoice } from './choice';
@@ -26,7 +27,7 @@ import { makeTexts } from './make';
 import { defaultPaper, reportBody, reportDocument } from './report';
 import { handOverMode, shareOutcome } from './share';
 import { daySummary } from './summary';
-import { writePackage } from './zip';
+import { writePackage, type EntryReader } from './zip';
 
 /** The one file on the private file system the package is written to. */
 const OPFS_NAME = 'sg-onset-wrap.zip';
@@ -37,7 +38,9 @@ export const plainLabels: PlainLabels = {
 	option: (def, option) => optionLabel(def, option),
 	unit: (unit) => (unit === 'ft' ? t('wrap.unit.ft') : unitLabel(unit)),
 	yes: t('wrap.yes'),
-	no: t('wrap.no')
+	no: t('wrap.no'),
+	references: t('wrap.report.references'),
+	kind: (kind) => kindLabel(kind, tk)
 };
 
 const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -57,7 +60,7 @@ function readLog(): ExportLog {
 
 export type Phase = 'idle' | 'building' | 'ready' | 'failed' | 'cancelled' | 'handed';
 
-type Loaded = { input: ExportInput; blobs: PhotoBlob[] } | undefined;
+type Loaded = { input: ExportInput; blobs: PhotoBlob[]; kinds: string[] } | undefined;
 
 export class Wrap {
 	readonly #app: App;
@@ -87,7 +90,7 @@ export class Wrap {
 	readonly readiness = $derived(readiness(this.choice, this.days.length));
 	/** The summary of the current day: every take, no filters. */
 	readonly report = $derived.by<DayReport | undefined>(() => (this.input && this.#current.shootDay ? dayReport(this.input, this.#current.shootDay.id) : undefined));
-	readonly summary = $derived.by(() => (this.report ? daySummary(this.report) : undefined));
+	readonly summary = $derived.by(() => (this.report ? daySummary(this.report, this.data.value?.kinds ?? []) : undefined));
 	readonly made = $derived.by(() => (this.input ? makeTexts(this.input, this.choice, this.days.map((d) => d.id), { now: new Date().toISOString(), timeZone: timeZone(), labels: plainLabels }) : undefined));
 	readonly reports = $derived.by(() => {
 		const input = this.input;
@@ -104,7 +107,17 @@ export class Wrap {
 		const input = this.input;
 		const made = this.made;
 		if (!input || !made) return undefined;
-		return packagePlan(made.rows, this.choice, { project: input.project, shootDays: this.days, blobs: this.data.value?.blobs ?? [], texts: made.texts, reportHtml: this.reportHtml });
+		return packagePlan(made.rows, this.choice, {
+			project: input.project,
+			shootDays: this.days,
+			blobs: this.data.value?.blobs ?? [],
+			texts: made.texts,
+			reportHtml: this.reportHtml,
+			slates: selectSlates(input, made.filters),
+			references: input.references,
+			projectKinds: this.data.value?.kinds ?? [],
+			kindLabel: plainLabels.kind
+		});
 	});
 	/** What the package holds, as one string: it changes when a file or its size does. */
 	readonly planKey = $derived(this.plan ? `${this.plan.bytes}:${this.plan.entries.map((e) => e.path).join('|')}` : '');
@@ -120,11 +133,11 @@ export class Wrap {
 		this.#app = app;
 		this.#current = current;
 		this.data = live<Loaded>(
-			['project', 'shootDay', 'lightingSetup', 'cameraSetup', 'camera', 'lens', 'slate', 'take', 'still', 'markup', 'blobs'],
+			['project', 'shootDay', 'lightingSetup', 'cameraSetup', 'camera', 'lens', 'slate', 'take', 'still', 'markup', 'reference', 'referenceKind', 'blobs'],
 			async (store) => {
 				const projectId = current.project?.id;
 				if (!projectId) return undefined;
-				const [projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills] = await Promise.all([
+				const [projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills, references, kinds] = await Promise.all([
 					store.list('project'),
 					store.list('shootDay', projectId),
 					store.list('lightingSetup', projectId),
@@ -133,14 +146,16 @@ export class Wrap {
 					store.list('lens', projectId),
 					store.list('slate'),
 					store.list('take'),
-					store.list('still')
+					store.list('still'),
+					store.list('reference'),
+					store.list('referenceKind', projectId)
 				]);
-				const input = projectInput(projectId, { projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills });
+				const input = projectInput(projectId, { projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills, references });
 				if (!input) return undefined;
 				const files = (await Promise.all(input.stills.map((s) => store.blobsOf(s.id)))).flat();
 				const markups = (await Promise.all(input.stills.map((s) => store.list('markup', s.id)))).flat();
 				// A photo's annotated copy goes only while it matches the drawing (#86).
-				return { input, blobs: currentFiles(files, markups) };
+				return { input, blobs: currentFiles(files, markups), kinds: kinds.map((k) => k.name) };
 			},
 			undefined
 		);
@@ -186,8 +201,8 @@ export class Wrap {
 		this.phase = 'building';
 		this.message = null;
 		this.progress = { done: 0, total: plan.bytes };
-		const read = async (entry: PackageEntry) => {
-			if (entry.kind === 'photo') return store.blob(entry.blobId);
+		const read: EntryReader = async (entry) => {
+			if (entry.kind === 'file') return store.blob(entry.blobId);
 			if (entry.kind === 'report') return reportHtml;
 			return texts[entry.kind];
 		};
@@ -276,7 +291,7 @@ export class Wrap {
 	/** One file of the package on its own, shared or downloaded. */
 	async shareFile(kind: TextKind | 'report', how: 'share' | 'download'): Promise<void> {
 		const plan = this.plan;
-		const entry = plan?.entries.find((e) => e.kind === kind);
+		const entry = plan?.entries.find((e): e is Extract<PackageEntry, { kind: TextKind | 'report' }> => e.kind === kind);
 		const text = kind === 'report' ? this.reportHtml : this.made?.texts[kind];
 		if (!entry || text === undefined) return;
 		const name = entry.path.slice(entry.path.lastIndexOf('/') + 1);

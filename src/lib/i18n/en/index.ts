@@ -8,6 +8,7 @@ import { draw } from './draw';
 import { fields } from './fields';
 import { gear } from './gear';
 import { importMessages } from './import';
+import { references } from './references';
 import { settings } from './settings';
 import { slates } from './slates';
 import { sync } from './sync';
@@ -17,7 +18,7 @@ import { validation } from './validation';
 import { wrap } from './wrap';
 
 /** The catalogue by area, as the files hold it. */
-export const AREAS = { common, take, slates, gear, templates, settings, auth, fields, validation, import: importMessages, sync, wrap, draw } as const;
+export const AREAS = { common, take, slates, gear, templates, settings, auth, fields, validation, import: importMessages, sync, wrap, references, draw } as const;
 
 export const en = {
 	...common,
@@ -32,5 +33,6 @@ export const en = {
 	...importMessages,
 	...sync,
 	...wrap,
+	...references,
 	...draw
 } as const;

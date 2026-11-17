@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dayReport } from '$lib/export/dayReport';
-import { input } from '$lib/export/testData';
+import { input, t42A1A } from '$lib/export/testData';
 import { defaultPaper, escapeHtml, reportBody, reportCss, reportDocument } from './report';
 
 const opts = { units: 'metric' as const, printedAt: new Date(2026, 10, 11, 21, 5) };
@@ -52,6 +52,16 @@ describe('reportBody', () => {
 		expect(reportBody([typed], opts)).not.toContain('<script>');
 	});
 
+	it('lists the set references of a slate under it, in the order logged', () => {
+		const block = html.slice(html.indexOf('data-slate="42A"'));
+		expect(block).toContain('References');
+		expect(block).toContain('Lidar scan: Scan 01');
+		expect(block).toContain('HDRI 360: HDRI_0412 (Ricoh Theta Z1, A003, ×7, Noon sun)');
+		expect(block.indexOf('Scan 01')).toBeLessThan(block.indexOf('HDRI_0412'));
+		const nine = html.slice(html.indexOf('data-slate="9"'), html.indexOf('data-slate="10"'));
+		expect(nine).not.toContain('References');
+	});
+
 	it('lists what is missing at the end', () => {
 		expect(html).toContain('data-section="todo"');
 		expect(html.indexOf('data-section="todo"')).toBeGreaterThan(html.indexOf('data-slate="42A"'));
@@ -77,6 +87,17 @@ describe('reportBody', () => {
 		expect(d4).toContain('>Cam<');
 		expect(d4).toContain('>Focal<');
 		expect(html).toContain('>Start<');
+	});
+
+	it('shows the take type where a take of the day is not Main', () => {
+		expect(html).not.toContain('>Type<');
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, takeType: 'cleanPlate' } : t));
+		const typed = reportBody([dayReport(shoot, 'd3')!], opts);
+		expect(typed).toContain('>Type<');
+		// One take is a clean plate; the Main takes leave the cell empty.
+		expect(typed.match(/>Clean plate</g)).toHaveLength(1);
+		expect(typed.match(/>Main</g)).toHaveLength(html.match(/>Main</g)!.length);
 	});
 
 	it('says when a day has no takes', () => {

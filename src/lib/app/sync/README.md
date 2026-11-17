@@ -16,6 +16,7 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `projects.ts` | yes | `PROJECT_FILTER`, `projectChoices`: the FPT projects a person picks from. |
 | `errors.ts` | yes | `syncError`, `syncErrorText`. |
 | `clock.ts` | yes | `toSecond`: `app.now()` stamps to the second. |
+| `shots.ts` | yes | What is owed on the slates' Shots field: kept, pruned, made again, listed. |
 | `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. |
 | `engine.ts` | no | `createSyncEngine`: link, check, runner. No runes. |
 | `controller.svelte.ts` | no | `provideSync`, `useSync`: the engine on the real page, as runes. |
@@ -48,6 +49,21 @@ Made by Claude. Kevin can overrule any of them.
 5. **The project list** leaves out templates, the demo show and archived projects (corpus
    findings/018). One page of 500.
 6. **Last sync** is when a drain last ended with nothing it could move (`idle` or `waiting`).
+7. **What is owed on the slates' Shots field is kept in `localStorage`, per project**
+   (`sg-onset:sync:shots:<id>`), as the transport reports it (lib/fpt README, Shot links): codes
+   no Shot has yet, codes several Shots have, unlinks not made. Not in the store's tables, like
+   the link. Lost, nothing breaks: the codes are on the slate, and the next edit of a slate's
+   codes writes its entry again.
+8. **It is made when a drain ends,** at most once a minute, at once on Sync Now: one Shot search,
+   then for the slates Flow PT holds an `add` of what waits and a `remove` of what is owed. A
+   code taken off the slate since, or a slate deleted, leaves the list; an owed unlink goes once
+   the slate holds the code again.
+9. **The sync sheet lists, by slate, the codes no Shot has and the codes several Shots have**
+   under "VFX shots to check". A row opens the slate. An owed unlink needs no one and is not
+   listed.
+10. **The slate's VFX shots field offers the linked project's Shot codes** while one is typed, as
+    chips (`slates/shotSuggest.ts`). Read with a link, a session and a network, every page, kept
+    five minutes. Offline nothing is offered and the field is free text.
 
 ## Not tested without a real site
 

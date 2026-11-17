@@ -53,6 +53,12 @@ export type Lens = Rec & { projectId: string } & FieldsOf<'lens'>;
 /** A reference photo. The file lives in storage, under the still's id. */
 export type Still = Rec & { takeId: string; capturedAt: string; caption?: string };
 
+/** A set reference: one thing captured for the slate on another device, logged by name. */
+export type Reference = Rec & { slateId: string } & FieldsOf<'reference'>;
+
+/** A kind of set reference a project added to the built-in ones. Kept on the device. */
+export type ReferenceKind = Rec & { projectId: string; name: string };
+
 export type RecordOf<S extends Scope> = {
 	project: Project;
 	shootDay: ShootDay;
@@ -62,4 +68,5 @@ export type RecordOf<S extends Scope> = {
 	take: Take;
 	camera: Camera;
 	lens: Lens;
+	reference: Reference;
 }[S];

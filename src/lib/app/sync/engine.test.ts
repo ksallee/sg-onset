@@ -7,7 +7,7 @@ import { memoryKeyValue } from '$lib/fpt/cache';
 import { BEARER, fakeFpt, type FakeFpt } from '$lib/fpt/fakeFpt';
 import type { Page, PageEvent } from '$lib/outbox/foreground';
 import type { DrainReport } from '$lib/outbox/runner';
-import { openStore } from '$lib/store/dexieStore';
+import { openStore, type DexieStore } from '$lib/store/dexieStore';
 import { createEditor } from '../editor';
 import { createSyncEngine, type SyncEngine } from './engine';
 import { setupView } from './report';
@@ -17,7 +17,7 @@ import { syncStatus } from './status';
 const TAKE = 'CustomEntity09';
 let n = 0;
 
-function setup(options: { fields?: 'complete' | 'bare' } = {}) {
+function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: DexieStore) => Promise<void> } = {}) {
 	const fpt = fakeFpt(options);
 	const fptProject = fpt.seed('Project', { name: 'Show', is_template: false, is_demo: false, archived: false });
 	fpt.seed('Project', { name: 'Template', is_template: true, is_demo: false, archived: false });
@@ -61,7 +61,8 @@ function setup(options: { fields?: 'complete' | 'bare' } = {}) {
 		fetch: ((input, init) => fpt.fetch(input, init)) as typeof fetch,
 		schemaCache: memoryKeyValue(),
 		kv: memoryKeyValue(),
-		page
+		page,
+		...(options.beforeDrain ? { beforeDrain: () => options.beforeDrain!(store) } : {})
 	});
 	return { fpt, fptProject, other, store, edit, world, emit, auth, engine };
 }
@@ -211,6 +212,34 @@ describe('a drain through the app wiring', () => {
 		expect(s.engine.state.scoped?.entries).toBe(0);
 		expect(s.engine.state.lastSyncAt).toBe(s.fpt.clock.t);
 		expect(syncStatus({ auth: 'signed-in', linked: true, ready: true, online: true, unsynced: s.engine.state.scoped }).state).toBe('synced');
+	});
+
+	it('makes what is drawn at sync before each drain, and sends it in that drain: a slate’s setup diagram', async () => {
+		let made = 0;
+		const s = setup({
+			beforeDrain: async (store) => {
+				if (made++) return;
+				await store.putBlob('slate', 's1', { blob: new Blob([new Uint8Array(12)], { type: 'image/png' }), variant: 'diagram', source: 'k1' });
+			}
+		});
+		await shoot(s);
+		await linked(s);
+		s.world.visible = true;
+		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
+		const slate = s.fpt.byUuid('Slate', 's1')!;
+		const images = slate.values.sg_setup_diagram as { type: string; id: number }[];
+		expect(images).toHaveLength(1);
+		expect(s.fpt.rows.get(`Attachment:${images[0].id}`)!.values.filename).toMatch(/^onset_diagram_s1_/);
+		expect(await s.store.outbox.entries()).toEqual([]);
+	});
+
+	it('still drains when what is drawn at sync fails', async () => {
+		const s = setup({ beforeDrain: async () => Promise.reject(new Error('no canvas')) });
+		await shoot(s);
+		await linked(s);
+		s.world.visible = true;
+		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
+		expect(s.fpt.byUuid('Slate', 's1')).toBeDefined();
 	});
 
 	it('ticks a box stored unticked, and edits a time stamped with milliseconds, with no conflict', async () => {

@@ -1,16 +1,28 @@
-// The tables of the store, from the model: one per scope, one for stills, one for templates and one
-// for the kinds of set reference a project adds.
-// Which key holds the parent, which keys link to other records, which tables stay on the device.
-// Pure.
+// The tables of the store, from the model: one per scope, one for stills, one for templates, one
+// for the kinds of set reference a project adds, one for the drawings on photos and one for setup
+// diagrams. Which key holds the parent, which keys link to other records, which tables stay on the
+// device. Pure.
 
+import type { Diagram } from '$lib/draw/diagram';
+import type { Markup } from '$lib/draw/markup';
 import { FIELDS, SCOPES, type Scope } from '$lib/model/catalogue';
 import type { TemplateRecord } from '$lib/model/template';
 import type { RecordOf, ReferenceKind, Still } from '$lib/model/types';
 
-export const TABLES = [...SCOPES, 'still', 'template', 'referenceKind'] as const;
+export const TABLES = [...SCOPES, 'still', 'template', 'referenceKind', 'markup', 'diagram'] as const;
 export type TableName = (typeof TABLES)[number];
 
-export type RowOf<T extends TableName> = T extends Scope ? RecordOf<T> : T extends 'template' ? TemplateRecord : T extends 'referenceKind' ? ReferenceKind : Still;
+export type RowOf<T extends TableName> = T extends Scope
+	? RecordOf<T>
+	: T extends 'template'
+		? TemplateRecord
+		: T extends 'referenceKind'
+			? ReferenceKind
+			: T extends 'markup'
+				? Markup
+				: T extends 'diagram'
+					? Diagram
+					: Still;
 
 export function isTable(name: string): name is TableName {
 	return (TABLES as readonly string[]).includes(name);
@@ -19,9 +31,11 @@ export function isTable(name: string): name is TableName {
 /**
  * The tables kept on the device and never synced: nothing is queued for them. Flow PT has no
  * place for a template; a slate or take keeps the id of its template as text. Nor for a project's
- * own kinds of set reference; a reference keeps its kind as text.
+ * own kinds of set reference; a reference keeps its kind as text. A photo's drawing reaches Flow
+ * PT as the photo's annotated copy, a file of the still (`$lib/draw/markup`). A slate's setup
+ * diagram reaches it as an image, a file of the slate (`$lib/draw/diagram`).
  */
-export const LOCAL_TABLES = ['template', 'referenceKind'] as const satisfies readonly TableName[];
+export const LOCAL_TABLES = ['template', 'referenceKind', 'markup', 'diagram'] as const satisfies readonly TableName[];
 
 export function isLocal(name: string): boolean {
 	return (LOCAL_TABLES as readonly string[]).includes(name);
@@ -42,7 +56,9 @@ export const PARENTS: Record<TableName, Link | undefined> = {
 	reference: { key: 'slateId', table: 'slate' },
 	still: { key: 'takeId', table: 'take' },
 	template: { key: 'projectId', table: 'project' },
-	referenceKind: { key: 'projectId', table: 'project' }
+	referenceKind: { key: 'projectId', table: 'project' },
+	markup: { key: 'stillId', table: 'still' },
+	diagram: { key: 'slateId', table: 'slate' }
 };
 
 /** Every key of `table` that holds the id of another record: the parent, then the catalogue's refs. */

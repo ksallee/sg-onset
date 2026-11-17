@@ -90,6 +90,11 @@ describe('validateValue', () => {
 		expect(check('slate', 'scriptTime', 'noon')).toEqual([{ key: 'validation.option', params: { options: 'day, night, dusk, dawn, magicHour' } }]);
 	});
 
+	it('reports an item of a list that is not one of its options', () => {
+		expect(check('take', 'takeTail', ['cleanPlate', 'ballsAndChart'])).toEqual([]);
+		expect(check('take', 'takeTail', ['cleanPlate', 'witness'])).toEqual([{ key: 'validation.option', params: { options: 'cleanPlate, ballsAndChart' } }]);
+	});
+
 	it('reports a malformed date, timestamp or timecode', () => {
 		expect(keys('shootDay', 'shootDate', '11/11/2026')).toEqual(['validation.date']);
 		expect(keys('shootDay', 'shootDate', '2026-13-40')).toEqual(['validation.date']);

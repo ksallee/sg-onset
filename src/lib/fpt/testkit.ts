@@ -21,9 +21,15 @@ export function siteTypes(): SchemaTypes {
 		CustomEntity11: type('Lighting Setup'),
 		CustomEntity19: type('Lens'),
 		CustomEntity21: type('Set Reference'),
+		CustomEntity22: type('Set Shot'),
 		CustomEntity29: type('Location'),
 		CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection'),
-		Version: type('Version')
+		Version: type('Version'),
+		Note: type('Note'),
+		Reply: type('Reply'),
+		Task: type('Task'),
+		HumanUser: type('Person'),
+		Group: type('Group')
 	};
 }
 
@@ -35,7 +41,8 @@ export const TYPES: Record<EntityScope, string> = {
 	cameraSetup: 'CustomEntity10',
 	lightingSetup: 'CustomEntity11',
 	lens: 'CustomEntity19',
-	reference: 'CustomEntity21'
+	reference: 'CustomEntity21',
+	setShot: 'CustomEntity22'
 };
 
 export function rawField(dataType: string, display: string, extra: { unique?: boolean; validTypes?: string[]; editable?: boolean } = {}): RawField {
@@ -91,6 +98,24 @@ export function versionFields(ours = true): RawFields {
 	};
 }
 
+/**
+ * Note's fields (corpus entity_types/Note.md): the stock ones a Note on a Shot writes, and with
+ * `ours` the key and the list Set Up Fields makes (#97).
+ */
+export function noteFields(ours = true): RawFields {
+	return {
+		project: rawField('entity', 'Project', { validTypes: ['Project'] }),
+		subject: rawField('text', 'Subject'),
+		content: rawField('text', 'Body'),
+		note_links: rawField('multi_entity', 'Links', { validTypes: ['Shot', 'Slate', 'Version'] }),
+		tasks: rawField('multi_entity', 'Tasks', { validTypes: ['Task'] }),
+		addressings_to: rawField('multi_entity', 'To', { validTypes: ['Group', 'HumanUser'] }),
+		addressings_cc: rawField('multi_entity', 'Cc', { validTypes: ['Group', 'HumanUser'] }),
+		replies: rawField('multi_entity', 'Replies', { validTypes: ['Reply'] }),
+		...(ours ? { sg_onset_key: rawField('text', 'Onset Key', { unique: true }), sg_onset_captured: rawField('text', 'Onset Captured') } : {})
+	};
+}
+
 /** The probed site's habit: Lens.sg_focal_length is a text field of the site's own. */
 export function steppedAsideFields(): Record<EntityScope, RawFields> {
 	const out = completeFields();
@@ -106,7 +131,7 @@ export function jwtWith(claims: Record<string, unknown>): string {
 }
 
 const resolve = (fields: Record<EntityScope, RawFields>): Resolution =>
-	toResolution(SITE_URL, resolveEntities(siteTypes()), planFields(TYPES, fields, { version: versionFields() }))!;
+	toResolution(SITE_URL, resolveEntities(siteTypes()), planFields(TYPES, fields, { version: versionFields(), note: noteFields() }))!;
 
 export const RESOLUTION: Resolution = resolve(completeFields());
 export const STEPPED_ASIDE: Resolution = resolve(steppedAsideFields());

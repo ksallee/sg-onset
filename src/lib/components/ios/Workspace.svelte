@@ -9,6 +9,7 @@
 	import type { Snippet } from 'svelte';
 	import { formFor, gridAreas, workspaceLayout, type Form, type Hand, type WorkspaceLayout } from '$lib/ios/handedness';
 	import { setScreen } from './layer.svelte';
+	import { clientSize } from './size';
 
 	let {
 		hand = 'right',
@@ -49,7 +50,7 @@
 	data-form={layout.form}
 	data-rail={layout.rail}
 	bind:this={el}
-	bind:clientWidth={width}
+	{@attach clientSize((w) => (width = w))}
 	style:--target="{target}px"
 	style:--gap="{gap}px"
 	style:grid-template-areas={gridAreas(layout)}

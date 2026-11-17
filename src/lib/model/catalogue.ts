@@ -18,7 +18,7 @@ export type Scope = (typeof SCOPES)[number];
  * - length: `Length` from length.ts, metres plus what was typed.
  * - rational: `Rational` from rational.ts, { num, denom }.
  * - dimensions: { width, height }, in `unit`.
- * - stringList: string[].
+ * - stringList: string[]. With `options`, each item is one of them.
  */
 export type ValueType =
 	| 'string'
@@ -75,7 +75,7 @@ export type FieldDef = {
 	readonly above?: number;
 	/** A length that may be infinity. */
 	readonly infinity?: true;
-	/** The values of an enum. Their labels are `<labelKey>.<option>`. */
+	/** The values of an enum, or the only items a list may hold. Their labels are `<labelKey>.<option>`. */
 	readonly options?: readonly string[];
 	/** The scope a ref points at. */
 	readonly ref?: Scope;
@@ -127,6 +127,8 @@ export const FIELDS = [
 	{ scope: 'take', key: 'take', type: 'string', labelKey: 'field.take.take', required: true, carry: false, names: { crif: 'Tk Take', omc: 'SlateUID.hasTake', ale: { avid: 'Take', arri: 'Take', silverstack: 'Take' } } },
 	// What the take is for. No value is Main: see takeType.ts.
 	{ scope: 'take', key: 'takeType', type: 'enum', options: ['main', 'cleanPlate', 'ballsAndChart', 'shadowPlate', 'lightPass', 'atmosphere', 'element', 'other'], labelKey: 'field.take.takeType', carry: false },
+	// What the camera caught after the action, as it kept running: either plate, or both. No value is none: see takeTail.ts.
+	{ scope: 'take', key: 'takeTail', type: 'stringList', options: ['cleanPlate', 'ballsAndChart'], labelKey: 'field.take.takeTail', carry: false },
 	{ scope: 'take', key: 'startedAt', type: 'timestamp', labelKey: 'field.take.startedAt', carry: false, names: { crif: 'Tk Start Time Of Take' } },
 	{ scope: 'take', key: 'endedAt', type: 'timestamp', labelKey: 'field.take.endedAt', carry: false },
 	{ scope: 'take', key: 'circleTake', type: 'boolean', labelKey: 'field.take.circleTake', carry: false, names: { omc: 'circleTake', ale: { silverstack: 'Circled Take' } } },

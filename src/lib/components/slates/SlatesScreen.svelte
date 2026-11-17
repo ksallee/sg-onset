@@ -15,6 +15,7 @@
 	import Section from '$lib/components/ios/Section.svelte';
 	import Segmented from '$lib/components/ios/Segmented.svelte';
 	import Tile from '$lib/components/ios/Tile.svelte';
+	import { clientSize } from '$lib/components/ios/size';
 	import ContextBar from '$lib/components/app/ContextBar.svelte';
 	import { useApp } from '$lib/app/app.svelte';
 	import { useCurrent } from '$lib/app/current.svelte';
@@ -187,7 +188,7 @@
 	{/if}
 {/snippet}
 
-<div class="screen" class:wide class:selecting={ids.length > 0} bind:clientWidth={width}>
+<div class="screen" class:wide class:selecting={ids.length > 0} {@attach clientSize((w) => (width = w))}>
 	{#if wide}
 		<div class="list-pane" data-page-pin>{@render list()}</div>
 		<div class="detail-pane">{@render detail(false)}</div>

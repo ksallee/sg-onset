@@ -148,9 +148,10 @@ export async function backupToFile(source: BackupSource, options: { now: number 
 export type ImportReport = { manifest: Manifest; tables: Record<string, number>; blobs: number };
 
 /**
- * Restores a backup into `target`. The whole archive is checked first: manifest, every table,
- * every file against its checksum. Only then is the store touched. A store that holds data is
- * refused unless `replace` is set, and then it is emptied first.
+ * Restores a backup into `target`. The whole archive is checked first: the manifest, the counts,
+ * every entry's header against the directory and its bytes against its checksum. Only then is
+ * the store touched. A store that holds data is refused unless `replace` is set, and then it is
+ * emptied first.
  */
 export async function importBackup(target: BackupTarget, file: Blob, options: { replace?: boolean } = {}): Promise<ImportReport> {
 	let entries: ZipEntry[];
@@ -171,6 +172,16 @@ export async function importBackup(target: BackupTarget, file: Blob, options: { 
 	}
 	if (!manifestEntry) throw new BackupError('notBackup', 'no manifest');
 
+	/** The entry's header, descriptor and bytes against the directory and its checksum. */
+	const verify = async (entry: ZipEntry) => {
+		let crc: number;
+		try {
+			crc = await entryCrc(file, entry);
+		} catch (error) {
+			throw new BackupError('corrupt', String(error));
+		}
+		if (crc !== entry.crc) throw new BackupError('corrupt', `${entry.name} fails its checksum`);
+	};
 	const text = async (entry: ZipEntry) => {
 		try {
 			return await (await entryBlob(file, entry)).text();
@@ -178,6 +189,7 @@ export async function importBackup(target: BackupTarget, file: Blob, options: { 
 			throw new BackupError('corrupt', String(error));
 		}
 	};
+	await verify(manifestEntry);
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(await text(manifestEntry));
@@ -193,15 +205,7 @@ export async function importBackup(target: BackupTarget, file: Blob, options: { 
 		if (!tables.has(name)) throw new BackupError('incomplete', `table ${name} is missing`);
 	}
 	if (blobs.size !== manifest.blobs) throw new BackupError('incomplete', `${blobs.size} of ${manifest.blobs} files`);
-	for (const entry of [...tables.values(), ...blobs.values()]) {
-		let crc: number;
-		try {
-			crc = await entryCrc(file, entry);
-		} catch (error) {
-			throw new BackupError('corrupt', String(error));
-		}
-		if (crc !== entry.crc) throw new BackupError('corrupt', `${entry.name} fails its checksum`);
-	}
+	for (const entry of entries) if (entry !== manifestEntry) await verify(entry);
 	const rows = new Map<string, unknown[]>();
 	for (const name of wanted) {
 		try {

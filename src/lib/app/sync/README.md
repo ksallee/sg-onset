@@ -16,7 +16,8 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `projects.ts` | yes | `PROJECT_FILTER`, `projectChoices`: the FPT projects a person picks from. |
 | `errors.ts` | yes | `syncError`, `syncErrorText`. |
 | `clock.ts` | yes | `toSecond`: `app.now()` stamps to the second. |
-| `shots.ts` | yes | What is owed on the slates' Shots field: kept, pruned, made again, listed. |
+| `shots.ts` | yes | Which slates to bring in line, when, and what the sync sheet lists of their Set Shots. Nothing kept. |
+| `notes.ts` | yes | Notes on Shots (#97): the setting per project, what the sheet shows, which Shots get a Note. |
 | `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. |
 | `engine.ts` | no | `createSyncEngine`: link, check, runner. No runes. |
 | `controller.svelte.ts` | no | `provideSync`, `useSync`: the engine on the real page, as runes. |
@@ -49,21 +50,37 @@ Made by Claude. Kevin can overrule any of them.
 5. **The project list** leaves out templates, the demo show and archived projects (corpus
    findings/018). One page of 500.
 6. **Last sync** is when a drain last ended with nothing it could move (`idle` or `waiting`).
-7. **What is owed on the slates' Shots field is kept in `localStorage`, per project**
-   (`sg-onset:sync:shots:<id>`), as the transport reports it (lib/fpt README, Shot links): codes
-   no Shot has yet, codes several Shots have, unlinks not made. Not in the store's tables, like
-   the link. Lost, nothing breaks: the codes are on the slate, and the next edit of a slate's
-   codes writes its entry again.
-8. **It is made when a drain ends,** at most once a minute, at once on Sync Now: one Shot search,
-   then for the slates Flow PT holds an `add` of what waits and a `remove` of what is owed. A
-   code taken off the slate since, or a slate deleted, leaves the list; an owed unlink goes once
-   the slate holds the code again.
-9. **The sync sheet lists, by slate, the codes no Shot has and the codes several Shots have**
-   under "VFX shots to check". A row opens the slate. An owed unlink needs no one and is not
-   listed.
+7. **Nothing about links is kept on the device** (Kevin, 2026-11-17, #102). Each sync reads Flow
+   PT and sets what differs (lib/fpt README, Set Shots and Shot links). #96's list of codes
+   waiting, codes several Shots have and unlinks owed (`sg-onset:sync:shots:<id>`), and the
+   matched Set Shots this change first kept (`sg-onset:sync:setShots:<id>`), are no longer read:
+   both keys are removed when the project loads.
+8. **Every slate of the current project Flow PT holds is brought in line when a drain ends,** at
+   most once a minute, at once on Sync Now: its Set Shots set to those of its codes, its Shots to
+   those of its Set Shots. A slate with no codes is in it too, so a code taken off is unlinked even
+   if the write at its push failed. A push links the slates whose codes it touched right after its
+   batch.
+9. **The sync sheet lists, by slate, the codes several Shots have** under "VFX shots to check",
+   from what the last sync read, in memory. A row opens the slate. A code no Shot has yet is filed
+   as a Set Shot, which is expected, and is not listed (Kevin, #102).
 10. **The slate's VFX shots field offers the linked project's Shot codes** while one is typed, as
     chips (`slates/shotSuggest.ts`). Read with a link, a session and a network, every page, kept
     five minutes. Offline nothing is offered and the field is free text.
+11. **A site without Set Shot syncs the rest** (Kevin, #117). The sync sheet's "Set Shots" section
+    says an admin enables a custom entity named Set Shot and runs Set Up Fields, and counts the
+    slates whose codes wait. After a setup check the runner starts again with a new transport, so
+    an entity enabled since is synced at the next drain.
+12. **Notes on Shots is a setting per project, kept on the device** (#97), `sg-onset:sync:notes:<id>`,
+    beside the link. Off by default: some studios will not want an app writing Notes. It is a
+    choice about what this project writes to its Flow PT project, a device may hold projects of
+    two studios, and one device with it on is enough: the Note is built from what Flow PT holds,
+    whatever device sent it. Not in the store's tables, so not in a backup, as the link is not. The
+    sync sheet shows it under the Flow PT project, once linked.
+13. **The Notes are written where the links are,** when a drain ends, after the slates are brought in
+    line: at most once a minute, at once on Sync Now. The Shots are every Shot the project's slates
+    reach through their Set Shots (lib/fpt README, Notes on Shots). A site without Set Shot writes
+    none. A site without the Note fields writes none, and the sheet says an admin runs Set Up
+    Fields; turning the setting on then runs the setup check again, which only reads.
 
 ## Not tested without a real site
 

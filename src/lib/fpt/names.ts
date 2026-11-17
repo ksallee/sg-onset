@@ -39,7 +39,7 @@ export function singularSlugOf(entityType: string): string {
 
 /**
  * The field the server adds on each linked type when a link field is created on `sourceType`
- * (corpus findings/142_reverse_field.md, findings/134 for multi-entity):
+ * (corpus findings/142_reverse_field.md, findings/134 and 155 for multi-entity):
  * - entity: `sg_<source display name, plural>`, shown `<source display name> <-> <field display name>`.
  * - multi_entity: `<source slug>_<field>_<source slug>s`, shown `<source display name, plural> <-> <field display name>`.
  * Visible and editable, and deleting it deletes the link field too.

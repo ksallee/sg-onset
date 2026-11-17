@@ -30,6 +30,9 @@ export function parseList(text: string): string[] {
 		.filter((item) => item !== '');
 }
 
+/** The option `text` names, whatever its case and spaces; the text as it is when it names none. */
+const option = (def: FieldDef, text: string): string => def.options?.find((o) => squash(o) === squash(text)) ?? text;
+
 /** The stored value `text` spells for a field of this type, or null when it spells none. */
 function read(def: FieldDef, text: string, system: UnitSystem): FieldValue | null {
 	switch (def.type) {
@@ -40,7 +43,7 @@ function read(def: FieldDef, text: string, system: UnitSystem): FieldValue | nul
 		case 'timecode':
 			return text;
 		case 'enum':
-			return def.options?.find((option) => squash(option) === squash(text)) ?? text;
+			return option(def, text);
 		case 'integer':
 		case 'number': {
 			const m = NUMBER.exec(text);
@@ -57,7 +60,7 @@ function read(def: FieldDef, text: string, system: UnitSystem): FieldValue | nul
 			return m ? { width: toNumber(m[1]), height: toNumber(m[2]) } : null;
 		}
 		case 'stringList':
-			return parseList(text);
+			return def.options ? parseList(text).map((item) => option(def, item)) : parseList(text);
 	}
 }
 

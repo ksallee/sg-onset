@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SwitchRef } from '$lib/model/takeType';
-import { switchesLabel, switchesText } from './typeText';
+import { switchesLabel, switchesText, tailLabel, typeWords } from './typeText';
 
 const names = { slate: (id: string) => ({ s1: '12A', s2: '14' })[id] ?? '', lightingSetup: (id: string) => ({ L: 'Night', M: 'Day' })[id] ?? '' };
 const plate = (id: string): SwitchRef => ({ scope: 'slate', id, key: 'cleanPlate' });
@@ -54,5 +54,22 @@ describe('switchesLabel', () => {
 	});
 	it('is nothing for nothing', () => {
 		expect(switchesLabel([], 'off', names)).toBeUndefined();
+	});
+});
+
+describe('typeWords', () => {
+	it('names the type when it is not Main, then each plate at the tail', () => {
+		expect(typeWords('main', [])).toEqual([]);
+		expect(typeWords(undefined, [])).toEqual([]);
+		expect(typeWords('lightPass', [])).toEqual(['Light pass']);
+		expect(typeWords('main', ['cleanPlate'])).toEqual(['Clean plate tail']);
+		expect(typeWords('atmosphere', ['cleanPlate', 'ballsAndChart'])).toEqual(['Atmosphere', 'Clean plate tail', 'Balls and chart tail']);
+	});
+});
+
+describe('tailLabel', () => {
+	it('says what an edit put at the tail of a take, or took off it', () => {
+		expect(tailLabel('3', 'cleanPlate', true)).toEqual({ key: 'take.edit.tail.on', params: { take: '3', tail: 'Clean plate' } });
+		expect(tailLabel('PU', 'ballsAndChart', false)).toEqual({ key: 'take.edit.tail.off', params: { take: 'PU', tail: 'Balls and chart' } });
 	});
 });

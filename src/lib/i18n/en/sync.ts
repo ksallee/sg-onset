@@ -65,6 +65,7 @@ export const sync = {
 	'sync.setup.entities.footer': 'An admin does this in Site Preferences, Entities. SG OnSet finds a custom entity by its display name, so give it exactly the name shown.',
 	'sync.setup.entity.found': 'Found',
 	'sync.setup.entity.enable': 'Enable a custom entity, name it {name}',
+	'sync.setup.entity.optional': 'Optional. To use it, enable a custom entity, name it {name}',
 	'sync.setup.entity.switchOn': 'Switch on {name}',
 	'sync.setup.entity.keepOne': 'Several are named {name}: {types}. Keep one.',
 	'sync.setup.fieldsHeader': 'Fields',
@@ -90,10 +91,13 @@ export const sync = {
 	'sync.prototype': 'Early prototype: use a test project on a test site.',
 
 	'sync.shots.header': 'VFX shots to check',
-	'sync.shots.none': 'No Shot: {codes}',
 	'sync.shots.several': 'Several Shots: {codes}',
 	'sync.shots.footer':
-		'No Shot: the Flow PT project has no Shot with this code yet. The code stays as text on the slate, and each sync looks again. Several Shots: more than one Shot has this code, and the slate links them all. Clean them up in Flow PT. SG OnSet never makes Shots.',
+		'More than one Shot of the Flow PT project has this code. Its Set Shot links them all, and so does the slate. Fix the Set Shot in Flow PT: the slate follows at the next sync. SG OnSet never makes Shots.',
+	'sync.setShots.header': 'Set Shots',
+	'sync.setShots.waiting': 'Slates waiting',
+	'sync.setShots.footer':
+		'This Flow PT site has no Set Shot entity. An admin enables a custom entity named Set Shot, then runs Set Up Fields. Until then the VFX shot codes stay as text on their slates, and their Set Shots and Shot links wait. Everything else syncs.',
 
 	'sync.refused.create': "This Flow PT account can't create {things}. Ask an Admin for the permission.",
 	'sync.refused.update': "This Flow PT account can't change {things}. Ask an Admin for the permission.",
@@ -112,5 +116,29 @@ export const sync = {
 	'sync.error.failed': 'Flow PT refused: {message}',
 
 	'sync.conflict.line': '{field}: this device {mine}, Flow PT {theirs}',
-	'sync.conflict.empty': 'empty'
+	'sync.conflict.empty': 'empty',
+
+	// Notes on Shots (#97): the setting, in the sync detail.
+	'sync.notes.header': 'Notes on Shots',
+	'sync.notes.toggle': 'Notes on Shots',
+	'sync.notes.footer':
+		'On: at each sync, each Shot linked to a slate gets one Note with what was shot for it, sent to the people on its Tasks. When more is shot, the Note is updated and a reply says what was added. For this project, on this device.',
+	'sync.notes.setup': 'An admin runs Set Up Fields first. It adds two fields to Note. Until then no Note is written.',
+
+	// The Note on a Shot and its reply, written in Flow PT from what Flow PT holds (lib/fpt/shotNote.ts). Always English.
+	'sync.note.subject': 'Set data for {shot}',
+	'sync.note.intro': 'What was shot on set for {shot}. SG OnSet updates this Note at each sync that adds to it.',
+	'sync.note.elements': 'Elements',
+	'sync.note.element': '{type}: {takes}',
+	'sync.note.element.tail': '{type} at the tail: {takes}',
+	'sync.note.elementTake': '{slate} take {take}',
+	'sync.note.takes': 'Takes',
+	'sync.note.slate.one': 'Slate {slate}: take {takes}',
+	'sync.note.slate.other': 'Slate {slate}: takes {takes}',
+	'sync.note.references': 'References',
+	'sync.note.reference': '{kind}: {names}',
+	'sync.note.photos': 'Photos: {n}',
+	'sync.note.reply': 'Added since the last update:',
+	'sync.note.reply.photos.one': '{n} more photo',
+	'sync.note.reply.photos.other': '{n} more photos'
 } as const;

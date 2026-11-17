@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TransportError } from '$lib/outbox/transport';
 import { memoryKeyValue, resolutionKey } from './cache';
 import { BEARER, fakeFpt, type FakeFpt } from './fakeFpt';
-import { ENTITY_SCOPES, VERSION_COLUMNS, wantedColumns } from './mapping';
+import { ENTITY_SCOPES, NOTE_COLUMNS, VERSION_COLUMNS, wantedColumns } from './mapping';
 import { parseResolution } from './schema';
 import { checkSetup, type SetupReport } from './setup';
 import { rawField, TYPES } from './testkit';
@@ -17,8 +17,8 @@ function world(fields: 'complete' | 'bare' = 'complete') {
 
 const creates = (fpt: FakeFpt) => fpt.requests.filter((r) => r.method === 'POST' && r.path.includes('/schema/'));
 const field = (report: SetupReport, scope: string, name: string) => report.fields.find((f) => f.scope === scope && f.name === name)!;
-/** Every field of ours: on the eight entities, and the client UUID on Version, where videos go. */
-const WANTED = ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length;
+/** Every field of ours: on the eight entities, the client UUID on Version, where videos go, and the two on Note (#97). */
+const WANTED = ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length + NOTE_COLUMNS.length;
 
 describe('checkSetup', () => {
 	it('finds a site that is ready, and changes nothing on it', async () => {
@@ -34,12 +34,33 @@ describe('checkSetup', () => {
 	});
 
 	// corpus endpoints/get_schema.md: /schema is cheap and /fields is not. One read per type.
-	it('reads the type list once and the fields of each of the eight types, Attachment, Shot and Version once', async () => {
+	it('reads the type list once and the fields of each of the nine types, Attachment, Shot, Version and Note once', async () => {
 		const { fpt, check } = world();
 		await check();
 		expect(fpt.requests.map((r) => r.path).sort()).toEqual(
-			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment', 'Shot', 'Version'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
+			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment', 'Shot', 'Version', 'Note'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
 		);
+	});
+
+	// Notes on Shots (#97): one Note per Shot, keyed in a unique text field (findings/146).
+	it('creates the key on Note, unique, and the list beside it, and the transport may use them', async () => {
+		const { fpt, cache, check } = world('bare');
+		const report = await check();
+		expect(field(report, 'note', 'sg_onset_key')).toMatchObject({ entityType: 'Note', status: 'created', unique: true });
+		expect(field(report, 'note', 'sg_onset_captured')).toMatchObject({ entityType: 'Note', status: 'created' });
+		expect(fpt.fields.Note.sg_onset_key.unique?.value).toBe(true);
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.note).toEqual({ key: 'sg_onset_key', captured: 'sg_onset_captured' });
+	});
+
+	// They are optional: a site set up before them syncs the rest, and the Notes wait.
+	it('is ready while Note lacks them, and says they are missing', async () => {
+		const { fpt, cache, check } = world();
+		delete fpt.fields.Note.sg_onset_key;
+		delete fpt.fields.Note.sg_onset_captured;
+		const report = await check({ createFields: false });
+		expect(report.ready).toBe(true);
+		expect(field(report, 'note', 'sg_onset_key')).toMatchObject({ status: 'missing' });
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.note).toBeUndefined();
 	});
 
 	// Videos go up as Versions linked to their take (Kevin, 2026-11-17): a create sent twice must
@@ -188,6 +209,66 @@ describe('checkSetup', () => {
 		expect(field(report, 'slate', 'sg_shots').status).toBe('created');
 		expect(fpt.fields.Slate.sg_shots.properties?.valid_types?.value).toEqual(['Shot']);
 		expect(fpt.fields.Shot.slate_sg_shots_slates).toMatchObject({ data_type: { value: 'multi_entity' }, properties: { valid_types: { value: ['Slate'] } } });
+	});
+
+	// Kevin, #102: the Set Shot gets its unique key and its Shots, the slate its Set Shots. Each link
+	// adds a field on the type it links (findings/142).
+	it('creates the Set Shot fields and the Set Shots link of the slate, and says what Flow PT adds', async () => {
+		const { fpt, check } = world('bare');
+		const before = await check({ createFields: false });
+		expect(field(before, 'setShot', 'sg_onset_key')).toMatchObject({ status: 'missing', entityType: 'CustomEntity22', dataType: 'text', unique: true });
+		expect(field(before, 'setShot', 'sg_shots')).toMatchObject({ status: 'missing', dataType: 'multi_entity', validTypes: ['Shot'] });
+		expect(field(before, 'slate', 'sg_set_shots')).toMatchObject({ status: 'missing', dataType: 'multi_entity', validTypes: ['CustomEntity22'] });
+		expect(before.reverseFields).toContainEqual({
+			entityType: 'CustomEntity22',
+			name: 'slate_sg_set_shots_slates',
+			displayName: 'Slates <-> Set Shots',
+			source: 'Slate.sg_set_shots',
+			status: 'willAppear'
+		});
+		expect(before.reverseFields).toContainEqual({
+			entityType: 'Shot',
+			name: 'custom_entity22_sg_shots_custom_entity22s',
+			displayName: 'Set Shots <-> Shots',
+			source: 'CustomEntity22.sg_shots',
+			status: 'willAppear'
+		});
+		const report = await check();
+		expect(report.ready).toBe(true);
+		expect(fpt.fields.CustomEntity22.sg_onset_key.unique?.value).toBe(true);
+		expect(fpt.fields.Shot.custom_entity22_sg_shots_custom_entity22s).toMatchObject({ properties: { valid_types: { value: ['CustomEntity22'] } } });
+		expect(fpt.fields.CustomEntity22.slate_sg_set_shots_slates).toMatchObject({ properties: { valid_types: { value: ['Slate'] } } });
+	});
+
+	// Kevin, #117: Set Shot is optional. Its absence is a note: the rest is ready, its links wait.
+	it('is ready without the Set Shot entity, and names it as optional', async () => {
+		const { fpt, cache, check } = world();
+		delete fpt.types.CustomEntity22;
+		delete fpt.fields.Slate.sg_set_shots;
+		const report = await check();
+		expect(report.ready).toBe(true);
+		expect(report.entities.find((e) => e.scope === 'setShot')).toEqual({ scope: 'setShot', kind: 'custom', displayName: 'Set Shot', status: 'missing', optional: true });
+		expect(report.fields.some((f) => f.scope === 'setShot' || f.name === 'sg_set_shots')).toBe(false);
+		expect(creates(fpt)).toEqual([]);
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.entities.setShot).toBeUndefined();
+	});
+
+	it('makes the Set Shot fields once an admin enabled it, on Set Up Fields', async () => {
+		const { fpt, cache, check } = world();
+		const slot = fpt.types.CustomEntity22;
+		const fields = fpt.fields.CustomEntity22;
+		delete fpt.types.CustomEntity22;
+		delete fpt.fields.Slate.sg_set_shots;
+		await check();
+		fpt.types.CustomEntity22 = slot;
+		fpt.fields.CustomEntity22 = { code: fields.code, project: fields.project };
+		const before = await check({ createFields: false });
+		expect(before.ready).toBe(true);
+		expect(field(before, 'setShot', 'sg_onset_matched')).toMatchObject({ status: 'missing', dataType: 'checkbox' });
+		expect(field(before, 'slate', 'sg_set_shots')).toMatchObject({ status: 'missing' });
+		const report = await check();
+		expect(field(report, 'setShot', 'sg_onset_matched').status).toBe('created');
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.entities.setShot).toBe('CustomEntity22');
 	});
 
 	it('does not create the Shots link when Shot already has the field it would add', async () => {

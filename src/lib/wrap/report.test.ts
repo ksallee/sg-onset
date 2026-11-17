@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dayReport } from '$lib/export/dayReport';
-import { input, t42A1A } from '$lib/export/testData';
+import { input, t42A1A, t42A1B } from '$lib/export/testData';
 import { defaultPaper, escapeHtml, reportBody, reportCss, reportDocument } from './report';
 
 const opts = { units: 'metric' as const, printedAt: new Date(2026, 10, 11, 21, 5) };
@@ -98,6 +98,15 @@ describe('reportBody', () => {
 		// One take is a clean plate; the Main takes leave the cell empty.
 		expect(typed.match(/>Clean plate</g)).toHaveLength(1);
 		expect(typed.match(/>Main</g)).toHaveLength(html.match(/>Main</g)!.length);
+	});
+
+	it('shows the plates at the tail in the type column, after the type', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, takeType: 'lightPass', takeTail: ['cleanPlate'] } : t.id === t42A1B.id ? { ...t, takeTail: ['cleanPlate', 'ballsAndChart'] } : t));
+		const tailed = reportBody([dayReport(shoot, 'd3')!], opts);
+		expect(tailed).toContain('>Type<');
+		expect(tailed).toContain('>Light pass, Clean plate tail<');
+		expect(tailed).toContain('>Clean plate tail, Balls and chart tail<');
 	});
 
 	it('says when a day has no takes', () => {

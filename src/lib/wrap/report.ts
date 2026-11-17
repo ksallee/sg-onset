@@ -12,9 +12,11 @@ import { fieldShortLabel, optionLabel } from '$lib/i18n/modelText';
 import { findField } from '$lib/model/catalogue';
 import { formatLength, type Length, type UnitSystem } from '$lib/model/length';
 import { formatRational } from '$lib/model/rational';
+import { takeTailOf } from '$lib/model/takeTail';
 import { takeTypeOf } from '$lib/model/takeType';
 import { kindLabel } from '$lib/references/kinds';
 import { referenceLine } from '$lib/references/log';
+import { typeWords } from '$lib/take/typeText';
 
 export type Paper = 'a4' | 'letter';
 
@@ -54,8 +56,9 @@ const length = (l: Length | undefined, units: UnitSystem) => (l ? formatLength(l
 function columns(units: UnitSystem): { head: string; cls?: string; cell: (r: FlatTake) => string }[] {
 	return [
 		{ head: short('cameraSetupId'), cls: 'c', cell: (r) => r.cameraLetter },
-		// Main says nothing: the column shows only on a day with another type.
-		{ head: short('takeType'), cell: (r) => (takeTypeOf(r.take) === 'main' ? '' : optionLabel(findField('take', 'takeType')!.def, takeTypeOf(r.take))) },
+		// Main says nothing: the column shows only on a day with another type or a plate at a tail,
+		// which follows the type as on the take row.
+		{ head: short('takeType'), cell: (r) => typeWords(takeTypeOf(r.take), takeTailOf(r.take)).join(', ') },
 		{ head: short('startedAt'), cls: 'n', cell: (r) => formatTime(r.take.startedAt) },
 		{ head: short('endedAt'), cls: 'n', cell: (r) => formatTime(r.take.endedAt) },
 		{ head: short('focalLength'), cls: 'n', cell: (r) => (r.focalLength ? range(`${r.focalLength.start}`, `${r.focalLength.end}`) : '') },

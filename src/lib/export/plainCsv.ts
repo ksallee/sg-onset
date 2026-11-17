@@ -122,6 +122,10 @@ function cellText(def: FieldDef, value: unknown, options: PlainOptions): string 
 			return value ? labels.yes : labels.no;
 		case 'enum':
 			return def.options?.includes(value as string) ? labels.option(def, value as string) : String(value);
+		case 'stringList':
+			// A list of options, the plates at a take's tail: each by its label.
+			if (!def.options || !Array.isArray(value)) return formatField(def, value, lengths);
+			return value.map((v) => (def.options!.includes(v) ? labels.option(def, v) : String(v))).join(', ');
 		case 'length':
 			return inline ? formatField(def, value, lengths) : lengthNumber((value as Length).m, lengths);
 		case 'rational': {

@@ -828,6 +828,56 @@ describe('upload', () => {
 		expect(found.remoteId).toBe(encodeStillRemote({ take: s.take, capturedAt: '2026-11-11T09:01:02.000Z', caption: 'Chart' }));
 	});
 
+	it('shows one annotated copy on the take once the photo is drawn on again: the old copy leaves the field, kept, in one batch', async () => {
+		const w = world();
+		const s = await still(w, 'ph1');
+		const original = s.ref(1200);
+		const first: BlobRef = { ...s.ref(900, 'b-flat1'), variant: 'annotated' };
+		const second: BlobRef = { ...s.ref(950, 'b-flat2'), variant: 'annotated' };
+		const photo = await send(w, original);
+		await w.transport.verifyUpload(original, photo.remoteId);
+		const old = await send(w, first);
+		expect(await w.transport.verifyUpload(first, old.remoteId)).toEqual({ verified: true, remoteId: old.remoteId });
+		expect(stills(w, s.take).map((r) => r.id)).toEqual([photo.remoteId, old.remoteId]);
+
+		const neu = await send(w, second);
+		w.fpt.requests.length = 0;
+		expect(await w.transport.verifyUpload(second, neu.remoteId)).toEqual({ verified: true, remoteId: neu.remoteId });
+		expect(stills(w, s.take).map((r) => r.id)).toEqual([photo.remoteId, neu.remoteId]);
+		// The old copy is off the field, not deleted: an Artist may not delete an Attachment (findings/143).
+		expect(attachments(w).map((a) => a.id)).toContain(old.remoteId);
+		// The mode goes in the body, in a batch (recipes/009, findings/154).
+		const batch = batches(w).at(-1)!.body as { requests: { data: Record<string, { multi_entity_update_mode: string; value: { id: number }[] }> }[] };
+		expect(batch.requests.map((r) => r.data.sg_photos)).toEqual([{ multi_entity_update_mode: 'remove', value: [{ type: 'Attachment', id: old.remoteId }] }]);
+	});
+
+	it('does not bring an older annotated copy back when it is checked late', async () => {
+		const w = world();
+		const s = await still(w, 'ph1');
+		const first: BlobRef = { ...s.ref(900, 'b-flat1'), variant: 'annotated' };
+		const second: BlobRef = { ...s.ref(950, 'b-flat2'), variant: 'annotated' };
+		await send(w, s.ref(1200));
+		const old = await send(w, first);
+		const neu = await send(w, second);
+		await w.transport.verifyUpload(second, neu.remoteId);
+		// The older copy's check comes after: it is on Flow PT, so it is done, and it stays off the field.
+		expect(await w.transport.verifyUpload(first, old.remoteId)).toEqual({ verified: true, remoteId: old.remoteId });
+		expect(stills(w, s.take).map((r) => r.id)).not.toContain(old.remoteId);
+		expect(stills(w, s.take).map((r) => r.id)).toContain(neu.remoteId);
+	});
+
+	it('puts the newest annotated copy back on the field when it is missing there', async () => {
+		const w = world();
+		const s = await still(w, 'ph1');
+		const copy: BlobRef = { ...s.ref(900, 'b-flat1'), variant: 'annotated' };
+		const sent = await send(w, copy);
+		// Someone took it off in the web interface.
+		w.fpt.rows.get(`CustomEntity09:${s.take}`)!.values.sg_photos = [];
+		expect(stills(w, s.take)).toEqual([]);
+		expect(await w.transport.verifyUpload(copy, sent.remoteId)).toMatchObject({ verified: true });
+		expect(stills(w, s.take).map((r) => r.id)).toEqual([sent.remoteId]);
+	});
+
 	it('writes a new caption on the photo and on its annotated copy', async () => {
 		const w = world();
 		const s = await still(w, 'ph1', { caption: 'Chart' });

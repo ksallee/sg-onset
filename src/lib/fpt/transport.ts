@@ -206,6 +206,29 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 		await api.update(res.entities.take, take, { [stillsField(res)]: { multi_entity_update_mode: 'add', value } }, signal);
 	}
 
+	/**
+	 * A photo drawn on again has several annotated copies on Flow PT: one per drawing sent. The take
+	 * shows only the newest, the one uploaded last; the older ones leave its photos field and stay
+	 * as Attachments (an Artist may not delete one, findings/143). Add and remove go in one batch,
+	 * in order, the mode in the body (recipes/009, findings/154): the field never shows none or two.
+	 */
+	async function keepNewestCopy(res: Resolution, take: number, stillId: string, signal?: AbortSignal): Promise<void> {
+		const copies = ((await attachmentsOf([stillId], signal)).get(stillId) ?? []).filter((row) => variantOf(row.attributes.filename) === 'annotated');
+		const [newest, ...older] = copies;
+		if (!newest) return;
+		const held = await stillIds(res, take, signal);
+		const field = stillsField(res);
+		const edit = (mode: 'add' | 'remove', ids: number[]): BatchRequest => ({
+			request_type: 'update',
+			entity: res.entities.take,
+			record_id: take,
+			data: { [field]: { multi_entity_update_mode: mode, value: ids.map((id) => ({ type: ATTACHMENT, id })) } }
+		});
+		const stale = older.filter((row) => held.includes(row.id)).map((row) => row.id);
+		const requests = [...(held.includes(newest.id) ? [] : [edit('add', [newest.id])]), ...(stale.length ? [edit('remove', stale)] : [])];
+		if (requests.length) await api.batch(requests, signal);
+	}
+
 	// ------------------------------------------------------------------ shots
 
 	type SlateWork = { slate: string; remoteId?: RemoteId } & ShotWork;
@@ -719,7 +742,9 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 					continue;
 				}
 				if (size !== blob.size) continue;
-				await link(res, meta.take, [row.id], signal);
+				// An annotated copy: the take shows the newest one only. A photo: on the take, whatever else is.
+				if (blob.variant === 'annotated') await keepNewestCopy(res, meta.take, blob.recordId, signal);
+				else await link(res, meta.take, [row.id], signal);
 				await caption(row, meta, signal);
 				return { verified: true, remoteId: row.id };
 			}

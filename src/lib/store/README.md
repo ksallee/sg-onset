@@ -282,8 +282,8 @@ Made by Claude. Kevin can overrule any of them.
     never touched. The flattener (`$lib/draw/flattener.ts`) makes the copy after the drawing
     changes, and drops the copies that no longer match while they are unsent. A copy already
     sent is not deleted (there is no file delete in the queue, 21, and an Artist may not delete an
-    Attachment, corpus findings/143): the new copy's upload takes the old one off the take's
-    Photos field instead (fpt README).
+    Attachment, corpus findings/143): once the new copy is verified, the old one is taken off the
+    take's photos field instead (fpt README).
 
 ## What a real iPad must still prove
 

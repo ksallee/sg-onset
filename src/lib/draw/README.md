@@ -39,7 +39,8 @@ Made by Claude. Kevin can overrule any of them.
 2. **The copy is made when the drawing closes, not per stroke.** A photo whose drawing is open is
    held. After an undo from anywhere, the flattener makes it again.
 3. **A copy no longer matching its drawing is dropped while unsent.** A sent one stays on Flow PT
-   beside the new one (store decision 26).
+   as an Attachment, but the take's photos field shows the newest copy only (fpt README, store
+   decision 27).
 4. **A measurement on the copy shows as typed,** whatever the units setting. On screen it follows
    the setting: metres stored, feet and inches shown.
 5. **Lengths are typed, never measured.** Measuring with the device is #88, native only.

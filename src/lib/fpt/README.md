@@ -314,7 +314,12 @@ A still's annotated copy (#86: the photo with its drawing flattened on it) is a 
 still, uploaded to the same field: `filename` `onset_<still>_<blob>-annotated.jpg`, `display_name`
 `Photo 2026-11-11T09:01:02.000Z annotated`. The still's prefix finds both; `capturedAtOf` reads
 either display name. A caption or capture time written on the still goes on both files. A copy
-made again after the drawing changed is a new file: the one sent before stays (store decision 26).
+made again after the drawing changed is a new file. When it is verified, the take keeps only the
+newest annotated copy, the one uploaded last, in its photos field: one `_batch` removes the older
+ones (and adds the newest if it is missing), the mode in the body (recipes/009, findings/154 of the
+notes-media probes). The older copies stay as Attachments, off the field: there is no file delete
+in the queue, and an Artist may not delete an Attachment (findings/143). A late check of an older
+copy finds it there and leaves it off.
 
 These are the names asked for. The name on a site can differ: see decision 3.
 

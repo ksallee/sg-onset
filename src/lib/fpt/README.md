@@ -16,6 +16,8 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `schema.ts` | yes | Entities by display name, the field plan, the `Resolution` kept per site. |
 | `payload.ts` | yes | A record to the `data` of a create or update. A row back to our keys. |
 | `stills.ts` | yes | A still's remote id, file name and display name. |
+| `versions.ts` | yes | A take's media that go up as a Version (a video; an audio note next): kind, file name, name, create, the file read back. |
+| `takeVersions.ts` | no | The Version of a take's media: found by client UUID, made, its file checked. |
 | `shots.ts` | yes | A slate's VFX shot codes matched to Shots: the search, what to link and unlink, what waits. |
 | `errors.ts` | yes | What a refusal or a missing answer means. |
 | `token.ts` | yes | The bearer's `exp`, and when to renew it. |
@@ -62,6 +64,7 @@ if (report.ready) {
 | `lightingSetup` | custom, "Lighting Setup" | display name |
 | `reference` | custom, "Set Reference" | display name |
 | `still` | Attachment, in `sg_photos` on the take | file name |
+| `still` with a video file | Version, `entity` the take, the file in `sg_uploaded_movie` | client UUID |
 | `project` | Project | given: `projectId` |
 | (none) | Shot, in `sg_shots` on the slate | code, in the project. Read and linked, never written |
 
@@ -156,10 +159,10 @@ names follow `docs/vocabulary.md` (its FPT column): Dutch Angle, Start Time, Cir
 | dimensions | float or number | two fields, width and height |
 | ref | entity | `{type, id}` |
 
-Every entity also gets `sg_onset_uuid` (text, unique): the record id on the device. The take gets
-`sg_photos` (multi-entity to Attachment). The slate gets `sg_shots`, "Shots" (multi-entity to
-Shot): see "Shot links". `created_at` of a take is its `startedAt`, of a set reference its
-`loggedAt`.
+Every entity also gets `sg_onset_uuid` (text, unique): the record id on the device. So does
+Version, where a take's videos go. The take gets `sg_photos` (multi-entity to Attachment). The
+slate gets `sg_shots`, "Shots" (multi-entity to Shot): see "Shot links". `created_at` of a take
+is its `startedAt`, of a set reference its `loggedAt`.
 
 **shootDay**
 
@@ -296,6 +299,17 @@ Shot): see "Shot links". `created_at` of a take is its `startedAt`, of a set ref
 | the still id and the blob id | `filename` | `onset_<still>_<blob>.jpg`, lowercase, no space. Read-only after upload |
 | the take, found back | `attachment_links` | set by the upload |
 
+**still with a video file** (a Version, decision 32)
+
+| key | field | note |
+|---|---|---|
+| the still id | `sg_onset_uuid` | unique, made by Set Up Fields |
+| `takeId` | `entity` | the take. Read back by the check, put back if missing |
+| `capturedAt` | `code` | `Video 2026-11-11T09:01:02Z`. Not unique: the client UUID is the key |
+| `caption` | `description` | |
+| the file | `sg_uploaded_movie` | `onset_video_<still>_<blob>.mov`. One file; a new upload replaces it |
+| | `project` | the linked project |
+
 These are the names asked for. The name on a site can differ: see decision 3.
 
 ## How a push goes
@@ -330,6 +344,19 @@ These are the names asked for. The name on a site can differ: see decision 3.
 5. `verifyUpload`: find the row by file name, `GET` the stored file and read `Content-Length`
    (never `HEAD`: it is 403), compare the size, make sure the take's `sg_photos` holds it. A row
    with no bytes is deleted. Only ids are returned.
+
+A video (`versionKind` of its type) goes the same way to another place (`takeVersions.ts`):
+
+1. `beginUpload` finds the still's Version by client UUID, or creates it (`project`, `entity` the
+   take, `code`, the client UUID, `description`). A create refused as not unique was made by an
+   earlier try whose answer was lost: it is found again. Then the ticket for
+   `versions/<id>/sg_uploaded_movie/_upload`, under `onset_video_<still>_<blob>.<ext>`.
+2. The parts and the renewals are a photo's.
+3. `finishUpload` sends `upload_data: {}`, as measured on a Version (findings/013, 022), and
+   answers the Version's id.
+4. `verifyUpload` finds the Version by client UUID, checks that `sg_uploaded_movie` names our file,
+   fetches it and compares the size, and puts the take back in `entity` if it is not there. A
+   movie with no bytes is left: the next upload replaces it.
 
 ## Shot links
 
@@ -448,6 +475,22 @@ Made by Claude. Kevin can overrule any of them.
     the code again, never linking: it leaves the list once one Shot or none has it.
 31. **An unlink that fails is owed, and made at a later sync,** until Flow PT matches the slate
     (Kevin, #96). It is dropped once the slate holds the code again.
+32. **A video goes up as a Version linked to its take** (Kevin, 2026-11-17, #94), for Flow PT's
+    player and transcode. A photo stays an Attachment. On the device both are stills; the file's
+    type decides, so nothing changes in the store or the outbox. The still's create sends nothing,
+    as for a photo; the Version is made when its file starts to go up, so an empty Version waits
+    only as long as an upload does. `versions.ts` lists the kinds: an audio note (#89) is one line
+    there and goes through the same calls.
+33. **Version gets our client UUID field** (`sg_onset_uuid`, unique), made by Set Up Fields like
+    every other: `code` is not unique (entity_types/Version.md), and a retried create must be
+    refused, not made twice (findings/127). A site whose resolution was cached before this reads
+    its schema again and is not ready until an admin runs Set Up Fields once more.
+34. **A still is looked for as an Attachment first, then as a Version.** A photo costs no more
+    requests than before. The Version's file name starts `onset_video_`, never as a photo's
+    `onset_<id>_`, so a photo's lookup by file name never finds a video's file, nor the two
+    Attachments the server adds after it (findings/123).
+35. **Deleting a video deletes its Version only.** The movie and the server's transcodes are
+    Attachments of the Version; what Flow PT does with them then is not measured.
 
 ## Where FPT did not fit the contract
 
@@ -505,6 +548,13 @@ Still open:
 8. The name of the field a multi_entity on Slate adds on Shot. Predicted `slate_sg_shots_slates`
    from the measured `version_sg_ai_generated_from_versions` (field_types/multi_entity.md) and the
    slot form of findings/142; Slate itself was not measured.
+9. A Version whose `entity` is a custom entity row, as a Take is: does the create take it, does it
+   read back, does the web interface show the Version on the Take. A probe in sg-groundtruth is
+   measuring it (2026-11-17). Until it reports, the video path is built on the fake site, and the
+   check puts `entity` back if a read shows it missing.
+10. What Flow PT does with a Version's movie and transcode Attachments when the Version is deleted.
+11. The largest video a browser on an iPad sends: one PUT of 1000 MB was measured from a script
+   (findings/140); a browser upload is not measured.
 
 ## On the probed site, read 2026-11-11
 

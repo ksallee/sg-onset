@@ -53,7 +53,7 @@ export function extensionOf(type: string): string {
  * of ours holds only lowercase letters, digits, `-` and `_`, so what is stored is what was sent
  * and no two photos differ by case alone. Our ids are lowercase UUIDs, unchanged by this.
  */
-const safe = (id: string) => id.toLowerCase().replace(/[^a-z0-9-]/g, '_');
+export const safe = (id: string) => id.toLowerCase().replace(/[^a-z0-9-]/g, '_');
 
 /** What every file name of a still starts with. A lookup by client UUID searches for it. */
 export function stillPrefix(stillId: string): string {

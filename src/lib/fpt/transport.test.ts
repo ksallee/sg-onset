@@ -159,14 +159,15 @@ describe('push', () => {
 		const w = world();
 		await applied(w, [create('camera', 'c1', { projectId: 'p1', cameraModel: 'A' }, { p1: w.projectId })]);
 		const reads = () => w.fpt.count((r) => r.path.startsWith('/api/v1/schema'));
-		// /schema, the eight types, Attachment and Shot, where the photos and Shots fields add one each (findings/142).
-		expect(reads()).toBe(11);
+		// /schema, the eight types, Attachment and Shot, where the photos and Shots fields add one each
+		// (findings/142), and Version, where videos go.
+		expect(reads()).toBe(12);
 		await applied(w, [create('camera', 'c2', { projectId: 'p1', cameraModel: 'B' }, { p1: w.projectId })]);
-		expect(reads()).toBe(11);
+		expect(reads()).toBe(12);
 		expect(await w.cache.get(resolutionKey(w.fpt.site))).toBeDefined();
 		// Another session on the same device starts from the cache.
 		await w.make().push([create('camera', 'c3', { projectId: 'p1', cameraModel: 'C' }, { p1: w.projectId })]);
-		expect(reads()).toBe(11);
+		expect(reads()).toBe(12);
 	});
 
 	it('does not send to a site that is not set up, and says what is missing', async () => {
@@ -1055,5 +1056,174 @@ describe('a still, after its upload', () => {
 		const edit = update('still', 'ph1', s.remote, { caption: [undefined, 'x'] });
 		expect(await w.transport.push([edit])).toEqual({ outcome: 'refused', refusals: [{ entryId: edit.entryId, reason: 'gone' }] });
 		expect(await w.transport.read([{ table: 'still', id: 'ph1', remoteId: s.remote, keys: ['caption'] }])).toEqual([]);
+	});
+});
+
+// ---------------------------------------------------------------------------------- videos
+
+// Kevin, 2026-11-17 (#94): a video goes up as a Version linked to its take, its file in
+// `sg_uploaded_movie`; a photo stays an Attachment. The live behaviour of a Version whose `entity`
+// is a custom entity row awaits a finding in sg-groundtruth: this is the fake site's.
+async function video(w: World, id = 'v1', fields: Record<string, unknown> = {}) {
+	const s = await still(w, id, fields);
+	const ref = (size: number, blobId = `b-${id}`): BlobRef => ({ ...s.ref(size, blobId), type: 'video/quicktime' });
+	return { ...s, ref };
+}
+
+const versions = (w: World) => w.fpt.live('Version');
+const movieOf = (w: World) => versions(w)[0].values.sg_uploaded_movie as { type: string; id: number } | undefined;
+
+describe('a video', () => {
+	it('goes up as a Version linked to its take, the file in its movie field', async () => {
+		const w = world();
+		const v = await video(w, 'v1', { caption: 'Witness cam B' });
+		const ref = v.ref(1200);
+		const session = await w.transport.beginUpload(ref);
+		const [version] = versions(w);
+		// entity_types/Version.md: the project, the link {type, id}; the client UUID is ours.
+		expect(version.values).toMatchObject({
+			project: { type: 'Project', id: w.projectId },
+			entity: { type: 'CustomEntity09', id: v.take },
+			code: 'Video 2026-11-11T09:01:02.000Z',
+			sg_onset_uuid: 'v1',
+			description: 'Witness cam B'
+		});
+		const init = w.fpt.requests.find((r) => r.path.endsWith('/_upload') && r.method === 'GET')!;
+		expect(init.path).toBe(`/api/v1/entity/versions/${version.id}/sg_uploaded_movie/_upload`);
+		expect(init.query.get('filename')).toBe('onset_video_v1_b-v1.mov');
+
+		const sent = await send(w, ref, session);
+		expect(sent.remoteId).toBe(version.id);
+		expect(movieOf(w)).toMatchObject({ type: 'Attachment' });
+		// Not a photo: the take's photos field is left alone.
+		expect(stills(w, v.take)).toEqual([]);
+		const put = w.fpt.requests.find((r) => r.host === 'storage' && r.method === 'PUT')!;
+		expect(put.headers.get('content-type')).toBe('video/quicktime');
+		expect(await w.transport.verifyUpload(ref, sent.remoteId)).toEqual({ verified: true, remoteId: version.id });
+	});
+
+	it('makes one Version however often the upload starts', async () => {
+		const w = world();
+		const v = await video(w);
+		await w.transport.beginUpload(v.ref(300));
+		await w.transport.beginUpload(v.ref(300));
+		expect(versions(w).length).toBe(1);
+	});
+
+	// findings/127: a create that landed and never answered is refused when sent again.
+	it('a create that landed and never answered is found, not made twice', async () => {
+		const w = world();
+		const v = await video(w);
+		w.fpt.failNext((r) => r.path === '/api/v1/entity/_batch', { after: 'network' });
+		expect(await kindOf(w.transport.beginUpload(v.ref(300)))).toBe('timeout');
+		expect(versions(w).length).toBe(1);
+		await send(w, v.ref(300));
+		expect(versions(w).length).toBe(1);
+		expect(await w.transport.verifyUpload(v.ref(300))).toEqual({ verified: true, remoteId: versions(w)[0].id });
+	});
+
+	it('takes a create refused as not unique as the Version an earlier try made', async () => {
+		const w = world();
+		const v = await video(w);
+		const id = w.fpt.seed('Version', { project: { type: 'Project', id: w.projectId }, entity: { type: 'CustomEntity09', id: v.take }, sg_onset_uuid: 'v1' });
+		// The first look misses it, as one made a moment ago can be (findings/127: readable within two seconds).
+		w.fpt.failNext((r) => r.path === '/api/v1/entity/versions/_search', { status: 200, body: { data: [], links: {} } });
+		const sent = await send(w, v.ref(300));
+		expect(sent.remoteId).toBe(id);
+		expect(versions(w).length).toBe(1);
+	});
+
+	it('sends a large video in parts', async () => {
+		const w = world({ upload: { singlePutMax: 10, partSize: 6 } });
+		w.fpt.partFloor = 6;
+		const v = await video(w);
+		const ref = v.ref(16);
+		const sent = await send(w, ref);
+		expect(sent.parts.length).toBe(3);
+		expect(await w.transport.verifyUpload(ref, sent.remoteId)).toEqual({ verified: true, remoteId: versions(w)[0].id });
+	});
+
+	// findings/039: a completion answers 201 with no bytes behind it. A new upload replaces the file (findings/022).
+	it('is not verified when the movie never arrived; sent again, it replaces it on the same Version', async () => {
+		const w = world();
+		const v = await video(w);
+		w.fpt.loseNextUpload = true;
+		const first = await send(w, v.ref(500));
+		expect(await w.transport.verifyUpload(v.ref(500), first.remoteId)).toEqual({ verified: false, remoteId: versions(w)[0].id });
+		await send(w, v.ref(500));
+		expect(await w.transport.verifyUpload(v.ref(500))).toEqual({ verified: true, remoteId: versions(w)[0].id });
+		expect(versions(w).length).toBe(1);
+	});
+
+	it('is not verified when the movie is not this file or not whole', async () => {
+		const w = world();
+		const v = await video(w);
+		await send(w, v.ref(500));
+		expect(await w.transport.verifyUpload(v.ref(501))).toMatchObject({ verified: false });
+		expect(await w.transport.verifyUpload(v.ref(500, 'another-blob'))).toMatchObject({ verified: false });
+	});
+
+	it('is not verified before anything was sent', async () => {
+		const w = world();
+		const v = await video(w);
+		expect(await w.transport.verifyUpload(v.ref(500))).toEqual({ verified: false });
+	});
+
+	// entity_types/Version.md: read a link back to confirm it.
+	it('puts the take back on a Version that lost it', async () => {
+		const w = world();
+		const v = await video(w);
+		await send(w, v.ref(500));
+		versions(w)[0].values.entity = null;
+		expect(await w.transport.verifyUpload(v.ref(500))).toMatchObject({ verified: true });
+		expect(versions(w)[0].values.entity).toEqual({ type: 'CustomEntity09', id: v.take });
+	});
+
+	it('says what the site refused when it may not make the Version', async () => {
+		const w = world();
+		const v = await video(w);
+		w.fpt.forbidden.add('create:Version');
+		expect(await kindOf(w.transport.beginUpload(v.ref(300)))).toBe('failed');
+		expect(versions(w)).toEqual([]);
+	});
+});
+
+describe('a video, after its upload', () => {
+	it('is found by client UUID, with its take, from its Version', async () => {
+		const w = world();
+		const v = await video(w);
+		await send(w, v.ref(300));
+		expect(await w.transport.lookup([{ table: 'still', id: 'v1' }])).toEqual([
+			{ table: 'still', id: 'v1', remoteId: encodeStillRemote({ take: v.take, capturedAt: '2026-11-11T09:01:02.000Z' }) }
+		]);
+	});
+
+	// findings/123: the server adds Attachments named after the movie. A photo's search never takes them.
+	it('leaves the photos of the take as they are, and a photo lookup finds only photos', async () => {
+		const w = world();
+		const v = await video(w);
+		await send(w, v.ref(300));
+		const p = await still(w, 'ph1');
+		await send(w, p.ref(200));
+		expect(stills(w, v.take).length).toBe(1);
+		const found = await w.transport.lookup([{ table: 'still', id: 'ph1' }]);
+		expect(found).toEqual([{ table: 'still', id: 'ph1', remoteId: encodeStillRemote({ take: v.take, capturedAt: '2026-11-11T09:01:02.000Z' }) }]);
+	});
+
+	it('takes a caption, gives it back, and is deleted with its Version', async () => {
+		const w = world();
+		const v = await video(w);
+		await send(w, v.ref(300));
+		await applied(w, [update('still', 'v1', v.remote, { caption: [undefined, 'Wide'] })]);
+		expect(versions(w)[0].values.description).toBe('Wide');
+		expect(await w.transport.read([{ table: 'still', id: 'v1', remoteId: v.remote, keys: ['caption', 'capturedAt'] }])).toEqual([
+			{ table: 'still', id: 'v1', remoteId: v.remote, fields: { caption: 'Wide', capturedAt: '2026-11-11T09:01:02.000Z' } }
+		]);
+		const attachmentsBefore = attachments(w).length;
+		await applied(w, [del('still', 'v1', v.remote)]);
+		expect(versions(w)).toEqual([]);
+		// The movie and the server's transcodes are the Version's: nothing of ours deletes them.
+		expect(attachments(w).length).toBe(attachmentsBefore);
+		expect(await w.transport.lookup([{ table: 'still', id: 'v1' }])).toEqual([]);
 	});
 });

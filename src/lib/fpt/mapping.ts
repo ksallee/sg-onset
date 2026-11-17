@@ -82,6 +82,12 @@ export const UUID: Column = { name: 'sg_onset_uuid', display: 'Onset UUID', data
 export const STILLS: Column = { name: 'sg_photos', display: 'Photos', dataType: 'multi_entity', target: 'attachment', note: 'Reference photos, as shot.' };
 
 /**
+ * Ours on Version, a stock type: a take's videos go up as Versions linked to the take (Kevin,
+ * 2026-11-17; versions.ts). The client UUID only, so a create sent twice is refused.
+ */
+export const VERSION_COLUMNS: readonly Column[] = [UUID];
+
+/**
  * The Shots of a slate: the Shots of the project whose code is one of the slate's VFX shots, linked
  * at sync. The codes stay in `sg_vfx_shots` as typed; a code no Shot has stays there only. A
  * multi_entity of one type is created by API (corpus findings/116), and makes a field on Shot that

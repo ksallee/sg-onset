@@ -22,7 +22,8 @@ export function siteTypes(): SchemaTypes {
 		CustomEntity19: type('Lens'),
 		CustomEntity21: type('Set Reference'),
 		CustomEntity29: type('Location'),
-		CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection')
+		CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection'),
+		Version: type('Version')
 	};
 }
 
@@ -77,6 +78,19 @@ export function completeFields(): Record<EntityScope, RawFields> {
 	return out;
 }
 
+/**
+ * Version's fields (corpus entity_types/Version.md): the stock ones a video needs, and with
+ * `ours` the client UUID Set Up Fields makes. `entity` lists the site's enabled custom entities.
+ */
+export function versionFields(ours = true): RawFields {
+	return {
+		...stockFields(),
+		entity: rawField('entity', 'Link', { validTypes: ['Asset', 'Shot', 'Sequence', 'ShootDay', 'Camera', 'Slate', ...Object.values(TYPES).filter((t) => t.startsWith('CustomEntity'))] }),
+		sg_uploaded_movie: rawField('url', 'Uploaded Movie'),
+		...(ours ? { sg_onset_uuid: rawField('text', 'Onset UUID', { unique: true }) } : {})
+	};
+}
+
 /** The probed site's habit: Lens.sg_focal_length is a text field of the site's own. */
 export function steppedAsideFields(): Record<EntityScope, RawFields> {
 	const out = completeFields();
@@ -91,7 +105,8 @@ export function jwtWith(claims: Record<string, unknown>): string {
 	return `${b64({ alg: 'HS256' })}.${b64(claims)}.c2lnbmF0dXJl`;
 }
 
-const resolve = (fields: Record<EntityScope, RawFields>): Resolution => toResolution(SITE_URL, resolveEntities(siteTypes()), planFields(TYPES, fields))!;
+const resolve = (fields: Record<EntityScope, RawFields>): Resolution =>
+	toResolution(SITE_URL, resolveEntities(siteTypes()), planFields(TYPES, fields, { version: versionFields() }))!;
 
 export const RESOLUTION: Resolution = resolve(completeFields());
 export const STEPPED_ASIDE: Resolution = resolve(steppedAsideFields());

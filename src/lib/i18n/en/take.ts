@@ -37,6 +37,7 @@ export const take = {
 	'take.photos.failed': '{n} photos did not save. The device may be full.',
 	'take.videos.failed': '{n} videos did not save. The device may be full.',
 	'take.media.failed': '{n} photos and videos did not save. The device may be full.',
+	'take.audio.failed': 'The audio note did not save. The device may be full.',
 	'take.video.large': 'This video is {size}. It takes room on this iPad and a long time to sync.',
 	'take.videos.large': 'These {n} videos are {size}. They take room on this iPad and a long time to sync.',
 
@@ -72,6 +73,21 @@ export const take = {
 	'photos.add': 'Add Photos or Videos',
 	'photos.add.footer': 'From the photo library or Files. Each one keeps the time it was taken, if the file has it.',
 
+	/** Audio notes (#89): from the microphone, in the take sheet. Start / End stay the take's words. */
+	'audio.title': 'Audio notes',
+	'audio.add': 'Record Audio Note',
+	'audio.save': 'Save Audio Note',
+	'audio.footer': 'Each one is kept on the take and syncs to Flow PT. To type a note by voice, use the microphone key on the keyboard.',
+	'audio.row': 'Audio note {n}',
+	'audio.play': 'Play audio note {n}',
+	'audio.pause': 'Pause audio note {n}',
+	'audio.remove': 'Remove audio note {n}',
+	'audio.issue.denied': 'The microphone is not allowed for SG OnSet. Allow it in Settings, then try again.',
+	'audio.issue.missing': 'No microphone found.',
+	'audio.issue.busy': 'Another app is using the microphone.',
+	'audio.issue.unsupported': 'This browser cannot use the microphone.',
+	'audio.issue.failed': 'The microphone did not start. Try again.',
+
 	'keypad.label': 'Number keypad',
 	'keypad.recent': 'Recent',
 	'keypad.less': 'Less',
@@ -102,6 +118,8 @@ export const take = {
 	'take.edit.media': '{n} photos and videos added to take {take}',
 	'take.edit.photoRemoved': 'Photo removed from take {take}',
 	'take.edit.videoRemoved': 'Video removed from take {take}',
+	'take.edit.audio': 'Audio note added to take {take}',
+	'take.edit.audioRemoved': 'Audio note removed from take {take}',
 	'take.edit.circled': 'Take {take} circled',
 	'take.edit.uncircled': 'Take {take} not circled',
 	'take.edit.noGood': 'Take {take} marked no good',

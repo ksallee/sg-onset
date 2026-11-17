@@ -1,7 +1,9 @@
 // File and folder names for exports: deterministic and safe on macOS, Windows, Linux and in a zip.
 // `<project>_<shootday>_<kind>.<ext>`; photos as CRIF names them, SLATE-CAMERALETTER-reference-N;
-// the folders of a wrap package: a slate's, a reference kind's, a reference's. Pure.
+// audio notes in the same form, SLATE-CAMERALETTER-audio-note-N; the folders of a wrap package: a
+// slate's, a reference kind's, a reference's. Pure.
 
+import { AUDIO_EXTENSIONS } from '$lib/media/audioFormat';
 import type { Project, ShootDay } from '$lib/model/types';
 import { isBuiltInKind, kindChoices, KINDS, type BuiltInKind } from '$lib/references/kinds';
 import { compareShootDays } from './selection';
@@ -135,13 +137,23 @@ export function exportFileName(project: Project, days: readonly ShootDay[], kind
 	return `${packageName(project, days)}_${kind}.${EXPORT_KINDS[kind]}`;
 }
 
+/** The slate and camera letter with whitespace removed, made safe: "42A-A", "9". */
+function slateCamera(slate: string, cameraLetter: string): string {
+	const parts = [slug(slate.replace(/\s+/g, ''), 'slate'), cameraLetter.replace(/\s+/g, '') === '' ? '' : slug(cameraLetter.replace(/\s+/g, ''), '')];
+	return parts.filter((p) => p !== '').join('-');
+}
+
 /**
  * CRIF: the slate and camera letter with whitespace removed, then "-reference-N". The annotated
  * copy of a photo, its drawing flattened on it, takes the same name with "-annotated".
  */
 export function photoFileName(slate: string, cameraLetter: string, n: number, ext: string, annotated = false): string {
-	const parts = [slug(slate.replace(/\s+/g, ''), 'slate'), cameraLetter.replace(/\s+/g, '') === '' ? '' : slug(cameraLetter.replace(/\s+/g, ''), '')];
-	return `${parts.filter((p) => p !== '').join('-')}-reference-${n}${annotated ? '-annotated' : ''}.${ext}`;
+	return `${slateCamera(slate, cameraLetter)}-reference-${n}${annotated ? '-annotated' : ''}.${ext}`;
+}
+
+/** An audio note (#89). CRIF names none: the photos' form, "-audio-note-N". */
+export function audioFileName(slate: string, cameraLetter: string, n: number, ext: string): string {
+	return `${slateCamera(slate, cameraLetter)}-audio-note-${n}.${ext}`;
 }
 
 /** A slate's setup diagram (#87): the slate with whitespace removed, then "-setup-diagram.png". */
@@ -158,7 +170,9 @@ const MIME_EXT: Record<string, string> = {
 	'image/tiff': 'tif',
 	'image/x-adobe-dng': 'dng',
 	'video/quicktime': 'mov',
-	'video/mp4': 'mp4'
+	'video/mp4': 'mp4',
+	// An audio note (#89): M4A, WebM, as the browser wrote it.
+	...AUDIO_EXTENSIONS
 };
 
 /** The extension for a file: from its type, else from its name, else "bin". */

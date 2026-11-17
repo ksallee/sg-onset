@@ -31,7 +31,12 @@ describe('daySummary', () => {
 	const s = daySummary(report);
 
 	it('counts the day', () => {
-		expect(s).toMatchObject({ slates: 3, takes: 7, circled: 2, noGood: 1, photos: 3 });
+		expect(s).toMatchObject({ slates: 3, takes: 7, circled: 2, noGood: 1, media: { photo: 3 } });
+	});
+	// Kevin, 2026-11-17 (#89): each kind counted as itself.
+	it('counts photos, videos and audio notes apart', () => {
+		const data = { ...input(), videos: ['st1'], audioNotes: [{ id: 'an1', takeId: 't42A2A', capturedAt: '2026-11-10T22:30:00.000Z' }] };
+		expect(daySummary(dayReport(data, 'd3')!).media).toEqual({ photo: 2, video: 1, audio: 1 });
 	});
 	it('gives the running time of the takes that ended', () => {
 		// 42A: 22:15:30–22:16:10 (A), 22:20:00–22:21:00 (A, B), 22:40–22:41 (A); 10: 23:00–23:01.
@@ -59,7 +64,7 @@ describe('daySummary', () => {
 		expect(daySummary(dayReport(input(), 'd4')!).references).toEqual([{ kind: 'Drone survey', n: 1 }]);
 	});
 	it('says when the day has no takes', () => {
-		const empty = daySummary({ ...report, slates: [], totals: { slates: 0, takes: 0, circled: 0, noGood: 0, photos: 0 }, warnings: [] });
+		const empty = daySummary({ ...report, slates: [], totals: { slates: 0, takes: 0, circled: 0, noGood: 0, media: {} }, warnings: [] });
 		expect(empty).toMatchObject({ takes: 0, runningMs: 0, cameras: [], todo: [], references: [] });
 	});
 });

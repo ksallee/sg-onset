@@ -140,7 +140,11 @@ Setup (`lightingSetup.label`), Set References (the slate's, see above), Camera M
 Plate, Balls and Chart, Shadow Plate, Light Pass, Atmosphere, Element, Other; Main for none), Tk
 Tail (the plates at the take's tail, Clean Plate and Balls and Chart, split by vertical tabs as a
 multi-select is; empty for none), Tk Timecode End, Tk Lens Make, Tk
-Anamorphic Squeeze, Tk Subject Distance and End, Tk Photos (the count).
+Anamorphic Squeeze, Tk Subject Distance and End, Tk Photos (the count of photos only).
+
+Photos only (Kevin, 2026-11-17, #89): Tk Photos and the Set Media flag Photos count the take's
+photos, never its videos (`CrifOptions.videos`, from `ExportInput.videos`) nor its audio notes.
+CRIF has no column for either, and none is added.
 
 `crifMissing(record)` lists the required columns a row leaves empty. `CRIF_NEVER_FILLED` names the
 four we have no field for: VFX Work, Script Location, Camera Head, Film Stock. `exportCrif` leaves
@@ -154,7 +158,7 @@ Lost in CRIF:
   carries its own take's value. A reader that keeps the first row of a slate keeps the first take's.
 - Seconds are the finest time. Times are local, with no zone in the file.
 - Sensor size and resolution, colour chart and lidar outside Set Media, template links, gear ids.
-- Photos only as the Photos flag and a count.
+- Photos only as the Photos flag and a count. Videos and audio notes not at all.
 - Set references of a slate with no take in the file: CRIF has no row for them.
 
 ## Plain CSV: every field
@@ -305,6 +309,11 @@ render:
 - `folderName`: a slug that keeps underscores, for a name typed as it is on a device.
 - Photos follow CRIF: `<slate>-<camera>-reference-<n>.<ext>`, whitespace removed, numbered per
   slate and camera in take order, then the order taken. The extension comes from the file type.
+  A video is named and numbered with the photos, and is a video in the manifest and the counts
+  (Kevin, 2026-11-17).
+- Audio notes (#89) take the same form, as CRIF names none: `<slate>-<camera>-audio-note-<n>.<ext>`,
+  numbered the same way on their own. The extension is the one the browser wrote: `m4a` from
+  Safari, `webm` from a browser with no AAC.
 
 ### Layout
 
@@ -323,6 +332,7 @@ Night-Train_2026-11-10-day03/
     42A_manifest.csv
     42A-A-reference-1.heic
     42A-A-reference-2.jpg
+    42A-A-audio-note-1.m4a
     lidar-scan/Scan-01/
     hdri-360/HDRI_0412/
   50/
@@ -335,8 +345,18 @@ Night-Train_2026-11-10-day03/
   with references and no take left by the filters still gets its folder, so its references land.
 - The slate folder: the slate as its photo names start, whitespace removed. `42A`.
 - In it, its manifest, `<slate folder>_manifest.csv` (below), and the photos of its takes, named as
-  CRIF, with no folder per take: the manifest says which take each is from. With the Photos switch
-  off the photos are left out; the slate folders, manifests and reference folders stay.
+  CRIF, each take's audio notes after its photos, with no folder per take: the manifest says which
+  take each is from. With the **Photos and videos** switch off the photos and videos are left out;
+  the audio notes, slate folders, manifests and reference folders stay. Audio notes always go
+  (Kevin, 2026-11-17, #89).
+- Each kind is counted as itself (`wrap/mediaCount.ts`): the switch's row says "2 photos, 1 video
+  · 12 MB", the list of what is in Flow PT only says it per take with the audio notes, and the
+  note on files with none on the device names them photos or videos: a still's kind is read from
+  its file. The day report's totals and the day summary count them the same way: "3 slates · 7
+  takes · 2 circled · 1 no good · 2 photos, 1 video, 1 audio note".
+- A still's kind is its first file's. `withMediaKinds` (`wrap/input.ts`) holds the audio notes
+  apart in `ExportInput.audioNotes` and names the videos in `ExportInput.videos`. The camera
+  report counts photos only; the JSON lists the audio notes with the photos of their take.
 - For each set reference, an empty folder inside a folder for its kind, in the order logged:
   `hdri-360/HDRI_0412/`. The files shot on the other device go in it on a laptop.
 - Kind folders: a built-in kind by its English label, fixed, so a folder does not change with the
@@ -382,7 +402,7 @@ Reference,,,,,,,HDRI 360,HDRI_0412,42A/hdri-360/HDRI_0412/,Ricoh Theta Z1,A003,7
   reference listed on every slate of its lighting setup, its folder in the slate it was logged
   on). A folder's path ends in a slash.
 - Headers in English, fixed, as CRIF's, so a script does not break with the app's language. What
-  is `Take`, `Photo` or `Reference`.
+  is `Take`, `Photo`, `Video`, `Annotated photo`, `Audio note`, `Setup diagram` or `Reference`.
 - A file whose bytes are not in the package (freed after Flow PT kept them) has no row.
 - Byte order mark, so Excel reads accents; CRLF; a line break in a value becomes a space; a cell a
   spreadsheet would run as a formula gets a `'` in front, as in the all fields file.
@@ -408,7 +428,9 @@ A slate folder holds the files of its takes and its own files. Videos (#94), aud
 and annotated copies (#86) are a take's; the setup diagram (#87) is the slate's own. Annotated
 copies are in: media `annotated`, after their photo in `takeFiles`, manifest word "Annotated
 photo". The setup diagram is in: media `diagram` in `slateFiles`, drawn as the package is
-written (`diagramId` on the file, a branch in `read`), manifest word "Setup diagram". To add one:
+written (`diagramId` on the file, a branch in `read`), manifest word "Setup diagram". Audio notes
+are in: media `audio`, after the take's photos in `takeFiles`, read from `FlatTake.audioNotes`,
+named by `audioFileName`, manifest word "Audio note". To add one:
 
 1. Name it in `naming.ts`, next to `photoFileName`. The name must be unique in the slate folder:
    number it per slate and camera as photos are, or build it from the photo it copies
@@ -427,8 +449,9 @@ written (`diagramId` on the file, a branch in `read`), manifest word "Setup diag
 5. A file made at build time, not stored (a diagram drawn from its data), needs another source on
    `SlateFile` (its text, say) and a branch in `read` in `wrap/wrap.svelte.ts`. A slate's own
    file has no take: a pruned one needs its own line in Wrap.
-6. Photos follow the Photos switch (`ctx.photos`). A new kind follows it, or adds a `FileKind` in
-   `wrap/choice.ts` with its row in Wrap.
+6. Photos and videos follow the Photos and videos switch (`ctx.photos`); audio notes and the
+   setup diagram always go. A new kind does one or the other, or adds a `FileKind` in
+   `wrap/choice.ts` with its row in Wrap. Count it in `wrap/mediaCount.ts` if a person counts it.
 
 ## Proposed catalogue changes
 

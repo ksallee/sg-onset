@@ -73,9 +73,9 @@ export const take = {
 	'photos.add': 'Add Photos or Videos',
 	'photos.add.footer': 'From the photo library or Files. Each one keeps the time it was taken, if the file has it.',
 
-	/** Audio notes (#89): from the microphone, in the take sheet. Start / End are the take's words. */
+	/** Audio notes (#89): from the microphone, in the take sheet. Start / End stay the take's words. */
 	'audio.title': 'Audio notes',
-	'audio.add': 'Add Audio Note',
+	'audio.add': 'Record Audio Note',
 	'audio.save': 'Save Audio Note',
 	'audio.footer': 'Each one is kept on the take and syncs to Flow PT. To type a note by voice, use the microphone key on the keyboard.',
 	'audio.row': 'Audio note {n}',

@@ -1,5 +1,5 @@
 <script lang="ts">
-	// The audio notes of the take on screen, in the take sheet (#89). Add Audio Note opens the
+	// The audio notes of the take on screen, in the take sheet (#89). Record Audio Note opens the
 	// microphone; the same row then says Save Audio Note and the time it has run. Closing the sheet
 	// keeps what was heard. Each note plays here, one at a time, and can be taken off. The note
 	// being made is lib/take/audioNotes.svelte.ts; each note a row (AudioNoteRow).

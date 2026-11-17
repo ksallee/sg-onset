@@ -1,4 +1,4 @@
-// Audio notes on a take (#89): the name of the file, what the Add and Save press does at each
+// Audio notes on a take (#89): the name of the file, what the Record and Save press does at each
 // step, and why the microphone did not open, in words. An audio note is stored and synced as a
 // photo is: a still whose file is audio (library.ts, fpt/versions.ts). The microphone itself is
 // `media/microphone.ts`; the state on screen is `audioNotes.svelte.ts`. Pure.
@@ -29,7 +29,7 @@ export type NoteStep = { phase: NotePhase; effect: NoteEffect };
 
 export const IDLE: NotePhase = { kind: 'idle' };
 
-/** Add Audio Note, then Save Audio Note: one row, one press each. */
+/** Record Audio Note, then Save Audio Note: one row, one press each. */
 export function notePress(phase: NotePhase, at: number): NoteStep {
 	if (phase.kind === 'idle') return { phase: { kind: 'opening', at, then: 'run' }, effect: 'open' };
 	if (phase.kind === 'running') return { phase: IDLE, effect: 'save' };

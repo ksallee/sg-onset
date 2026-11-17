@@ -12,7 +12,7 @@ describe('audioNoteFileName', () => {
 	});
 });
 
-describe('the Add and Save press', () => {
+describe('the Record and Save press', () => {
 	// Nothing waits: the press changes what the row says at once, the microphone opens behind it.
 	it('opens the microphone on the first press, at the time of the press', () => {
 		expect(notePress(IDLE, AT)).toEqual({ phase: { kind: 'opening', at: AT, then: 'run' }, effect: 'open' });

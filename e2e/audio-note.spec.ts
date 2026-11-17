@@ -46,13 +46,13 @@ test.describe('audio notes', () => {
 		test.skip(browserName !== 'chromium', 'no fake microphone in Playwright WebKit, and its session refuses stored Blobs');
 		await openShoot(page);
 		const sheet = await openSheet(page);
-		await sheet.getByRole('button', { name: 'Add Audio Note' }).tap();
+		await sheet.getByRole('button', { name: 'Record Audio Note' }).tap();
 		// The row says Save at once, and the time it has run.
 		const save = sheet.getByRole('button', { name: /^Save Audio Note/ });
 		await expect(save).toBeVisible();
 		await expect(save).toContainText('0:01', { timeout: 8_000 });
 		await save.tap();
-		await expect(sheet.getByRole('button', { name: 'Add Audio Note' })).toBeVisible();
+		await expect(sheet.getByRole('button', { name: 'Record Audio Note' })).toBeVisible();
 
 		const note = sheet.getByRole('listitem').filter({ hasText: 'Audio note 1' });
 		await expect(note).toBeVisible();
@@ -93,7 +93,7 @@ test.describe('audio notes', () => {
 		test.skip(browserName !== 'chromium', 'no fake microphone in Playwright WebKit, and its session refuses stored Blobs');
 		await openShoot(page);
 		const sheet = await openSheet(page);
-		await sheet.getByRole('button', { name: 'Add Audio Note' }).tap();
+		await sheet.getByRole('button', { name: 'Record Audio Note' }).tap();
 		await expect(sheet.getByRole('button', { name: /^Save Audio Note/ })).toContainText('0:01', { timeout: 8_000 });
 		await sheet.getByRole('button', { name: 'Done' }).tap();
 		await expect(notice(page, 'Audio note added to take 3')).toBeVisible();
@@ -110,13 +110,14 @@ test.describe('audio notes', () => {
 		});
 		await openShoot(page);
 		const sheet = await openSheet(page);
-		await sheet.getByRole('button', { name: 'Add Audio Note' }).tap();
+		await sheet.getByRole('button', { name: 'Record Audio Note' }).tap();
 		await expect(sheet.getByRole('status').filter({ hasText: 'The microphone is not allowed for SG OnSet. Allow it in Settings, then try again.' })).toBeVisible();
-		await expect(sheet.getByRole('button', { name: 'Add Audio Note' })).toBeVisible();
+		await expect(sheet.getByRole('button', { name: 'Record Audio Note' })).toBeVisible();
 		await expect(sheet.getByRole('listitem').filter({ hasText: 'Audio note 1' })).toHaveCount(0);
 	});
 
-	test('lands in the wrap package, in its slate folder, named in the manifest', async ({ page, browserName }) => {
+	// Kevin, 2026-11-17: the switch is for photos and videos; audio notes always go.
+	test('lands in the wrap package with the photos and videos left out, in its slate folder, named in the manifest', async ({ page, browserName }) => {
 		test.skip(browserName !== 'chromium', 'no fake microphone in Playwright WebKit, and its session refuses stored Blobs');
 		// No share sheet: the hand-over is a download.
 		await page.addInitScript(() => {
@@ -125,7 +126,7 @@ test.describe('audio notes', () => {
 		});
 		await openShoot(page);
 		const sheet = await openSheet(page);
-		await sheet.getByRole('button', { name: 'Add Audio Note' }).tap();
+		await sheet.getByRole('button', { name: 'Record Audio Note' }).tap();
 		const save = sheet.getByRole('button', { name: /^Save Audio Note/ });
 		await expect(save).toContainText('0:01', { timeout: 8_000 });
 		await save.tap();
@@ -134,6 +135,7 @@ test.describe('audio notes', () => {
 
 		await page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Wrap' }).tap();
 		await expect(page.getByRole('heading', { name: 'Wrap', level: 1 })).toBeVisible();
+		await page.getByRole('switch', { name: 'Photos and videos' }).uncheck();
 		await page.getByRole('button', { name: 'Make Wrap Package' }).tap();
 		const download = page.getByRole('button', { name: 'Download Wrap Package' });
 		await expect(download).toBeVisible();
@@ -144,6 +146,7 @@ test.describe('audio notes', () => {
 		const note = entries.find((e) => /\/42A\/42A-[A-Z]-audio-note-1\.(m4a|webm)$/.test(e.name));
 		expect(note, entries.map((e) => e.name).join('\n')).toBeDefined();
 		expect(note!.size).toBeGreaterThan(0);
+		expect(entries.filter((e) => /-reference-\d+/.test(e.name))).toEqual([]);
 		const manifest = await (await entryBlob(zip, entries.find((e) => e.name === `${root}/42A/42A_manifest.csv`)!)).text();
 		const path = note!.name.slice(root.length + 1);
 		expect(manifest.split('\r\n').some((line) => line.startsWith('Audio note,3,') && line.includes(`,${path},`))).toBe(true);

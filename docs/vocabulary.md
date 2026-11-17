@@ -187,12 +187,13 @@ gives.
 
 | Term | Definition | Rejected |
 |---|---|---|
-| Start, End | The take button pair. Stamps the take's start and end time. | Record, Rec, Roll, Cut, Stop: the app records nothing |
+| Start, End | The take button pair. Stamps the take's start and end time. | Record, Rec, Roll, Cut, Stop: the take stamps times, it records nothing |
 | Ready, Running, Ended | The take's state. | Rolling, Filed, Idle |
 | New Take | Starts the next take as a copy of the last. | |
 | Photo | Takes a reference photo for the take. | Still, Ref |
 | Add Photos or Videos | In the take sheet: picks photos and videos from the photo library or Files for the take. | Import, Upload: Upload is a sync word |
-| Add Audio Note, Save Audio Note | In the take sheet: one row that opens the microphone, then keeps what it heard. Closing the sheet keeps it too. | Record, Stop: banned, Start and End are the take's; Voice memo: Apple's app |
+| Record Audio Note, Save Audio Note | In the take sheet: one row that records from the microphone, then keeps what it heard. Closing the sheet keeps it too. | Start, End: the take's; Stop: does not say the note is kept; Voice memo: Apple's app |
+| Photos and videos | The Wrap switch for the photos and videos of the takes. Audio notes always go. | Photos: a video is not a photo |
 | Move, Draw, Text, Measure | The drawing's tools: pick and move, draw a line, write, draw a dimension line and type its length. | Pen, Annotate, Dimension |
 | Undo, Redo | Reverse the last edit. | |
 | Sync | Send changes to Flow PT and read back. | Upload, Push |
@@ -254,9 +255,13 @@ gives.
   makes it and never shows it; only the sync sheet and the setup check name it.
 - **Lidar scan** for the kind of reference, as for the slate's switch. Flow PT shows "LiDAR".
 - **Photo**, not still. On set, "stills" means the unit stills photographer.
-- **Audio note**, not voice memo or voice note. Its row says **Add Audio Note**, then **Save Audio
-  Note**: "Record" and "Stop" stay banned, so Start and End keep one meaning, the take's. Typing a
-  note by voice is the keyboard's own microphone key; the app adds nothing for it.
+- **Audio note**, not voice memo or voice note. Its row says **Record Audio Note**, then **Save
+  Audio Note** (Kevin, 2026-11-17): an audio note is recorded, so the word is right there. Record
+  and Stop stay banned for the take button and its states only, which stamp times and record
+  nothing; the vocabulary test checks those keys. Typing a note by voice is the keyboard's own
+  microphone key; the app adds nothing for it.
+- **Photo**, **Video** and **Audio note** are each named and counted as themselves: in the slate
+  manifest, the Wrap counts and the list of what is in Flow PT only. A video is never a photo.
 - **Wrap** names the destination, the crew word for the end of the shooting day. Rejected: Export
   (a verb, and the Backup uses it), Handover, Deliver. Three zips, three words: a **Wrap package**
   is for the people after set; a **Backup** is the whole device, to restore; a **Snapshot** is the

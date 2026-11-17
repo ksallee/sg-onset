@@ -1,4 +1,4 @@
-// An audio note being made from the take sheet: the Add and Save press, the time it has run, why
+// An audio note being made from the take sheet: the Record and Save press, the time it has run, why
 // the microphone did not open. The steps are audioNote.ts, pure; the microphone is
 // media/microphone.ts. A press changes the row at once; nothing on screen waits for the
 // microphone. When the sheet closes or the page goes to the background, what was heard is kept.
@@ -51,7 +51,7 @@ export class AudioNoteCapture {
 		});
 	}
 
-	/** Add Audio Note, then Save Audio Note. */
+	/** Record Audio Note, then Save Audio Note. */
 	press() {
 		this.#step(notePress(this.phase, this.#now()));
 	}

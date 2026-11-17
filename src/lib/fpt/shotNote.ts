@@ -53,9 +53,10 @@ const column = (scope: EntityScope, key: string) => fieldMap(scope, key)!.column
 const named = (res: Resolution, scope: EntityScope, key: string) => fieldName(res, scope, column(scope, key));
 
 /**
- * The fields to ask each type for, by their names on the site. `referenceLinks`: the fields that
- * link a set reference to its slates. A reference that shows on every slate of its lighting setup
- * (#107) adds its own field here.
+ * The fields to ask each type for, by their names on the site. `links.referenceSlates`: the fields
+ * that link a set reference to its slates, each searched. A lighting reference that shows on every
+ * slate of its lighting setup (#107, an open PR) links them in its own field: once it lands, that
+ * field goes in this list, one line, and the Note lists the reference on every Shot of those slates.
  */
 export function noteReads(res: Resolution): {
 	setShot: string[];

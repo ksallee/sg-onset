@@ -28,8 +28,10 @@ Use a test project on the site, never a show.
      on the linked entity for every link field (corpus findings/142). Expect, on a site that calls
      the entities as above: `sg_takes` on Slate, Camera, Lens and Camera Setup; `sg_camera_setups`
      on Camera and Lens; `sg_slates` on Shoot Day and Lighting Setup; `sg_set_references` on Slate;
-     on Attachment (File) `custom_entityNN_sg_photos_custom_entityNNs`, with the Take's slot
-     number; and on Shot `slate_sg_shots_slates`, shown **Slates <-> Shots**. A link that would
+     on Slate `custom_entityNN_sg_slates_custom_entityNNs`, shown **Set References <-> Slates**,
+     with the Set Reference's slot number; on Attachment (File)
+     `custom_entityNN_sg_photos_custom_entityNNs`, with the Take's slot number; and on Shot
+     `slate_sg_shots_slates`, shown **Slates <-> Shots**. A link that would
      add a name an entity already has is under **Cannot be made yet**, naming that field: nothing
      was created for it.
 5. Tap **Set Up Fields**. The report says **Created** for each, and every **Fields Flow PT Adds**
@@ -52,6 +54,9 @@ Use a test project on the site, never a show.
     it is saved. Add a third code no Shot has, `TST_010_0099`. The sync sheet lists it under
     **VFX shots to check**, on that slate, as **No Shot**. Turn Wi-Fi off: the field shows no chips and
     takes any text.
+11. Give two slates the same lighting setup. On the first, add an **HDRI 360** and a **Lidar scan**.
+    Both slates list the HDRI; only the first lists the scan. Make a third slate on that lighting
+    setup: it lists the HDRI too.
 
 ## In Flow PT
 
@@ -63,6 +68,9 @@ Use a test project on the site, never a show.
 - No duplicate rows after step 9.
 - The slate of step 10: **Shots** links the two Shots, **VFX Shots** holds all three codes as
   typed. Open one of the Shots: **Slates <-> Shots** lists the slate. No new Shot was made.
+- The Set References of step 11: the HDRI's **Slate** is the first slate, its **Slates** the three
+  slates of the lighting setup. The scan's **Slates** is the first slate alone. Each slate's
+  **Set References <-> Slates** lists what it shows.
 
 ## Also try
 

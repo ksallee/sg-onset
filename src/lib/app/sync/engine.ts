@@ -10,6 +10,10 @@
 // The Shots of a slate are linked by the transport as the slate's codes sync. What is owed on the
 // field (codes no Shot has yet, codes several Shots share, unlinks not made) is kept on the device
 // per project (shots.ts), and made when a drain ends: at most once a minute, at once on Sync Now.
+//
+// The Slates field of each set reference (#107) is brought in line with the slates it shows on
+// when a drain ends: what the device last wrote there is kept per project (referenceSlates.ts). A
+// write that failed is tried again a minute later, at once on Sync Now.
 
 import { checkSetup, createFptTransport, readShotCodes, type FptTransport, type KeyValue, type SetupReport, type ShotResult } from '$lib/fpt';
 import { createApi, type FptOptions } from '$lib/fpt/api';
@@ -23,11 +27,12 @@ import { syncError, type SyncError } from './errors';
 import { linkOn, linkProblem, type ProjectLink } from './link';
 import { linkStore, type LinkStore } from './links';
 import { PROJECT_FILTER, projectChoices, type ProjectChoice } from './projects';
+import { afterWrites, parseLinked, planReferenceSlates, referenceSlatesKey, serializeLinked } from './referenceSlates';
 import { projectScope, type ProjectScope } from './scope';
 import { CODES_MS, mergeOwed, parseOwed, pruneOwed, retryDue, retryItems, serializeOwed, shotsKey, type Owed } from './shots';
 
 export interface SyncDeps {
-	store: Pick<DexieStore, 'get' | 'rows' | 'outbox' | 'remoteId' | 'subscribe'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
+	store: Pick<DexieStore, 'get' | 'list' | 'rows' | 'outbox' | 'remoteId' | 'subscribe'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
 	/** The signed-in site, or null. */
 	site(): string | null;
 	/** A live session (`auth.canSync`). */
@@ -196,6 +201,44 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		return retrying;
 	}
 
+	// ------------------------------------------------------------------ the Slates of set references
+
+	/** When a reference's write last failed: tried again after a minute, at once on Sync Now. */
+	const slatesFailedAt = new Map<string, number>();
+	let linkingSlates: Promise<void> = Promise.resolve();
+
+	/** Brings each set reference's Slates field in line with the slates it shows on. Never throws. */
+	function linkReferenceSlates(projectId: string, transport: FptTransport, asked: boolean): Promise<void> {
+		linkingSlates = linkingSlates.then(async () => {
+			try {
+				const key = referenceSlatesKey(projectId);
+				const kept = await deps.kv.get(key);
+				const before = parseLinked(kept);
+				const dayIds = new Set((await deps.store.list('shootDay', projectId)).map((d) => d.id));
+				const slates = (await deps.store.list('slate')).filter((s) => dayIds.has(s.shootDayId));
+				const slateIds = new Set(slates.map((s) => s.id));
+				const refs = (await deps.store.list('reference')).filter((r) => slateIds.has(r.slateId));
+				if (!refs.length && !Object.keys(before).length) return;
+				const remoteIds = await deps.store.outbox.remoteIds([...slates, ...refs].map((r) => r.id));
+				const plan = planReferenceSlates(refs, slates, remoteIds, before);
+				const now = deps.page.now();
+				const due = plan.work.filter((w) => retryDue(slatesFailedAt.get(w.reference), now, asked));
+				const failed = new Set(await transport.linkReferenceSlates(due));
+				for (const w of due) {
+					if (failed.has(w.reference)) slatesFailedAt.set(w.reference, now);
+					else slatesFailedAt.delete(w.reference);
+				}
+				const waiting = plan.work.filter((w) => !due.includes(w)).map((w) => w.reference);
+				const next = afterWrites(plan, before, [...failed, ...waiting]);
+				if (!Object.keys(next).length) await deps.kv.delete(key);
+				else if (serializeLinked(next) !== kept) await deps.kv.set(key, serializeLinked(next));
+			} catch {
+				// The next drain works it out again.
+			}
+		});
+		return linkingSlates;
+	}
+
 	let codes: { key: string; at: number; codes: string[] } | undefined;
 
 	async function onReport(projectId: string, report: DrainReport): Promise<void> {
@@ -246,7 +289,10 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			drain().then(
 				async (report) => {
 					await onReport(projectId!, report);
-					if (report.stopped === 'idle' || report.stopped === 'waiting') await retryShots(projectId!, transport, asked);
+					if (report.stopped === 'idle' || report.stopped === 'waiting') {
+						await retryShots(projectId!, transport, asked);
+						await linkReferenceSlates(projectId!, transport, asked);
+					}
 					return report;
 				},
 				(error) => {

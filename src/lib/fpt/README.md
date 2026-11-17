@@ -25,7 +25,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `cache.ts` | port | `KeyValue`: where a site's resolution is kept. Memory and `localStorage` forms. |
 | `api.ts` | no | The calls. The only module that calls `fetch`. Uses `sg-widgets-core`'s clients. |
 | `setup.ts` | no | `checkSetup`: the readiness report, and field creation. |
-| `transport.ts` | no | `createFptTransport`: the `Transport`. |
+| `transport.ts` | no | `createFptTransport`: the `Transport`, with `linkShots` and `linkReferenceSlates`. |
 | `fakeFpt.ts`, `testkit.ts` | no | A site behind a `fetch`, in the corpus's shapes. For tests. |
 
 ## Plugging it in
@@ -161,8 +161,9 @@ names follow `docs/vocabulary.md` (its FPT column): Dutch Angle, Start Time, Cir
 
 Every entity also gets `sg_onset_uuid` (text, unique): the record id on the device. So does
 Version, where a take's videos go. The take gets `sg_photos` (multi-entity to Attachment). The
-slate gets `sg_shots`, "Shots" (multi-entity to Shot): see "Shot links". `created_at` of a take
-is its `startedAt`, of a set reference its `loggedAt`.
+slate gets `sg_shots`, "Shots" (multi-entity to Shot): see "Shot links". The set reference gets
+`sg_slates`, "Slates" (multi-entity to Slate): see "The slates of a set reference". `created_at`
+of a take is its `startedAt`, of a set reference its `loggedAt`.
 
 **shootDay**
 
@@ -285,9 +286,12 @@ is its `startedAt`, of a set reference its `loggedAt`.
 | `count` | `sg_count` | number | |
 | `notes` | `sg_set_notes` | text | |
 | `loggedAt` | `sg_logged_at`, and `created_at` on create | date_time | |
+| the slates it shows on | `sg_slates` | multi_entity | linked at sync |
 
 `Set Reference.sg_slate` adds `Slate.sg_set_references`, shown "Set Reference <-> Slate"
-(findings/142), so a slate in Flow PT lists its references.
+(findings/142), so a slate in Flow PT lists the references logged on it. `Set Reference.sg_slates`
+adds `Slate.custom_entityNN_sg_slates_custom_entityNNs`, shown "Set References <-> Slates", so a
+slate lists every reference it shows, the lighting setup's HDRIs included.
 
 **still** (an Attachment)
 
@@ -387,6 +391,32 @@ its slates in the field Flow PT adds on Shot (findings/142). `shots.ts` holds th
   unlinked. A bare list, or the mode in the query string, would replace the field (recipes/009).
 - None of it can fail a push. A write that gets no answer is owed, and made at a later sync.
 - A Shot is never created, renamed or changed.
+
+## The slates of a set reference
+
+An HDRI 360, a 360 video or an HDR reference shows on every slate of its slate's lighting setup,
+now or later; any other kind on its own slate (#107, lib/references README). In Flow PT the Set
+Reference links all of them in `sg_slates`, so each slate and its Shots reach it. `sg_slate` stays
+the slate it was logged on. `app/sync/referenceSlates.ts` holds the rules, `transport.ts` the calls.
+
+1. When a drain ends, the app reads the project's slates and references and their Flow PT ids,
+   and works out the slates each reference shows on now. Against what this device last wrote in
+   `sg_slates`, kept per project (app/sync README, decision 11), that gives per reference the
+   slates to add and the slates to take off.
+2. Per reference, a `PUT` with `{"multi_entity_update_mode": "remove", "value": [...]}`, then one
+   with `add` (recipes/009). `add` of a slate there changes nothing (field_types/multi_entity.md).
+3. A write that fails is that reference's alone, and is tried again a minute later, at once on
+   Sync Now. No answer stops the rest until the next drain.
+
+- Nothing is stored on the reference. A slate made on the lighting setup, a slate moved to
+  another, a reference given another kind: each shows as a difference at the next drain's end.
+- A slate Flow PT does not hold yet waits, and is added once it has an id.
+- Only a slate this device linked, and that no longer shows the reference, is taken off. A slate
+  someone linked or unlinked in Flow PT stays as they made it, as for Shot links.
+- A slate deleted leaves the field by itself: Flow PT drops a deleted row from a multi-entity
+  list (field_types/multi_entity.md). Nothing is sent for it.
+- A reference made again under a new id, as an undone delete is (decision 24), starts again.
+- The kept list lost, nothing breaks: the next drain adds every slate again.
 
 ## Decisions
 
@@ -491,6 +521,16 @@ Made by Claude. Kevin can overrule any of them.
     Attachments the server adds after it (findings/123).
 35. **Deleting a video deletes its Version only.** The movie and the server's transcodes are
     Attachments of the Version; what Flow PT does with them then is not measured.
+36. **The slates a set reference shows on get a multi-entity field beside `sg_slate`** (#107). A
+    field's type cannot change once made (endpoints/put_schema_type_fields_field: a `PUT` of
+    `data_type` answers 200 and changes nothing), so `sg_slate` stays an entity field, the slate it
+    was logged on, and `sg_slates` links every slate it shows on. A link to the Lighting Setup was
+    weighed: a slate and its Shots would reach the reference only through a second hop, and the
+    issue asks that each slate reach it. A site set up before this lacks `sg_slates`: its cached
+    resolution is read again, and it is not ready until an admin runs Set Up Fields once more.
+37. **`sg_slates` goes by single `PUT` per reference, after the drain.** The mode works in a
+    `_batch` update too (findings/154), but a batch is all or nothing, and one reference deleted
+    in Flow PT would refuse the writes of every other.
 
 ## Where FPT did not fit the contract
 
@@ -571,4 +611,4 @@ another type, so ours step aside: `ShootDay.sg_onset_location` and `Lens.sg_onse
 The other 69 are created under their plain names.
 
 Set Reference came after this read (#93). The probed site needs that slot enabled and named before
-sync goes on; Set Up Fields then makes its eight fields.
+sync goes on; Set Up Fields then makes its nine fields, `sg_slates` (#107) among them.

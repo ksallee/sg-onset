@@ -39,7 +39,7 @@ import { ApiRefusal, createApi, type Filter, type FptOptions } from './api';
 import { resolutionKey } from './cache';
 import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
 import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
-import { ENTITY_SCOPES, isEntityScope, SHOTS, STILLS, type EntityScope } from './mapping';
+import { ENTITY_SCOPES, isEntityScope, REFERENCE_SLATES, SHOTS, STILLS, type EntityScope } from './mapping';
 import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, type Resolution } from './schema';
@@ -75,10 +75,18 @@ export type FptTransportOptions = FptOptions & {
 	onShots?: (results: ShotResult[]) => unknown;
 };
 
-/** The transport, and the Shot links of slates the server already holds. */
+/** A write of a set reference's Slates field: the slates to add and to take off, by Flow PT id. */
+export type ReferenceSlatesWrite = { reference: string; remoteId: number; add: readonly number[]; remove: readonly number[] };
+
+/** The transport, and the links of records the server already holds. */
 export interface FptTransport extends Transport {
 	/** Makes what is owed on these slates' Shots fields (`ShotWork`). Never throws. */
 	linkShots(items: ({ slate: string; remoteId: number } & ShotWork)[], signal?: AbortSignal): Promise<ShotResult[]>;
+	/**
+	 * Adds and takes off slates in the Slates field of these set references (#107). Answers the
+	 * references whose writes did not all land. Never throws.
+	 */
+	linkReferenceSlates(items: readonly ReferenceSlatesWrite[], signal?: AbortSignal): Promise<string[]>;
 }
 
 /**
@@ -268,6 +276,46 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 			out.push({ slate: w.slate, waiting: added ? plan.waiting : shotCodes(w.link), several: plan.several, unlink: removed ? [] : plan.removing });
 		}
 		return out;
+	}
+
+	// ------------------------------------------------------------------ the slates of a set reference
+
+	/**
+	 * Per reference, a `remove` of the slates taken off, then an `add` of the slates it shows on now,
+	 * each a PUT with the mode in the body (corpus recipes/009_multi_entity_safely.md), so a slate a
+	 * person linked in Flow PT stays. A refusal is that reference's alone; no answer stops the rest.
+	 * What did not land is written at a later sync (app/sync/referenceSlates.ts).
+	 */
+	async function writeReferenceSlates(items: readonly ReferenceSlatesWrite[], signal?: AbortSignal): Promise<string[]> {
+		if (!items.length) return [];
+		let res: Resolution;
+		try {
+			res = await resolved(signal);
+		} catch {
+			return items.map((i) => i.reference);
+		}
+		const field = fieldName(res, 'reference', REFERENCE_SLATES);
+		const failed: string[] = [];
+		let reachable = true;
+		for (const item of items) {
+			const write = async (mode: 'add' | 'remove', ids: readonly number[]): Promise<boolean> => {
+				if (!ids.length) return true;
+				if (!reachable) return false;
+				try {
+					const value = ids.map((id) => ({ type: res.entities.slate, id }));
+					await api.update(res.entities.reference, item.remoteId, { [field]: { multi_entity_update_mode: mode, value } }, signal);
+					return true;
+				} catch (error) {
+					// No answer, or no session: the rest would fare the same.
+					if (error instanceof TransportError && error.kind !== 'failed') reachable = false;
+					return false;
+				}
+			};
+			const removed = await write('remove', item.remove);
+			const added = removed && (await write('add', item.add));
+			if (!added) failed.push(item.reference);
+		}
+		return failed;
 	}
 
 	// ------------------------------------------------------------------ push
@@ -495,6 +543,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 
 	const transport: FptTransport = {
 		linkShots: (items, signal) => writeShots(items, signal),
+		linkReferenceSlates: (items, signal) => writeReferenceSlates(items, signal),
 
 		async push(ops: PushOp[], signal?: AbortSignal): Promise<PushResult> {
 			const planned = await plan(ops, signal);

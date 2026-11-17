@@ -95,6 +95,15 @@ export const VERSION_COLUMNS: readonly Column[] = [UUID];
  */
 export const SHOTS: Column = { name: 'sg_shots', display: 'Shots', dataType: 'multi_entity', target: 'shot', note: 'The Shots of the VFX shot codes typed on the slate. Linked at sync.' };
 
+/**
+ * The slates a set reference shows on (#107): every slate of its lighting setup for an HDRI 360, a
+ * 360 video or an HDR reference, its own slate for the rest (lib/references/lighting.ts). Linked at
+ * sync. Beside `sg_slate`, the slate it was logged on, because a field's type cannot change once
+ * made (corpus endpoints/put_schema_type_fields_field). Makes a field on Slate that lists the
+ * references each slate shows (findings/142). See app/sync/referenceSlates.ts.
+ */
+export const REFERENCE_SLATES: Column = { name: 'sg_slates', display: 'Slates', dataType: 'multi_entity', target: 'slate', note: 'The slates it shows on: every slate of its lighting setup for a lighting reference. Linked at sync.' };
+
 /** The key whose value a new record takes as `created_at` (corpus findings/070_authored_timestamps.md). */
 export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt', reference: 'loggedAt' };
 
@@ -279,7 +288,7 @@ export function fieldMap(scope: EntityScope, key: string): FieldMap | undefined 
 /** The fields a scope's entity must have that are not stock: ours to find or create. */
 export function wantedColumns(scope: EntityScope): Column[] {
 	const own = MAPS[scope].flatMap((m) => m.columns).filter((c) => !c.stock);
-	return [UUID, ...own, ...(scope === 'take' ? [STILLS] : []), ...(scope === 'slate' ? [SHOTS] : [])];
+	return [UUID, ...own, ...(scope === 'take' ? [STILLS] : []), ...(scope === 'slate' ? [SHOTS] : []), ...(scope === 'reference' ? [REFERENCE_SLATES] : [])];
 }
 
 /** The mapping as rows, for the README and for a person checking it. */

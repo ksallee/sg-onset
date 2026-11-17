@@ -17,6 +17,7 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `errors.ts` | yes | `syncError`, `syncErrorText`. |
 | `clock.ts` | yes | `toSecond`: `app.now()` stamps to the second. |
 | `shots.ts` | yes | What is owed on the slates' Shots field: kept, pruned, made again, listed. |
+| `referenceSlates.ts` | yes | The Slates field of each set reference: what was written, what to add and take off (#107). |
 | `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. |
 | `engine.ts` | no | `createSyncEngine`: link, check, runner. No runes. |
 | `controller.svelte.ts` | no | `provideSync`, `useSync`: the engine on the real page, as runes. |
@@ -64,6 +65,13 @@ Made by Claude. Kevin can overrule any of them.
 10. **The slate's VFX shots field offers the linked project's Shot codes** while one is typed, as
     chips (`slates/shotSuggest.ts`). Read with a link, a session and a network, every page, kept
     five minutes. Offline nothing is offered and the field is free text.
+11. **What this device wrote in each set reference's Slates field is kept in `localStorage`, per
+    project** (`sg-onset:sync:referenceSlates:<id>`), by reference: its Flow PT id and the slates
+    linked (lib/fpt README, "The slates of a set reference"). When a drain ends the slates each
+    reference shows on now are compared with it, and only the difference is written. A write that
+    failed waits a minute, none on Sync Now. Lost, nothing breaks: the next drain adds every slate
+    again, and an add of a slate there changes nothing. Nothing is listed in the sync sheet: a
+    slate Flow PT does not hold yet is linked once it does.
 
 ## Not tested without a real site
 

@@ -468,3 +468,59 @@ describe('the Shots of a slate', () => {
 		expect(await s.engine.shotCodes()).toEqual([]);
 	});
 });
+
+describe('the Slates of a set reference (#107)', () => {
+	const REFERENCE = 'CustomEntity21';
+	const fptId = (s: S, type: string, uuid: string) => s.fpt.byUuid(type, uuid)!.id;
+	const slatesOf = (s: S, uuid: string) => ((s.fpt.byUuid(REFERENCE, uuid)?.values.sg_slates as { id: number }[] | undefined) ?? []).map((r) => r.id).sort((a, b) => a - b);
+	const ids = (s: S, ...uuids: string[]) => uuids.map((u) => fptId(s, 'Slate', u)).sort((a, b) => a - b);
+
+	/** 12A and 12B on the stage's lighting, an HDRI and a lidar scan logged on 12A. */
+	async function stage(s: S) {
+		await s.edit.create('project', { id: 'p1', name: 'Show' });
+		await s.edit.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.edit.create('lightingSetup', { id: 'l1', projectId: 'p1', label: 'Stage' });
+		await s.edit.create('lightingSetup', { id: 'l2', projectId: 'p1', label: 'Street' });
+		await s.edit.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '12A', lightingSetupId: 'l1' });
+		await s.edit.create('slate', { id: 's2', shootDayId: 'd1', slateUID: '12B', lightingSetupId: 'l1' });
+		await s.edit.create('reference', { id: 'r1', slateId: 's1', kind: 'hdri360', name: 'HDRI_0412', loggedAt: '2026-11-11T10:00:00.000Z' });
+		await s.edit.create('reference', { id: 'r2', slateId: 's1', kind: 'lidarScan', name: 'Scan 01', loggedAt: '2026-11-11T10:01:00.000Z' });
+	}
+
+	it('links a lighting reference to every slate of its lighting setup, now or later; any other to its slate', async () => {
+		const s = setup();
+		await stage(s);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		expect(slatesOf(s, 'r1')).toEqual(ids(s, 's1', 's2'));
+		expect(slatesOf(s, 'r2')).toEqual(ids(s, 's1'));
+		// The slate it was logged on stays its Slate.
+		expect(s.fpt.byUuid(REFERENCE, 'r1')!.values.sg_slate).toEqual({ type: 'Slate', id: fptId(s, 'Slate', 's1') });
+
+		await s.edit.create('slate', { id: 's3', shootDayId: 'd1', slateUID: '12C', lightingSetupId: 'l1' });
+		await settle(s.engine, s.fpt);
+		expect(slatesOf(s, 'r1')).toEqual(ids(s, 's1', 's2', 's3'));
+
+		// 12B moves to the street: taken off. A slate a person linked in Flow PT stays.
+		const byHand = s.fpt.seed('Slate', { code: '99' });
+		const row = s.fpt.byUuid(REFERENCE, 'r1')!;
+		row.values.sg_slates = [...(row.values.sg_slates as object[]), { type: 'Slate', id: byHand }];
+		await s.edit.set('slate', (await s.store.get('slate', 's2'))!, 'lightingSetupId', 'l2');
+		await settle(s.engine, s.fpt);
+		expect(slatesOf(s, 'r1')).toEqual([...ids(s, 's1', 's3'), byHand].sort((a, b) => a - b));
+	});
+
+	it('writes again at a later sync what did not land', async () => {
+		const s = setup();
+		await stage(s);
+		await linked(s);
+		s.world.visible = true;
+		s.fpt.failNext((r) => r.method === 'PUT' && r.path.startsWith('/api/v1/entity/custom_entity21s/'), { status: 503 }, 2);
+		await settle(s.engine, s.fpt);
+		expect(slatesOf(s, 'r1')).toEqual([]);
+		await settle(s.engine, s.fpt);
+		expect(slatesOf(s, 'r1')).toEqual(ids(s, 's1', 's2'));
+		expect(slatesOf(s, 'r2')).toEqual(ids(s, 's1'));
+	});
+});

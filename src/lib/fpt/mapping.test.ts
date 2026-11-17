@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { endKey, FIELDS } from '$lib/model/catalogue';
 import { linkKeys } from '$lib/store/tables';
-import { CREATED_AT, ENTITY_SCOPES, ENTITY_TYPES, fieldMap, fieldMaps, mappingTable, SHOTS, STILLS, UUID, wantedColumns, type EntityScope } from './mapping';
+import { CREATED_AT, ENTITY_SCOPES, ENTITY_TYPES, fieldMap, fieldMaps, mappingTable, REFERENCE_SLATES, SHOTS, STILLS, UUID, wantedColumns, type EntityScope } from './mapping';
 import { codeName } from './names';
 
 const names = (scope: EntityScope) => wantedColumns(scope).map((c) => c.name);
@@ -146,6 +146,15 @@ describe('wantedColumns', () => {
 		expect(fieldMap('slate', 'vfxShots')!.columns[0]).toMatchObject({ name: 'sg_vfx_shots', dataType: 'text' });
 	});
 
+	// A link field's type cannot change once made (corpus endpoints/put_schema_type_fields_field):
+	// the slates a reference shows on get a multi_entity beside `sg_slate` (#107).
+	it('asks for the Slates field on the set reference, beside the slate it was logged on', () => {
+		expect(REFERENCE_SLATES).toMatchObject({ name: 'sg_slates', display: 'Slates', dataType: 'multi_entity', target: 'slate' });
+		expect(names('reference')).toContain('sg_slates');
+		expect(fieldMap('reference', 'slateId')!.columns[0]).toMatchObject({ name: 'sg_slate', dataType: 'entity', target: 'slate' });
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'reference')) expect(names(scope)).not.toContain('sg_slates');
+	});
+
 	it('leaves out the stock fields', () => {
 		for (const scope of ENTITY_SCOPES) {
 			expect(names(scope)).not.toContain('code');
@@ -159,8 +168,8 @@ describe('wantedColumns', () => {
 		expect(fieldMap('cameraSetup', 'order')).toMatchObject({ kind: 'integer', columns: [{ name: 'sg_sort_order', display: 'Sort Order', dataType: 'number' }] });
 	});
 
-	it('lists what a set reference needs: its slate, its kind as text, and the rest of the log', () => {
-		expect(names('reference').sort()).toEqual(['sg_card_or_roll', 'sg_count', 'sg_device', 'sg_kind', 'sg_logged_at', 'sg_onset_uuid', 'sg_set_notes', 'sg_slate']);
+	it('lists what a set reference needs: its slate, the slates it shows on, its kind as text, and the rest of the log', () => {
+		expect(names('reference').sort()).toEqual(['sg_card_or_roll', 'sg_count', 'sg_device', 'sg_kind', 'sg_logged_at', 'sg_onset_uuid', 'sg_set_notes', 'sg_slate', 'sg_slates']);
 		expect(fieldMap('reference', 'kind')).toMatchObject({ kind: 'text', columns: [{ name: 'sg_kind', display: 'Kind', dataType: 'text' }] });
 		expect(fieldMap('reference', 'cardOrRoll')!.columns[0]).toMatchObject({ name: 'sg_card_or_roll', display: 'Card or Roll' });
 		expect(fieldMap('reference', 'count')!.columns[0]).toMatchObject({ name: 'sg_count', dataType: 'number' });

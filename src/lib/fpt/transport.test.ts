@@ -655,6 +655,60 @@ describe('push, the Shots of a slate', () => {
 	});
 });
 
+describe('the Slates a set reference shows on (#107)', () => {
+	type Ref = { type: string; id: number };
+	/** A day, slates 42A and 42B, and an HDRI logged on 42A, on the server. */
+	async function logged(w: World) {
+		const ids = await shoot(w);
+		const s2 = create('slate', 's2', { shootDayId: 'd1', slateUID: '42B' }, { d1: ids.d1 });
+		const r1 = create('reference', 'r1', { slateId: 's1', kind: 'hdri360', name: 'HDRI_0412', loggedAt: '2026-11-11T10:00:00.000Z' }, { s1: ids.s1 });
+		const r2 = create('reference', 'r2', { slateId: 's1', kind: 'lidarScan', name: 'Scan 01', loggedAt: '2026-11-11T10:01:00.000Z' }, { s1: ids.s1 });
+		const remote = await applied(w, [s2, r1, r2]);
+		return { s1: Number(ids.s1), s2: Number(remote[s2.entryId]), r1: Number(remote[r1.entryId]), r2: Number(remote[r2.entryId]) };
+	}
+	const slatesField = (w: World, uuid: string) => ((w.fpt.byUuid('CustomEntity21', uuid)!.values.sg_slates as Ref[] | undefined) ?? []).map((r) => r.id).sort((x, y) => x - y);
+	const writes = (w: World) => w.fpt.requests.filter((r) => r.method === 'PUT' && r.path.startsWith('/api/v1/entity/custom_entity21s/'));
+
+	it('adds and takes off slates in place: the mode goes in the body, never a bare list', async () => {
+		const w = world();
+		const id = await logged(w);
+		expect(await w.transport.linkReferenceSlates([{ reference: 'r1', remoteId: id.r1, add: [id.s1, id.s2], remove: [] }])).toEqual([]);
+		expect(slatesField(w, 'r1')).toEqual([id.s1, id.s2]);
+		// A slate a person linked in Flow PT stays when the device takes one off.
+		const byHand = w.fpt.seed('Slate', { code: '99' });
+		const row = w.fpt.byUuid('CustomEntity21', 'r1')!;
+		row.values.sg_slates = [...(row.values.sg_slates as Ref[]), { type: 'Slate', id: byHand }];
+		expect(await w.transport.linkReferenceSlates([{ reference: 'r1', remoteId: id.r1, add: [], remove: [id.s2] }])).toEqual([]);
+		expect(slatesField(w, 'r1')).toEqual([id.s1, byHand].sort((x, y) => x - y));
+		expect(writes(w).map((r) => (r.body as { sg_slates: { multi_entity_update_mode: string } }).sg_slates.multi_entity_update_mode)).toEqual(['add', 'remove']);
+		// The slate it was logged on stays the one link of `sg_slate`.
+		expect(row.values.sg_slate).toEqual({ type: 'Slate', id: id.s1 });
+	});
+
+	it('says which references it could not write; a refusal is that one alone', async () => {
+		const w = world();
+		const id = await logged(w);
+		w.fpt.failNext((r) => r.method === 'PUT' && r.path.endsWith(`/${id.r1}`), { status: 503 });
+		const failed = await w.transport.linkReferenceSlates([
+			{ reference: 'r1', remoteId: id.r1, add: [id.s1, id.s2], remove: [] },
+			{ reference: 'r2', remoteId: id.r2, add: [id.s1], remove: [] }
+		]);
+		expect(failed).toEqual(['r1']);
+		expect(slatesField(w, 'r2')).toEqual([id.s1]);
+	});
+
+	it('writes nothing more once the site gives no answer, and says so for each', async () => {
+		const w = world();
+		const id = await logged(w);
+		w.fpt.online = false;
+		const failed = await w.transport.linkReferenceSlates([
+			{ reference: 'r1', remoteId: id.r1, add: [id.s1], remove: [] },
+			{ reference: 'r2', remoteId: id.r2, add: [id.s1], remove: [] }
+		]);
+		expect(failed).toEqual(['r1', 'r2']);
+	});
+});
+
 describe('lookup', () => {
 	it('finds records by client UUID, across tables, and leaves out the ones the server lacks', async () => {
 		const w = world();

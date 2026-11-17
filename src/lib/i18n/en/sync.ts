@@ -89,6 +89,12 @@ export const sync = {
 	'sync.review.notNow': 'Not Now',
 	'sync.prototype': 'Early prototype: use a test project on a test site.',
 
+	'sync.shots.header': 'VFX shots to check',
+	'sync.shots.none': 'No Shot: {codes}',
+	'sync.shots.several': 'Several Shots: {codes}',
+	'sync.shots.footer':
+		'No Shot: the Flow PT project has no Shot with this code yet. The code stays as text on the slate, and each sync looks again. Several Shots: more than one Shot has this code, and the slate links them all. Clean them up in Flow PT. SG OnSet never makes Shots.',
+
 	'sync.refused.create': "This Flow PT account can't create {things}. Ask an Admin for the permission.",
 	'sync.refused.update': "This Flow PT account can't change {things}. Ask an Admin for the permission.",
 	'sync.refused.delete': "This Flow PT account can't delete {things}. Ask an Admin for the permission.",

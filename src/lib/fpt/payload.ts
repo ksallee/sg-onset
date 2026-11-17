@@ -25,6 +25,7 @@ type EntityRef = { type: string; id: number };
 export function typeOf(resolution: Resolution, target: Target): string {
 	if (target === 'project') return 'Project';
 	if (target === 'attachment') return 'Attachment';
+	if (target === 'shot') return 'Shot';
 	return resolution.entities[target];
 }
 
@@ -127,7 +128,7 @@ export function updateData(
  */
 function uuidPath(resolution: Resolution, scope: EntityScope, column: Column): string | undefined {
 	const target = column.target;
-	if (!target || target === 'project' || target === 'attachment') return undefined;
+	if (!target || target === 'project' || target === 'attachment' || target === 'shot') return undefined;
 	return `${fieldName(resolution, scope, column)}.${resolution.entities[target]}.${uuidField(resolution, target)}`;
 }
 

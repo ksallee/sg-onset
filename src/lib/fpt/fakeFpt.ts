@@ -65,6 +65,15 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 	fields.Project = { name: { name: { value: 'Project Name' }, data_type: { value: 'text' } } };
 	// A take's videos go up as Versions (entity_types/Version.md). A bare site lacks our client UUID there.
 	fields.Version = versionFields(options.fields !== 'bare');
+	// Shot: `code` is "Shot Code", not unique; `project` is required (findings/entity_types/Shot.md).
+	fields.Shot = {
+		code: { name: { value: 'Shot Code' }, data_type: { value: 'text' } },
+		project: { name: { value: 'Project' }, data_type: { value: 'entity' }, properties: { valid_types: { value: ['Project'] } } }
+	};
+	// The field our Shots link added, on a site where the link is there (findings/142).
+	if (options.fields !== 'bare') {
+		fields.Shot.slate_sg_shots_slates = { name: { value: 'Slates <-> Shots' }, data_type: { value: 'multi_entity' }, editable: { value: true }, properties: { valid_types: { value: ['Slate'] } } };
+	}
 
 	const rows = new Map<string, FakeRow>();
 	/** Stored files, by key: the bytes each part holds. */
@@ -294,7 +303,8 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			if (dataType === 'entity') relationships[name] = { data: isRef(value) ? { ...value, name: 'x' } : null, links: {} };
 			else if (dataType === 'multi_entity') {
 				const live = ((value as Ref[] | null) ?? []).filter((r) => rows.get(`${r.type}:${r.id}`) && !rows.get(`${r.type}:${r.id}`)!.retired);
-				relationships[name] = { data: live.map((r) => ({ ...r, name: 'x' })), links: {} };
+				// `name` is the target's display name: a Shot's is its code (findings/060, entity_types/Shot.md).
+				relationships[name] = { data: live.map((r) => ({ ...r, name: String(rows.get(`${r.type}:${r.id}`)!.values.code ?? 'x') })), links: {} };
 			} else if (dataType === 'float') attributes[name] = value === null ? null : Number.isInteger(value) ? (value as number).toFixed(1) : String(value);
 			else if (dataType === 'checkbox') attributes[name] = value === true;
 			else if (dataType === 'url') {
@@ -410,10 +420,13 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 				// The vendor type is required; application/json is a 415 (endpoints/post_entity_type_search.md).
 				if (!VENDOR.includes(contentType)) return refuse(415, `Unsupported Content-Type '${contentType}'`);
 				const type = typeOfSlug(parts[1]);
-				const body = r.body as { filters?: unknown; fields?: string | string[]; page?: { size?: number } };
+				const body = r.body as { filters?: unknown; fields?: string | string[]; page?: { size?: number; number?: number } };
 				const asked = typeof body.fields === 'string' ? body.fields.split(',') : (body.fields ?? []);
-				const found = fpt.live(type).filter((row) => matches(row, body.filters ?? []));
-				return json(200, { data: found.slice(0, body.page?.size ?? 500).map((row) => shown(row, asked)), links: {} });
+				// Id ascending, page by page (findings/026_result_order.md, 006_pagination.md).
+				const found = fpt.live(type).filter((row) => matches(row, body.filters ?? [])).sort((a, b) => a.id - b.id);
+				const size = body.page?.size ?? 500;
+				const from = ((body.page?.number ?? 1) - 1) * size;
+				return json(200, { data: found.slice(from, from + size).map((row) => shown(row, asked)), links: {} });
 			}
 
 			if (parts[0] === 'entity' && parts.includes('_upload')) return upload(parts, r, contentType);

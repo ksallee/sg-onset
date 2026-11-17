@@ -103,7 +103,7 @@ gives.
 | Setup | The setup letter or number within the scene. | `setup` | OMC SlateUID.hasSlateSetup; VES scope Setup | Setup |
 | Lighting setup | The lighting setup in use. | `lightingSetupId` | | Lighting Setup |
 | Description | What the shot is. | `description` | CRIF Shot Description | Description |
-| VFX shots | The VFX shot codes this slate feeds. | `vfxShots` | CRIF VFX Shot | VFX Shots |
+| VFX shots | The VFX shot codes this slate feeds. | `vfxShots` | CRIF VFX Shot | VFX Shots; their Shots linked in Shots |
 | Element type | Plate, clean plate, bluescreen, element. | `elementType` | CRIF Element Type | Element Type |
 | Interior or exterior | Interior or Exterior. | `interiorExterior` | CRIF Interior Exterior (Int, Ext) | Interior Exterior |
 | Script time | Day, Night, Dusk, Dawn, Magic hour. | `scriptTime` | CRIF Script Time | Script Time |

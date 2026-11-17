@@ -17,8 +17,8 @@ export function isEntityScope(name: string): name is EntityScope {
 	return (ENTITY_SCOPES as readonly string[]).includes(name);
 }
 
-/** What an entity field points at. */
-export type Target = EntityScope | 'project' | 'attachment';
+/** What an entity field points at. `shot`: Flow PT's own Shot, which the app never writes. */
+export type Target = EntityScope | 'project' | 'attachment' | 'shot';
 
 /** The FPT data types we use. Each is creatable with a name (corpus endpoints/post_schema_type_fields.md). */
 export type FptDataType = 'text' | 'float' | 'number' | 'checkbox' | 'date' | 'date_time' | 'entity' | 'multi_entity';
@@ -86,6 +86,14 @@ export const STILLS: Column = { name: 'sg_photos', display: 'Photos', dataType: 
  * 2026-11-17; versions.ts). The client UUID only, so a create sent twice is refused.
  */
 export const VERSION_COLUMNS: readonly Column[] = [UUID];
+
+/**
+ * The Shots of a slate: the Shots of the project whose code is one of the slate's VFX shots, linked
+ * at sync. The codes stay in `sg_vfx_shots` as typed; a code no Shot has stays there only. A
+ * multi_entity of one type is created by API (corpus findings/116), and makes a field on Shot that
+ * lists the slates (findings/142). See shots.ts.
+ */
+export const SHOTS: Column = { name: 'sg_shots', display: 'Shots', dataType: 'multi_entity', target: 'shot', note: 'The Shots of the VFX shot codes typed on the slate. Linked at sync.' };
 
 /** The key whose value a new record takes as `created_at` (corpus findings/070_authored_timestamps.md). */
 export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt', reference: 'loggedAt' };
@@ -271,7 +279,7 @@ export function fieldMap(scope: EntityScope, key: string): FieldMap | undefined 
 /** The fields a scope's entity must have that are not stock: ours to find or create. */
 export function wantedColumns(scope: EntityScope): Column[] {
 	const own = MAPS[scope].flatMap((m) => m.columns).filter((c) => !c.stock);
-	return [UUID, ...own, ...(scope === 'take' ? [STILLS] : [])];
+	return [UUID, ...own, ...(scope === 'take' ? [STILLS] : []), ...(scope === 'slate' ? [SHOTS] : [])];
 }
 
 /** The mapping as rows, for the README and for a person checking it. */

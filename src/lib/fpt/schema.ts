@@ -124,6 +124,7 @@ export type SiteContext = {
 function targetType(target: Target, types: Partial<Record<EntityScope, string>>): string | undefined {
 	if (target === 'project') return 'Project';
 	if (target === 'attachment') return 'Attachment';
+	if (target === 'shot') return 'Shot';
 	return types[target];
 }
 

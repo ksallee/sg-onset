@@ -103,7 +103,7 @@ export const sync = {
 	'sync.refused.update': "This Flow PT account can't change {things}. Ask an Admin for the permission.",
 	'sync.refused.delete': "This Flow PT account can't delete {things}. Ask an Admin for the permission.",
 	'sync.refused.lists': "This Flow PT account can't change the Project, where templates and reference kinds are kept. Ask an Admin for the permission.",
-	'sync.lists.unreadable': 'The {field} field of the Flow PT project holds text SG OnSet cannot read. An admin empties it in Flow PT, then try again.',
+	'sync.lists.unreadable': 'The {field} field of the Flow PT project holds text SG OnSet cannot read. An admin empties it in Flow PT. Then tap Try Again.',
 	'sync.lists.missing': 'This Flow PT site has no place yet for templates and reference kinds. An admin runs Set Up Fields.',
 	'sync.things.shootDay': 'Shoot Days',
 	'sync.things.slate': 'Slates',
@@ -130,7 +130,7 @@ export const sync = {
 		'This Flow PT site has no place yet for the templates and reference kinds of a project. An admin runs Set Up Fields: it adds two fields to Project. Then Check Setup on each device. Until then they wait on this device. Cameras, lenses and lighting setups are shared already.',
 	'sync.kept.header': 'Kept on this device',
 	'sync.kept.subtitle': 'Removed on another device. Used or changed here.',
-	'sync.kept.footer': 'Each one goes back to Flow PT, so every device of the show has it again. To remove it for good, take it off what uses it here first.',
+	'sync.kept.footer': 'Each one goes back to Flow PT, so every device of the show has it again. To remove it on every device, first take it off what uses it here.',
 
 	// Notes on Shots (#97): the setting, in the sync detail.
 	'sync.notes.header': 'Notes on Shots',

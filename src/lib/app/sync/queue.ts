@@ -6,7 +6,6 @@ import { formatField } from '$lib/model/fieldText';
 import type { UnitSystem } from '$lib/model/length';
 import { fieldLabel, unitLabel } from '$lib/i18n/modelText';
 import { t } from '$lib/i18n/messages';
-import type { OutboxPort } from '$lib/outbox/port';
 import type { Entry, FieldConflict, Queue } from '$lib/outbox/types';
 import { isTable, PARENTS, TABLES, type TableName } from '$lib/store/tables';
 
@@ -35,20 +34,6 @@ export function scopedUpdate(fn: (queue: Queue) => Queue, mine: (entry: Entry) =
 		const own = queue.filter(mine);
 		const rest = queue.filter((e) => !mine(e));
 		return [...rest, ...fn(own)].sort((a, b) => a.seq - b.seq);
-	};
-}
-
-/**
- * The outbox without the entries `held` names: the runner never sees them, and they wait as they
- * are. Templates and reference kinds, on a site without the Project fields (#110).
- */
-export function heldBack(port: OutboxPort, held: (entry: Entry) => boolean): OutboxPort {
-	const sent = (e: Entry) => !held(e);
-	return {
-		entries: async () => (await port.entries()).filter(sent),
-		update: async (fn) => (await port.update(scopedUpdate(fn, sent))).filter(sent),
-		remoteIds: (ids) => port.remoteIds(ids),
-		blob: (id) => port.blob(id)
 	};
 }
 

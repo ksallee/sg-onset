@@ -43,7 +43,7 @@ import { resolutionKey } from './cache';
 import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
 import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
 import { DIAGRAM_SHOWN, diagramFilename, diagramPrefix } from './diagrams';
-import { DIAGRAMS, ENTITY_SCOPES, fieldMaps, isRecordScope, SET_SHOT_KEY, SET_SHOT_MATCHED, SET_SHOT_SHOTS, SET_SHOTS, SHOTS, STILLS, REFERENCE_SLATES, type RecordScope } from './mapping';
+import { DIAGRAMS, ENTITY_SCOPES, ENTITY_TYPES, fieldMaps, isRecordScope, SET_SHOT_KEY, SET_SHOT_MATCHED, SET_SHOT_SHOTS, SET_SHOTS, SHOTS, STILLS, REFERENCE_SLATES, type RecordScope } from './mapping';
 import { applyListOps, isListTable, landed, listFields, LIST_KEYS, LIST_TABLES, readList, writeList, type ListEntry, type ListOp, type ListRead, type ListTable } from './lists';
 import { referenceSlatesWrite, type ReferenceSlates } from './referenceSlates';
 import { slugOf } from './names';
@@ -222,6 +222,11 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	function deniedText(table: string, action: Denied): string {
 		const things = hasMessage(`sync.things.${table}`) ? message(`sync.things.${table}` as MessageKey) : table;
 		return message(`sync.refused.${action}`, { things });
+	}
+
+	/** Why a record of an optional entity the site lacks is not sent: an admin enables it (Kevin, #117). */
+	function missingText(scope: RecordScope): string {
+		return message('sync.refused.missing', { entity: ENTITY_TYPES[scope].displayName });
 	}
 
 	/** A field the site no longer has: the schema on the device is stale. The next call reads it again. */
@@ -474,17 +479,21 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	 * (recipes/009), for each that differs. A slate linked by hand in Flow PT is overwritten, as on
 	 * a slate's Shots (Kevin, #102). Nothing is kept on the device: what did not land is worked out
 	 * again at the next sync. A refusal is that reference's alone; no answer stops the rest.
+	 * Undefined on a site without Set Reference: the references wait on the device (Kevin, #117).
 	 */
 	async function writeReferenceSlates(items: readonly ReferenceSlates[], signal?: AbortSignal): Promise<string[] | undefined> {
 		if (!items.length) return [];
 		let res: Resolution;
+		let type: string | undefined;
 		const current = new Map<number, number[]>();
 		try {
 			res = await resolved(signal);
+			type = res.entities.reference;
+			if (!type) return undefined;
 			const field = fieldName(res, 'reference', REFERENCE_SLATES);
 			const ids = items.map((i) => i.remoteId);
 			for (let i = 0; i < ids.length; i += 500) {
-				const rows = await api.searchAll(res.entities.reference, ['id', 'in', ids.slice(i, i + 500)], [field], signal);
+				const rows = await api.searchAll(type, ['id', 'in', ids.slice(i, i + 500)], [field], signal);
 				for (const row of rows) current.set(row.id, linkIdsOf(row, field));
 			}
 		} catch {
@@ -504,7 +513,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 				continue;
 			}
 			try {
-				await api.update(res.entities.reference, item.remoteId, { [field]: linkValue('set', slates, res.entities.slate) }, signal);
+				await api.update(type, item.remoteId, { [field]: linkValue('set', slates, res.entities.slate) }, signal);
 			} catch (error) {
 				// No answer, or no session: the rest would fare the same.
 				if (error instanceof TransportError && error.kind !== 'failed') reachable = false;
@@ -677,7 +686,10 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 				}
 			} else if (isRecordScope(op.table) && res) {
 				const entity = res.entities[op.table];
-				if (op.kind === 'create') {
+				// An optional entity the site lacks: the engine keeps its records waiting on the device
+				// (app/sync/waiting.ts). Should one get here all the same, it is never sent blind.
+				if (!entity) refuse(o, 'invalid', missingText(op.table));
+				else if (op.kind === 'create') {
 					const built = createData(res, op.table, op.recordId, op.fields, o.links, projectId);
 					if (built.ok) request(o, { request_type: 'create', entity, data: built.data });
 					else refuse(o, 'invalid', built.message);
@@ -953,9 +965,12 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 					for (const r of group) if (entries.some((e) => e.id === r.id)) found.push({ ...r, remoteId: r.id });
 				} else if (isRecordScope(table)) {
 					const res = await resolved(signal);
+					const entity = res.entities[table];
+					// A site without the entity holds none of its records (Kevin, #117).
+					if (!entity) continue;
 					const field = uuidField(res, table);
 					// `is` and `in` on text ignore case, as the unique check does (findings/127, field_types/text.md).
-					const rows = await api.search(res.entities[table], [field, 'in', group.map((r) => r.id)], [field], group.length + 5, signal);
+					const rows = await api.search(entity, [field, 'in', group.map((r) => r.id)], [field], group.length + 5, signal);
 					for (const r of group) {
 						const row = rows.find((x) => String(x.attributes[field] ?? '').trim().toLowerCase() === r.id.toLowerCase());
 						if (row) found.push({ ...r, remoteId: row.id });
@@ -997,6 +1012,9 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 				} else if (isRecordScope(table)) {
 					const res = await resolved(signal);
 					const scope: RecordScope = table;
+					const entity = res.entities[scope];
+					// A site without the entity holds none of its records (Kevin, #117).
+					if (!entity) continue;
 					const uuid = uuidField(res, scope);
 					const byId = group.filter((r) => typeof r.remoteId === 'number');
 					const byUuid = group.filter((r) => typeof r.remoteId !== 'number');
@@ -1005,7 +1023,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 					if (byUuid.length) conditions.push([uuid, 'in', byUuid.map((r) => r.id)]);
 					const fields = [uuid, ...readFields(res, scope, [...new Set(group.flatMap((r) => r.keys))])];
 					// A retired row is not returned by a search: a record the server no longer has is left out.
-					const rows = await api.search(res.entities[scope], { logical_operator: 'or', conditions }, [...new Set(fields)], group.length + 5, signal);
+					const rows = await api.search(entity, { logical_operator: 'or', conditions }, [...new Set(fields)], group.length + 5, signal);
 					for (const r of group) {
 						const row = rows.find((x) =>
 							typeof r.remoteId === 'number' ? x.id === r.remoteId : String(x.attributes[uuid] ?? '').trim().toLowerCase() === r.id.toLowerCase()

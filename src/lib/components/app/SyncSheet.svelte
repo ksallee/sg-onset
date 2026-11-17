@@ -1,7 +1,8 @@
 <script lang="ts">
 	// The sync detail: the state and Sync Now, what waits by kind, what needs attention, the VFX
-	// shots no Shot has yet, the shared lists kept here or waiting, the Flow PT project, Notes on
-	// Shots, the site's setup, the account, the backup. The work is in app/sync; this lays it out.
+	// shots to check, the references waiting for Set Reference, the shared lists kept here or waiting,
+	// the Flow PT project, Notes on Shots, the site's setup, the account, the backup. The work is in
+	// app/sync; this lays it out.
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Sheet from '$lib/components/ios/Sheet.svelte';
@@ -57,6 +58,13 @@
 	<QueueSections elsewhere={sync.elsewhere} />
 
 	<ShotSection onnavigate={() => (open = false)} />
+
+	{#if sync.state.referencesMissing}
+		<!-- Kevin, #117: a site without Set Reference syncs the rest; the references wait on the device. -->
+		<Section header={t('sync.references.header')} footer={t('sync.references.footer')}>
+			<Row title={t('sync.references.waiting')} detail={String(sync.state.waiting?.records ?? 0)} />
+		</Section>
+	{/if}
 
 	<SharedSection onnavigate={() => (open = false)} />
 

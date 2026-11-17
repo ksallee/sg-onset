@@ -607,6 +607,61 @@ describe('the Slates of a set reference (#107)', () => {
 		expect(await s.kv.get('referenceSlates:p1')).toBeUndefined();
 	});
 
+	// Kevin, #117: Set Reference is optional. Without it the references and their slates wait on the
+	// device, never dropped, and everything else syncs. Once an admin enables it and runs Set Up
+	// Fields, they go up at the next sync, and the Note on the Shot adds them.
+	it('keeps the references waiting on a site without Set Reference, syncs the rest, and sends them once it is set up', async () => {
+		const s = setup();
+		const slot = s.fpt.types.CustomEntity21;
+		const own = s.fpt.fields.CustomEntity21;
+		delete s.fpt.types.CustomEntity21;
+		const project = { type: 'Project', id: s.fptProject };
+		const shot = s.fpt.seed('Shot', { code: 'SMP_012_0010', project });
+		const person = s.fpt.seed('HumanUser', { name: 'Ana' });
+		s.fpt.seed('Task', { content: 'Comp', project, entity: { type: 'Shot', id: shot }, task_assignees: [{ type: 'HumanUser', id: person }] });
+		await stage(s);
+		await s.edit.set('slate', (await s.store.get('slate', 's1'))!, 'vfxShots', ['SMP_012_0010']);
+		await s.edit.create('take', { id: 't1', slateId: 's1', take: '1' });
+		await linked(s);
+		await s.engine.setNotesOnShots(true);
+		expect(s.engine.state.referencesMissing).toBe(true);
+		expect(s.engine.state.setShotsMissing).toBe(false);
+		s.world.visible = true;
+		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
+		expect(s.fpt.byUuid('Slate', 's2')).toBeDefined();
+		expect(s.fpt.byUuid(TAKE, 't1')).toBeDefined();
+		// The references wait in the queue as they were: nothing sent, nothing for a person to fix.
+		expect((await s.store.outbox.entries()).map((e) => [e.op.table, e.op.recordId, e.state])).toEqual([
+			['reference', 'r1', 'pending'],
+			['reference', 'r2', 'pending']
+		]);
+		expect(s.fpt.requests.some((r) => r.path.includes('custom_entity21'))).toBe(false);
+		await vi.waitFor(() => expect(s.engine.state.waiting).toMatchObject({ entries: 2, records: 2 }));
+		expect(s.engine.state.scoped?.entries).toBe(0);
+		// Kevin, #117: the status names them, so nobody takes them for safe in Flow PT.
+		const status = () => syncStatus({ auth: 'signed-in', linked: true, ready: true, online: true, unsynced: s.engine.state.scoped, waiting: s.engine.state.waiting?.entries });
+		expect(status()).toMatchObject({ state: 'waiting', count: 2, key: 'sync.state.waiting' });
+		// The Note on the Shot lists what Flow PT holds: no references yet.
+		expect(s.fpt.live('Note')).toHaveLength(1);
+		expect(s.fpt.live('Note')[0].values.content).not.toContain('References');
+
+		// An admin enables the slot; Set Up Fields makes its fields.
+		s.fpt.types.CustomEntity21 = slot;
+		s.fpt.fields.CustomEntity21 = { code: own.code, project: own.project };
+		expect((await s.engine.check(true))?.ready).toBe(true);
+		expect(s.engine.state.referencesMissing).toBe(false);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.outbox.entries()).toEqual([]);
+		expect(s.fpt.byUuid(REFERENCE, 'r1')!.values.sg_slate).toEqual({ type: 'Slate', id: fptId(s, 'Slate', 's1') });
+		expect(slatesOf(s, 'r1')).toEqual(ids(s, 's1', 's2'));
+		expect(slatesOf(s, 'r2')).toEqual(ids(s, 's1'));
+		await vi.waitFor(() => expect(s.engine.state.waiting?.entries ?? 0).toBe(0));
+		expect(status().state).toBe('synced');
+		expect(s.fpt.live('Note')).toHaveLength(1);
+		expect(s.fpt.live('Note')[0].values.content).toContain('HDRI 360: HDRI_0412');
+		expect(s.fpt.live('Reply').map((r) => r.values.content)).toEqual([['Added since the last update:', 'HDRI 360: HDRI_0412', 'Lidar scan: Scan 01'].join('\n')]);
+	});
+
 	it('writes again at a later sync what did not land', async () => {
 		const s = setup();
 		await stage(s);

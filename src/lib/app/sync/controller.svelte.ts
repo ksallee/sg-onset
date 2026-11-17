@@ -11,6 +11,7 @@ import type { Unsynced } from '$lib/outbox/select';
 import { useApp } from '../app.svelte';
 import { createSyncEngine, type SyncEngine, type SyncState } from './engine';
 import { syncStatus, type SyncStatus } from './status';
+import { elsewhereCount } from './waiting';
 
 export interface SyncController extends Omit<SyncEngine, 'state' | 'subscribe' | 'setProject' | 'refresh' | 'dispose'> {
 	readonly state: SyncState;
@@ -52,8 +53,8 @@ export function provideSync(projectId: () => string | undefined, everything: () 
 	$effect(() => () => engine.dispose());
 
 	const counts = $derived(state.scoped ?? everything());
-	const status = $derived(syncStatus({ auth: auth.status, linked: !!state.link, ready: state.ready, online: state.online, unsynced: counts }));
-	const elsewhere = $derived(Math.max(0, (everything()?.entries ?? 0) - (state.scoped?.entries ?? everything()?.entries ?? 0)));
+	const status = $derived(syncStatus({ auth: auth.status, linked: !!state.link, ready: state.ready, online: state.online, unsynced: counts, waiting: state.waiting?.entries }));
+	const elsewhere = $derived(elsewhereCount(everything(), state.scoped, state.waiting));
 
 	const controller: SyncController = {
 		get state() {

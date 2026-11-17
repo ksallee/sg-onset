@@ -306,6 +306,40 @@ describe('checkSetup', () => {
 		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.entities.setShot).toBe('CustomEntity22');
 	});
 
+	// Kevin, #117: Set Reference is optional. Its absence is a note: the rest is ready, the references wait.
+	it('is ready without the Set Reference entity, and names it as optional', async () => {
+		const { fpt, cache, check } = world();
+		delete fpt.types.CustomEntity21;
+		const report = await check();
+		expect(report.ready).toBe(true);
+		expect(report.entities.find((e) => e.scope === 'reference')).toEqual({ scope: 'reference', kind: 'custom', displayName: 'Set Reference', status: 'missing', optional: true });
+		expect(report.fields.some((f) => f.scope === 'reference' || f.entityType === 'CustomEntity21')).toBe(false);
+		expect(report.reverseFields.some((r) => r.source.startsWith('CustomEntity21.'))).toBe(false);
+		expect(creates(fpt)).toEqual([]);
+		const res = parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site);
+		expect(res?.entities.reference).toBeUndefined();
+		expect(res?.entities.take).toBe('CustomEntity09');
+	});
+
+	it('makes the Set Reference fields once an admin enabled it, on Set Up Fields', async () => {
+		const { fpt, cache, check } = world();
+		const slot = fpt.types.CustomEntity21;
+		const fields = fpt.fields.CustomEntity21;
+		delete fpt.types.CustomEntity21;
+		await check();
+		fpt.types.CustomEntity21 = slot;
+		fpt.fields.CustomEntity21 = { code: fields.code, project: fields.project };
+		const before = await check({ createFields: false });
+		expect(before.ready).toBe(true);
+		expect(field(before, 'reference', 'sg_slate')).toMatchObject({ status: 'missing', dataType: 'entity', validTypes: ['Slate'] });
+		expect(field(before, 'reference', 'sg_slates')).toMatchObject({ status: 'missing', dataType: 'multi_entity', validTypes: ['Slate'] });
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.entities.reference).toBeUndefined();
+		const report = await check();
+		expect(field(report, 'reference', 'sg_onset_uuid')).toMatchObject({ status: 'created', unique: true });
+		expect(field(report, 'reference', 'sg_slates').status).toBe('created');
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.entities.reference).toBe('CustomEntity21');
+	});
+
 	it('does not create the Shots link when Shot already has the field it would add', async () => {
 		const { fpt, check } = world('bare');
 		fpt.fields.Shot.slate_sg_shots_slates = rawField('text', 'Slates Shots');

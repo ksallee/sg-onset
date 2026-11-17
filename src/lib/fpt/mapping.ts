@@ -22,9 +22,11 @@ export function isEntityScope(name: string): name is EntityScope {
 
 /**
  * The scopes a site may lack: the rest syncs, and what needs them waits until an admin enables the
- * entity and runs Set Up Fields (Kevin, #117). Set Reference follows in its own change.
+ * entity and runs Set Up Fields (Kevin, #117). A Set Shot's links wait in the codes on the slates;
+ * a set reference waits in the queue, on the device (app/sync/waiting.ts). No other record links
+ * either, so nothing else waits with them.
  */
-export const OPTIONAL_SCOPES = ['setShot'] as const satisfies readonly EntityScope[];
+export const OPTIONAL_SCOPES = ['setShot', 'reference'] as const satisfies readonly EntityScope[];
 export type OptionalScope = (typeof OPTIONAL_SCOPES)[number];
 /** The scopes every site must have before anything syncs. */
 export type RequiredScope = Exclude<EntityScope, OptionalScope>;
@@ -95,6 +97,7 @@ export const ENTITY_TYPES: Record<
 	cameraSetup: { kind: 'custom', displayName: 'Camera Setup' },
 	lightingSetup: { kind: 'custom', displayName: 'Lighting Setup' },
 	// One row per set reference, linked to its slate. Each studio enables the slot, as for Take.
+	// Optional (Kevin, #117).
 	reference: { kind: 'custom', displayName: 'Set Reference' },
 	// One row per on-set shot code in the project, linked from its slates (Kevin, #102).
 	setShot: { kind: 'custom', displayName: 'Set Shot' }

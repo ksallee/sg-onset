@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Entry, Op } from '$lib/outbox/types';
 import { tk } from '$lib/i18n/messages';
-import { memoryPort } from '$lib/outbox/port';
-import { conflictLines, entryParent, heldBack, parentOf, pendingByKind, scopedUpdate } from './queue';
+import { conflictLines, entryParent, parentOf, pendingByKind, scopedUpdate } from './queue';
 
 const entry = (id: string, seq: number, op: Op, extra: Partial<Entry> = {}): Entry => ({ id, seq, op, dependsOn: [], state: 'pending', attempts: 0, createdAt: seq, ...extra });
 const create = (table: string, recordId: string, fields: Record<string, unknown> = {}): Op => ({ kind: 'create', table, recordId, fields });
@@ -30,22 +29,6 @@ describe('pendingByKind', () => {
 	});
 	it('says nothing on an empty queue', () => {
 		expect(pendingByKind([])).toEqual([]);
-	});
-});
-
-// Templates and reference kinds wait on the device while the site lacks the Project fields (#110):
-// the runner does not see them, and they are never dropped.
-describe('heldBack', () => {
-	it('hides the entries held back from the runner, and keeps them as they are through its changes', async () => {
-		const port = memoryPort([entry('a', 1, create('template', 'tp1')), entry('b', 2, create('take', 't1'))]);
-		const held = heldBack(port, (e) => e.op.table === 'template');
-		expect((await held.entries()).map((e) => e.id)).toEqual(['b']);
-		const after = await held.update((q) => q.map((e) => ({ ...e, state: 'inFlight' as const })));
-		expect(after.map((e) => e.id)).toEqual(['b']);
-		expect(port.queue.map((e) => [e.id, e.state])).toEqual([
-			['a', 'pending'],
-			['b', 'inFlight']
-		]);
 	});
 });
 

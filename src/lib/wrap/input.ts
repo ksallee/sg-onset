@@ -1,7 +1,7 @@
 // The records of one project out of whole tables, as the export modules read them. Pure.
 
 import type { ExportInput } from '$lib/export/selection';
-import type { Camera, CameraSetup, Lens, LightingSetup, Project, ShootDay, Slate, Still, Take } from '$lib/model/types';
+import type { Camera, CameraSetup, Lens, LightingSetup, Project, Reference, ShootDay, Slate, Still, Take } from '$lib/model/types';
 
 export type AllTables = {
 	projects: Project[];
@@ -13,6 +13,7 @@ export type AllTables = {
 	slates: Slate[];
 	takes: Take[];
 	stills: Still[];
+	references: Reference[];
 };
 
 export function projectInput(projectId: string, all: AllTables): ExportInput | undefined {
@@ -34,6 +35,7 @@ export function projectInput(projectId: string, all: AllTables): ExportInput | u
 		lenses: mine(all.lenses),
 		slates,
 		takes,
-		stills: all.stills.filter((s) => takeIds.has(s.takeId))
+		stills: all.stills.filter((s) => takeIds.has(s.takeId)),
+		references: all.references.filter((r) => slateIds.has(r.slateId))
 	};
 }

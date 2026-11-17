@@ -42,6 +42,8 @@ enforces the parts a test can check.
 | Slate | | The number on the clapperboard and the takes shot under it. | `slate` | CRIF Slate; OMC Slate.slateUID | Slate |
 | Take | | One camera setup's run of one slate, from Start to End. | `take` | CRIF Tk Take; VES scope Take | Take |
 | Photo | | A reference photo taken from the take screen, kept on the take. | `still` | VES 1.1 reference | Photos |
+| Reference | | One thing captured for the slate on another device, logged by name: an HDRI, a scan, a witness clip. The file stays on that device. | `reference` | VES 2.1, 4.2, 5.1 | Set Reference |
+| Reference kind | | What a reference is: HDRI 360, 360 video, HDR reference, Witness camera, Lidar scan, Textured model, Photogrammetry, Splat, Other, or a kind the project adds. | `reference.kind` | | Kind |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
 | Change | | One edit waiting to sync. | outbox entry | | |
 | Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
@@ -108,6 +110,18 @@ gives.
 | Witness camera | Witness cameras ran. | `witnessCamera` | CRIF Set Media "Witness Cam"; VES 2.1 | Witness Camera |
 | Clean plate | A clean plate was shot. | `cleanPlate` | CRIF Set Media "Clean Plate" | Clean Plate |
 | Notes | Free text. | `notes` | CRIF Notes | Set Notes |
+
+### Reference
+
+| Label | Definition | Key | Standards | FPT |
+|---|---|---|---|---|
+| Kind | HDRI 360, Lidar scan, or a kind the project adds. | `kind` | | Kind |
+| File or folder | The name of the file or folder on the device. | `name` | | Name (code) |
+| Device | What captured it: Ricoh Theta Z1, iPhone 15 Pro. | `device` | | Device |
+| Card or roll | The card or roll it is on. | `cardOrRoll` | | Card or Roll |
+| Count | How many files, frames or brackets. | `count` | | Count |
+| Notes | Free text. | `notes` | | Set Notes |
+| Logged at | When it was added. Orders the list. Not a form field. | `loggedAt` | | Logged At |
 
 ### Take
 
@@ -219,6 +233,9 @@ gives.
   (flag), both sentence case.
 - **Unit** is the shooting unit. **Shoot day** is one unit's day, named "Day {n}".
 - **Entry** for a stored thing. "Item" is vague; "record" means to shoot.
+- **Reference** is a set reference: one thing captured on another device, logged by name. A
+  **Photo** is taken in the app and kept on the take. "Set Reference" is the Flow PT entity.
+- **Lidar scan** for the kind of reference, as for the slate's switch. Flow PT shows "LiDAR".
 - **Photo**, not still. On set, "stills" means the unit stills photographer.
 - **Wrap** names the destination, the crew word for the end of the shooting day. Rejected: Export
   (a verb, and the Backup uses it), Handover, Deliver. Three zips, three words: a **Wrap package**

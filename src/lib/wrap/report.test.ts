@@ -52,6 +52,16 @@ describe('reportBody', () => {
 		expect(reportBody([typed], opts)).not.toContain('<script>');
 	});
 
+	it('lists the set references of a slate under it, in the order logged', () => {
+		const block = html.slice(html.indexOf('data-slate="42A"'));
+		expect(block).toContain('References');
+		expect(block).toContain('Lidar scan: Scan 01');
+		expect(block).toContain('HDRI 360: HDRI_0412 (Ricoh Theta Z1, A003, ×7, Noon sun)');
+		expect(block.indexOf('Scan 01')).toBeLessThan(block.indexOf('HDRI_0412'));
+		const nine = html.slice(html.indexOf('data-slate="9"'), html.indexOf('data-slate="10"'));
+		expect(nine).not.toContain('References');
+	});
+
 	it('lists what is missing at the end', () => {
 		expect(html).toContain('data-section="todo"');
 		expect(html.indexOf('data-section="todo"')).toBeGreaterThan(html.indexOf('data-slate="42A"'));

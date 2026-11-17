@@ -58,6 +58,12 @@ describe('flatten', () => {
 		expect(row.stills.map((s) => s.id)).toEqual(['st2', 'st1']);
 	});
 
+	it('gives each row the set references of its slate, in the order logged', () => {
+		const rows = flatten(input());
+		expect(rows.find((r) => r.take.id === t42A1A.id)!.references.map((r) => r.name)).toEqual(['Scan 01', 'HDRI_0412']);
+		expect(rows.find((r) => r.take.id === 't9')!.references).toEqual([]);
+	});
+
 	it('gives an empty camera letter to a take with no setup', () => {
 		const row = flatten(input()).find((r) => r.take.id === t9.id)!;
 		expect(row.cameraLetter).toBe('');
@@ -107,6 +113,11 @@ describe('rowValue', () => {
 		expect(rowValue(row, 'take', 'tiltEnd')).toBe(-5);
 		expect(rowValue(row, 'camera', 'cameraMake')).toBe('ARRI');
 		expect(rowValue(row, 'lens', 'lensSerialNumber')).toBe('CK32-001');
+	});
+
+	it('gives undefined for a set reference: a row holds a list of them, none as its own', () => {
+		const row = flatten(input()).find((r) => r.take.id === t42A1A.id)!;
+		expect(rowValue(row, 'reference', 'name')).toBeUndefined();
 	});
 
 	it('gives undefined where the row has no record of that scope', () => {

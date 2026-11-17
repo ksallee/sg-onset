@@ -25,6 +25,7 @@ const SITE: SchemaTypes = {
 	CustomEntity10: type('Camera Setup'),
 	CustomEntity11: type('Lighting Setup'),
 	CustomEntity19: type('Lens'),
+	CustomEntity21: type('Set Reference'),
 	CustomEntity29: type('Location'),
 	CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection')
 };
@@ -56,6 +57,14 @@ describe('resolveEntities', () => {
 	it('says which custom entity to enable and what to name it', () => {
 		const { CustomEntity09: _take, ...rest } = SITE;
 		expect(resolveEntities(rest).find((e) => e.scope === 'take')).toEqual({ scope: 'take', kind: 'custom', displayName: 'Take', status: 'missing' });
+	});
+
+	// A site set up before the reference log: every studio enables one more slot, as for Take.
+	it('asks for a Set Reference entity, and gives no types until there is one', () => {
+		const { CustomEntity21: _ref, ...before } = SITE;
+		expect(resolveEntities(before).find((e) => e.scope === 'reference')).toEqual({ scope: 'reference', kind: 'custom', displayName: 'Set Reference', status: 'missing' });
+		expect(entityTypesOf(resolveEntities(before))).toBeUndefined();
+		expect(status('reference')).toMatchObject({ status: 'found', entityType: 'CustomEntity21' });
 	});
 
 	// findings/122: a hidden built-in type is absent from /schema.

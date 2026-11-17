@@ -70,6 +70,15 @@ describe('FIELDS', () => {
 		});
 	});
 
+	it('logs a set reference by kind, name, device, card or roll, count and notes, named by its file or folder', () => {
+		expect(fieldsOf('reference').map((d) => d.key)).toEqual(['kind', 'name', 'device', 'cardOrRoll', 'count', 'notes', 'loggedAt']);
+		expect(fieldsOf('reference').filter((d) => d.required).map((d) => d.key)).toEqual(['name']);
+		// A project adds its own kinds, so the kind is text, not an enum.
+		expect(findField('reference', 'kind')?.def.type).toBe('string');
+		expect(findField('reference', 'count')?.def).toMatchObject({ type: 'integer', min: 1 });
+		expect(findField('reference', 'loggedAt')?.def.type).toBe('timestamp');
+	});
+
 	it('marks the values that change over a take', () => {
 		const ranged = defs.filter((d) => d.end).map((d) => `${d.scope}.${d.key}`);
 		expect(ranged.sort()).toEqual(

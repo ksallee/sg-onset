@@ -15,8 +15,10 @@ export const fields = {
 	'scope.take': 'Take',
 	'scope.camera': 'Camera',
 	'scope.lens': 'Lens',
+	'scope.reference': 'Reference',
 	'scope.still': 'Photo',
 	'scope.template': 'Template',
+	'scope.referenceKind': 'Reference kind',
 
 	'unit.mm': 'mm',
 	'unit.m': 'm',
@@ -139,5 +141,13 @@ export const fields = {
 	'field.lens.lensSerialNumber': 'Serial number',
 	'field.lens.focalLength': 'Focal length',
 	'field.lens.focalLengthMax': 'Long end',
-	'field.lens.anamorphicSqueeze': 'Anamorphic squeeze'
+	'field.lens.anamorphicSqueeze': 'Anamorphic squeeze',
+
+	'field.reference.kind': 'Kind',
+	'field.reference.name': 'File or folder',
+	'field.reference.device': 'Device',
+	'field.reference.cardOrRoll': 'Card or roll',
+	'field.reference.count': 'Count',
+	'field.reference.notes': 'Notes',
+	'field.reference.loggedAt': 'Logged at'
 } as const;

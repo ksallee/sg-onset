@@ -28,6 +28,15 @@ describe('switchesText', () => {
 		expect(switchesText([balls('L'), plate('s1')], 'stays', names)).toBe('Slate 12A: Clean plate stays on. Lighting setup Night: Grey and chrome balls stays on');
 	});
 
+	it('names the switches a reference kind turns on, in the order of the form', () => {
+		const lidar: SwitchRef = { scope: 'slate', id: 's1', key: 'lidar' };
+		const witness: SwitchRef = { scope: 'slate', id: 's1', key: 'witnessCamera' };
+		const hdri: SwitchRef = { scope: 'lightingSetup', id: 'L', key: 'hdri' };
+		expect(switchesText([lidar], 'on', names)).toBe('Slate 12A: Lidar scan on');
+		expect(switchesText([witness, lidar], 'stays', names)).toBe('Slate 12A: Lidar scan, Witness camera stay on');
+		expect(switchesText([hdri], 'off', names)).toBe('Lighting setup Night: HDRI turned off');
+	});
+
 	it('says nothing of nothing', () => {
 		expect(switchesText([], 'stays', names)).toBe('');
 	});

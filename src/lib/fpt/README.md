@@ -59,6 +59,7 @@ if (report.ready) {
 | `lens` | custom, "Lens" or "Lenses" | display name |
 | `cameraSetup` | custom, "Camera Setup" | display name |
 | `lightingSetup` | custom, "Lighting Setup" | display name |
+| `reference` | custom, "Set Reference" | display name |
 | `still` | Attachment, in `sg_photos` on the take | file name |
 | `project` | Project | given: `projectId` |
 
@@ -154,7 +155,8 @@ names follow `docs/vocabulary.md` (its FPT column): Dutch Angle, Start Time, Cir
 | ref | entity | `{type, id}` |
 
 Every entity also gets `sg_onset_uuid` (text, unique): the record id on the device. The take gets
-`sg_photos` (multi-entity to Attachment). `created_at` of a take is its `startedAt`.
+`sg_photos` (multi-entity to Attachment). `created_at` of a take is its `startedAt`, of a set
+reference its `loggedAt`.
 
 **shootDay**
 
@@ -264,6 +266,22 @@ Every entity also gets `sg_onset_uuid` (text, unique): the record id on the devi
 | `focalLength` | `sg_focal_length` | float | mm |
 | `focalLengthMax` | `sg_focal_length_long_end` | float | mm |
 | `anamorphicSqueeze` | `sg_anamorphic_squeeze` | text | num/denom |
+
+**reference** (a set reference, one row each)
+
+| key | field | type | unit |
+|---|---|---|---|
+| `slateId` | `sg_slate` | entity | |
+| `kind` | `sg_kind` | text | |
+| `name` | `code` | text | |
+| `device` | `sg_device` | text | |
+| `cardOrRoll` | `sg_card_or_roll` | text | |
+| `count` | `sg_count` | number | |
+| `notes` | `sg_set_notes` | text | |
+| `loggedAt` | `sg_logged_at`, and `created_at` on create | date_time | |
+
+`Set Reference.sg_slate` adds `Slate.sg_set_references`, shown "Set Reference <-> Slate"
+(findings/142), so a slate in Flow PT lists its references.
 
 **still** (an Attachment)
 
@@ -378,6 +396,15 @@ Made by Claude. Kevin can overrule any of them.
     client UUID with no second request. A photo's take comes from its `attachment_links`
     (findings/134), also with no second request.
 
+26. **A set reference is a row of the project custom entity "Set Reference", linked to its slate**
+    (Kevin, 2026-11-17). Each studio enables the slot and names it in the web interface, as for
+    Take: no call does (findings/114, findings/122, 400 code 111). Until it is there the setup check
+    is not ready and nothing syncs; the sync sheet names it. A site set up before the reference log
+    needs it too: a cached resolution without it is read again.
+27. **The kind of a set reference is text:** a built-in key (`hdri360`), as an enum keeps its key
+    (decision 7), or a project's own kind as typed. No list field: a project adds kinds, and a list
+    would need an admin for each.
+
 ## Where FPT did not fit the contract
 
 1. **A checkbox has no null.** An unticked box reads as a missing value. Settled in the model:
@@ -442,3 +469,6 @@ Of the 76 fields we wanted then (77 with `sg_take_type`, #92), five are already 
 `Camera.sg_camera_serial_number`, `Lens.sg_lens_serial_number`. Two names are held by a field of
 another type, so ours step aside: `ShootDay.sg_onset_location` and `Lens.sg_onset_focal_length`.
 The other 69 are created under their plain names.
+
+Set Reference came after this read (#93). The probed site needs that slot enabled and named before
+sync goes on; Set Up Fields then makes its eight fields.

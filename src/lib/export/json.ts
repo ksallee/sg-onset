@@ -3,8 +3,8 @@
 // back into records. Pure: the export time is passed in. The format is in docs/export.md.
 
 import { endKey, fieldsOf, type Scope } from '$lib/model/catalogue';
-import type { Camera, CameraSetup, Lens, LightingSetup, Project, ShootDay, Slate, Still, Take } from '$lib/model/types';
-import { flatten, naturalCompare, selectShootDays, selectSlates, type ExportFilters, type ExportInput } from './selection';
+import type { Camera, CameraSetup, Lens, LightingSetup, Project, Reference, ShootDay, Slate, Still, Take } from '$lib/model/types';
+import { flatten, naturalCompare, referencesBySlate, selectShootDays, selectSlates, type ExportFilters, type ExportInput } from './selection';
 
 export const EXPORT_FORMAT = 'sg-onset-export';
 /** Goes up when a reader of the old version would misread the new one. */
@@ -24,10 +24,13 @@ export type ExportData = {
 	slates: Slate[];
 	takes: Take[];
 	stills: Still[];
+	references: Reference[];
 };
 
 /** The record lists, in the order they are written. */
-const LISTS = ['shootDays', 'lightingSetups', 'cameraSetups', 'cameras', 'lenses', 'slates', 'takes', 'stills'] as const;
+const LISTS = ['shootDays', 'lightingSetups', 'cameraSetups', 'cameras', 'lenses', 'slates', 'takes', 'stills', 'references'] as const;
+/** Lists a file of this version may lack: it was written before they came. Read as empty. */
+const LATER_LISTS: readonly string[] = ['references'];
 const LIST_SCOPE: Record<(typeof LISTS)[number], Scope | 'still'> = {
 	shootDays: 'shootDay',
 	lightingSetups: 'lightingSetup',
@@ -36,7 +39,8 @@ const LIST_SCOPE: Record<(typeof LISTS)[number], Scope | 'still'> = {
 	lenses: 'lens',
 	slates: 'slate',
 	takes: 'take',
-	stills: 'still'
+	stills: 'still',
+	references: 'reference'
 };
 
 /** Keys before the catalogue's: the id, the parent and template links. */
@@ -67,7 +71,8 @@ const sortById = <T extends { id: string }>(rows: T[]) => rows.sort((a, b) => na
 /**
  * The selection as data. Slates: every slate of the picked days in the slate range, with or
  * without takes. Takes: those the filters keep. Gear and lighting setups: those the kept slates and
- * takes point at. Photos: those of the kept takes.
+ * takes point at. Photos: those of the kept takes. Set references: those of the kept slates, by
+ * slate, in the order logged.
  */
 export function toExportData(input: ExportInput, options: { now: string; filters?: ExportFilters }): ExportData {
 	const filters = options.filters ?? {};
@@ -93,7 +98,8 @@ export function toExportData(input: ExportInput, options: { now: string; filters
 		lenses: sortById(input.lenses.filter((l) => lensIds.has(l.id))),
 		slates,
 		takes,
-		stills: rows.flatMap((r) => r.stills)
+		stills: rows.flatMap((r) => r.stills),
+		references: slates.flatMap((s) => referencesBySlate(input.references).get(s.id) ?? [])
 	};
 	return canonical(data) as ExportData;
 }
@@ -133,6 +139,7 @@ export function readExportJson(text: string): ReadResult {
 	if (typeof parsed.formatVersion !== 'number' || parsed.formatVersion > EXPORT_FORMAT_VERSION) return { ok: false, reason: 'newerVersion' };
 	if (typeof parsed.exportedAt !== 'string' || !isObject(parsed.filters) || !isRecord(parsed.project)) return { ok: false, reason: 'badShape' };
 	for (const list of LISTS) {
+		if (parsed[list] === undefined && LATER_LISTS.includes(list)) parsed[list] = [];
 		const rows = parsed[list];
 		if (!Array.isArray(rows) || !rows.every(isRecord)) return { ok: false, reason: 'badShape' };
 	}

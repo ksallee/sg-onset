@@ -12,7 +12,9 @@ const labels: PlainLabels = {
 	option: (_def, option) => option,
 	unit: (unit) => unit,
 	yes: 'yes',
-	no: 'no'
+	no: 'no',
+	references: 'References',
+	kind: (kind) => `<${kind}>`
 };
 const ctx = { now: '2026-11-11T02:00:00.000Z', timeZone: 'Europe/London', labels };
 const day3 = { ...defaultChoice() };
@@ -38,6 +40,11 @@ describe('makeTexts', () => {
 		expect(made.texts.plainCsv?.split('\r\n')[0]).toContain('focalLength');
 		expect(made.texts.ale?.startsWith('Heading')).toBe(true);
 		expect(JSON.parse(made.texts.json!).format).toBe('sg-onset-export');
+	});
+
+	it('names the kinds of set reference in the camera report as the all fields file does', () => {
+		expect(made.texts.crif).toContain('<lidarScan>: Scan 01');
+		expect(made.texts.plainCsv).toContain('<lidarScan>: Scan 01');
 	});
 
 	it('makes none it was not asked for', () => {

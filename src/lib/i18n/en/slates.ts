@@ -54,7 +54,7 @@ export const slates = {
 	'slates.detail.duplicate': 'Duplicate',
 	'slates.detail.saveTemplate': 'New Template from Slate',
 	'slates.detail.delete': 'Delete Slate',
-	'slates.detail.footer': 'Deletes the slate and its takes. Undo brings them back.',
+	'slates.detail.footer': 'Deletes the slate, its takes and its references. Undo brings them back.',
 	'slates.duplicated': 'Slate {slate} duplicated',
 
 	'slates.link.header': 'Template',

@@ -13,6 +13,7 @@
 
 import { formatRational } from '$lib/model/rational';
 import type { Length } from '$lib/model/length';
+import { referenceLine } from '$lib/references/log';
 import { crifDate, crifTime, crifTimestamp, feetInches, metresText, signed, takeTypeName, trimNumber } from './format';
 import { naturalCompare, type FlatTake } from './selection';
 import { uuidV5 } from './uuid';
@@ -96,6 +97,7 @@ export const CRIF_EXTRA_COLUMNS: readonly Column[] = [
 	{ name: 'Shoot Date' },
 	{ name: 'Setup' },
 	{ name: 'Lighting Setup' },
+	{ name: 'Set References' },
 	{ name: 'Camera Model' },
 	{ name: 'Camera Serial Num' },
 	{ name: 'Tk End Time Of Take' },
@@ -132,6 +134,8 @@ export type CrifOptions = {
 	extras?: boolean;
 	/** Unique Slate ID per `${slate.id}:${cameraSetupId}`. Default: 1, 2, 3 in file order. */
 	slateNumbers?: Record<string, number>;
+	/** A kind of set reference as the app shows it. Default: as stored. */
+	kindLabel?: (kind: string) => string;
 };
 
 /** One CRIF row: its columns in order, and the value of each as text. */
@@ -196,6 +200,7 @@ export function crifRecords(rows: readonly FlatTake[], options: CrifOptions): Cr
 	const numbers = new Map([...groups.keys()].map((key, i) => [key, options.slateNumbers?.[key] ?? i + 1]));
 	const length = (l: Length) => (options.lengths === 'metric' ? metresText(l.m) : feetInches(l.m));
 	const tz = options.timeZone;
+	const kindLabel = options.kindLabel ?? ((kind: string) => kind);
 
 	return ordered.map((row) => {
 		const { project, shootDay, slate, take, lightingSetup, camera, lens } = row;
@@ -260,6 +265,8 @@ export function crifRecords(rows: readonly FlatTake[], options: CrifOptions): Cr
 			'Shoot Date': crifDate(shootDay.shootDate ?? ''),
 			Setup: text(slate.setup),
 			'Lighting Setup': text(lightingSetup?.label),
+			// One reference per value, split by vertical tabs as a multi-select is.
+			'Set References': row.references.map((r) => referenceLine(r, kindLabel)).join(VT),
 			'Camera Model': text(camera?.cameraModel),
 			'Camera Serial Num': text(camera?.cameraSerialNumber),
 			'Tk End Time Of Take': take.endedAt ? crifTime(take.endedAt, tz) : '',

@@ -116,6 +116,17 @@ Use a test project on the site, never a show.
   slate: the slate and its new Set Shot link both, and the sync sheet lists the code as **Several
   Shots**. Delete one of the two in Flow PT, wait a minute, tap **Sync Now**: the line goes. A
   Shot made later for a code whose Set Shot already holds one is not added: set it by hand.
+- **Notes on Shots (#97).** Set Up Fields first: it adds **Onset Key** (unique) and **Onset
+  Captured** on Note. In Flow PT give the Shot `TST_010_0010` a Task assigned to an Artist, and a
+  second Task assigned to a Group with two Artists. In the sync sheet turn **Notes on Shots** on
+  and tap **Sync Now**. The Shot gets one Note, **Set data for TST_010_0010**, from you, linked to
+  the Shot and its two Tasks, to the Artist and the Group. Note who Flow PT names as its author,
+  whether it is on the Shot's activity stream, and whether it is in each Artist's Inbox (the corpus
+  measured none of these with the app's session, README gap 12). Tap **Sync Now** again: nothing
+  changes, no Reply. Capture a take on the slate and sync: the same Note says the new take, and a
+  Reply says what was added; the Artists see the Note unread again and the Reply in the stream.
+  Assign a third person to a Task and capture another take: they are added to **To**, nobody is
+  taken off. Turn the setting off: no Note is written or changed.
 - A photo: in Flow PT, open the file's link in a new tab. It shows as an image, not a download
   of `binary/octet-stream`. Two photos on one take: **Photos** holds both.
 - **Videos (#94).** Once the probe of a Version on a custom entity row has reported (fpt README,

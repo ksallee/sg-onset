@@ -11,6 +11,7 @@ import { SHOT } from './shots';
 import {
 	createInput,
 	foundTypes,
+	NOTE,
 	parseResolution,
 	planFields,
 	resolveEntities,
@@ -94,6 +95,7 @@ async function inspect(api: Api, signal?: AbortSignal): Promise<{ entities: Enti
 	const fields: Partial<Record<EntityScope, RawFields>> = {};
 	const others: Record<string, RawFields> = {};
 	let version: RawFields | undefined;
+	let note: RawFields | undefined;
 	// The fields of a type that is not in /schema are a 404 (corpus findings/008): only the found ones are read.
 	// Attachment's and Shot's too: the photos field and the Shots field add one there each, checked
 	// for a clash (findings/134, 142). Version's: a take's videos go there, under our client UUID
@@ -111,10 +113,18 @@ async function inspect(api: Api, signal?: AbortSignal): Promise<{ entities: Enti
 						version = f;
 					})
 				]
+			: []),
+		// Note's: the Notes on Shots keep their key and what they list there (#97).
+		...(listed[NOTE]
+			? [
+					api.fields(NOTE, signal).then((f) => {
+						note = f;
+					})
+				]
 			: [])
 	]);
 	const names = Object.fromEntries(Object.entries(listed).map(([type, t]) => [type, t.name.value]));
-	return { entities, plans: planFields(types, fields, { names, others, version }) };
+	return { entities, plans: planFields(types, fields, { names, others, version, note }) };
 }
 
 const reportOf = (plan: FieldPlan, status: FieldReport['status'], reason = plan.reason): FieldReport => ({
@@ -214,7 +224,8 @@ function missing(entities: EntityResolution[], plans: FieldPlan[]): string {
 		// An optional entity and its fields stop nothing (Kevin, #117).
 		...entities.filter((e) => e.status !== 'found' && !e.optional).map((e) => `the ${e.displayName} entity`),
 		...(plans.some((p) => p.scope === 'version') ? [] : [`the ${VERSION} entity`]),
-		...plans.filter((p) => p.status !== 'present' && (p.scope === 'version' || !isOptionalColumn(p.scope, p.column))).map((p) => `${p.entityType}.${p.name}`)
+		// The Note fields stop nothing either: the Notes on Shots wait for them (#97).
+		...plans.filter((p) => p.status !== 'present' && p.scope !== 'note' && (p.scope === 'version' || !isOptionalColumn(p.scope, p.column))).map((p) => `${p.entityType}.${p.name}`)
 	];
 	const shown = names.slice(0, 5).join(', ');
 	return names.length > 5 ? `${shown} and ${names.length - 5} more` : shown;

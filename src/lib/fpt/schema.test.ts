@@ -3,6 +3,7 @@ import { ENTITY_SCOPES, wantedColumns, type EntityScope } from './mapping';
 import {
 	createInput,
 	entityTypesOf,
+	hasNotes,
 	parseResolution,
 	planFields,
 	resolveEntities,
@@ -11,7 +12,7 @@ import {
 	type RawFields,
 	type SchemaTypes
 } from './schema';
-import { completeFields as complete, rawField as raw, TYPES, versionFields } from './testkit';
+import { completeFields as complete, noteFields, rawField as raw, TYPES, versionFields } from './testkit';
 
 /** What a site holds on Version: its stock fields, and our client UUID once Set Up Fields ran. */
 const VERSION_DONE = { version: versionFields(true) };
@@ -347,6 +348,38 @@ describe('planFields: Version', () => {
 	});
 });
 
+// Notes on Shots (#97): one Note per Shot, found again by a key in a unique text field on Note
+// (findings/146), and what it lists as ids beside it. Note is stock; both fields are ours, and
+// optional: a site without them syncs the rest.
+describe('planFields: Note', () => {
+	const note = (plans: ReturnType<typeof planFields>) => plans.filter((p) => p.scope === 'note');
+
+	it('plans the key, to create unique, and what the Note lists', () => {
+		const [key, captured] = note(planFields(TYPES, complete(), { ...VERSION_DONE, note: noteFields(false) }));
+		expect(key).toMatchObject({ entityType: 'Note', name: 'sg_onset_key', displayName: 'Onset Key', dataType: 'text', status: 'create', unique: true });
+		expect(createInput(key).properties).toMatchObject({ unique: true });
+		expect(captured).toMatchObject({ entityType: 'Note', name: 'sg_onset_captured', displayName: 'Onset Captured', dataType: 'text', status: 'create' });
+		expect(captured.unique).toBeUndefined();
+	});
+
+	it('finds them present the next time', () => {
+		expect(note(planFields(TYPES, complete(), { ...VERSION_DONE, note: noteFields(true) }))).toMatchObject([
+			{ status: 'present', name: 'sg_onset_key' },
+			{ status: 'present', name: 'sg_onset_captured' }
+		]);
+	});
+
+	it('will not use a key of that name that is not unique', () => {
+		const fields = noteFields(false);
+		fields.sg_onset_key = raw('text', 'Onset Key');
+		expect(note(planFields(TYPES, complete(), { note: fields }))[0]).toMatchObject({ status: 'blocked' });
+	});
+
+	it('plans nothing on Note when its fields were not read', () => {
+		expect(note(planFields(TYPES, complete(), VERSION_DONE))).toEqual([]);
+	});
+});
+
 describe('createInput', () => {
 	const bare = { take: { code: raw('text', 'Take Name') }, slate: { code: raw('text', 'Slate Name') } };
 	const plans = planFields(TYPES, bare);
@@ -439,6 +472,29 @@ describe('toResolution', () => {
 		expect(res.fields.setShot?.sg_onset_matched).toBe('sg_onset_matched');
 		const { sg_onset_matched: _m, ...older } = res.fields.setShot!;
 		expect(parseResolution(JSON.stringify({ ...res, fields: { ...res.fields, setShot: older } }), 'https://a.example')).toBeUndefined();
+	});
+
+	// Notes on Shots (#97) is optional: without the Note fields the rest is ready and the Notes wait.
+	it('holds the Note fields once both are there, and is ready without them', () => {
+		const withNotes = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), { ...VERSION_DONE, note: noteFields(true) }))!;
+		expect(withNotes.note).toEqual({ key: 'sg_onset_key', captured: 'sg_onset_captured' });
+		expect(hasNotes(withNotes)).toBe(true);
+		expect(parseResolution(serializeResolution(withNotes), 'https://a.example')).toEqual(withNotes);
+
+		const half = noteFields(true);
+		delete half.sg_onset_captured;
+		const without = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), { ...VERSION_DONE, note: half }))!;
+		expect(without.note).toBeUndefined();
+		expect(hasNotes(without)).toBe(false);
+		expect(toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE))?.note).toBeUndefined();
+	});
+
+	it('is read again from a cache whose Note fields are not names', () => {
+		const res = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), { ...VERSION_DONE, note: noteFields(true) }))!;
+		expect(parseResolution(JSON.stringify({ ...res, note: { key: 'sg_onset_key' } }), 'https://a.example')).toBeUndefined();
+		// One written before Notes on Shots is still good: the Notes wait for a check.
+		const { note: _n, ...before } = res;
+		expect(parseResolution(JSON.stringify(before), 'https://a.example')).toEqual(before);
 	});
 
 	// A device that synced before videos went up as Versions holds a resolution without it: read again.

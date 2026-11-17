@@ -17,6 +17,7 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `errors.ts` | yes | `syncError`, `syncErrorText`. |
 | `clock.ts` | yes | `toSecond`: `app.now()` stamps to the second. |
 | `shots.ts` | yes | Which slates to bring in line, when, and what the sync sheet lists of their Set Shots. Nothing kept. |
+| `notes.ts` | yes | Notes on Shots (#97): the setting per project, what the sheet shows, which Shots get a Note. |
 | `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. |
 | `engine.ts` | no | `createSyncEngine`: link, check, runner. No runes. |
 | `controller.svelte.ts` | no | `provideSync`, `useSync`: the engine on the real page, as runes. |
@@ -69,6 +70,17 @@ Made by Claude. Kevin can overrule any of them.
     says an admin enables a custom entity named Set Shot and runs Set Up Fields, and counts the
     slates whose codes wait. After a setup check the runner starts again with a new transport, so
     an entity enabled since is synced at the next drain.
+12. **Notes on Shots is a setting per project, kept on the device** (#97), `sg-onset:sync:notes:<id>`,
+    beside the link. Off by default: some studios will not want an app writing Notes. It is a
+    choice about what this project writes to its Flow PT project, a device may hold projects of
+    two studios, and one device with it on is enough: the Note is built from what Flow PT holds,
+    whatever device sent it. Not in the store's tables, so not in a backup, as the link is not. The
+    sync sheet shows it under the Flow PT project, once linked.
+13. **The Notes are written where the links are,** when a drain ends, after the slates are brought in
+    line: at most once a minute, at once on Sync Now. The Shots are every Shot the project's slates
+    reach through their Set Shots (lib/fpt README, Notes on Shots). A site without Set Shot writes
+    none. A site without the Note fields writes none, and the sheet says an admin runs Set Up
+    Fields; turning the setting on then runs the setup check again, which only reads.
 
 ## Not tested without a real site
 

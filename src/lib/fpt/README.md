@@ -21,6 +21,9 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `takeVersions.ts` | no | The Version of a take's media: found by client UUID, made, its file checked. |
 | `shots.ts` | yes | A slate's VFX shot codes: as typed, as Flow PT matches them, the Shot search, the in-place write. |
 | `setShots.ts` | yes | One Set Shot per code: its key, the lookup, what to file, what to match, what a slate links (`derivedShots`). |
+| `shotNote.ts` | yes | The Note on a Shot (#97) from the records as Flow PT holds them: what was captured, as text and as ids, and the reply with what a sync added. |
+| `notePlan.ts` | yes | The Note's key and lookup, who it is to, and what a sync writes: the Note, a rewrite and a reply, or nothing. |
+| `shotNotes.ts` | no | `writeShotNotes`: the reads and writes of the Notes on Shots. Reads Flow PT only, so #106 runs it from a desktop. |
 | `errors.ts` | yes | What a refusal or a missing answer means. |
 | `token.ts` | yes | The bearer's `exp`, and when to renew it. |
 | `uploadPlan.ts` | yes | Upload sizes, URL life, the completion body. |
@@ -71,6 +74,9 @@ if (report.ready) {
 | `project` | Project | given: `projectId` |
 | (none) | Shot, in `sg_shots` on the Set Shot and on the slate | code, in the project. Read and linked, never written |
 | a slate's setup diagram (#87) | Attachment, in `sg_setup_diagram` on the slate | file name |
+| (none) | Note, one per Shot, with Notes on Shots on (#97) | `sg_onset_key`, in the project. Optional |
+| (none) | Reply, on that Note, when a sync adds to it | written, never read |
+| (none) | Task, of the Shot: who is assigned | read only |
 
 Custom entities are matched trimmed and whatever the case, among `CustomEntityNN` types only.
 Never by slot number.
@@ -314,6 +320,22 @@ its `startedAt`, of a set reference its `loggedAt`.
 `Set Shot.sg_shots` adds `custom_entityNN_sg_shots_custom_entityNNs` on Shot, so a Shot lists its
 Set Shots, and from them the slates (findings/142).
 
+**Note** (one per Shot, with Notes on Shots on, #97; no record on the device)
+
+| what | field | type | note |
+|---|---|---|---|
+| the project | `project` | entity | |
+| the title | `subject` | text | `Set data for <Shot code>` |
+| the body | `content` | text | see "Notes on Shots" |
+| the Shot | `note_links` | multi_entity | `[Shot]` |
+| the Shot's Tasks | `tasks` | multi_entity | added to, never taken from |
+| who it is to | `addressings_to` | multi_entity | the people and Groups on the Shot's Tasks; added to, never taken from |
+| the key | `sg_onset_key`, "Onset Key" | text, unique | `<project id>:shot:<Shot id>` |
+| what it lists | `sg_onset_captured`, "Onset Captured" | text | the ids: `take:<slate>:<number>`, `cleanPlate.tail:<slate>:<number>`, `reference:<id>`, `photo:<id>` |
+
+Set Up Fields makes the two Note fields on every site. They are optional: a site without them syncs
+the rest, and the Notes wait.
+
 **still** (an Attachment)
 
 | key | field | note |
@@ -456,6 +478,64 @@ has landed. The app runs it for every slate of the project Flow PT holds when a 
 - None of it can fail a push. What did not land is worked out again at the next sync.
 - A Shot is never created, renamed or changed. A Set Shot is created, matched once, never renamed,
   never deleted.
+
+## Notes on Shots
+
+With Notes on Shots on for the project (app/sync README), when a drain ends and the slates are
+brought in line, the Shots they reach through their Set Shots each get one Note listing what was
+captured for them (#97). Kevin decided, 2026-11-17: the Note is from whoever syncs; a sync with
+nothing new for a Shot writes nothing; when a later sync adds material, the Note is rewritten in
+place and a short Reply says what was added; at each sync that writes the Note or a Reply, people
+newly assigned to the Shot's Tasks are added, and nobody is removed.
+
+`writeNotes` takes the Shot ids and reads everything from Flow PT, nothing from the device:
+
+1. The Shots by id, in the project, for their codes. The Set Shots holding them (`sg_shots in`),
+   the slates of those Set Shots (`sg_set_shots in`), their takes and references (`sg_slate in`),
+   the Attachments in the takes' photos fields (`id in`). The Shots' Tasks (`entity in`, in the
+   project), with `task_assignees`. The Notes already there, by key. Lists of more than 500 go in
+   several searches.
+2. Per Shot, `shotNote.ts` works out what was captured: the slates are those whose Set Shots hold
+   the Shot (the slate's own Shots field is derived from them, #102). `notePlan.ts` decides:
+   nothing captured, no Note; no Note yet, one `POST /entity/notes`; the Note lists less than was
+   captured, one `PUT` of the Note, then one `POST /entity/replies`; otherwise nothing.
+3. Never throws. No answer or no session stops the writes; a refusal is that Shot's alone. What did
+   not land is worked out again at the next sync.
+
+A sample, for a Shot with two slates:
+
+```
+Subject: Set data for SMP_042_0010
+
+What was shot on set for SMP_042_0010. SG OnSet updates this Note at each sync that adds to it.
+
+Elements
+Clean plate: 42A take 10
+Clean plate at the tail: 42B take 2
+Balls and chart at the tail: 42A take 3
+
+Takes
+Slate 42A: takes 1, 2, 3, 10
+Slate 42B: takes 1, 2
+
+References
+HDRI 360: HDRI_0412, HDRI_0413
+Witness camera: WIT_A001
+
+Photos: 3
+```
+
+And the Reply after a later sync:
+
+```
+Added since the last update:
+Clean plate at the tail: 42A take 11
+Slate 42A: take 11
+HDRI 360: HDRI_0414
+2 more photos
+```
+
+The words are in the message catalogue, `sync.note.*`, always English.
 
 ## Decisions
 
@@ -604,6 +684,40 @@ Made by Claude. Kevin can overrule any of them.
 45. **A Set Shot is never deleted** (Kevin, #102). A code renamed or taken off a slate unlinks that
     slate from its Set Shot, which stays, with any Shots set on it, even when no slate lists it.
     Anyone can delete a stray one in Flow PT.
+46. **One Note per Shot, keyed in a unique text field on Note,** `sg_onset_key`, `<project id>:shot:<Shot
+    id>`: a second create with the key is refused, on a PUT too, under a person (findings/146). The
+    project is in it as for a Set Shot. `Note.meta` needs no admin but refuses no duplicate and is
+    written on create only (findings/146, field_types/jsonb.md). A refused create was made by
+    another device since the lookup: left for the next sync, which reads it. A Note someone deleted
+    frees its key: the next sync that has something for the Shot makes a new one.
+47. **Nothing new or something added is decided from a field on the Note,** `sg_onset_captured`: what
+    the Note lists, as ids. Not from the Note's text: the reply must say what was added, which a
+    comparison of two texts cannot say without reading our own words back, and new wording in a
+    later version would then rewrite every Note. The ids are a take number of a slate (so a second
+    camera's take adds nothing), an element take with its type and whether at the tail, a reference,
+    a photo. A text field takes 100,000 characters (field_types/text.md).
+48. **Only an addition writes.** What the Note lists that is gone (a take deleted, a code taken off)
+    writes nothing: an edit marks the Note unread for everyone (findings/149) and would say
+    nothing new. The next write puts it right.
+49. **No Note until something is captured for the Shot:** a take or a reference. A slate made at prep
+    with the code writes nothing.
+50. **The Note is built from what Flow PT holds,** never from the device (#106 runs the same code from
+    a desktop with no data). A take another device sent is in it.
+51. **The Note goes to what the Shot's Tasks hold:** people, and Groups as Groups. A Group addressed
+    makes each member follow (findings/147); expanding it would freeze its members at that sync.
+    The Note is linked to the Tasks too, as recipes/026 does, so it shows on them. Both are added
+    to with the mode in the body (recipes/009), only on a sync that writes; nobody is removed.
+52. **The Note is written as the person,** with the session's bearer, naming no author. A script's
+    Note create reached no stream (findings/067); a person's did (findings/149).
+53. **The `PUT` before the Reply.** A lost Reply leaves a right Note, unread again for its
+    addressees (findings/149). The other order, a lost `PUT` would send the Reply twice.
+54. **A Note and a Reply are each one create, not a `_batch`:** a create in a batch skips the
+    server's checks (reports/001), and recipes/026 measured the single create.
+55. **A photo is counted once:** the annotated copy is the same photo, and a photo sent twice is
+    one, both told by the file name (stills.ts). A file someone added by hand counts as one.
+56. **The Note fields are optional, and Set Up Fields makes them on every site,** whether a device
+    turns Notes on Shots on or not: the setting is per device, and an admin cannot know. A site
+    without them syncs the rest; the sync sheet says an admin runs Set Up Fields.
 
 ## Where FPT did not fit the contract
 
@@ -677,6 +791,19 @@ Still open:
 11. The name of the field `Slate.sg_setup_diagram` (multi-entity to Attachment, #87) adds on
     Attachment. Predicted `slate_sg_setup_diagram_slates` by the rule measured on Slate with Shot
     as the target (findings/155); Attachment as the target is not measured.
+12. Notes on Shots (#97), written with the app's session bearer (the launcher's, probe 052): who
+    `created_by` and `user` name, whether the create reaches the Shot's stream, and whether the
+    Note, its edit and its Reply reach the addressees' Inbox. Measured under `sudo_as_login`
+    only (findings/148, 149); the launcher bearer and the Inbox need a person and a browser
+    (probes 147, 148, 149, their "Needs a browser" steps).
+13. Whether a person of the Artist, Manager or Vendor group may write the two custom Note fields
+    and create a Note with them. Findings/146 wrote them as the operator.
+14. Whether someone taken off `addressings_to` stops following (recipes/026). Moot here: nobody is
+    taken off.
+15. Whether `unique` on Note spans projects (findings/146). The key holds the project.
+16. Whether the Shot's reverse field of `Set Shot.sg_shots`, or `Slate.sg_shots`, shows on a Shot's
+    page in the web interface by default, so an artist finds the slates from the Note. Not needed by
+    the app.
 
 ## On the probed site, read 2026-11-11
 
@@ -697,3 +824,6 @@ sync goes on; Set Up Fields then makes its eight fields.
 
 Set Shot came after too (#102). Kevin enabled the slot on 2026-11-17; its schema was not read here.
 Set Up Fields makes its two fields, `sg_onset_key` and `sg_shots`, and the slate's `sg_set_shots`.
+
+Notes on Shots came after too (#97). Set Up Fields makes `sg_onset_key` (unique) and
+`sg_onset_captured` on Note, a stock type. Until then the rest syncs and no Note is written.

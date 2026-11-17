@@ -12,7 +12,7 @@
 
 import { codeName, reverseField, slugOf } from './names';
 import type { RawField, RawFields, SchemaTypes } from './schema';
-import { completeFields, siteTypes, SITE_URL, stockFields, TYPES, versionFields } from './testkit';
+import { completeFields, noteFields, rawField, siteTypes, SITE_URL, stockFields, TYPES, versionFields } from './testkit';
 
 type Ref = { type: string; id: number };
 export type FakeRow = { type: string; id: number; values: Record<string, unknown>; retired?: boolean };
@@ -65,6 +65,18 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 	fields.Project = { name: { name: { value: 'Project Name' }, data_type: { value: 'text' } } };
 	// A take's videos go up as Versions (entity_types/Version.md). A bare site lacks our client UUID there.
 	fields.Version = versionFields(options.fields !== 'bare');
+	// Notes on Shots (#97): a Note, its Replies, a Shot's Tasks and who they are assigned to
+	// (entity_types/Note.md, Reply.md, Task.md; findings/147, 150). A bare site lacks our two Note fields.
+	fields.Note = noteFields(options.fields !== 'bare');
+	fields.Reply = { entity: rawField('entity', 'Link', { validTypes: ['Note', 'Version'] }), content: rawField('text', 'Reply Text') };
+	fields.Task = {
+		content: rawField('text', 'Task Name'),
+		project: rawField('entity', 'Project', { validTypes: ['Project'] }),
+		entity: rawField('entity', 'Link', { validTypes: ['Asset', 'Shot', 'Sequence'] }),
+		task_assignees: rawField('multi_entity', 'Assigned To', { validTypes: ['Group', 'HumanUser'] })
+	};
+	fields.HumanUser = { name: rawField('text', 'Name') };
+	fields.Group = { code: rawField('text', 'Group Name'), users: rawField('multi_entity', 'Users', { validTypes: ['HumanUser'] }) };
 	// Shot: `code` is "Shot Code", not unique; `project` is required (findings/entity_types/Shot.md).
 	fields.Shot = {
 		code: { name: { value: 'Shot Code' }, data_type: { value: 'text' } },
@@ -430,6 +442,19 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			}
 
 			if (parts[0] === 'entity' && parts.includes('_upload')) return upload(parts, r, contentType);
+
+			if (parts[0] === 'entity' && parts.length === 2 && r.method === 'POST') {
+				// One create: plain JSON, 201 with the row (entity_types/Note.md, Reply.md). A project-scoped
+				// type refuses a create without `project`, which a batch skips (recipes/002).
+				if (contentType !== 'application/json') return refuse(415, `Unsupported Content-Type '${contentType}'`);
+				const type = typeOfSlug(parts[1]);
+				const data = (r.body ?? {}) as Record<string, unknown>;
+				if (fieldOf(type, 'project') && data.project === undefined) return refuse(400, `API create() missing 'project' attribute: ${JSON.stringify(data)}`);
+				const staged = new Map(rows);
+				const answer = apply({ request_type: 'create', entity: type, data }, staged, []);
+				commit(staged);
+				return json(201, answer);
+			}
 
 			if (parts[0] === 'entity' && parts.length === 3) {
 				const type = typeOfSlug(parts[1]);

@@ -116,5 +116,29 @@ export const sync = {
 	'sync.error.failed': 'Flow PT refused: {message}',
 
 	'sync.conflict.line': '{field}: this device {mine}, Flow PT {theirs}',
-	'sync.conflict.empty': 'empty'
+	'sync.conflict.empty': 'empty',
+
+	// Notes on Shots (#97): the setting, in the sync detail.
+	'sync.notes.header': 'Notes on Shots',
+	'sync.notes.toggle': 'Notes on Shots',
+	'sync.notes.footer':
+		'On: at each sync, each Shot linked to a slate gets one Note with what was shot for it, sent to the people on its Tasks. When more is shot, the Note is updated and a reply says what was added. For this project, on this device.',
+	'sync.notes.setup': 'An admin runs Set Up Fields first. It adds two fields to Note. Until then no Note is written.',
+
+	// The Note on a Shot and its reply, written in Flow PT from what Flow PT holds (lib/fpt/shotNote.ts). Always English.
+	'sync.note.subject': 'Set data for {shot}',
+	'sync.note.intro': 'What was shot on set for {shot}. SG OnSet updates this Note at each sync that adds to it.',
+	'sync.note.elements': 'Elements',
+	'sync.note.element': '{type}: {takes}',
+	'sync.note.element.tail': '{type} at the tail: {takes}',
+	'sync.note.elementTake': '{slate} take {take}',
+	'sync.note.takes': 'Takes',
+	'sync.note.slate.one': 'Slate {slate}: take {takes}',
+	'sync.note.slate.other': 'Slate {slate}: takes {takes}',
+	'sync.note.references': 'References',
+	'sync.note.reference': '{kind}: {names}',
+	'sync.note.photos': 'Photos: {n}',
+	'sync.note.reply': 'Added since the last update:',
+	'sync.note.reply.photos.one': '{n} more photo',
+	'sync.note.reply.photos.other': '{n} more photos'
 } as const;

@@ -17,13 +17,11 @@ const SHORT_MAX = 8;
 
 /**
  * Words no string may use, with the reason. Matched as whole words, any case.
- * The take button pair is Start / End: it records nothing.
+ * The take button pair is Start / End.
  */
 const BANNED: readonly [RegExp, string][] = [
-	[/\brec(ord|ords|orded|ording)?\b/i, 'the app records nothing: Start / End, and "entry" for a stored thing'],
 	[/\brolling\b|\brolled\b/i, 'take states are Ready / Running / Ended'],
 	[/\bcut\b/i, 'the take button pair is Start / End'],
-	[/(?<!T-)\bstop(ped)?\b/i, 'the take button pair is Start / End; only "T-stop" holds the word'],
 	[/\breel\b/i, 'the camera roll is "Camera roll" (VES CRIF "Tk Roll")'],
 	[/\bmag\b/i, 'the camera roll is "Camera roll"'],
 	[/\bpitch\b/i, 'the camera angle up or down is "Tilt"'],
@@ -34,8 +32,18 @@ const BANNED: readonly [RegExp, string][] = [
 	[/sg-onset/i, 'the product is "SG OnSet"; sg-onset is for code and URLs only']
 ];
 
-/** The take button and states may not say Roll in any form. */
-const NO_ROLL_PREFIXES = ['rail.', 'phase.', 'timing.', 'undo.'];
+/** The take button and its states: Start / End and Ready / Running / Ended. */
+const TAKE_BUTTON_PREFIXES = ['rail.', 'phase.', 'timing.', 'undo.'];
+
+/**
+ * Words the take button and its states may not use (Kevin, 2026-11-17, #89): the take stamps
+ * times, it records nothing. Elsewhere the words mean what they say: an audio note is recorded.
+ */
+const BANNED_FOR_TAKE: readonly [RegExp, string][] = [
+	[/\broll/i, 'the take button pair is Start / End'],
+	[/\brec(ord|ords|orded|ording)?\b/i, 'the take records nothing: Start / End'],
+	[/(?<!T-)\bstop(ped)?\b/i, 'the take button pair is Start / End']
+];
 
 /** Keys whose value breaks a rule and lives in a file another area owns, listed in the vocabulary PR. Remove a key when its file is fixed. */
 const PENDING = new Set<string>([]);
@@ -121,9 +129,19 @@ describe('every string', () => {
 		expect(found).toEqual([]);
 	});
 
-	it('never says Roll for the take button or its states', () => {
-		const found = Object.entries(messages).filter(([key, text]) => NO_ROLL_PREFIXES.some((p) => key.startsWith(p)) && /\broll/i.test(text));
+	it('never says Roll, Record or Stop for the take button or its states', () => {
+		const found: string[] = [];
+		for (const [key, text] of Object.entries(messages)) {
+			if (!TAKE_BUTTON_PREFIXES.some((p) => key.startsWith(p))) continue;
+			const shown = text.replace(/\{\w+\}/g, '');
+			for (const [pattern, why] of BANNED_FOR_TAKE) if (pattern.test(shown)) found.push(`${key}: "${text}" (${why})`);
+		}
 		expect(found).toEqual([]);
+	});
+
+	// An audio note is recorded (#89): the word is free outside the take button.
+	it('lets an audio note say Record', () => {
+		expect(tk('audio.add')).toBe('Record Audio Note');
 	});
 
 	it('names each sync state once', () => {

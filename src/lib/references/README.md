@@ -56,7 +56,7 @@ exports and in Flow PT. Every other kind stays on its slate. The rule is `lighti
   on the device (store README, decision 26). Schema version 4.
 - Flow PT: one row of the project custom entity "Set Reference" per reference, linked to its
   slate, with its client UUID (fpt README, decisions 26 and 27), and to the slates it shows on
-  in `sg_slates`, derived at each sync (decisions 57 and 58).
+  in `sg_slates`, derived at each sync (decisions 58 and 59).
 - Shown on the slate (`components/references/`), in Wrap (the day's count by kind, the day report),
   in the exports, and as an empty folder in the wrap package (docs/export.md). The folder names
   of the kinds and references are `kindFolderName`, `kindFolders` and `folderName` in

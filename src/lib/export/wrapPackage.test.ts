@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Reference, Slate, Take } from '$lib/model/types';
+import type { Reference, Slate, Still, Take } from '$lib/model/types';
 import { flatten, selectSlates } from './selection';
 import { slateManifest } from './slateManifest';
 import { day3, day4, input, kindLabel, project, s42A, sharedLighting, t42A1A } from './testData';
@@ -136,6 +136,58 @@ describe('wrapPlan', () => {
 		const p = wrapPlan(rows, { project, shootDays: [day3], blobs: blobs.filter((b) => b.recordId !== 'st3'), slates, references });
 		expect(p.missingPhotos).toEqual(['st3']);
 		expect(p.slates[2].takes[2].files).toEqual([]);
+	});
+
+	// #89: a take's audio notes, stills whose file is audio, sit beside its photos in the slate folder.
+	describe('audio notes', () => {
+		const note = (id: string, takeId: string, capturedAt: string): Still => ({ id, takeId, capturedAt });
+		const noteBlobs: PhotoBlob[] = [
+			{ id: 'ba1', recordId: 'an1', type: 'audio/mp4', size: 40, createdAt: 5 },
+			{ id: 'ba2', recordId: 'an2', type: 'audio/webm', size: 50, createdAt: 6 },
+			{ id: 'ba3', recordId: 'an3', type: 'audio/mp4', size: 60, createdAt: 7, prunedAt: 9 }
+		];
+		const withNotes = (options: { photos?: boolean; blobs?: PhotoBlob[] } = {}) => {
+			const all = { ...input(), audioNotes: [note('an2', t42A1A.id, '2026-11-10T22:18:00.000Z'), note('an1', t42A1A.id, '2026-11-10T22:15:00.000Z'), note('an3', 't42A2A', '2026-11-10T22:23:00.000Z')] };
+			const filters = { shootDayIds: ['d3'] };
+			return wrapPlan(flatten(all, filters), { project, shootDays: [day3], blobs: options.blobs ?? [...blobs, ...noteBlobs], photos: options.photos, slates: selectSlates(all, filters), references: all.references });
+		};
+
+		it('puts them after the photos of their take, numbered per slate and camera in the order made, as they were recorded', () => {
+			const files = withNotes().entries.filter((x) => x.kind === 'file');
+			expect(files.map(inside)).toEqual([
+				'42A/42A-A-reference-1.heic',
+				'42A/42A-A-reference-2.jpg',
+				'42A/42A-A-audio-note-1.m4a',
+				'42A/42A-A-audio-note-2.webm',
+				'42A/42A-A-reference-3.jpg',
+				'42A/42A-A-audio-note-3.m4a'
+			]);
+			expect(files[2]).toMatchObject({ media: 'audio', blobId: 'ba1', recordId: 'an1', takeId: t42A1A.id, mime: 'audio/mp4', size: 40, pruned: false });
+			expect(files[5]).toMatchObject({ media: 'audio', pruned: true });
+		});
+
+		// Kevin, 2026-11-17: the switch is for photos and videos. Audio notes always go.
+		it('go in with the photos and videos left out', () => {
+			const files = withNotes({ photos: false }).entries.filter((x) => x.kind === 'file');
+			expect(files.map(inside)).toEqual(['42A/42A-A-audio-note-1.m4a', '42A/42A-A-audio-note-2.webm', '42A/42A-A-audio-note-3.m4a']);
+		});
+
+		it('are named among the files missing when one has no file', () => {
+			expect(withNotes({ blobs: [...blobs, ...noteBlobs.slice(1)] }).missingPhotos).toEqual(['an1']);
+		});
+	});
+
+	// Kevin, 2026-11-17 (#89): a video is named as a reference, numbered with the photos, and is a
+	// video, never a photo, in the manifest and the counts.
+	it('marks a video as a video, numbered with the photos', () => {
+		const { rows, slates, references } = day3Input();
+		const withVideo = blobs.map((b) => (b.id === 'b1' ? { ...b, type: 'video/quicktime' } : b));
+		const files = wrapPlan(rows, { project, shootDays: [day3], blobs: withVideo, slates, references }).entries.filter((x) => x.kind === 'file');
+		expect(files.map((f) => [inside(f), f.kind === 'file' && f.media])).toEqual([
+			['42A/42A-A-reference-1.heic', 'photo'],
+			['42A/42A-A-reference-2.mov', 'video'],
+			['42A/42A-A-reference-3.jpg', 'photo']
+		]);
 	});
 
 	it('leaves out the photos on request, and keeps the reference folders', () => {

@@ -42,6 +42,13 @@ describe('toExportData', () => {
 		expect(toExportData(data, { now }).slates.map((s) => s.slateUID)).toEqual(['9', '10', '11', '42A', '50']);
 	});
 
+	// #89: an audio note is a still on the device; the file is lossless with it, in capture order.
+	it('lists audio notes with the photos of their take, in the order taken', () => {
+		const note = { id: 'an1', takeId: t42A1A.id, capturedAt: '2026-11-10T22:16:45.000Z' };
+		const data = toExportData({ ...input(), audioNotes: [note] }, { now });
+		expect(data.stills.map((s) => s.id)).toEqual(['st2', 'an1', 'st1', 'st3']);
+	});
+
 	it('leaves out takes the filters drop, and their photos', () => {
 		const data = toExportData(input(), { now, filters: { excludeNoGood: true } });
 		expect(data.takes.map((t) => t.id)).not.toContain('t42A2A');

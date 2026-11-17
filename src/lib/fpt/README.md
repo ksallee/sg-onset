@@ -17,7 +17,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `payload.ts` | yes | A record to the `data` of a create or update. A row back to our keys. |
 | `stills.ts` | yes | A still's remote id, file name and display name. |
 | `diagrams.ts` | yes | A slate's setup diagram image: its file name and display name. |
-| `versions.ts` | yes | A take's media that go up as a Version (a video; an audio note next): kind, file name, name, create, the file read back. |
+| `versions.ts` | yes | A take's media that go up as a Version (a video, an audio note): kind, file name, name, create, the file read back. |
 | `takeVersions.ts` | no | The Version of a take's media: found by client UUID, made, its file checked. |
 | `shots.ts` | yes | A slate's VFX shot codes: as typed, as Flow PT matches them, the Shot search, the in-place write. |
 | `referenceSlates.ts` | yes | A set reference's Slates field: what to set it to, if anything (#107). |
@@ -71,7 +71,7 @@ if (report.ready) {
 | `reference` | custom, "Set Reference" | display name |
 | `setShot` | custom, "Set Shot", in `sg_set_shots` on the slate | display name. Optional. One row per VFX shot code, made at sync, no table on the device |
 | `still` | Attachment, in `sg_photos` on the take | file name |
-| `still` with a video file | Version, `entity` the take, the file in `sg_uploaded_movie` | client UUID |
+| `still` with a video or audio file | Version, `entity` the take, the file in `sg_uploaded_movie` | client UUID |
 | `project` | Project | given: `projectId` |
 | (none) | Shot, in `sg_shots` on the Set Shot and on the slate | code, in the project. Read and linked, never written |
 | a slate's setup diagram (#87) | Attachment, in `sg_setup_diagram` on the slate | file name |
@@ -351,15 +351,15 @@ the rest, and the Notes wait.
 | the still id and the blob id | `filename` | `onset_<still>_<blob>.jpg`, lowercase, no space. Read-only after upload |
 | the take, found back | `attachment_links` | set by the upload |
 
-**still with a video file** (a Version, decision 32)
+**still with a video or audio file** (a Version, decisions 32 and 57)
 
 | key | field | note |
 |---|---|---|
 | the still id | `sg_onset_uuid` | unique, made by Set Up Fields |
 | `takeId` | `entity` | the take. Read back by the check, put back if missing |
-| `capturedAt` | `code` | `Video 2026-11-11T09:01:02Z`. Not unique: the client UUID is the key |
+| `capturedAt` | `code` | `Video 2026-11-11T09:01:02Z`, `Audio note 2026-11-11T09:01:02Z`. Not unique: the client UUID is the key |
 | `caption` | `description` | |
-| the file | `sg_uploaded_movie` | `onset_video_<still>_<blob>.mov`. One file; a new upload replaces it |
+| the file | `sg_uploaded_movie` | `onset_video_<still>_<blob>.mov`, `onset_audio_<still>_<blob>.m4a`. One file; a new upload replaces it |
 | | `project` | the linked project |
 
 A still's annotated copy (#86: the photo with its drawing flattened on it) is a second file of the
@@ -427,12 +427,12 @@ probes). The slate shows one. A blank diagram sends nothing; one sent before sta
    (never `HEAD`: it is 403), compare the size, make sure the take's `sg_photos` holds it. A row
    with no bytes is deleted. Only ids are returned.
 
-A video (`versionKind` of its type) goes the same way to another place (`takeVersions.ts`):
+A video or an audio note (`versionKind` of its type) goes the same way to another place (`takeVersions.ts`):
 
 1. `beginUpload` finds the still's Version by client UUID, or creates it (`project`, `entity` the
    take, `code`, the client UUID, `description`). A create refused as not unique was made by an
    earlier try whose answer was lost: it is found again. Then the ticket for
-   `versions/<id>/sg_uploaded_movie/_upload`, under `onset_video_<still>_<blob>.<ext>`.
+   `versions/<id>/sg_uploaded_movie/_upload`, under `onset_<kind>_<still>_<blob>.<ext>`.
 2. The parts and the renewals are a photo's.
 3. `finishUpload` sends `upload_data: {}`, as measured on a Version (findings/013, 022), and
    answers the Version's id.
@@ -489,7 +489,7 @@ has landed. The app runs it for every slate of the project Flow PT holds when a 
 An HDRI 360, a 360 video or an HDR reference shows on every slate of its slate's lighting setup,
 now or later; any other kind on its own slate (#107, lib/references README). In Flow PT the Set
 Reference links all of them in `sg_slates`, so each slate and its Shots reach it. `sg_slate` stays
-the slate it was logged on. The field is derived, as a slate's Shots are (decisions 57 and 58):
+the slate it was logged on. The field is derived, as a slate's Shots are (decisions 58 and 59):
 `referenceSlates.ts` holds the rule, `app/sync/referenceSlates.ts` the slates from the device,
 `transport.ts` the calls.
 
@@ -748,14 +748,20 @@ Made by Claude. Kevin can overrule any of them.
 56. **The Note fields are optional, and Set Up Fields makes them on every site,** whether a device
     turns Notes on Shots on or not: the setting is per device, and an admin cannot know. A site
     without them syncs the rest; the sync sheet says an admin runs Set Up Fields.
-57. **The slates a set reference shows on get a multi-entity field beside `sg_slate`** (#107). A
+57. **An audio note goes up as a Version linked to its take, as a video does** (Kevin, 2026-11-17,
+    #89). On the device it is a still whose file is audio. The file is the one the browser wrote,
+    M4A (AAC) from Safari, WebM (Opus) where the browser has no AAC; nothing converts it. Flow PT
+    makes an AAC mp4 of either, with no thumbnail (findings/152). The code says `Audio note`, so a
+    change of its time keeps the word. The kind comes from the type the device stored, never from
+    the Version's `content_type`: the server reads an Opus WebM as `video/webm` (findings/152).
+58. **The slates a set reference shows on get a multi-entity field beside `sg_slate`** (#107). A
     field's type cannot change once made (endpoints/put_schema_type_fields_field: a `PUT` of
     `data_type` answers 200 and changes nothing), so `sg_slate` stays an entity field, the slate it
     was logged on, and `sg_slates` links every slate it shows on. A link to the Lighting Setup was
     weighed: a slate and its Shots would reach the reference only through a second hop, and the
     issue asks that each slate reach it. A site set up before this lacks `sg_slates`: its cached
     resolution is read again, and it is not ready until an admin runs Set Up Fields once more.
-58. **`sg_slates` is derived, as a slate's Shots are** (Kevin, 2026-11-17; decisions 40 and 41). At
+59. **`sg_slates` is derived, as a slate's Shots are** (Kevin, 2026-11-17; decisions 40 and 41). At
     each sync it is set whole, in `set` mode, to the slates the reference shows on, and written only
     when it differs. A slate linked by hand in Flow PT is overwritten. Nothing is kept on the device.
     One `PUT` per reference: the mode works in a `_batch` update too (findings/154), but a batch is
@@ -820,10 +826,10 @@ Still open:
    target, and how it pluralises a display name outside the custom slots measured.
 5. Whether a part PUT's `Content-Type` sets the stored type of a multipart file.
 6. A real browser run of the whole upload (the measurements are a process reading headers).
-7. A Version whose `entity` is a custom entity row, as a Take is: does the create take it, does it
-   read back, does the web interface show the Version on the Take. A probe in sg-groundtruth is
-   measuring it (2026-11-17). Until it reports, the video path is built on the fake site, and the
-   check puts `entity` back if a read shows it missing.
+7. A Version whose `entity` is a custom entity row, as a Take is: the create takes it and reads it
+   back (findings/151, 201 on every slot tried). Whether the web interface plays a video or an
+   audio note on the Take is not measured: it needs a person (findings/151, 152). The check still
+   puts `entity` back if a read shows it missing.
 8. What Flow PT does with a Version's movie and transcode Attachments when the Version is deleted.
 9. The largest video a browser on an iPad sends: one PUT of 1000 MB was measured from a script
    (findings/140); a browser upload is not measured.

@@ -4,6 +4,7 @@
 // So the create of a still sends nothing, and what the upload will need rides in the still's
 // remote id. Pure.
 
+import { AUDIO_EXTENSIONS } from '$lib/media/audioFormat';
 import type { RemoteId } from '$lib/outbox/types';
 
 /** What the upload of a still needs: the take to attach to, and what to write on the Attachment. */
@@ -40,7 +41,9 @@ const EXTENSIONS: Record<string, string> = {
 	'image/tiff': 'tif',
 	'image/x-adobe-dng': 'dng',
 	'video/quicktime': 'mov',
-	'video/mp4': 'mp4'
+	'video/mp4': 'mp4',
+	// An audio note (#89): M4A, WebM, as the browser wrote it.
+	...AUDIO_EXTENSIONS
 };
 
 export function extensionOf(type: string): string {

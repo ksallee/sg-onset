@@ -1,6 +1,7 @@
 <script lang="ts">
 	// The day at a glance: six counts in a card, the cameras used, the references logged by kind,
-	// and when the day was last handed over. The numbers come from wrap/summary.ts.
+	// and when the day was last handed over. Videos and audio notes get a count of their own when
+	// the day has some (#89). The numbers come from wrap/summary.ts.
 	import { Camera } from '@lucide/svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
@@ -18,7 +19,9 @@
 		{ id: 'takes', label: t('wrap.summary.takes'), value: String(summary.takes) },
 		{ id: 'circled', label: t('wrap.summary.circled'), value: String(summary.circled) },
 		{ id: 'noGood', label: t('wrap.summary.noGood'), value: String(summary.noGood) },
-		{ id: 'photos', label: t('wrap.summary.photos'), value: String(summary.photos) },
+		{ id: 'photos', label: t('wrap.summary.photos'), value: String(summary.media.photo ?? 0) },
+		...(summary.media.video ? [{ id: 'videos', label: t('wrap.summary.videos'), value: String(summary.media.video) }] : []),
+		...(summary.media.audio ? [{ id: 'audio', label: t('wrap.summary.audio'), value: String(summary.media.audio) }] : []),
 		{ id: 'running', label: t('wrap.summary.running'), value: formatDuration(summary.runningMs) }
 	]);
 </script>

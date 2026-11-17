@@ -23,6 +23,7 @@
 	import type { ShootDay } from '$lib/model/types';
 	import { FILE_KINDS, type FileKind, type TextKind } from '$lib/wrap/choice';
 	import { plural } from '$lib/wrap/make';
+	import { COUNTED, countLine, totalOf, type MediaCounts } from '$lib/wrap/mediaCount';
 	import { previewTable, type Preview } from '$lib/wrap/preview';
 	import type { TodoItem } from '$lib/wrap/summary';
 	import { Wrap } from '$lib/wrap/wrap.svelte';
@@ -70,9 +71,11 @@
 		const plan = wrap.plan;
 		if (kind === 'photos') {
 			if (!plan) return [];
-			const pruned = plan.pruned.reduce((n, p) => n + p.count, 0);
+			// The photos and videos freed, each kind as itself. Audio notes are in the list below.
+			const pruned: MediaCounts = {};
+			for (const p of plan.pruned) for (const k of ['photo', 'video'] as const) if (p.counts[k]) pruned[k] = (pruned[k] ?? 0) + p.counts[k]!;
 			const out = [];
-			if (pruned) out.push({ text: tk(plural('wrap.note.photos.pruned', pruned), { n: pruned }) });
+			if (totalOf(pruned)) out.push({ text: tk(plural('wrap.note.photos.pruned', totalOf(pruned)), { what: countLine(pruned, ['photo', 'video']) }) });
 			if (plan.missing.length) out.push({ text: tk(plural('wrap.note.photos.missing', plan.missing.length), { n: plan.missing.length }) });
 			return out;
 		}
@@ -82,10 +85,7 @@
 	function detail(kind: FileKind): string | undefined {
 		const plan = wrap.plan;
 		if (!plan || !wrap.choice.files.includes(kind)) return undefined;
-		if (kind === 'photos') {
-			const n = plan.entries.filter((e) => e.kind === 'file' && e.media === 'photo').length;
-			return n ? tk(plural('wrap.note.photos.count', n), { n, size: formatBytes(plan.photoBytes) }) : tk(plural('wrap.note.photos.count', 0), { n: 0, size: formatBytes(0) });
-		}
+		if (kind === 'photos') return t('wrap.note.photos.count', { what: countLine(plan.media, ['photo', 'video']), size: formatBytes(plan.photoBytes) });
 		const entry = plan.entries.find((e) => e.kind === kind);
 		return entry ? formatBytes(entry.size) : undefined;
 	}
@@ -162,12 +162,13 @@
 						</Row>
 					</Section>
 				{/if}
-				{#if wrap.plan?.pruned.length && wrap.choice.files.includes('photos')}
+				<!-- Photos and videos are here only with their switch on; audio notes always go. -->
+				{#if wrap.plan?.pruned.length}
 					<Section header={t('wrap.pruned.header')} footer={t('wrap.pruned.footer')}>
 						{#each wrap.plan.pruned as p (p.takeId)}
 							<Row
 								title={p.cameraLetter ? t('wrap.todo.takeCam', { slate: p.slate, take: p.take, camera: p.cameraLetter }) : t('wrap.todo.take', { slate: p.slate, take: p.take })}
-								detail={tk(plural('wrap.pruned.row', p.count), { n: p.count })}
+								detail={countLine(p.counts, COUNTED)}
 							/>
 						{/each}
 					</Section>

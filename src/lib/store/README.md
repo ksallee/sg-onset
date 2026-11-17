@@ -14,7 +14,7 @@ interface. The implementation here is IndexedDB through Dexie. A Capacitor store
 | `dexieStore.ts` | no | `openStore`: the `Store` on Dexie. |
 | `archive.ts` | yes | The layout of a backup: paths, NDJSON, the manifest and its check. |
 | `crc32.ts` | yes | CRC-32, for the restore. |
-| `zipRead.ts` | no | A zip reader over a `Blob`: zip64, stored and deflated entries. |
+| `zipRead.ts` | no | A zip reader over a `Blob`: zip64, stored and deflated entries. Refuses a damaged archive. |
 | `backup.ts` | no | `exportBackup`, `saveBackup`, `backupToFile`, `importBackup`, the sinks. |
 | `snapshots/policy.ts` | yes | `snapshotDue`, `nextCheckAt`, `isRiskyEdit`: when a snapshot is due. |
 | `snapshots/retention.ts` | yes | `retain`, `budgetBytes`: which snapshots to keep. |
@@ -125,7 +125,8 @@ A zip. `tables/<table>.ndjson` for every table, `blobs/<id>` for every file as c
   it, memory otherwise. Hand the file to `shareOrDownload` from `$lib/pwa/files`, on a tap.
   `removeExport()` frees the copy afterwards.
 - `importBackup(store, file, { replace })` checks the whole archive first: manifest, counts, every
-  checksum. Only then is the store touched. A store with data is refused unless `replace`.
+  entry's header against the directory, every checksum, the manifest's too. One bent byte is
+  refused (#123). Only then is the store touched. A store with data is refused unless `replace`.
 - The backup holds the queue, the server ids and the trash. A restored iPad carries on syncing
   where the old one stopped.
 

@@ -204,6 +204,11 @@ describe('updateData', () => {
 		expect(ok(updateData(RESOLUTION, 'take', { takeType: edit(undefined, 'cleanPlate') }, {}, PROJECT))).toEqual({ sg_take_type: null });
 	});
 
+	it('sends the plates at the tail as their keys in one text; none clears it', () => {
+		expect(ok(updateData(RESOLUTION, 'take', { takeTail: edit(['cleanPlate', 'ballsAndChart']) }, {}, PROJECT))).toEqual({ sg_take_tail: 'cleanPlate, ballsAndChart' });
+		expect(ok(updateData(RESOLUTION, 'take', { takeTail: edit(undefined, ['cleanPlate']) }, {}, PROJECT))).toEqual({ sg_take_tail: null });
+	});
+
 	// corpus findings/field_types: null clears text, float, number, date_time and entity; a checkbox takes false.
 	it('clears a field with null, and a checkbox with false', () => {
 		expect(
@@ -286,6 +291,11 @@ describe('fromRow', () => {
 			take: '3',
 			lensId: 'l1'
 		});
+	});
+
+	it('reads the plates at the tail back from their text', () => {
+		const tailed = { ...row, attributes: { sg_take_tail: 'cleanPlate, ballsAndChart' } };
+		expect(fromRow(RESOLUTION, 'take', tailed, ['takeTail'])).toEqual({ takeTail: ['cleanPlate', 'ballsAndChart'] });
 	});
 
 	it('names a link to a record that is not ours, so it never passes for one of ours', () => {

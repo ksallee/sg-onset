@@ -6,7 +6,7 @@ import { TransportError } from '$lib/outbox/transport';
 import { ApiRefusal, createApi, type Api, type FptOptions } from './api';
 import { resolutionKey } from './cache';
 import { isFieldCreateRefusal, isPermissionRefusal } from './errors';
-import { ENTITY_SCOPES, type EntityScope, type FptDataType } from './mapping';
+import { ENTITY_SCOPES, isOptionalColumn, type EntityScope, type FptDataType } from './mapping';
 import { SHOT } from './shots';
 import {
 	createInput,
@@ -211,9 +211,10 @@ function reversesOf(plans: readonly FieldPlan[], fields: readonly FieldReport[])
 /** What stands between the site and a sync, in a line. */
 function missing(entities: EntityResolution[], plans: FieldPlan[]): string {
 	const names = [
-		...entities.filter((e) => e.status !== 'found').map((e) => `the ${e.displayName} entity`),
+		// An optional entity and its fields stop nothing (Kevin, #117).
+		...entities.filter((e) => e.status !== 'found' && !e.optional).map((e) => `the ${e.displayName} entity`),
 		...(plans.some((p) => p.scope === 'version') ? [] : [`the ${VERSION} entity`]),
-		...plans.filter((p) => p.status !== 'present').map((p) => `${p.entityType}.${p.name}`)
+		...plans.filter((p) => p.status !== 'present' && (p.scope === 'version' || !isOptionalColumn(p.scope, p.column))).map((p) => `${p.entityType}.${p.name}`)
 	];
 	const shown = names.slice(0, 5).join(', ');
 	return names.length > 5 ? `${shown} and ${names.length - 5} more` : shown;

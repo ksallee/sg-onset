@@ -95,7 +95,8 @@ export function validateValue(def: FieldDef, value: unknown): Issue[] {
 			return sides.some((n) => n < 0) ? [{ key: 'validation.min', params: { min: 0, ...(def.unit ? { unit: def.unit } : {}) } }] : [];
 		}
 		case 'stringList':
-			return Array.isArray(value) && value.every((v) => typeof v === 'string') ? [] : wrongType;
+			if (!Array.isArray(value) || !value.every((v) => typeof v === 'string')) return wrongType;
+			return !def.options || value.every((v) => def.options!.includes(v)) ? [] : [{ key: 'validation.option', params: { options: def.options.join(', ') } }];
 	}
 }
 

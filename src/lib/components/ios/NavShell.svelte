@@ -21,6 +21,7 @@
 	import { DURATIONS, EASINGS, springCss } from '$lib/theme/motion';
 	import { reducedMotion, setScreen } from './layer.svelte';
 	import { animateSpring, boxOf, flipFrom, settle } from './motion';
+	import { clientSize } from './size';
 
 	type Item = { id: string; href: string; label: string; icon: Component<{ class?: string; strokeWidth?: number }> };
 
@@ -173,7 +174,7 @@
 	style:--sidebar-w="{SIDEBAR_W}px"
 	style:--strip-w="{STRIP_W}px"
 	bind:this={el}
-	bind:clientWidth={width}
+	{@attach clientSize((w) => (width = w))}
 >
 	<nav class="nav" aria-label={label}>
 		<div class="panel">

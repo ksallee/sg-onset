@@ -10,6 +10,7 @@
 	import NavBar from '$lib/components/ios/NavBar.svelte';
 	import Page from '$lib/components/ios/Page.svelte';
 	import Segmented from '$lib/components/ios/Segmented.svelte';
+	import { clientSize } from '$lib/components/ios/size';
 	import { useApp } from '$lib/app/app.svelte';
 	import { useCurrent } from '$lib/app/current.svelte';
 	import { t } from '$lib/i18n/messages';
@@ -58,7 +59,7 @@
 	</div>
 	<p class="hint">{t('wrap.report.footer')}</p>
 	{#if wrap.ready && wrap.reportBodyHtml}
-		<div class="desk" bind:clientWidth={room}>
+		<div class="desk" {@attach clientSize((w) => (room = w))}>
 			<div class="paper {paper}" style:zoom={fit < 1 ? fit : undefined}>
 				<!-- Escaped in wrap/report.ts: every typed value. -->
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -->

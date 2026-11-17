@@ -31,6 +31,8 @@
 
 	function entityText(line: NonNullable<typeof view>['entities'][number]): string {
 		if (line.action === 'found') return t('sync.setup.entity.found');
+		// Kevin, #117: an optional entity the site lacks is a note; the rest syncs.
+		if (line.action === 'enable' && line.optional) return t('sync.setup.entity.optional', { name: line.displayName });
 		if (line.action === 'enable') return t('sync.setup.entity.enable', { name: line.displayName });
 		if (line.action === 'switchOn') return t('sync.setup.entity.switchOn', { name: line.displayName });
 		return t('sync.setup.entity.keepOne', { name: line.displayName, types: (line.candidates ?? []).join(', ') });
@@ -50,7 +52,7 @@
 	</Section>
 
 	{#if view}
-		<Section header={t('sync.setup.entities')} footer={view.entitiesToFix > 0 ? t('sync.setup.entities.footer') : undefined}>
+		<Section header={t('sync.setup.entities')} footer={view.entitiesToFix > 0 || view.notes > 0 ? t('sync.setup.entities.footer') : undefined}>
 			{#each view.entities as line (line.scope)}
 				<Row title={line.displayName} subtitle={line.entityType} detail={entityText(line)} />
 			{/each}

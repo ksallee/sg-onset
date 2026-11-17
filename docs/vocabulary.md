@@ -109,7 +109,7 @@ gives.
 | Setup | The setup letter or number within the scene. | `setup` | OMC SlateUID.hasSlateSetup; VES scope Setup | Setup |
 | Lighting setup | The lighting setup in use. | `lightingSetupId` | | Lighting Setup |
 | Description | What the shot is. | `description` | CRIF Shot Description | Description |
-| VFX shots | The VFX shot codes this slate feeds. | `vfxShots` | CRIF VFX Shot | VFX Shots; their Shots linked in Shots |
+| VFX shots | The VFX shot codes this slate feeds. | `vfxShots` | CRIF VFX Shot | VFX Shots; a Set Shot per code in Set Shots; their Shots in Shots |
 | Element type | Plate, clean plate, bluescreen, element. | `elementType` | CRIF Element Type | Element Type |
 | Interior or exterior | Interior or Exterior. | `interiorExterior` | CRIF Interior Exterior (Int, Ext) | Interior Exterior |
 | Script time | Day, Night, Dusk, Dawn, Magic hour. | `scriptTime` | CRIF Script Time | Script Time |
@@ -136,6 +136,7 @@ gives.
 |---|---|---|---|---|---|
 | Take | Take | The take as called: 1, 2, 3, PU. | `take` | CRIF Tk Take; OMC SlateUID.hasTake; ALE Take | Name (code) |
 | Type | Type | What the take is for: Main, Clean plate, Balls and chart, Shadow plate, Light pass, Atmosphere (smoke, fog), Element, Other. No value is Main. | `takeType` | ours | Take Type |
+| At the tail | Tail | What the camera caught after the action as it kept running: Clean plate, Balls and chart, either or both. Shown beside the type as "Clean plate tail". | `takeTail` | ours | Take Tail |
 | Start time | Start | When Start was pressed. | `startedAt` | CRIF Tk Start Time Of Take | Start Time |
 | End time | End | When End was pressed. | `endedAt` | | End Time |
 | Circled | Circled | The take is circled: a keeper. | `circleTake` | OMC circleTake; ALE Circled Take | Circled |
@@ -239,12 +240,18 @@ gives.
   **Clean plate** turns on the slate's Clean plate; **Balls and chart** turns on the lighting
   setup's Grey and chrome balls and Colour chart. The notice says a switch left on "stays on"
   ("still" is a banned word), with **Turn Off**.
+- **At the tail**: a plate shot as the camera keeps running after the action. The take keeps its
+  one Type; the tail holds **Clean plate**, **Balls and chart**, or both, and turns on the same
+  switches a take of that type does. Beside the type it reads "Clean plate tail".
 - **MOS** and **wild track** have no field yet. When they come: "MOS" (flag), "Wild track"
   (flag), both sentence case.
 - **Unit** is the shooting unit. **Shoot day** is one unit's day, named "Day {n}".
 - **Entry** for a stored thing. "Item" is vague; "record" means to shoot.
 - **Reference** is a set reference: one thing captured on another device, logged by name. A
   **Photo** is taken in the app and kept on the take. "Set Reference" is the Flow PT entity.
+- **Set Shot** is the Flow PT entity that holds one VFX shot code typed on set, and links
+  editorial's Shots once they exist. Links to Shots are fixed there, not on the slate. The app
+  makes it and never shows it; only the sync sheet and the setup check name it.
 - **Lidar scan** for the kind of reference, as for the slate's switch. Flow PT shows "LiDAR".
 - **Photo**, not still. On set, "stills" means the unit stills photographer.
 - **Audio note**, not voice memo or voice note. Its row says **Add Audio Note**, then **Save Audio

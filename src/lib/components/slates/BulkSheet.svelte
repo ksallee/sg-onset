@@ -1,6 +1,6 @@
 <script lang="ts">
-	// Bulk edit of the selected takes. Pick a field (the marks first), then set a value or clear
-	// it; the page says how many takes change and how many already hold it before anything is
+	// Bulk edit of the selected takes. Pick a field (the marks first; each plate at the tail is a
+	// yes or no of its own), then set a value or clear it; the page says how many takes change and how many already hold it before anything is
 	// applied. Or link the takes to a take template. Each apply is the model's patch through the
 	// editor: one undo. The sheet closes after; the selection stays for the next edit.
 	import { ChevronRight } from '@lucide/svelte';
@@ -18,7 +18,7 @@
 	import type { TemplateRecord } from '$lib/model/template';
 	import type { Take } from '$lib/model/types';
 	import { sameValue } from '$lib/model/value';
-	import { bulkFields, bulkPatch, bulkPreview, linkPreview, MARKS } from '$lib/slates/bulk';
+	import { bulkFields, bulkPatch, bulkPreview, bulkValue, linkPreview, MARKS } from '$lib/slates/bulk';
 	import type { FieldRef } from '$lib/slates/fields';
 	import { applyTakeEdit } from '$lib/take/typeEdit';
 	import FieldRow from './FieldRow.svelte';
@@ -41,7 +41,7 @@
 
 	/** What the chosen takes hold in a field: the value when they agree, "Mixed" when not. */
 	function holds(f: FieldRef): string {
-		const values = chosen.map((tk) => (tk as Record<string, unknown>)[f.key]);
+		const values = chosen.map((tk) => bulkValue(tk, f.key));
 		if (values.length === 0) return '';
 		if (values.every((v) => sameValue(v, values[0]))) return valueText(f, values[0], units, refs.names);
 		return t('slates.bulk.mixed');

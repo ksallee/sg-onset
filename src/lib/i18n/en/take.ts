@@ -128,6 +128,12 @@ export const take = {
 	'take.edit.cameraAdded': 'Cam {camera} added to take {take}',
 	'take.edit.cameraRemoved': 'Cam {camera} taken off take {take}',
 	'take.edit.type': 'Take {take} set to {type}',
+	'take.edit.tail.on': '{tail} added to the tail of take {take}',
+	'take.edit.tail.off': '{tail} taken off the tail of take {take}',
+	/** A plate at the tail of a take, beside its type: "Clean plate tail". */
+	'take.tail.word': '{tail} tail',
+	/** A row of the take sheet's At the tail, as a screen reader says it. */
+	'take.tail.row': '{tail} at the tail',
 
 	/** The take type turns switches of the slate and its lighting setup on, never off: the notice offers it. */
 	'take.type.done': '{what}. {then}',

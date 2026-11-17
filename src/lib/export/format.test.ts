@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { crifDate, crifTime, crifTimestamp, feetInches, metresText, signed, takeTypeName, trimNumber } from './format';
+import { crifDate, crifTime, crifTimestamp, feetInches, metresText, signed, takeTailNames, takeTypeName, trimNumber } from './format';
 
 describe('trimNumber', () => {
 	it('drops trailing zeros and float noise', () => {
@@ -80,5 +80,12 @@ describe('takeTypeName', () => {
 		expect(takeTypeName({})).toBe('Main');
 		expect(takeTypeName({ takeType: 'lightPass' })).toBe('Light Pass');
 		expect(takeTypeName({ takeType: 'atmosphere' })).toBe('Atmosphere');
+	});
+});
+
+describe('takeTailNames', () => {
+	it('names the plates at the tail of a take as the files write them, none for none', () => {
+		expect(takeTailNames({})).toEqual([]);
+		expect(takeTailNames({ takeTail: ['ballsAndChart', 'cleanPlate'] })).toEqual(['Clean Plate', 'Balls and Chart']);
 	});
 });

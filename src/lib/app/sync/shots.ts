@@ -1,12 +1,22 @@
-// The VFX shot codes of a project's slates that are not linked to a Flow PT Shot yet: kept on the
-// device per project, asked about again at later syncs, listed in the sync sheet. The transport
-// links them (lib/fpt/shots.ts, transport.ts); this keeps the list. Pure.
+// What is owed on the Flow PT Shots field of a project's slates: VFX shot codes not linked to a
+// Shot yet, codes several Shots share, and unlinks not made yet. Kept on the device per project,
+// made at later syncs, listed in the sync sheet. The transport writes (lib/fpt/shots.ts,
+// transport.ts); this keeps the list. Pure.
 
 import { codeKey, shotCodes } from '$lib/fpt/shots';
 import type { RemoteId } from '$lib/outbox/types';
 
-/** Codes not linked yet, by slate id. */
-export type Waiting = Record<string, string[]>;
+/**
+ * One slate's share:
+ * - `waiting`: codes to link. No Shot had them, or the write failed.
+ * - `several`: codes more than one Shot has. All are linked; listed so someone cleans up.
+ * - `unlink`: codes taken off whose Shots are still linked. Made at a later sync, until Flow PT
+ *   matches the slate (Kevin, #96).
+ */
+export type SlateOwed = { waiting: string[]; several: string[]; unlink: string[] };
+
+/** By slate id. */
+export type Owed = Record<string, SlateOwed>;
 
 type SlateLike = { id: string; slateUID?: string; vfxShots?: readonly string[] };
 
@@ -23,12 +33,14 @@ export function shotsKey(localProjectId: string): string {
 	return `shots:${localProjectId}`;
 }
 
-export function serializeWaiting(waiting: Waiting): string {
-	return JSON.stringify({ v: VERSION, slates: waiting });
+export function serializeOwed(owed: Owed): string {
+	return JSON.stringify({ v: VERSION, slates: owed });
 }
 
-/** What was kept. Anything unreadable is an empty list: the next push of a slate writes it again. */
-export function parseWaiting(raw: string | undefined): Waiting {
+const empty = (o: SlateOwed) => !o.waiting.length && !o.several.length && !o.unlink.length;
+
+/** What was kept. Anything unreadable is nothing owed: the next push of a slate writes it again. */
+export function parseOwed(raw: string | undefined): Owed {
 	if (!raw) return {};
 	let value: unknown;
 	try {
@@ -38,45 +50,61 @@ export function parseWaiting(raw: string | undefined): Waiting {
 	}
 	const kept = value as { v?: unknown; slates?: unknown } | null;
 	if (!kept || kept.v !== VERSION || !kept.slates || typeof kept.slates !== 'object') return {};
-	const out: Waiting = {};
-	for (const [slate, codes] of Object.entries(kept.slates as Record<string, unknown>)) {
-		const list = shotCodes(codes);
-		if (list.length) out[slate] = list;
+	const out: Owed = {};
+	for (const [slate, entry] of Object.entries(kept.slates as Record<string, unknown>)) {
+		if (!entry || typeof entry !== 'object') continue;
+		const e = entry as Record<string, unknown>;
+		const read: SlateOwed = { waiting: shotCodes(e.waiting), several: shotCodes(e.several), unlink: shotCodes(e.unlink) };
+		if (!empty(read)) out[slate] = read;
 	}
 	return out;
 }
 
 /** The list after the transport's word on some slates: the last word holds. */
-export function mergeWaiting(waiting: Waiting, results: readonly { slate: string; waiting: readonly string[] }[]): Waiting {
-	const out: Waiting = { ...waiting };
-	for (const r of results) {
-		if (r.waiting.length) out[r.slate] = [...r.waiting];
-		else delete out[r.slate];
+export function mergeOwed(owed: Owed, results: readonly ({ slate: string } & SlateOwed)[]): Owed {
+	const out: Owed = { ...owed };
+	for (const { slate, waiting, several, unlink } of results) {
+		const next = { waiting: [...waiting], several: [...several], unlink: [...unlink] };
+		if (empty(next)) delete out[slate];
+		else out[slate] = next;
 	}
 	return out;
 }
 
 /**
- * The list as the slates stand now: a slate deleted is gone, a code taken off since is gone, and a
- * code keeps the spelling typed now.
+ * The list as the slates stand now. A slate deleted is gone. A code to link or name that the slate
+ * no longer holds is gone, and the rest keep the spelling typed now. An unlink owed goes once the
+ * slate holds the code again.
  */
-export function pruneWaiting(waiting: Waiting, slates: readonly SlateLike[]): Waiting {
-	const out: Waiting = {};
+export function pruneOwed(owed: Owed, slates: readonly SlateLike[]): Owed {
+	const out: Owed = {};
 	for (const slate of slates) {
-		const codes = waiting[slate.id];
-		if (!codes) continue;
-		const wanted = new Set(codes.map(codeKey));
-		const held = shotCodes(slate.vfxShots).filter((code) => wanted.has(codeKey(code)));
-		if (held.length) out[slate.id] = held;
+		const entry = owed[slate.id];
+		if (!entry) continue;
+		const typed = shotCodes(slate.vfxShots);
+		const keys = new Set(typed.map(codeKey));
+		const held = (codes: string[]) => {
+			const wanted = new Set(codes.map(codeKey));
+			return typed.filter((code) => wanted.has(codeKey(code)));
+		};
+		const next = { waiting: held(entry.waiting), several: held(entry.several), unlink: entry.unlink.filter((code) => !keys.has(codeKey(code))) };
+		if (!empty(next)) out[slate.id] = next;
 	}
 	return out;
 }
 
-/** What to ask Flow PT again: the slates it holds, with the codes they still wait on. */
-export function retryItems(waiting: Waiting, slates: readonly SlateLike[], remoteIds: Record<string, RemoteId | undefined>): { slate: string; remoteId: number; codes: string[] }[] {
-	return Object.entries(pruneWaiting(waiting, slates)).flatMap(([slate, codes]) => {
+/**
+ * What to ask Flow PT again, for the slates it holds: link the codes that wait, unlink what is
+ * owed, and look again at the codes several Shots share.
+ */
+export function retryItems(
+	owed: Owed,
+	slates: readonly SlateLike[],
+	remoteIds: Record<string, RemoteId | undefined>
+): { slate: string; remoteId: number; link: string[]; unlink: string[]; check: string[] }[] {
+	return Object.entries(pruneOwed(owed, slates)).flatMap(([slate, o]) => {
 		const remoteId = remoteIds[slate];
-		return typeof remoteId === 'number' ? [{ slate, remoteId, codes }] : [];
+		return typeof remoteId === 'number' ? [{ slate, remoteId, link: o.waiting, unlink: o.unlink, check: o.several }] : [];
 	});
 }
 
@@ -85,15 +113,16 @@ export function retryDue(lastAt: number | undefined, now: number, asked = false)
 	return asked || lastAt === undefined || now - lastAt >= RETRY_MS;
 }
 
-export type WaitingRow = { slateId: string; slate: string; codes: string[] };
+/** A row of the sync sheet: one slate, its codes no Shot has, its codes several Shots have. */
+export type WaitingRow = { slateId: string; slate: string; none: string[]; several: string[] };
 
 const bySlate = (a: WaitingRow, b: WaitingRow) => a.slate.localeCompare(b.slate, undefined, { numeric: true, sensitivity: 'base' });
 
-/** The sync sheet's rows: each slate with codes that wait, in slate order. */
-export function waitingRows(waiting: Waiting, slates: readonly SlateLike[]): WaitingRow[] {
-	const pruned = pruneWaiting(waiting, slates);
+/** The sync sheet's rows, in slate order. An unlink owed needs no one, and is left out. */
+export function waitingRows(owed: Owed, slates: readonly SlateLike[]): WaitingRow[] {
+	const pruned = pruneOwed(owed, slates);
 	return slates
-		.filter((s) => pruned[s.id])
-		.map((s) => ({ slateId: s.id, slate: s.slateUID ?? '', codes: pruned[s.id] }))
+		.filter((s) => pruned[s.id] && (pruned[s.id].waiting.length || pruned[s.id].several.length))
+		.map((s) => ({ slateId: s.id, slate: s.slateUID ?? '', none: pruned[s.id].waiting, several: pruned[s.id].several }))
 		.sort(bySlate);
 }

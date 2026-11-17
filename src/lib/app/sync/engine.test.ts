@@ -331,8 +331,14 @@ describe('a drain through the app wiring', () => {
 // Shot has wait on the device, are listed in the sync sheet, and are asked about at later syncs.
 describe('the Shots of a slate', () => {
 	type Ref = { type: string; id: number };
-	const shotIds = (s: S) => ((s.fpt.byUuid('Slate', 's1')?.values.sg_shots as Ref[] | undefined) ?? []).map((r) => r.id).sort((a, b) => a - b);
+	// A retired Shot leaves the field, as Flow PT reads it (field_types/multi_entity.md).
+	const shotIds = (s: S) =>
+		((s.fpt.byUuid('Slate', 's1')?.values.sg_shots as Ref[] | undefined) ?? [])
+			.filter((r) => !s.fpt.rows.get(`Shot:${r.id}`)?.retired)
+			.map((r) => r.id)
+			.sort((a, b) => a - b);
 	const seedShot = (s: S, code: string, project = s.fptProject) => s.fpt.seed('Shot', { code, project: { type: 'Project', id: project } });
+	const owed = (waiting: string[] = [], several: string[] = [], unlink: string[] = []) => ({ waiting, several, unlink });
 
 	async function slateWithShots(s: S) {
 		await s.edit.create('project', { id: 'p1', name: 'Show' });
@@ -348,7 +354,7 @@ describe('the Shots of a slate', () => {
 		s.world.visible = true;
 		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
 		expect(shotIds(s)).toEqual([a]);
-		expect(s.engine.state.shots).toEqual({ s1: ['SMP_042_0020'] });
+		expect(s.engine.state.shots).toEqual({ s1: owed(['SMP_042_0020']) });
 
 		// A coordinator makes the other Shot. The next sync links it.
 		const b = seedShot(s, 'SMP_042_0020');
@@ -382,13 +388,55 @@ describe('the Shots of a slate', () => {
 		await linked(s);
 		s.world.visible = true;
 		await settle(s.engine, s.fpt);
-		expect(s.engine.state.shots).toEqual({ s1: ['SMP_042_0010', 'SMP_042_0020'] });
+		expect(s.engine.state.shots).toEqual({ s1: owed(['SMP_042_0010', 'SMP_042_0020']) });
 		const slate = (await s.store.get('slate', 's1'))!;
 		await s.edit.set('slate', slate, 'vfxShots', ['SMP_042_0020']);
 		await settle(s.engine, s.fpt);
-		expect(s.engine.state.shots).toEqual({ s1: ['SMP_042_0020'] });
+		expect(s.engine.state.shots).toEqual({ s1: owed(['SMP_042_0020']) });
 		await s.edit.removeTree('slate', 's1');
 		await settle(s.engine, s.fpt);
+		expect(s.engine.state.shots).toEqual({});
+	});
+
+	// Kevin, #96: a code several Shots have links them all and is listed, so someone cleans up.
+	it('links every Shot of a code several Shots have, and lists the code until they are cleaned up', async () => {
+		const s = setup();
+		const a = seedShot(s, 'SMP_042_0010');
+		const twin = seedShot(s, 'smp_042_0010');
+		const b = seedShot(s, 'SMP_042_0020');
+		await slateWithShots(s);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		expect(shotIds(s)).toEqual([a, twin, b]);
+		expect(s.engine.state.shots).toEqual({ s1: owed([], ['SMP_042_0010']) });
+		// Someone retires the twin in Flow PT. The next sync sees one Shot and drops the line.
+		s.fpt.rows.get(`Shot:${twin}`)!.retired = true;
+		await settle(s.engine, s.fpt);
+		expect(s.engine.state.shots).toEqual({});
+		expect(shotIds(s)).toEqual([a, b]);
+	});
+
+	// Kevin, #96: an unlink that fails is owed, and made at a later sync until Flow PT matches the slate.
+	it('makes an unlink that failed at a later sync', async () => {
+		const s = setup();
+		const a = seedShot(s, 'SMP_042_0010');
+		const b = seedShot(s, 'SMP_042_0020');
+		await slateWithShots(s);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		expect(shotIds(s)).toEqual([a, b]);
+		// The push's unlink fails, and so does the try at the end of that drain.
+		s.fpt.failNext((r) => r.method === 'PUT' && JSON.stringify(r.body).includes('"remove"'), { status: 503 }, 2);
+		const slate = (await s.store.get('slate', 's1'))!;
+		await s.edit.set('slate', slate, 'vfxShots', ['SMP_042_0020']);
+		await vi.waitFor(async () => expect(await s.store.outbox.entries()).toEqual([]));
+		await vi.waitFor(() => expect(s.fpt.count((r) => r.method === 'PUT' && JSON.stringify(r.body).includes('"remove"'))).toBe(2));
+		await vi.waitFor(() => expect(s.engine.state.shots).toEqual({ s1: owed([], [], ['SMP_042_0010']) }));
+		expect(shotIds(s)).toEqual([a, b]);
+		await settle(s.engine, s.fpt);
+		expect(shotIds(s)).toEqual([b]);
 		expect(s.engine.state.shots).toEqual({});
 	});
 
@@ -401,7 +449,7 @@ describe('the Shots of a slate', () => {
 		await s.engine.setProject('p2');
 		expect(s.engine.state.shots).toEqual({});
 		await s.engine.setProject('p1');
-		expect(s.engine.state.shots).toEqual({ s1: ['SMP_042_0010', 'SMP_042_0020'] });
+		expect(s.engine.state.shots).toEqual({ s1: owed(['SMP_042_0010', 'SMP_042_0020']) });
 	});
 
 	it('reads the linked project Shot codes for the field, and none without a link, a session or a network', async () => {

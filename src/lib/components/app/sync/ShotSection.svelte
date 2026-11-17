@@ -1,6 +1,7 @@
 <script lang="ts">
-	// The VFX shot codes of the project's slates that no Shot of the Flow PT project has yet, by
-	// slate. Each sync looks again (app/sync/shots.ts). A row opens its slate, to fix a code.
+	// The VFX shot codes of the project's slates to check, by slate: those no Shot of the Flow PT
+	// project has yet, and those several Shots have. Each sync looks again (app/sync/shots.ts). A
+	// row opens its slate, to fix a code.
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import { live } from '$lib/app/live.svelte';
@@ -29,7 +30,18 @@
 {#if rows.value.length}
 	<Section header={t('sync.shots.header')} footer={t('sync.shots.footer')}>
 		{#each rows.value as row (row.slateId)}
-			<Row title={t('slates.slate', { slate: row.slate })} subtitle={row.codes.join(', ')} href="/slates/{row.slateId}" onclick={onnavigate} chevron />
+			<Row
+				title={t('slates.slate', { slate: row.slate })}
+				subtitle={[
+					row.none.length ? t('sync.shots.none', { codes: row.none.join(', ') }) : '',
+					row.several.length ? t('sync.shots.several', { codes: row.several.join(', ') }) : ''
+				]
+					.filter(Boolean)
+					.join(' · ')}
+				href="/slates/{row.slateId}"
+				onclick={onnavigate}
+				chevron
+			/>
 		{/each}
 	</Section>
 {/if}

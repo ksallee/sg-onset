@@ -7,9 +7,9 @@
 // any stops holding, and when the page is hidden (`runInForeground`). Capture never waits on it:
 // the store and the editor never call here.
 //
-// The Shots of a slate are linked by the transport as the slate's codes sync. The codes no Shot
-// has yet wait on the device per project (shots.ts), and are asked about again when a drain ends:
-// at most once a minute, or at once on Sync Now.
+// The Shots of a slate are linked by the transport as the slate's codes sync. What is owed on the
+// field (codes no Shot has yet, codes several Shots share, unlinks not made) is kept on the device
+// per project (shots.ts), and made when a drain ends: at most once a minute, at once on Sync Now.
 
 import { checkSetup, createFptTransport, readShotCodes, type FptTransport, type KeyValue, type SetupReport, type ShotResult } from '$lib/fpt';
 import { createApi, type FptOptions } from '$lib/fpt/api';
@@ -24,7 +24,7 @@ import { linkOn, linkProblem, type ProjectLink } from './link';
 import { linkStore, type LinkStore } from './links';
 import { PROJECT_FILTER, projectChoices, type ProjectChoice } from './projects';
 import { projectScope, type ProjectScope } from './scope';
-import { CODES_MS, mergeWaiting, parseWaiting, pruneWaiting, retryDue, retryItems, serializeWaiting, shotsKey, type Waiting } from './shots';
+import { CODES_MS, mergeOwed, parseOwed, pruneOwed, retryDue, retryItems, serializeOwed, shotsKey, type Owed } from './shots';
 
 export interface SyncDeps {
 	store: Pick<DexieStore, 'get' | 'rows' | 'outbox' | 'remoteId' | 'subscribe'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
@@ -61,8 +61,8 @@ export interface SyncState {
 	online: boolean;
 	/** The current project's share of the queue. */
 	scoped?: Unsynced;
-	/** The current project's VFX shot codes not linked to a Shot yet, by slate id. */
-	shots?: Waiting;
+	/** What is owed on the Shots field of the current project's slates, by slate id. */
+	shots?: Owed;
 	error?: SyncError;
 }
 
@@ -155,13 +155,13 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 
 	// ------------------------------------------------------------------ the Shots of slates
 
-	/** One write of the waiting list at a time: each reads what the last one wrote. */
+	/** One write of the list at a time: each reads what the last one wrote. */
 	let shotWrites: Promise<void> = Promise.resolve();
 	function recordShots(projectId: string, results: readonly ShotResult[]): Promise<void> {
 		shotWrites = shotWrites
 			.then(async () => {
-				const next = mergeWaiting(parseWaiting(await deps.kv.get(shotsKey(projectId))), results);
-				if (Object.keys(next).length) await deps.kv.set(shotsKey(projectId), serializeWaiting(next));
+				const next = mergeOwed(parseOwed(await deps.kv.get(shotsKey(projectId))), results);
+				if (Object.keys(next).length) await deps.kv.set(shotsKey(projectId), serializeOwed(next));
 				else await deps.kv.delete(shotsKey(projectId));
 				if (state.projectId === projectId) set({ shots: next });
 			})
@@ -169,25 +169,26 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		return shotWrites;
 	}
 
-	/** When each project last asked about its waiting codes. */
+	/** When each project last made what it owed. */
 	const askedAt = new Map<string, number>();
 	let retrying: Promise<void> = Promise.resolve();
 
-	/** Links the codes that waited, for the slates Flow PT holds. Never throws. */
+	/** Makes what is owed, for the slates Flow PT holds. Never throws. */
 	function retryShots(projectId: string, transport: FptTransport, asked: boolean): Promise<void> {
 		retrying = retrying.then(async () => {
 			try {
-				const waiting = parseWaiting(await deps.kv.get(shotsKey(projectId)));
-				const ids = Object.keys(waiting);
+				const owed = parseOwed(await deps.kv.get(shotsKey(projectId)));
+				const ids = Object.keys(owed);
 				if (!ids.length || !retryDue(askedAt.get(projectId), deps.page.now(), asked)) return;
 				askedAt.set(projectId, deps.page.now());
 				const slates = (await Promise.all(ids.map((id) => deps.store.get('slate', id)))).filter((s) => s !== undefined) as { id: string; vfxShots?: string[] }[];
 				const remoteIds = Object.fromEntries(await Promise.all(slates.map(async (s) => [s.id, await deps.store.remoteId(s.id)] as const)));
-				const pruned = pruneWaiting(waiting, slates);
+				const pruned = pruneOwed(owed, slates);
 				const items = retryItems(pruned, slates, remoteIds);
-				const linked = items.length ? await transport.linkShots(items) : [];
-				// A slate gone, or a code taken off since, leaves the list; the transport has the last word on the rest.
-				await recordShots(projectId, [...ids.map((slate) => ({ slate, waiting: pruned[slate] ?? [] })), ...linked]);
+				const made = items.length ? await transport.linkShots(items) : [];
+				// A slate gone, or a code changed since, leaves the list; the transport has the last word on the rest.
+				const nothing = { waiting: [], several: [], unlink: [] };
+				await recordShots(projectId, [...ids.map((slate) => ({ slate, ...(pruned[slate] ?? nothing) })), ...made]);
 			} catch {
 				// The next drain asks again.
 			}
@@ -271,7 +272,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		const stored = projectId ? await links.get(projectId) : undefined;
 		const ready = await readReady(site);
 		const last = projectId ? Number(await deps.kv.get(lastKey(projectId))) : NaN;
-		const shots = projectId ? parseWaiting(await deps.kv.get(shotsKey(projectId))) : undefined;
+		const shots = projectId ? parseOwed(await deps.kv.get(shotsKey(projectId))) : undefined;
 		if (state.projectId !== projectId) return;
 		set({
 			link: linkOn(stored, site),

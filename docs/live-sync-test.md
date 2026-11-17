@@ -49,7 +49,7 @@ Use a test project on the site, never a show.
 10. Make two Shots in the test project in Flow PT, say `TST_010_0010` and `TST_010_0020`. On a
     slate, tap **VFX shots** and type `tst_010`: both codes show as chips under the field. Tap one:
     it is saved. Add a third code no Shot has, `TST_010_0099`. The sync sheet lists it under
-    **VFX shots not in Flow PT**, on that slate. Turn Wi-Fi off: the field shows no chips and
+    **VFX shots to check**, on that slate, as **No Shot**. Turn Wi-Fi off: the field shows no chips and
     takes any text.
 
 ## In Flow PT
@@ -81,6 +81,9 @@ Use a test project on the site, never a show.
   slate links it and the sync sheet no longer lists it. Take a code off the slate: its Shot is
   unlinked. Link the slate to another Shot from the Shot's page in Flow PT, then edit the slate's
   codes in the app: that link stays.
+- **Two Shots, one code.** Make a second Shot `TST_010_0010`. Type the code on a new slate: the
+  slate links both, and the sync sheet lists the code as **Several Shots**. Delete one of the two
+  in Flow PT, wait a minute, tap **Sync Now**: the line goes.
 - A photo: in Flow PT, open the file's link in a new tab. It shows as an image, not a download
   of `binary/octet-stream`. Two photos on one take: **Photos** holds both.
 

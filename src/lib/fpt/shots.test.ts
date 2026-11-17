@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { codeKey, codesOf, linkValue, shotChange, shotCodes, shotFilter, shotLink, shotsOf } from './shots';
+import { codeKey, codesOf, linkValue, shotChange, shotCodes, shotFilter, shotPlan, shotsOf } from './shots';
 
 const shots = [
 	{ id: 7, code: 'SMP_012_0010' },
@@ -65,30 +65,50 @@ describe('shotsOf and codesOf', () => {
 	});
 });
 
-describe('shotLink', () => {
-	it('links the Shot of each typed code, and says which codes have none', () => {
-		expect(shotLink([], ['SMP_012_0010', 'smp_042_0010', 'SMP_099_0010'], shots)).toEqual({ add: [7, 9], remove: [], waiting: ['SMP_099_0010'] });
+describe('shotPlan', () => {
+	const none = { link: [], unlink: [], check: [] };
+	const twice = [...shots, { id: 12, code: 'smp_012_0010' }];
+
+	it('links the Shot of each code, and says which codes have none', () => {
+		expect(shotPlan({ ...none, link: ['SMP_012_0010', 'smp_042_0010', 'SMP_099_0010'] }, shots)).toEqual({
+			add: [7, 9],
+			remove: [],
+			waiting: ['SMP_099_0010'],
+			several: [],
+			removing: []
+		});
 	});
 
-	it('unlinks only the Shots of the codes taken off', () => {
-		expect(shotLink(['SMP_012_0010', 'SMP_012_0020'], ['SMP_012_0010'], shots)).toEqual({ add: [7], remove: [8], waiting: [] });
+	it('unlinks the Shots of the codes taken off, and says which codes those are', () => {
+		expect(shotPlan({ ...none, link: ['SMP_012_0010'], unlink: ['SMP_012_0020', 'SMP_099_0010'] }, shots)).toEqual({
+			add: [7],
+			remove: [8],
+			waiting: [],
+			several: [],
+			removing: ['SMP_012_0020']
+		});
 	});
 
-	it('keeps a Shot linked when only the case of its code changed', () => {
-		expect(shotLink(['smp_012_0010'], ['SMP_012_0010'], shots)).toEqual({ add: [7], remove: [], waiting: [] });
+	it('never unlinks a code it links: only the case changed', () => {
+		expect(shotPlan({ ...none, link: ['SMP_012_0010'], unlink: ['smp_012_0010'] }, shots)).toEqual({ add: [7], remove: [], waiting: [], several: [], removing: [] });
 	});
 
-	it('unlinks everything when the codes are cleared', () => {
-		expect(shotLink(['SMP_012_0010', 'SMP_042_0010'], [], shots)).toEqual({ add: [], remove: [7, 9], waiting: [] });
+	// Shot codes are not unique (entity_types/Shot.md): every Shot with the code is linked, and the
+	// code is named so someone cleans up (Kevin, #96).
+	it('links every Shot that has the code, and names the code', () => {
+		expect(shotPlan({ ...none, link: ['SMP_012_0010', 'SMP_042_0010'] }, twice)).toEqual({ add: [7, 9, 12], remove: [], waiting: [], several: ['SMP_012_0010'], removing: [] });
 	});
 
-	// Shot codes are not unique (entity_types/Shot.md): every Shot with the code is linked.
-	it('links every Shot that has the code', () => {
-		expect(shotLink([], ['SMP_012_0010'], [...shots, { id: 12, code: 'smp_012_0010' }])).toEqual({ add: [7, 12], remove: [], waiting: [] });
+	it('checks a code again without linking it: a Shot a person unlinked stays unlinked', () => {
+		expect(shotPlan({ ...none, check: ['SMP_012_0010', 'SMP_042_0010'] }, twice)).toEqual({ add: [], remove: [], waiting: [], several: ['SMP_012_0010'], removing: [] });
+	});
+
+	it('waits on a checked code once no Shot has it', () => {
+		expect(shotPlan({ ...none, check: ['SMP_099_0010'] }, shots)).toEqual({ add: [], remove: [], waiting: ['SMP_099_0010'], several: [], removing: [] });
 	});
 
 	it('waits on every code when no Shot is known', () => {
-		expect(shotLink(['SMP_012_0020'], ['SMP_012_0010'], [])).toEqual({ add: [], remove: [], waiting: ['SMP_012_0010'] });
+		expect(shotPlan({ ...none, link: ['SMP_012_0010'], unlink: ['SMP_012_0020'] }, [])).toEqual({ add: [], remove: [], waiting: ['SMP_012_0010'], several: [], removing: [] });
 	});
 });
 
@@ -102,15 +122,15 @@ describe('linkValue', () => {
 
 describe('shotChange', () => {
 	it('reads the codes a new slate brings', () => {
-		expect(shotChange({ kind: 'create', table: 'slate', recordId: 's1', fields: { slateUID: '12A', vfxShots: ['SMP_012_0010'] } })).toEqual({ before: [], after: ['SMP_012_0010'] });
+		expect(shotChange({ kind: 'create', table: 'slate', recordId: 's1', fields: { slateUID: '12A', vfxShots: ['SMP_012_0010'] } })).toEqual({ link: ['SMP_012_0010'], unlink: [] });
 	});
-	it('reads the codes an edit takes off and puts on', () => {
+	it('reads the codes an edit takes off and the codes the slate holds', () => {
 		expect(
-			shotChange({ kind: 'update', table: 'slate', recordId: 's1', changes: { vfxShots: { base: ['SMP_012_0010'], value: ['SMP_012_0020'] } } })
-		).toEqual({ before: ['SMP_012_0010'], after: ['SMP_012_0020'] });
+			shotChange({ kind: 'update', table: 'slate', recordId: 's1', changes: { vfxShots: { base: ['SMP_012_0010', 'SMP_042_0010'], value: ['smp_042_0010', 'SMP_012_0020'] } } })
+		).toEqual({ link: ['smp_042_0010', 'SMP_012_0020'], unlink: ['SMP_012_0010'] });
 		expect(shotChange({ kind: 'update', table: 'slate', recordId: 's1', changes: { vfxShots: { base: ['SMP_012_0010'], value: undefined } } })).toEqual({
-			before: ['SMP_012_0010'],
-			after: []
+			link: [],
+			unlink: ['SMP_012_0010']
 		});
 	});
 	it('has nothing to do for a slate with no codes, another field, another table or a delete', () => {

@@ -320,24 +320,27 @@ links the slate to the Shots of the project that have those codes, in `sg_shots`
 its slates in the field Flow PT adds on Shot (findings/142). `shots.ts` holds the rules,
 `transport.ts` the calls.
 
-1. A push whose create or update of a slate carries `vfxShots` tells the app (`onShots`) that
-   every code of those slates waits. Then the batch goes as always, with no Shot in it.
+1. A push whose create or update of a slate carries `vfxShots` tells the app (`onShots`) what it
+   owes on each of those slates: every code to link, every code taken off to unlink. Then the
+   batch goes as always, with no Shot in it.
 2. Once the batch is applied: one `_search` of Shot, `project is <the project>` and
-   `code in [<every code before and after>]`, every page. Shot reads are not scoped by the
-   endpoint (entity_types/Shot.md).
+   `code in [<every code>]`, every page. Shot reads are not scoped by the endpoint
+   (entity_types/Shot.md).
 3. Per slate, a `PUT` with `{"multi_entity_update_mode": "remove", "value": [...]}` for the Shots
    of the codes the edit took off, then one with `add` for the Shots of every code it holds
    (recipes/009). `add` of a Shot already linked changes nothing (field_types/multi_entity.md).
-4. The app is told again which codes wait: no Shot has them, or the write got no answer.
-5. `linkShots` does step 2 and an `add` for slates the server holds. The app calls it for the
-   codes that wait when a drain ends (app/sync README).
+4. The app is told what is still owed (`ShotResult`): `waiting`, codes no Shot has or whose `add`
+   failed; `several`, codes more than one Shot has; `unlink`, codes whose `remove` failed.
+5. `linkShots` does steps 2 and 3 for slates the server holds, from what is owed: it links what
+   waits, unlinks what is owed, and looks again at the codes several Shots share without linking
+   them. The app calls it when a drain ends (app/sync README).
 
 - A code matches as Flow PT matches text: trimmed, whatever the case (field_types/text.md).
-- Shot codes are not unique: a code two Shots have links both.
+- Shot codes are not unique: a code several Shots have links them all, and is named so someone
+  cleans up (Kevin, #96).
 - A link someone made in Flow PT stays: only the Shots of codes taken off on the device are
   unlinked. A bare list, or the mode in the query string, would replace the field (recipes/009).
-- None of it can fail a push. A write that gets no answer leaves its codes waiting. An unlink
-  that gets no answer is not tried again: that Shot stays linked.
+- None of it can fail a push. A write that gets no answer is owed, and made at a later sync.
 - A Shot is never created, renamed or changed.
 
 ## Decisions
@@ -412,10 +415,13 @@ Made by Claude. Kevin can overrule any of them.
     batch would also let one dead Shot id refuse the whole batch ("Value is not legal",
     recipes/002). So the slate lands first, and its links follow.
 27. **A code with no Shot waits, and is asked about again.** The device keeps it (app/sync), and a
-    later sync links it once a Shot has it. A code whose Shot is there but unlinked is not
-    linked again: someone may have unlinked it in Flow PT on purpose.
-28. **A code two Shots have links both.** Shot codes are not unique (entity_types/Shot.md), and
-    nothing on the device tells the two apart.
+    later sync links it once a Shot has it (Kevin, #96). A code whose Shot is there but unlinked
+    is never linked again: someone unlinked it in Flow PT on purpose.
+28. **A code several Shots have links them all, and is listed** (Kevin, #96). Shot codes are not
+    unique (entity_types/Shot.md), and nothing on the device tells them apart. Later syncs look at
+    the code again, never linking: it leaves the list once one Shot or none has it.
+29. **An unlink that fails is owed, and made at a later sync,** until Flow PT matches the slate
+    (Kevin, #96). It is dropped once the slate holds the code again.
 
 ## Where FPT did not fit the contract
 

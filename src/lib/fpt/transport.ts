@@ -44,12 +44,17 @@ import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, type Resolution } from './schema';
 import { loadResolution } from './setup';
-import { codeKey, codesOf, linkValue, SHOT, shotChange, shotFilter, shotLink, shotsOf, type ShotRow } from './shots';
+import { codeKey, codesOf, linkValue, SHOT, shotChange, shotCodes, shotFilter, shotPlan, shotsOf, type ShotRow, type ShotWork } from './shots';
 import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, type StillRemote } from './stills';
 import { completionInfo, isMultipart, partLink, UPLOAD_SIZES, URL_LIFE_MS, type UploadSizes } from './uploadPlan';
 
-/** The codes of one slate that are not linked to a Shot yet: no Shot had them, or the write failed. */
-export type ShotResult = { slate: string; waiting: string[] };
+/**
+ * What is owed on one slate's Shots field:
+ * - `waiting`: codes not linked yet: no Shot had them, or the write failed.
+ * - `several`: codes more than one Shot has. All of them are linked; someone cleans up in Flow PT.
+ * - `unlink`: codes taken off whose Shots are still linked: the unlink failed, or its turn has not come.
+ */
+export type ShotResult = { slate: string; waiting: string[]; several: string[]; unlink: string[] };
 
 export type FptTransportOptions = FptOptions & {
 	/**
@@ -61,17 +66,17 @@ export type FptTransportOptions = FptOptions & {
 	/** The upload sizes. For tests: the storage floor is 5 MiB a part. */
 	upload?: Partial<UploadSizes>;
 	/**
-	 * Told, for each slate a push touches the codes of, which codes wait for a Shot: every code
-	 * before the batch goes, then the ones still unlinked once the links are written. A batch that
-	 * gets no answer leaves the first word standing, and the next sync links them (`linkShots`).
+	 * Told, for each slate a push touches the codes of, what is owed on its Shots field: before the
+	 * batch goes, every link and unlink; once they are written, what is left. A batch that gets no
+	 * answer leaves the first word standing, and a later sync makes them (`linkShots`).
 	 */
 	onShots?: (results: ShotResult[]) => unknown;
 };
 
 /** The transport, and the Shot links of slates the server already holds. */
 export interface FptTransport extends Transport {
-	/** Links each slate to the Shots of these codes, adding only. Never throws. */
-	linkShots(items: { slate: string; remoteId: number; codes: string[] }[], signal?: AbortSignal): Promise<ShotResult[]>;
+	/** Makes what is owed on these slates' Shots fields (`ShotWork`). Never throws. */
+	linkShots(items: ({ slate: string; remoteId: number } & ShotWork)[], signal?: AbortSignal): Promise<ShotResult[]>;
 }
 
 /**
@@ -198,7 +203,9 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 
 	// ------------------------------------------------------------------ shots
 
-	type ShotWork = { slate: string; remoteId?: RemoteId; before: string[]; after: string[] };
+	type SlateWork = { slate: string; remoteId?: RemoteId } & ShotWork;
+	/** Nothing made: everything still owed. */
+	const owedAll = (w: SlateWork): ShotResult => ({ slate: w.slate, waiting: shotCodes(w.link), several: shotCodes(w.check), unlink: shotCodes(w.unlink) });
 
 	/** Tells the app which codes wait. What it does with them is not the push's business. */
 	async function tell(results: ShotResult[]): Promise<void> {
@@ -216,27 +223,27 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	 * the Shots of the codes it holds, each a PUT with the mode in the body (corpus
 	 * recipes/009_multi_entity_safely.md: a bare list would replace the field, the query-string mode
 	 * replaces it too). A `_batch` is not used for these: the mode inside a batch update is not
-	 * measured. Never throws: a code whose link did not land waits, and the next sync links it.
-	 * A Shot is never created.
+	 * measured. Never throws: what did not land is owed, and a later sync makes it. A Shot is
+	 * never created.
 	 */
-	async function writeShots(work: readonly ShotWork[], signal?: AbortSignal): Promise<ShotResult[]> {
-		const codes = [...new Map(work.flatMap((w) => [...w.before, ...w.after]).map((c) => [codeKey(c), c])).values()];
-		if (!codes.length) return work.map((w) => ({ slate: w.slate, waiting: [] }));
+	async function writeShots(work: readonly SlateWork[], signal?: AbortSignal): Promise<ShotResult[]> {
+		const codes = [...new Map(work.flatMap((w) => [...w.link, ...w.unlink, ...w.check]).map((c) => [codeKey(c), c.trim()])).values()];
+		if (!codes.length) return work.map((w) => ({ slate: w.slate, waiting: [], several: [], unlink: [] }));
 		let res: Resolution;
 		let shots: ShotRow[];
 		try {
 			res = await resolved(signal);
 			shots = shotsOf(await api.searchAll(SHOT, shotFilter(projectId, codes), ['code'], signal));
 		} catch {
-			return work.map((w) => ({ slate: w.slate, waiting: w.after }));
+			return work.map(owedAll);
 		}
 		const field = fieldName(res, 'slate', SHOTS);
 		const out: ShotResult[] = [];
 		let reachable = true;
 		for (const w of work) {
-			const plan = shotLink(w.before, w.after, shots);
+			const plan = shotPlan(w, shots);
 			if (!reachable || typeof w.remoteId !== 'number') {
-				out.push({ slate: w.slate, waiting: w.after });
+				out.push(owedAll(w));
 				continue;
 			}
 			const write = async (mode: 'add' | 'remove', ids: number[]): Promise<boolean> => {
@@ -251,10 +258,9 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 					return false;
 				}
 			};
-			// A failed unlink leaves a Shot linked: nothing on the device remembers it (README, Shot links).
-			await write('remove', plan.remove);
+			const removed = await write('remove', plan.remove);
 			const added = await write('add', plan.add);
-			out.push({ slate: w.slate, waiting: added ? plan.waiting : w.after });
+			out.push({ slate: w.slate, waiting: added ? plan.waiting : shotCodes(w.link), several: plan.several, unlink: removed ? [] : plan.removing });
 		}
 		return out;
 	}
@@ -448,19 +454,19 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	// ------------------------------------------------------------------ the transport
 
 	const transport: FptTransport = {
-		linkShots: (items, signal) => writeShots(items.map((i) => ({ slate: i.slate, remoteId: i.remoteId, before: [], after: i.codes })), signal),
+		linkShots: (items, signal) => writeShots(items, signal),
 
 		async push(ops: PushOp[], signal?: AbortSignal): Promise<PushResult> {
 			const planned = await plan(ops, signal);
 			if (planned.refusals.length) return { outcome: 'refused', refusals: planned.refusals };
 			if (!planned.requests.length) return { outcome: 'applied', remoteIds: planned.remoteIds };
-			// The slates whose codes change. Until their links are written, every code waits: if the
-			// batch lands and its answer is lost, the next sync still links them.
+			// The slates whose codes change. Until their links are written, every link and unlink is
+			// owed: if the batch lands and its answer is lost, a later sync still makes them.
 			const shotWork = [...new Set(planned.owners)].flatMap((o) => {
 				const change = shotChange(o.op);
 				return change ? [{ owner: o, ...change }] : [];
 			});
-			await tell(shotWork.map((w) => ({ slate: w.owner.op.recordId, waiting: w.after })));
+			await tell(shotWork.map((w) => ({ slate: w.owner.op.recordId, waiting: w.link, several: [], unlink: w.unlink })));
 			let rows;
 			try {
 				rows = await api.batch(planned.requests, signal);
@@ -474,7 +480,13 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 				if (owner?.op.kind === 'create' && row.request_type === 'create') planned.remoteIds[owner.entryId] = row.data.id;
 			});
 			if (shotWork.length) {
-				const work = shotWork.map((w) => ({ slate: w.owner.op.recordId, remoteId: w.owner.op.kind === 'create' ? planned.remoteIds[w.owner.entryId] : w.owner.remoteId, before: w.before, after: w.after }));
+				const work = shotWork.map((w) => ({
+					slate: w.owner.op.recordId,
+					remoteId: w.owner.op.kind === 'create' ? planned.remoteIds[w.owner.entryId] : w.owner.remoteId,
+					link: w.link,
+					unlink: w.unlink,
+					check: []
+				}));
 				await tell(await writeShots(work, signal));
 			}
 			return { outcome: 'applied', remoteIds: planned.remoteIds };

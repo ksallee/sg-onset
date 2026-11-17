@@ -24,7 +24,7 @@ import { memorySink, opfsSink, removeExport } from '$lib/store/backup';
 import { packagePlan, type PackageEntry } from './assembly';
 import { defaultChoice, pickedDays, readiness, setSpan, toggleDay, toggleFile, type FileKind, type Span, type TextKind, type WrapChoice } from './choice';
 import { sizeVerdict } from './estimate';
-import { projectInput } from './input';
+import { projectInput, withMediaKinds } from './input';
 import { exportedLine, lastExport, LOG_KEY, noteExport, parseLog, type ExportLog } from './lastExport';
 import { makeTexts } from './make';
 import { defaultPaper, reportBody, reportDocument } from './report';
@@ -154,14 +154,16 @@ export class Wrap {
 					store.list('reference'),
 					store.list('referenceKind', projectId)
 				]);
-				const input = projectInput(projectId, { projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills, references });
-				if (!input) return undefined;
-				const files = (await Promise.all(input.stills.map((s) => store.blobsOf(s.id)))).flat();
-				const markups = (await Promise.all(input.stills.map((s) => store.list('markup', s.id)))).flat();
+				const all = projectInput(projectId, { projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills, references });
+				if (!all) return undefined;
+				const files = (await Promise.all(all.stills.map((s) => store.blobsOf(s.id)))).flat();
+				const markups = (await Promise.all(all.stills.map((s) => store.list('markup', s.id)))).flat();
 				// A photo's annotated copy goes only while it matches the drawing (#86).
+				const blobs = currentFiles(files, markups);
 				// A slate's setup diagram goes as an image when something is drawn on it (#87).
-				const diagrams = (await Promise.all(input.slates.map((s) => store.list('diagram', s.id)))).flat().filter((d) => !isBlank(d));
-				return { input, blobs: currentFiles(files, markups), kinds: kinds.map((k) => k.name), diagrams };
+				const diagrams = (await Promise.all(all.slates.map((s) => store.list('diagram', s.id)))).flat().filter((d) => !isBlank(d));
+				// A still's kind is its file's (#89): the exports read each as itself.
+				return { input: withMediaKinds(all, blobs), blobs, kinds: kinds.map((k) => k.name), diagrams };
 			},
 			undefined
 		);

@@ -111,6 +111,19 @@ describe('crifCsv', () => {
 		expect(a1['Tk Photos']).toBe('2');
 	});
 
+	// Kevin, 2026-11-17 (#89): photos only. CRIF has no column for a video or an audio note.
+	it('counts photos only in Tk Photos and Set Media, never a video or an audio note', () => {
+		const data = { ...input(), audioNotes: [{ id: 'an1', takeId: t42A1A.id, capturedAt: '2026-11-10T22:30:00.000Z' }] };
+		const records = crifRecords(flatten(data, { shootDayIds: ['d3'] }), { ...options, extras: true, videos: ['st1'] });
+		const a1 = records.find((r) => r.takeId === t42A1A.id)!.values;
+		expect(a1['Tk Photos']).toBe('1');
+		expect(a1['Set Media'].split(VT)).toContain('Photos');
+		const onlyVideos = crifRecords(flatten(data, { shootDayIds: ['d3'] }), { ...options, extras: true, videos: ['st1', 'st2', 'st3'] });
+		const v1 = onlyVideos.find((r) => r.takeId === t42A1A.id)!.values;
+		expect(v1['Tk Photos']).toBe('');
+		expect(v1['Set Media'].split(VT)).not.toContain('Photos');
+	});
+
 	it('lists the set references of the slate in our own column, one per vertical tab, in the order logged', () => {
 		const [a1, b1] = crifRecords(rows(), { ...options, extras: true, kindLabel });
 		const want = `Lidar scan: Scan 01${VT}HDRI 360: HDRI_0412 (Ricoh Theta Z1, A003, ×7, Noon sun)`;

@@ -9,8 +9,8 @@ import type { Media, SlateFolder } from './wrapPackage';
 
 export const MANIFEST_COLUMNS = ['What', 'Take', 'Camera', 'Clip', 'Roll', 'Timecode in', 'Timecode out', 'Kind', 'Name', 'Path', 'Device', 'Card or roll', 'Count', 'Notes'] as const;
 
-/** What a file's row says it is. A later kind of file (#94, #89, #86, #87) adds its word. */
-const WHAT: Record<Media, string> = { photo: 'Photo', annotated: 'Annotated photo', diagram: 'Setup diagram' };
+/** What a file's row says it is: each kind as itself (Kevin, 2026-11-17). A later kind adds its word. */
+const WHAT: Record<Media, string> = { photo: 'Photo', video: 'Video', annotated: 'Annotated photo', audio: 'Audio note', diagram: 'Setup diagram' };
 
 type Row = Partial<Record<(typeof MANIFEST_COLUMNS)[number], string>>;
 

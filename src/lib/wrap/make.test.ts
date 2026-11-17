@@ -3,6 +3,7 @@ import { CRIF_COLUMNS, exportCrif } from '$lib/export/crif';
 import type { PlainLabels } from '$lib/export/plainCsv';
 import { flatten } from '$lib/export/selection';
 import { input } from '$lib/export/testData';
+import { parseCsv } from '$lib/model/csv';
 import { defaultChoice } from './choice';
 import { makeTexts, plural } from './make';
 
@@ -33,6 +34,21 @@ describe('makeTexts', () => {
 	it('flattens the takes of the days picked', () => {
 		expect(made.rows).toHaveLength(7);
 		expect(new Set(made.rows.map((r) => r.shootDay.id))).toEqual(new Set(['d3']));
+	});
+
+	// Kevin, 2026-11-17 (#89): the camera report counts photos only; the input names the videos.
+	it('gives the camera report the videos, so Tk Photos counts photos only', () => {
+		const tkPhotos = (text: string) => {
+			const [header, ...rows] = parseCsv(text.replace(/^﻿/, ''), ',');
+			const at = header.indexOf('Tk Photos');
+			expect(at).toBeGreaterThan(0);
+			return rows.map((r) => r[at]);
+		};
+		const all = tkPhotos(makeTexts(input(), day3, ['d3'], ctx).texts.crif!);
+		const withVideo = tkPhotos(makeTexts({ ...input(), videos: ['st1'] }, day3, ['d3'], ctx).texts.crif!);
+		expect(all).toContain('2');
+		expect(withVideo).not.toContain('2');
+		expect(withVideo).toContain('1');
 	});
 
 	it('makes each table file picked', () => {

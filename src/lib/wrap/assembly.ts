@@ -8,6 +8,7 @@ import { wrapPlan, type Media, type PhotoBlob } from '$lib/export/wrapPackage';
 import type { FlatTake } from '$lib/export/selection';
 import type { TextKind, WrapChoice } from './choice';
 import { zipSize } from './estimate';
+import { addCount, type MediaCounts } from './mediaCount';
 
 export type PackageEntry =
 	| { kind: TextKind | 'report'; path: string; mime: string; size: number }
@@ -18,8 +19,8 @@ export type PackageEntry =
 	/** An empty folder: its path ends in a slash, its size is 0. */
 	| { kind: 'folder'; path: string; size: number };
 
-/** Files on one take that are in Flow PT only: their bytes were freed after it verified them. */
-export type PrunedTake = { takeId: string; slate: string; take: string; cameraLetter: string; count: number };
+/** Files on one take that are in Flow PT only: their bytes were freed after it verified them. Counted by kind. */
+export type PrunedTake = { takeId: string; slate: string; take: string; cameraLetter: string; counts: MediaCounts };
 
 export type PackagePlan = {
 	root: string;
@@ -29,8 +30,11 @@ export type PackagePlan = {
 	/** The entries that are files, not folders. */
 	files: number;
 	pruned: PrunedTake[];
-	/** Photos with no stored file at all, by id. */
+	/** Photos and videos with no stored file at all, by id. */
 	missing: string[];
+	/** The photos, videos and audio notes it holds, each counted as itself. */
+	media: MediaCounts;
+	/** What the photos, their annotated copies and the videos weigh. */
 	photoBytes: number;
 	/** The size of the zip. */
 	bytes: number;
@@ -83,6 +87,7 @@ export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sourc
 	const byTake = new Map(rows.map((r) => [r.take.id, r]));
 	const pruned = new Map<string, PrunedTake>();
 	let photoBytes = 0;
+	let media: MediaCounts = {};
 	for (const e of plan.entries) {
 		if (e.kind === 'folder') {
 			entries.push({ kind: 'folder', path: e.path, size: 0 });
@@ -96,13 +101,13 @@ export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sourc
 		if (e.pruned) {
 			const takeId = e.takeId ?? '';
 			const row = byTake.get(takeId);
-			const p = pruned.get(takeId) ?? { takeId, slate: row?.slate.slateUID ?? '', take: row?.take.take ?? '', cameraLetter: row?.cameraLetter ?? '', count: 0 };
-			// A photo's annotated copy goes with the photo: it is not one more.
-			if (e.media !== 'annotated') p.count += 1;
-			pruned.set(takeId, p);
+			const p = pruned.get(takeId) ?? { takeId, slate: row?.slate.slateUID ?? '', take: row?.take.take ?? '', cameraLetter: row?.cameraLetter ?? '', counts: {} };
+			// A photo's annotated copy goes with the photo: it is not one more (mediaCount.ts).
+			pruned.set(takeId, { ...p, counts: addCount(p.counts, e.media) });
 			continue;
 		}
-		if (e.media === 'photo' || e.media === 'annotated') photoBytes += e.size;
+		if (e.media === 'photo' || e.media === 'annotated' || e.media === 'video') photoBytes += e.size;
+		media = addCount(media, e.media);
 		entries.push({ kind: 'file', media: e.media, path: e.path, mime: e.mime, size: e.size, blobId: e.blobId, ...(e.diagramId ? { diagramId: e.diagramId } : {}) });
 	}
 	return {
@@ -112,6 +117,7 @@ export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sourc
 		files: entries.filter((e) => e.kind !== 'folder').length,
 		pruned: [...pruned.values()],
 		missing: plan.missingPhotos,
+		media,
 		photoBytes,
 		bytes: zipSize(entries)
 	};

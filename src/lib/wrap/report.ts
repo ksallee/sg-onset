@@ -16,6 +16,7 @@ import { takeTailOf } from '$lib/model/takeTail';
 import { takeTypeOf } from '$lib/model/takeType';
 import { kindLabel } from '$lib/references/kinds';
 import { referenceLine } from '$lib/references/log';
+import { countLine } from './mediaCount';
 import { typeWords } from '$lib/take/typeText';
 
 export type Paper = 'a4' | 'letter';
@@ -147,7 +148,8 @@ function dayBlock(report: DayReport, options: ReportOptions, next: boolean): str
 		[t('wrap.report.location'), h.location],
 		[t('wrap.report.wrangler'), h.wrangler]
 	];
-	const totals = t('wrap.report.totals', { ...report.totals });
+	const { media, ...counts } = report.totals;
+	const totals = t('wrap.report.totals', { ...counts, media: countLine(media) });
 	// A column no take of the day fills is left out: the table stays legible.
 	const rows = report.slates.flatMap((s) => s.takes);
 	const cols = columns(options.units).filter((c) => rows.some((r) => c.cell(r) !== ''));

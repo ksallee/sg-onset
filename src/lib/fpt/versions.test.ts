@@ -13,12 +13,21 @@ describe('versionKind', () => {
 		expect(versionKind('image/heic')).toBeUndefined();
 		expect(versionKind('')).toBeUndefined();
 	});
+
+	// Kevin, 2026-11-17 (#89): an audio note goes up as a Version too, kept as the browser recorded it.
+	it('sends an audio note as a Version, M4A from Safari and WebM from Chrome alike', () => {
+		expect(versionKind('audio/mp4')).toBe('audio');
+		expect(versionKind('audio/webm;codecs=opus')).toBe('audio');
+		expect(versionKind('audio/ogg')).toBe('audio');
+	});
 });
 
 describe('versionFilename', () => {
 	it('names the kind, the record and the file, with no space and no capital', () => {
 		expect(versionFilename(MEDIA)).toBe('onset_video_v1_b1.mov');
 		expect(versionFilename({ ...MEDIA, type: 'video/mp4' })).toBe('onset_video_v1_b1.mp4');
+		expect(versionFilename({ ...MEDIA, type: 'audio/mp4' })).toBe('onset_audio_v1_b1.m4a');
+		expect(versionFilename({ ...MEDIA, type: 'audio/webm' })).toBe('onset_audio_v1_b1.webm');
 	});
 
 	// A photo's lookup is `filename starts_with onset_<id>_`: the file of a Version, and the
@@ -38,6 +47,13 @@ describe('versionCode', () => {
 		expect(capturedAtOfCode('sh010_v001')).toBeUndefined();
 		expect(capturedAtOfCode(null)).toBeUndefined();
 	});
+
+	it('names an audio note as Flow PT shows it, and reads it back', () => {
+		const note = { ...MEDIA, type: 'audio/mp4' };
+		expect(versionCode(note)).toBe('Audio note 2026-11-13T20:05:22Z');
+		expect(capturedAtOfCode('Audio note 2026-11-13T20:05:22Z')).toBe('2026-11-13T20:05:22Z');
+		expect(versionCode({ ...note, capturedAt: undefined })).toBe('Audio note');
+	});
 });
 
 describe('retimedCode', () => {
@@ -45,6 +61,8 @@ describe('retimedCode', () => {
 		expect(retimedCode('Video 2026-11-13T20:05:22Z', '2026-11-13T21:00:00Z')).toBe('Video 2026-11-13T21:00:00Z');
 		expect(retimedCode('Video', undefined)).toBe('Video');
 		expect(retimedCode('New Version 812', '2026-11-13T21:00:00Z')).toBe('Video 2026-11-13T21:00:00Z');
+		expect(retimedCode('Audio note 2026-11-13T20:05:22Z', '2026-11-13T21:00:00Z')).toBe('Audio note 2026-11-13T21:00:00Z');
+		expect(retimedCode('Audio note', undefined)).toBe('Audio note');
 	});
 });
 

@@ -15,6 +15,7 @@ import type { FieldDef } from '$lib/model/catalogue';
 import { groupTail, tailPatch, type TakeTail } from '$lib/model/takeTail';
 import { groupType, typePatch, type TakeType } from '$lib/model/takeType';
 import type { FieldValue, Lens, Still, Take } from '$lib/model/types';
+import { audioType } from '$lib/media/audioFormat';
 import { readCaptureTime } from '$lib/media/readCaptureTime';
 import { sameValue } from '$lib/model/value';
 import { sortTemplates } from '$lib/templates/list';
@@ -22,7 +23,8 @@ import { canStepEntry, commitEntry, pressEntry, startEntry, stepEntry, type Entr
 import { entrySpec, isLocked, numberFields, shownValue, slotKey, visibleFields, type EntrySpec } from './fields';
 import { activeSetupIds, cameraColumns, groupTakes, NO_SETUP, type TakeGroup } from './groups';
 import { groupMark, groupNote, markPatch, newStill, notePatch, photoTake, type Mark } from './marks';
-import { addedLabel, failedLabel, mediaKind, pickedAt, pickedType, type MediaKind } from './library';
+import { addedLabel, failedLabel, mediaKind, pickedAt, pickedType, removedLabel, type MediaKind } from './library';
+import { audioNoteFileName } from './audioNote';
 import { sizeNotice } from './videoSize';
 import { groupPhase, groupTimes, runningGroup } from './phase';
 import { nextSecondIn } from './record';
@@ -49,7 +51,7 @@ export class Shoot {
 	readonly lenses;
 	/** The stills of every take of the slate. */
 	readonly stills;
-	/** The type of each still's stored file, by still id: a photo or a video. */
+	/** The type of each still's stored file, by still id: a photo, a video or an audio note. */
 	readonly stillTypes;
 	/** The project's templates. */
 	readonly templates;
@@ -64,7 +66,7 @@ export class Shoot {
 	entry = $state.raw<FieldEntry>(startEntry(''));
 	/** What is wrong with what was typed. */
 	issue = $state<string | null>(null);
-	/** About photos and videos just added: some did not save, or a video is large. */
+	/** About photos, videos and audio notes just added: some did not save, or a video is large. */
 	photoIssue = $state<string | null>(null);
 	/** The clock, moved each whole second of the running take. */
 	now = $state(Date.now());
@@ -94,12 +96,17 @@ export class Shoot {
 		return onTake ?? ids[0] ?? NO_SETUP;
 	});
 	readonly fields = $derived(visibleFields(this.showAll));
-	readonly groupStills = $derived.by(() => {
+	/** Every still of the take on screen, stored or being written, oldest first. */
+	readonly #groupAll = $derived.by(() => {
 		const ids = new Set(this.group?.takes.map((t) => t.id) ?? []);
 		const stored = this.stills.value;
 		const writing = this.unsaved.filter((u) => !stored.some((s) => s.id === u.id));
 		return [...stored, ...writing].filter((s) => ids.has(s.takeId)).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
 	});
+	/** The photos and videos of the take on screen. Its audio notes are stills too: `groupAudio`. */
+	readonly groupStills = $derived(this.#groupAll.filter((s) => this.kindOf(s) !== 'audio'));
+	/** The audio notes of the take on screen, oldest first (#89). */
+	readonly groupAudio = $derived(this.#groupAll.filter((s) => this.kindOf(s) === 'audio'));
 	readonly circled = $derived(this.group ? groupMark(this.group, 'circleTake') : false);
 	readonly noGood = $derived(this.group ? groupMark(this.group, 'noGood') : false);
 	readonly note = $derived(this.group ? groupNote(this.group) : '');
@@ -248,7 +255,7 @@ export class Shoot {
 		});
 	}
 
-	/** A photo or a video, by its file's type. */
+	/** A photo, a video or an audio note, by its file's type. */
 	kindOf(still: Still): MediaKind {
 		return mediaKind(this.pendingTypes[still.id] ?? this.stillTypes.value[still.id] ?? '');
 	}
@@ -256,6 +263,15 @@ export class Shoot {
 	/** A photo from the camera, taken now. */
 	addPhoto(file: File) {
 		this.#addFiles([{ file, at: this.#app.now() }]);
+	}
+
+	/**
+	 * An audio note from the microphone (#89), begun at `at`. It lands as a photo does, the file
+	 * as the browser wrote it.
+	 */
+	addAudioNote(file: Blob, at: number) {
+		const type = audioType(file.type);
+		this.#addFiles([{ file: new File([file], audioNoteFileName(type, at), { type }), at }]);
 	}
 
 	/**
@@ -327,7 +343,7 @@ export class Shoot {
 			});
 	}
 
-	/** A notice about photos and videos just added, for six seconds. A newer one is not cut short. */
+	/** A notice about photos, videos and audio notes just added, for six seconds. A newer one is not cut short. */
 	#notice(text: string) {
 		this.photoIssue = text;
 		setTimeout(() => {
@@ -337,8 +353,7 @@ export class Shoot {
 
 	removeStill(still: Still) {
 		const take = this.takes.value.find((t) => t.id === still.takeId);
-		const key = this.kindOf(still) === 'video' ? 'take.edit.videoRemoved' : 'take.edit.photoRemoved';
-		void this.#app.edit.removeTree('still', still.id, this.#label(key, { take: take?.take ?? '' }));
+		void this.#app.edit.removeTree('still', still.id, removedLabel(this.kindOf(still), take?.take ?? ''));
 	}
 
 	toggleMark(mark: Mark) {

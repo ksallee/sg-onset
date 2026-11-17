@@ -1,6 +1,7 @@
 // The size notice for videos added to a take (Kevin, 2026-11-17, #94): a video over 100 MB takes
 // room on the device and a long time to sync, so the notice says its size. It blocks nothing, and
-// videos are always taken. Pure.
+// videos are always taken. An audio note (#89) gets none: at 128 kbps, high for speech, an hour is
+// about 58 MB, and a file over 32 MiB goes up in parts. Pure.
 
 import { formatBytes } from '$lib/app/format';
 import { mediaKind, type KindLabel } from './library';

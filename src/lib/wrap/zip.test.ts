@@ -14,7 +14,7 @@ function plan(): PackagePlan {
 		{ kind: 'file', media: 'photo', path: 'P_d/1/1-A-reference-2.jpg', mime: 'image/jpeg', size: photo.length, blobId: 'b2' },
 		{ kind: 'folder', path: 'P_d/1/hdri-360/HDRI_0412/', size: 0 }
 	];
-	return { root: 'P_d', fileName: 'P_d.zip', entries, files: 4, pruned: [], missing: [], photoBytes: photo.length * 2, bytes: zipSize(entries) };
+	return { root: 'P_d', fileName: 'P_d.zip', entries, files: 4, pruned: [], missing: [], media: { photo: 2 }, photoBytes: photo.length * 2, bytes: zipSize(entries) };
 }
 const read = async (e: PackageEntry) => (e.kind === 'file' ? new Blob([photo], { type: 'image/jpeg' }) : 'a,b\r\n1,2\r\n');
 const now = new Date(2026, 10, 11, 20, 0);

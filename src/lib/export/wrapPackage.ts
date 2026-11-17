@@ -10,7 +10,7 @@
 
 import type { Project, Reference, ShootDay, Slate } from '$lib/model/types';
 import type { BlobMeta } from '$lib/store/types';
-import { diagramFileName, exportFileName, extensionFor, folderName, kindFolders, manifestFileName, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
+import { audioFileName, diagramFileName, exportFileName, extensionFor, folderName, kindFolders, manifestFileName, packageName, photoFileName, slateFolderName, uniqueName } from './naming';
 import { referencesBySlate, type FlatTake } from './selection';
 import { slateManifest } from './slateManifest';
 
@@ -18,10 +18,11 @@ import { slateManifest } from './slateManifest';
 export type PhotoBlob = Pick<BlobMeta, 'id' | 'recordId' | 'type' | 'size' | 'createdAt' | 'name' | 'prunedAt' | 'variant'>;
 
 /**
- * What a file in a slate's folder is: a photo, a photo's annotated copy, its drawing flattened on
- * it (#86), or the slate's setup diagram (#87). Audio notes (#89) of a take add theirs.
+ * What a file in a slate's folder is: a photo, a video (#94), a photo's annotated copy, its
+ * drawing flattened on it (#86), an audio note (#89), or the slate's setup diagram (#87). Each is
+ * named as itself in the manifest and counted as itself (Kevin, 2026-11-17).
  */
-export type Media = 'photo' | 'annotated' | 'diagram';
+export type Media = 'photo' | 'video' | 'annotated' | 'audio' | 'diagram';
 
 /** About what a setup diagram's PNG weighs, until it is drawn as the package is written. */
 export const DIAGRAM_BYTES = 120_000;
@@ -37,7 +38,7 @@ export type SlateFile = {
 	blobId: string;
 	/** A setup diagram, drawn from its data as the package is written (#87). */
 	diagramId?: string;
-	/** The record it is the file of: a still. */
+	/** The record it is the file of: a still, a photo's or an audio note's; a slate for its diagram. */
 	recordId: string;
 	/** The bytes left the device after Flow PT verified them: fetch them or skip the file. */
 	pruned: boolean;
@@ -81,7 +82,7 @@ export type WrapPlan = {
 	entries: WrapEntry[];
 	/** The slate folders, in order. */
 	slates: SlateFolder[];
-	/** Photos with no stored file at all. */
+	/** Stills with no stored file at all: photos or videos, as an audio note is known by its file. */
 	missingPhotos: string[];
 };
 
@@ -91,7 +92,7 @@ export type WrapOptions = {
 	shootDays: readonly ShootDay[];
 	/** The files of the photos, as `store.blobsOf(still.id)` returns them. */
 	blobs: readonly PhotoBlob[];
-	/** Include the photos. Default true. */
+	/** Include the photos and videos. Default true. Audio notes always go (Kevin, 2026-11-17). */
 	photos?: boolean;
 	/**
 	 * The slates of the days picked, as `selectSlates` gives them, so a slate with set references
@@ -110,6 +111,7 @@ export type WrapOptions = {
 
 /** What `takeFiles` and `slateFiles` read. One per package: the photo numbers run across it. */
 export type FileContext = {
+	/** The photos and videos go in. Audio notes always do. */
 	photos: boolean;
 	/** The first stored file of each record: later ones are derived, such as a thumbnail. */
 	firstBlob: Map<string, PhotoBlob>;
@@ -117,7 +119,7 @@ export type FileContext = {
 	annotated: Map<string, PhotoBlob>;
 	/** The setup diagram of each slate that has one, by slate id (#87). */
 	diagrams: Map<string, string>;
-	/** The next photo number per slate and camera. */
+	/** The next number per slate and camera, of photos and of audio notes. */
 	counters: Map<string, number>;
 	/** Records with no stored file. */
 	missing: string[];
@@ -145,24 +147,30 @@ export function annotatedBlobs(blobs: readonly PhotoBlob[]): Map<string, PhotoBl
 /**
  * A take's files, as they sit in its slate's folder: its photos, named as CRIF names them and
  * numbered per slate and camera in take order, then the order taken. A photo's annotated copy
- * follows it, under its name with "-annotated" (#86). A later kind of file of a take (an audio
- * note) is added here.
+ * follows it, under its name with "-annotated" (#86). A video is named and numbered as a photo,
+ * and is a video (#94). Then its audio notes (#89), in the photos' form, `-audio-note-N`, numbered
+ * the same way on their own. The Photos and videos switch leaves out the photos and videos; the
+ * audio notes always go (Kevin, 2026-11-17).
  */
 export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
 	const files: SlateFile[] = [];
-	if (!ctx.photos) return files;
 	const slate = row.slate.slateUID ?? '';
-	for (const still of row.stills) {
+	/** The next number of a kind of file, per slate and camera. */
+	const next = (name: typeof photoFileName | typeof audioFileName) => {
+		const key = `${row.slate.id}:${name(slate, row.cameraLetter, 0, '').toLowerCase()}`;
+		const n = (ctx.counters.get(key) ?? 0) + 1;
+		ctx.counters.set(key, n);
+		return n;
+	};
+	for (const still of ctx.photos ? row.stills : []) {
 		const blob = ctx.firstBlob.get(still.id);
 		if (!blob) {
 			ctx.missing.push(still.id);
 			continue;
 		}
-		const key = `${row.slate.id}:${photoFileName(slate, row.cameraLetter, 0, '').toLowerCase()}`;
-		const n = (ctx.counters.get(key) ?? 0) + 1;
-		ctx.counters.set(key, n);
+		const n = next(photoFileName);
 		files.push({
-			media: 'photo',
+			media: blob.type.trim().toLowerCase().startsWith('video/') ? 'video' : 'photo',
 			name: photoFileName(slate, row.cameraLetter, n, extensionFor(blob.type, blob.name)),
 			mime: blob.type,
 			size: blob.size,
@@ -184,6 +192,23 @@ export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
 				...(still.caption ? { caption: still.caption } : {})
 			});
 		}
+	}
+	for (const note of row.audioNotes) {
+		const blob = ctx.firstBlob.get(note.id);
+		if (!blob) {
+			ctx.missing.push(note.id);
+			continue;
+		}
+		files.push({
+			media: 'audio',
+			name: audioFileName(slate, row.cameraLetter, next(audioFileName), extensionFor(blob.type, blob.name)),
+			mime: blob.type,
+			size: blob.size,
+			blobId: blob.id,
+			recordId: note.id,
+			pruned: blob.prunedAt !== undefined,
+			...(note.caption ? { caption: note.caption } : {})
+		});
 	}
 	return files;
 }

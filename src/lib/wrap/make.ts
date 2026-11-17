@@ -41,7 +41,7 @@ export function makeTexts(input: ExportInput, choice: WrapChoice, dayIds: readon
 	let ale: AleResult | undefined;
 	for (const kind of wantsText(choice)) {
 		if (kind === 'crif') {
-			const crif = exportCrif(rows, { timeZone: ctx.timeZone, now: ctx.now, lengths: choice.lengths, kindLabel: ctx.labels.kind });
+			const crif = exportCrif(rows, { timeZone: ctx.timeZone, now: ctx.now, lengths: choice.lengths, kindLabel: ctx.labels.kind, videos: input.videos });
 			texts.crif = crif.text;
 			notes.crif.push({ key: 'wrap.note.crif.never', params: { columns: CRIF_NEVER_FILLED.join(', ') } });
 			const lacking = crif.missing.filter((m) => m.columns.length > 0);

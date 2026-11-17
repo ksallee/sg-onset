@@ -34,6 +34,15 @@ describe('reportBody', () => {
 		expect(html).toContain('Ana Ruiz');
 	});
 
+	// Kevin, 2026-11-17 (#89): each kind counted as itself.
+	it('totals the day, photos, videos and audio notes each as itself', () => {
+		expect(html).toContain('3 slates · 7 takes · 2 circled · 1 no good · 3 photos');
+		const data = { ...input(), videos: ['st1'], audioNotes: [{ id: 'an1', takeId: t42A1A.id, capturedAt: '2026-11-10T22:30:00.000Z' }] };
+		expect(reportBody([dayReport(data, 'd3')!], opts)).toContain('3 slates · 7 takes · 2 circled · 1 no good · 2 photos, 1 video, 1 audio note');
+		const none = dayReport({ ...input(), stills: [] }, 'd3')!;
+		expect(reportBody([none], opts)).toContain('1 no good · 0 photos');
+	});
+
 	it('has a block per slate in order', () => {
 		const at = (s: string) => html.indexOf(`data-slate="${s}"`);
 		expect(at('9')).toBeGreaterThan(0);

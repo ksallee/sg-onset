@@ -123,7 +123,7 @@ test.describe('wrap', () => {
 	test('hands the package to the share sheet where there is one', async ({ page }) => {
 		await fakeShare(page);
 		await openApp(page, '/wrap');
-		await page.getByRole('switch', { name: 'Photos' }).uncheck();
+		await page.getByRole('switch', { name: 'Photos and videos' }).uncheck();
 		await page.getByRole('button', { name: 'Make Wrap Package' }).tap();
 		await page.getByRole('button', { name: 'Share Wrap Package' }).tap();
 		await expect(page.getByRole('status').filter({ hasText: 'Handed over.' })).toBeVisible();

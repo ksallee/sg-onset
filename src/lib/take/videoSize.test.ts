@@ -18,6 +18,14 @@ describe('isLargeVideo', () => {
 		expect(isLargeVideo('image/x-adobe-dng', 300_000_000)).toBe(false);
 		expect(isLargeVideo('image/heic', 150_000_000)).toBe(false);
 	});
+
+	// #89: at 128 kbps, high for speech, an hour is about 58 MB. An audio
+	// note gets no notice.
+	it('is never an audio note, however long', () => {
+		expect(isLargeVideo('audio/mp4', 230_000_000)).toBe(false);
+		expect(isLargeVideo('audio/webm', 120_000_000)).toBe(false);
+		expect(sizeNotice([{ type: 'audio/mp4', size: 230_000_000 }])).toBeUndefined();
+	});
 });
 
 describe('sizeNotice', () => {

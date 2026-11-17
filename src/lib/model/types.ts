@@ -59,6 +59,13 @@ export type Reference = Rec & { slateId: string } & FieldsOf<'reference'>;
 /** A kind of set reference a project added to the built-in ones. Kept on the device. */
 export type ReferenceKind = Rec & { projectId: string; name: string };
 
+/**
+ * One import of the DIT's clips into a shoot day (#109): what it wrote, take id to field to value,
+ * so a later import of the day knows which fields it filled and nobody edited since. Kept on the
+ * device.
+ */
+export type ClipImport = Rec & { shootDayId: string; importedAt: string; fileName?: string; filled: Record<string, Record<string, FieldValue>> };
+
 export type RecordOf<S extends Scope> = {
 	project: Project;
 	shootDay: ShootDay;

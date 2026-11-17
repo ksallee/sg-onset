@@ -195,6 +195,8 @@ gives.
 | Add Photos or Videos | In the take sheet: picks photos and videos from the photo library or Files for the take. | Import, Upload: Upload is a sync word |
 | Record Audio Note, Save Audio Note | In the take sheet: one row that records from the microphone, then keeps what it heard. Closing the sheet keeps it too. | Start, End: the take's; Stop: does not say the note is kept; Voice memo: Apple's app |
 | Photos and videos | The Wrap switch for the photos and videos of the takes. Audio notes always go. | Photos: a video is not a photo |
+| Import Clips | On Slates: reads the DIT's ALE or CSV and fills clip name, camera roll, timecode, lens and the camera's values on the day's takes. "Clip import" is one such import. | Ingest, Sync: sync is Flow PT's word |
+| Fill | Writes what an import found on the takes. Fills empty fields, updates what an earlier import filled, keeps what a person typed. | Apply, Merge |
 | Move, Draw, Text, Measure | The drawing's tools: pick and move, draw a line, write, draw a dimension line and type its length. | Pen, Annotate, Dimension |
 | Undo, Redo | Reverse the last edit. | |
 | Sync | Send changes to Flow PT and read back. | Upload, Push |

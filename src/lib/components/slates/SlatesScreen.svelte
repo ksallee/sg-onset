@@ -4,7 +4,7 @@
 	// the address in step, without a push. With less, the list and the slate are two pages, the
 	// slate pushed over the list. The selection of takes, its bar and bulk edit live here so the
 	// bar can sit on the holding hand's edge of the whole screen.
-	import { CircleAlert, Clapperboard, ListFilter, Plus, Rows3 } from '@lucide/svelte';
+	import { CircleAlert, Clapperboard, FileUp, ListFilter, Plus, Rows3 } from '@lucide/svelte';
 	import { replaceState } from '$app/navigation';
 	import Button from '$lib/components/ios/Button.svelte';
 	import EmptyState from '$lib/components/ios/EmptyState.svelte';
@@ -124,6 +124,9 @@
 			<Section>
 				<Row title={t('slates.allTakes')} detail={count(dayTakes.value.length)} href="/slates/takes">
 					{#snippet leading()}<Tile icon={Rows3} color="var(--tint)" />{/snippet}
+				</Row>
+				<Row title={t('clips.open')} subtitle={t('clips.open.sub')} href="/slates/import">
+					{#snippet leading()}<Tile icon={FileUp} color="var(--tint)" />{/snippet}
 				</Row>
 			</Section>
 			<div class="tools">

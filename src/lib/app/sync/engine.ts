@@ -44,6 +44,9 @@ import { notesKey, readNotesOn, shotsToNote, writeNotesOn } from './notes';
 import { PROJECT_FILTER, projectChoices, type ProjectChoice } from './projects';
 import { legacyReferenceSlatesKey, referenceSlateItems } from './referenceSlates';
 import { projectScope, withoutWaiting, type ProjectScope } from './scope';
+import { chosenSetups, type Shooting } from '$lib/gear/shooting';
+import type { CameraSetup } from '$lib/model/types';
+import { changedKey, markSeen, noteChanged, parseChanged, serializeChanged, type Changed } from './changed';
 import { keepKept, mergeShared, usedIds, USERS, type Kept } from './shared';
 import { CODES_MS, legacyKeys, linkDue, linkItems, mergeSeveral, projectSlates, type Several } from './shots';
 import { splitWaiting, waitingTables } from './waiting';
@@ -67,6 +70,11 @@ export interface SyncDeps {
 	 * queued, so this drain sends it. It never stops the drain: a failure is its own to tell.
 	 */
 	beforeDrain?: () => Promise<void>;
+	/**
+	 * The camera setups this device shoots with, kept on the device (#110, lib/gear/shooting.ts): a
+	 * setup it shoots with counts as used, and one read back from another device starts unchosen.
+	 */
+	shooting?: { get(): Shooting; leaveOff(projectId: string, setupIds: readonly string[]): void };
 }
 
 export interface SyncState {
@@ -104,6 +112,8 @@ export interface SyncState {
 	listsMissing?: boolean;
 	/** Records removed on another device and kept here, used or edited here, this session (#110). */
 	kept?: Kept[];
+	/** Changes read back from Flow PT of entries this device uses, not seen yet (#110). Kept on the device. */
+	changed: Changed[];
 	error?: SyncError;
 }
 
@@ -127,6 +137,8 @@ export interface SyncEngine {
 	 * resolution lacks the Note fields, the setup is checked again: it only reads.
 	 */
 	setNotesOnShots(on: boolean): Promise<void>;
+	/** An entry of the "Changed on another device" list was opened: it leaves the list (#110). */
+	seenChanged(table: string, id: string): Promise<void>;
 	/**
 	 * The Shot codes of the linked FPT project, for the slate's VFX shots field. None without a
 	 * link, a session or a network: the field is free text then. Kept a few minutes.
@@ -140,7 +152,7 @@ const lastKey = (projectId: string) => `last:${projectId}`;
 export function createSyncEngine(deps: SyncDeps): SyncEngine {
 	const links: LinkStore = linkStore(deps.kv);
 	const listeners = new Set<(state: SyncState) => void>();
-	let state: SyncState = { ready: false, checking: false, creatingFields: false, running: false, online: deps.page.online(), notesOnShots: false };
+	let state: SyncState = { ready: false, checking: false, creatingFields: false, running: false, online: deps.page.online(), notesOnShots: false, changed: [] };
 	let disposed = false;
 
 	type Live = { key: string; runner: Runner; foreground: Foreground; drain(asked: boolean): Promise<DrainReport> };
@@ -292,13 +304,33 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 				const read = await transport.readShared();
 				if (!read || state.projectId !== projectId) return;
 				const kept: Kept[] = [];
+				let changed = state.changed;
 				for (const table of read) {
+					if (table.table === 'cameraSetup' && deps.shooting) {
+						// A setup made on another device starts unchosen here: marked before it is put, so the
+						// take screen never shows it in between (Kevin, #110).
+						const here = new Set(((await deps.store.rows('cameraSetup')) as { id: string }[]).map((r) => r.id));
+						deps.shooting.leaveOff(
+							projectId,
+							table.records.map((r) => r.id).filter((id) => !here.has(id))
+						);
+					}
+					const shotWith = table.table === 'cameraSetup' && deps.shooting ? deps.shooting.get() : undefined;
 					const plan = await deps.store.reconcile(table.table, USERS[table.table], (local) =>
-						mergeShared(table, { projectId, rows: local.rows, remotes: local.remotes, entries: local.entries, trashed: local.trashed, used: usedIds(table.table, local.users, local.rows) })
+						mergeShared(table, {
+							projectId,
+							rows: local.rows,
+							remotes: local.remotes,
+							entries: local.entries,
+							trashed: local.trashed,
+							used: usedIds(table.table, local.users, local.rows, shotWith ? chosenSetups(local.rows as CameraSetup[], shotWith, projectId) : undefined)
+						})
 					);
 					kept.push(...plan.kept.map((id) => ({ table: table.table, id })));
+					changed = noteChanged(changed, table.table, plan.inUse, plan.remove, deps.page.now());
 				}
-				if (state.projectId === projectId) set({ kept: keepKept(state.kept ?? [], kept) });
+				if (changed !== state.changed) await deps.kv.set(changedKey(projectId), serializeChanged(changed));
+				if (state.projectId === projectId) set({ kept: keepKept(state.kept ?? [], kept), changed });
 			} catch {
 				// Read again at the next sync.
 			}
@@ -401,6 +433,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		const setup = await readSetup(site);
 		const last = projectId ? Number(await deps.kv.get(lastKey(projectId))) : NaN;
 		const notesOnShots = projectId ? readNotesOn(await deps.kv.get(notesKey(projectId))) : false;
+		const changed = projectId ? parseChanged(await deps.kv.get(changedKey(projectId))) : [];
 		// Nothing about links is kept any more: what an older version kept is removed (Kevin, #102).
 		if (projectId) await Promise.all([...legacyKeys(projectId), legacyReferenceSlatesKey(projectId)].map((key) => deps.kv.delete(key))).catch(() => undefined);
 		if (state.projectId !== projectId) return;
@@ -408,6 +441,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			link: linkOn(stored, site),
 			...setup,
 			notesOnShots,
+			changed,
 			lastSyncAt: Number.isFinite(last) && last > 0 ? last : undefined,
 			...(state.report && state.report.site !== site ? { report: undefined } : {})
 		});
@@ -426,7 +460,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		async setProject(projectId) {
 			if (state.projectId === projectId) return load();
 			stopRunner();
-			set({ projectId, link: undefined, scoped: undefined, waiting: undefined, several: undefined, kept: undefined, stopped: undefined, lastSyncAt: undefined, error: undefined });
+			set({ projectId, link: undefined, scoped: undefined, waiting: undefined, several: undefined, kept: undefined, changed: [], stopped: undefined, lastSyncAt: undefined, error: undefined });
 			recount();
 			await load();
 		},
@@ -479,6 +513,14 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		async syncNow() {
 			if (!live) return undefined;
 			return live.drain(true);
+		},
+		async seenChanged(table, id) {
+			const projectId = state.projectId;
+			if (!projectId) return;
+			const changed = markSeen(state.changed, table, id);
+			if (changed === state.changed) return;
+			set({ changed });
+			await deps.kv.set(changedKey(projectId), serializeChanged(changed));
 		},
 		async setNotesOnShots(on) {
 			const projectId = state.projectId;

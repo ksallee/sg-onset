@@ -135,6 +135,9 @@ export const sync = {
 	'sync.lists.waiting': 'Changes waiting',
 	'sync.lists.footer':
 		'This Flow PT site has no place yet for the templates and reference kinds of a project. An admin runs Set Up Fields: it adds two fields to Project. Then Check Setup on each device. Until then they wait on this device. Cameras, lenses and lighting setups are shared already.',
+	'sync.changed.header': 'Changed on another device',
+	'sync.changed.fields': 'Changed: {fields}',
+	'sync.changed.footer': 'Entries this device uses that another device changed. Takes keep the values they were shot with. Open one to mark it seen.',
 	'sync.kept.header': 'Kept on this device',
 	'sync.kept.subtitle': 'Removed on another device. Used or changed here.',
 	'sync.kept.footer': 'Each one goes back to Flow PT, so every device of the show has it again. To remove it on every device, first take it off what uses it here.',

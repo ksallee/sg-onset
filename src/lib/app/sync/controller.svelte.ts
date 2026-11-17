@@ -5,6 +5,7 @@ import { getContext, setContext } from 'svelte';
 import { auth, bearer } from '$lib/auth/session.svelte';
 import { prepareDiagrams } from '$lib/draw/diagramUploads';
 import { flattenDiagram } from '$lib/draw/flatten';
+import { shooting } from '$lib/gear/shooting.svelte';
 import { storageKeyValue } from '$lib/fpt';
 import { browserPage } from '$lib/outbox/foreground';
 import type { Unsynced } from '$lib/outbox/select';
@@ -37,7 +38,9 @@ export function provideSync(projectId: () => string | undefined, everything: () 
 		// A setup diagram's image is drawn here, in the browser, when a sync is about to run (#87).
 		beforeDrain: async () => {
 			await prepareDiagrams(app.store, flattenDiagram);
-		}
+		},
+		// The camera setups this device shoots with, on the device (#110).
+		shooting: { get: () => shooting.value, leaveOff: (projectId, ids) => shooting.leaveOff(projectId, ids) }
 	});
 	let state = $state.raw<SyncState>(engine.state);
 	engine.subscribe((next) => (state = next));
@@ -72,7 +75,8 @@ export function provideSync(projectId: () => string | undefined, everything: () 
 		check: (createFields) => engine.check(createFields),
 		syncNow: () => engine.syncNow(),
 		setNotesOnShots: (on) => engine.setNotesOnShots(on),
-		shotCodes: () => engine.shotCodes()
+		shotCodes: () => engine.shotCodes(),
+		seenChanged: (table, id) => engine.seenChanged(table, id)
 	};
 	setContext(KEY, controller);
 	return controller;

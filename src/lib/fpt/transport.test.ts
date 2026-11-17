@@ -1747,6 +1747,9 @@ describe('the shared lists', () => {
 			create('template', 'tp1', tp),
 			create('referenceKind', 'k1', { name: 'Drone scan' })
 		]);
+		const r = await applied(w, [create('lens', 'l2', { projectId: 'p1', lensModel: 'Supreme 50mm' }, { p1: w.projectId })]);
+		const ids = { p1: w.projectId, c1: w.fpt.byUuid('Camera', 'c1')!.id, l2: Object.values(r)[0] };
+		await applied(w, [create('cameraSetup', 'cs1', { projectId: 'p1', cameraLabel: 'A', cameraId: 'c1', lensId: 'l2' }, ids)]);
 		// A lens of another project, and one made by hand in Flow PT, with no client UUID.
 		const other = w.fpt.seed('Project', { name: 'Other' });
 		w.fpt.seed('CustomEntity19', { project: { type: 'Project', id: other }, code: 'Theirs', sg_onset_uuid: 'l9' });
@@ -1756,11 +1759,14 @@ describe('the shared lists', () => {
 		const read = await w.transport.readShared();
 		expect(read?.map((t) => [t.table, t.records.map((r) => r.id), t.complete])).toEqual([
 			['camera', ['c1'], true],
-			['lens', ['l1'], true],
+			['lens', ['l1', 'l2'], true],
+			['cameraSetup', ['cs1'], true],
 			['lightingSetup', ['ls1'], true],
 			['template', ['tp1'], true],
 			['referenceKind', ['k1'], true]
 		]);
+		// A camera setup's camera and lens come back as their client UUIDs, read through the link (findings/138).
+		expect(read!.find((t) => t.table === 'cameraSetup')!.records[0].fields).toEqual({ cameraLabel: 'A', cameraId: 'c1', lensId: 'l2' });
 		const lens = read!.find((t) => t.table === 'lens')!;
 		expect(lens.records[0]).toEqual({ id: 'l1', remoteId: w.fpt.byUuid('CustomEntity19', 'l1')!.id, fields: { lensModel: 'S4/i 32mm', focalLength: 32 } });
 		expect(lens.keys).toContain('lensSerialNumber');
@@ -1775,11 +1781,11 @@ describe('the shared lists', () => {
 		const bare = world();
 		delete bare.fpt.fields.Project.sg_onset_templates;
 		delete bare.fpt.fields.Project.sg_onset_reference_kinds;
-		expect((await bare.transport.readShared())?.map((t) => t.table)).toEqual(['camera', 'lens', 'lightingSetup']);
+		expect((await bare.transport.readShared())?.map((t) => t.table)).toEqual(['camera', 'lens', 'cameraSetup', 'lightingSetup']);
 
 		const w = world();
 		project(w).sg_onset_templates = 'typed by hand';
-		expect((await w.transport.readShared())?.map((t) => t.table)).toEqual(['camera', 'lens', 'lightingSetup', 'referenceKind']);
+		expect((await w.transport.readShared())?.map((t) => t.table)).toEqual(['camera', 'lens', 'cameraSetup', 'lightingSetup', 'referenceKind']);
 	});
 
 	it('answers nothing, and never throws, when the site cannot be asked', async () => {

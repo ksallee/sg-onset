@@ -1,5 +1,6 @@
 // The lists a show shares, read back from Flow PT at each sync and merged with this device's (#110):
-// cameras, lenses, lighting setups, templates and the kinds of set reference a project adds. Every
+// cameras, lenses, camera setups, lighting setups, templates and the kinds of set reference a
+// project adds. Every
 // device of the project then has the same lists, and a new one starts with them. Slates, takes and
 // references stay with the device that made them: they are not read back. Pure: the store applies
 // the plan (`reconcile`), the transport reads (lib/fpt).
@@ -11,13 +12,14 @@
 //   synced yet: that edit is never overwritten. It goes up as any edit does, and the conflict check
 //   catches a field both changed (lib/outbox README, Conflicts).
 // - A record removed on another device is removed here, unless something here uses it or an edit of
-//   it waits here: then it is kept, listed in the sync sheet, and sent back to Flow PT.
+//   it waits here: then it is kept, listed in the sync sheet, and sent back to Flow PT with its id.
+// - A change taken in of a record this device uses is listed in the sync sheet until seen.
 
 import { sameValue } from '$lib/model/value';
 import { isActive, isOpen, type Entry, type RemoteId } from '$lib/outbox/types';
 import type { TableName } from '$lib/store/tables';
 
-export const SHARED_TABLES = ['camera', 'lens', 'lightingSetup', 'template', 'referenceKind'] as const;
+export const SHARED_TABLES = ['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind'] as const;
 export type SharedTable = (typeof SHARED_TABLES)[number];
 
 export type Row = { id: string } & Record<string, unknown>;
@@ -63,6 +65,8 @@ export type SharedPlan = {
 	push: string[];
 	/** Server ids to keep. */
 	remoteIds: Record<string, RemoteId>;
+	/** Of `change`, the records this device uses, with the keys taken: for the sync sheet. */
+	inUse: { id: string; keys: string[] }[];
 };
 
 /** The keys of a record edited here and not confirmed: `all` while its create is not. */
@@ -77,7 +81,7 @@ function pendingKeys(entries: readonly Entry[]): Set<string> | 'all' {
 
 /** What to do to bring the device's records of one table in line with what Flow PT holds. */
 export function mergeShared(pulled: PulledTable, local: LocalState): SharedPlan {
-	const plan: SharedPlan = { add: [], change: [], remove: [], kept: [], resend: [], push: [], remoteIds: {} };
+	const plan: SharedPlan = { add: [], change: [], remove: [], kept: [], resend: [], push: [], remoteIds: {}, inUse: [] };
 	const rows = local.rows.filter((r) => r.projectId === local.projectId);
 	const byId = new Map(rows.map((r) => [r.id, r]));
 	const active = new Map<string, Entry[]>();
@@ -106,7 +110,9 @@ export function mergeShared(pulled: PulledTable, local: LocalState): SharedPlan 
 			if (key === 'id' || key === 'projectId' || pending.has(key)) continue;
 			if (!sameValue(row[key], record.fields[key])) set[key] = record.fields[key];
 		}
-		if (Object.keys(set).length) plan.change.push({ id: record.id, set });
+		if (!Object.keys(set).length) continue;
+		plan.change.push({ id: record.id, set });
+		if (local.used.has(record.id)) plan.inUse.push({ id: record.id, keys: Object.keys(set) });
 	}
 
 	for (const row of rows) {
@@ -144,11 +150,11 @@ export function keepKept(before: readonly Kept[], now: readonly Kept[]): Kept[] 
 	return out;
 }
 
-/** Where a kept record is opened: its page, or none for a record edited in place. */
-export function keptHref(kept: Kept): string | undefined {
-	if (kept.table === 'camera' || kept.table === 'lens') return `/gear?sel=${encodeURIComponent(`${kept.table}.${kept.id}`)}`;
-	if (kept.table === 'template') return `/templates/${encodeURIComponent(kept.id)}`;
-	if (kept.table === 'referenceKind') return '/settings';
+/** Where a shared record is opened: its page, or none for a record with no page of its own (a lighting setup). */
+export function sharedHref(record: { table: SharedTable; id: string }): string | undefined {
+	if (record.table === 'camera' || record.table === 'lens' || record.table === 'cameraSetup') return `/gear?sel=${encodeURIComponent(`${record.table}.${record.id}`)}`;
+	if (record.table === 'template') return `/templates/${encodeURIComponent(record.id)}`;
+	if (record.table === 'referenceKind') return '/settings';
 	return undefined;
 }
 
@@ -156,18 +162,22 @@ export function keptHref(kept: Kept): string | undefined {
 export const USERS: Record<SharedTable, TableName[]> = {
 	camera: ['take', 'cameraSetup'],
 	lens: ['take', 'cameraSetup'],
+	cameraSetup: ['take'],
 	lightingSetup: ['slate'],
 	template: ['slate', 'take'],
 	referenceKind: ['reference']
 };
 
 /** The key a user holds the id of a shared record in. A kind is held by its name. */
-const HELD_BY: Record<Exclude<SharedTable, 'referenceKind'>, string> = { camera: 'cameraId', lens: 'lensId', lightingSetup: 'lightingSetupId', template: 'templateId' };
+const HELD_BY: Record<Exclude<SharedTable, 'referenceKind'>, string> = { camera: 'cameraId', lens: 'lensId', cameraSetup: 'cameraSetupId', lightingSetup: 'lightingSetupId', template: 'templateId' };
 
 const loose = (text: unknown) => (typeof text === 'string' ? text.trim().toLowerCase() : '');
 
-/** The records of `table` that something on this device uses. `rows`: the table's records, for the kinds. */
-export function usedIds(table: SharedTable, users: Partial<Record<TableName, readonly Row[]>>, rows: readonly Row[]): Set<string> {
+/**
+ * The records of `table` that something on this device uses. `rows`: the table's records, for the
+ * kinds. `shotWith`: the camera setups this device shoots with (lib/gear/shooting.ts), used too.
+ */
+export function usedIds(table: SharedTable, users: Partial<Record<TableName, readonly Row[]>>, rows: readonly Row[], shotWith?: ReadonlySet<string>): Set<string> {
 	if (table === 'referenceKind') {
 		const names = new Set((users.reference ?? []).map((r) => loose(r.kind)).filter((n) => n !== ''));
 		return new Set(rows.filter((r) => names.has(loose(r.name))).map((r) => r.id));
@@ -175,5 +185,6 @@ export function usedIds(table: SharedTable, users: Partial<Record<TableName, rea
 	const key = HELD_BY[table];
 	const out = new Set<string>();
 	for (const name of USERS[table]) for (const r of users[name] ?? []) if (typeof r[key] === 'string' && r[key] !== '') out.add(r[key] as string);
+	if (table === 'cameraSetup') for (const id of shotWith ?? []) out.add(id);
 	return out;
 }

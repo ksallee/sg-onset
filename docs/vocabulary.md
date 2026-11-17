@@ -36,7 +36,7 @@ enforces the parts a test can check.
 | Project | | One show. | `project` | CRIF Job; OMC CreativeWork | Project |
 | Shoot day | Day {n} | One day of shooting for one unit, numbered. | `shootDay` | CRIF Shoot Day; VES 3.3 | Shoot Day |
 | Lighting setup | | One lighting state, with its HDRI, balls and chart. | `lightingSetup` | VES scope Lighting setup | Lighting Setup |
-| Camera setup | Cam | A camera with a lens, known by its letter: A, B, C. A take is one camera setup's take. | `cameraSetup` | CRIF Camera Letter; OMC cameraLabel | Camera Setup |
+| Camera setup | Cam | A camera with a lens, known by its letter: A, B, C. A take is one camera setup's take. Every device of the show sees every setup and ticks the ones it shoots with. | `cameraSetup` | CRIF Camera Letter; OMC cameraLabel | Camera Setup |
 | Camera | | The camera body. | `camera` | CRIF Camera Body; OMC cameraMake/Model | Camera |
 | Lens | | One lens, by serial number. | `lens` | CRIF Tk Lens ID | Lens |
 | Slate | | The number on the clapperboard and the takes shot under it. | `slate` | CRIF Slate; OMC Slate.slateUID | Slate |

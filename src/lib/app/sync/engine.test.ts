@@ -7,6 +7,7 @@ import { memoryKeyValue } from '$lib/fpt/cache';
 import { BEARER, fakeFpt, type FakeFpt } from '$lib/fpt/fakeFpt';
 import type { Page, PageEvent } from '$lib/outbox/foreground';
 import type { DrainReport } from '$lib/outbox/runner';
+import { leaveOff, setShooting, shootsWith, type Shooting } from '$lib/gear/shooting';
 import { openStore, type DexieStore } from '$lib/store/dexieStore';
 import { createEditor } from '../editor';
 import { createSyncEngine, type SyncEngine } from './engine';
@@ -59,7 +60,10 @@ function device(fpt: FakeFpt, options: { beforeDrain?: (store: DexieStore) => Pr
 	};
 
 	const kv = memoryKeyValue();
-	const engine = createSyncEngine({
+	// The camera setups this device shoots with, as lib/gear/shooting.svelte keeps them (#110).
+	const choice = { value: {} as Shooting };
+	const shooting = { get: () => choice.value, leaveOff: (projectId: string, ids: readonly string[]) => (choice.value = leaveOff(choice.value, projectId, ids)) };
+	const deps = {
 		store,
 		site: () => fpt.site,
 		canSync: () => auth.token !== null,
@@ -68,9 +72,13 @@ function device(fpt: FakeFpt, options: { beforeDrain?: (store: DexieStore) => Pr
 		schemaCache: memoryKeyValue(),
 		kv,
 		page,
+		shooting,
 		...(options.beforeDrain ? { beforeDrain: () => options.beforeDrain!(store) } : {})
-	});
-	return { store, edit, world, emit, auth, kv, engine };
+	} satisfies Parameters<typeof createSyncEngine>[0];
+	const engine = createSyncEngine(deps);
+	/** The same device opened again: its store, its keys and its choice, a new engine. */
+	const reopen = () => createSyncEngine(deps);
+	return { store, edit, world, emit, auth, kv, engine, choice, reopen };
 }
 
 type S = ReturnType<typeof setup>;
@@ -921,5 +929,105 @@ describe('the shared lists', () => {
 		await settle(s.engine, s.fpt);
 		expect(await s.store.outbox.entries()).toEqual([]);
 		expect(s.fpt.rows.get(`Project:${s.fptProject}`)!.values.sg_onset_reference_kinds).toContain('Drone scan');
+	});
+});
+
+// Kevin, #110: camera setups are shared too, and each device chooses the ones it shoots with; a
+// change read back of an entry this device uses is listed until seen.
+describe('the shared camera setups', () => {
+	type D = ReturnType<typeof device>;
+
+	async function second(s: S): Promise<D> {
+		const b = device(s.fpt);
+		await b.edit.create('project', { id: 'pB', name: 'Show on B' });
+		await b.engine.setProject('pB');
+		expect(await b.engine.link({ id: s.fptProject, name: 'Show' })).toBe('linked');
+		b.world.visible = true;
+		return b;
+	}
+
+	async function gear(s: S) {
+		await s.edit.create('project', { id: 'p1', name: 'Show' });
+		await s.edit.create('camera', { id: 'c1', projectId: 'p1', cameraModel: 'Alexa 35' });
+		await s.edit.create('lens', { id: 'l1', projectId: 'p1', lensModel: 'S4/i 32mm', focalLength: 32 });
+		await s.edit.create('lens', { id: 'l2', projectId: 'p1', lensModel: 'Supreme 50mm', focalLength: 50 });
+		await s.edit.create('cameraSetup', { id: 'csA', projectId: 'p1', cameraLabel: 'A', cameraId: 'c1', lensId: 'l1' });
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+	}
+
+	it('gives every device every setup, and a setup made on another device starts unchosen', async () => {
+		const s = setup();
+		await gear(s);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		expect(await b.store.get('cameraSetup', 'csA')).toEqual({ id: 'csA', projectId: 'pB', cameraLabel: 'A', cameraId: 'c1', lensId: 'l1' });
+		expect(shootsWith(b.choice.value, 'pB', 'csA')).toBe(false);
+
+		// B makes its own: B shoots with it, A sees it and does not.
+		await b.edit.create('cameraSetup', { id: 'csB', projectId: 'pB', cameraLabel: 'B', cameraId: 'c1', lensId: 'l2' });
+		await settle(b.engine, s.fpt);
+		expect(shootsWith(b.choice.value, 'pB', 'csB')).toBe(true);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.get('cameraSetup', 'csB')).toBeDefined();
+		expect(shootsWith(s.choice.value, 'p1', 'csB')).toBe(false);
+		expect(shootsWith(s.choice.value, 'p1', 'csA')).toBe(true);
+	});
+
+	it('keeps a setup this device shoots with when another device removes it, and sends it back', async () => {
+		const s = setup();
+		await gear(s);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		await b.edit.remove('cameraSetup', 'csA');
+		await settle(b.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.get('cameraSetup', 'csA')).toBeDefined();
+		expect(s.engine.state.kept).toEqual([{ table: 'cameraSetup', id: 'csA' }]);
+
+		// One B does not shoot with, and A does not either, goes.
+		await s.edit.create('cameraSetup', { id: 'csC', projectId: 'p1', cameraLabel: 'C' });
+		s.choice.value = setShooting(s.choice.value, 'p1', 'csC', false);
+		await settle(s.engine, s.fpt);
+		await settle(b.engine, s.fpt);
+		await b.edit.remove('cameraSetup', 'csC');
+		await settle(b.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.get('cameraSetup', 'csC')).toBeUndefined();
+	});
+
+	it('lists a change made on another device of an entry used here, until it is seen, across a reload', async () => {
+		const s = setup();
+		await gear(s);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		// B swaps the lens on A's setup and changes the first lens; and changes the second, used by nothing on A.
+		await b.edit.apply('cameraSetup', [{ id: 'csA', key: 'lensId', from: 'l1', to: 'l2' }]);
+		await b.edit.apply('lens', [
+			{ id: 'l1', key: 'focalLength', from: 32, to: 35 },
+			{ id: 'l2', key: 'lensModel', from: 'Supreme 50mm', to: 'Supreme 50' }
+		]);
+		await settle(b.engine, s.fpt);
+		expect(b.engine.state.changed).toEqual([]);
+
+		await settle(s.engine, s.fpt);
+		expect((await s.store.get('cameraSetup', 'csA'))!.lensId).toBe('l2');
+		// Newest first: the setup was merged after the lens. The second lens is used by nothing here.
+		expect(s.engine.state.changed.map((c) => [c.table, c.id, c.keys])).toEqual([
+			['cameraSetup', 'csA', ['lensId']],
+			['lens', 'l1', ['focalLength']]
+		]);
+
+		const again = s.reopen();
+		await again.setProject('p1');
+		expect(again.state.changed).toHaveLength(2);
+		await again.seenChanged('cameraSetup', 'csA');
+		expect(again.state.changed.map((c) => c.id)).toEqual(['l1']);
+		const third = s.reopen();
+		await third.setProject('p1');
+		expect(third.state.changed.map((c) => c.id)).toEqual(['l1']);
+		again.dispose();
+		third.dispose();
 	});
 });

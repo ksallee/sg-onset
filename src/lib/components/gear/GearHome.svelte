@@ -25,6 +25,8 @@
 	import { cameraTitle, gearTitle, lensTitle, type GearScope } from '$lib/gear/names';
 	import { duplicateGear, formSelection, parseSelection, type Selection } from '$lib/gear/records';
 	import { moveSetup, setupsUsing, sortSetups } from '$lib/gear/setups';
+	import { shootsWith } from '$lib/gear/shooting';
+	import { shooting } from '$lib/gear/shooting.svelte';
 	import GearDetail from './GearDetail.svelte';
 	import GearLibrary from './GearLibrary.svelte';
 	import GearList from './GearList.svelte';
@@ -204,6 +206,8 @@
 						onimport={importFrom}
 						onlibrary={library}
 						onmove={move}
+						shootsWith={(setup) => shootsWith(shooting.value, projectId, setup.id)}
+						onshoot={(setup, on) => shooting.set(projectId, setup.id, on)}
 					/>
 				</div>
 			{/if}

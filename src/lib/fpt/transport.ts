@@ -102,14 +102,14 @@ export type FptTransportOptions = FptOptions & {
  * read reached the end of the list.
  */
 export type SharedRead = {
-	table: 'camera' | 'lens' | 'lightingSetup' | ListTable;
+	table: 'camera' | 'lens' | 'cameraSetup' | 'lightingSetup' | ListTable;
 	keys: readonly string[];
 	records: { id: string; remoteId: RemoteId; fields: Record<string, unknown> }[];
 	complete: boolean;
 };
 
-/** The entity tables read back, beside the lists of lists.ts. */
-const SHARED_SCOPES = ['camera', 'lens', 'lightingSetup'] as const;
+/** The entity tables read back, beside the lists of lists.ts. A camera setup after the gear it links. */
+const SHARED_SCOPES = ['camera', 'lens', 'cameraSetup', 'lightingSetup'] as const;
 
 /** Pages of 500 read of each shared table: 20,000 records. A list that reaches it is not judged whole. */
 const SHARED_PAGES = 40;
@@ -134,7 +134,7 @@ export interface FptTransport extends Transport {
 	 */
 	writeNotes(shotIds: number[], signal?: AbortSignal): Promise<NoteResult[] | undefined>;
 	/**
-	 * The lists a show shares, as Flow PT holds them (#110): the cameras, lenses and lighting setups
+	 * The lists a show shares, as Flow PT holds them (#110): the cameras, lenses, camera setups and lighting setups
 	 * of the project, and its templates and kinds of set reference when the site has the Project
 	 * fields. A list whose field holds text this version cannot read is left out. Reads only. Never
 	 * throws. Undefined when the site could not be asked.

@@ -39,6 +39,12 @@
 			<Camera class="size-5" strokeWidth={2} aria-hidden="true" />
 			<span><strong>{t('take.noSetups')}</strong> {t('take.noSetups.message')} <a href="/gear">{t('take.noSetups.action')}</a></span>
 		</p>
+	{:else if shoot.setups.ready && shoot.chosen.size === 0}
+		<!-- #110: every setup is in Gear on every device; this one shoots with none of them yet. -->
+		<p class="nosetups">
+			<Camera class="size-5" strokeWidth={2} aria-hidden="true" />
+			<span><strong>{t('take.noChosen')}</strong> {t('take.noChosen.message')} <a href="/gear">{t('take.noSetups.action')}</a></span>
+		</p>
 	{/if}
 
 	{#if shoot.group}

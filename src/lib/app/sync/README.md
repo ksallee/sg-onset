@@ -21,6 +21,7 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `referenceSlates.ts` | yes | The slates each set reference shows on, by Flow PT id, for its Slates field (#107). Nothing kept. |
 | `waiting.ts` | yes | What waits on the device for what the site lacks: the set references, without Set Reference (#117); templates and reference kinds, without the Project fields (#110). |
 | `shared.ts` | yes | The lists a show shares (#110): `mergeShared`, what a list read back from Flow PT does to the device's; `usedIds`; the sheet's kept list. |
+| `changed.ts` | yes | The sheet's "Changed on another device" list (#110): what a merge changed of entries used here, until seen. |
 | `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. `withoutWaiting`: and without what waits. |
 | `engine.ts` | no | `createSyncEngine`: link, check, runner. No runes. |
 | `controller.svelte.ts` | no | `provideSync`, `useSync`: the engine on the real page, as runes. |
@@ -100,8 +101,8 @@ Made by Claude. Kevin can overrule any of them.
     waiting. After a setup check the runner starts again: they go at the next drain, and their
     Slates are set when it ends. A Set Shot's links are no entry of the queue: the status does not
     count them, and the **Set Shots** section counts the slates whose codes wait (decision 11).
-16. **The lists a show shares are read back when a drain ends** (#110): cameras, lenses, lighting
-    setups, templates and the kinds of set reference the project adds. At most once a minute, at
+16. **The lists a show shares are read back when a drain ends** (#110): cameras, lenses, camera
+    setups, lighting setups, templates and the kinds of set reference the project adds. At most once a minute, at
     once on Sync Now, after the slates' links. A new device starts with them at its first sync.
     Slates, takes and references are not read back: they stay with the device that made them
     (Kevin, 2026-11-17).
@@ -114,24 +115,35 @@ Made by Claude. Kevin can overrule any of them.
     change confirmed between the read and the merge would look like a change made elsewhere and be
     put back. A drain waits for a merge under way; a drain that ends while another runs skips the
     read, and the last one reads.
-19. **A record removed elsewhere and kept here is sent back** (Claude, to confirm with Kevin): its
+19. **A record removed elsewhere and kept here is sent back with its id** (Kevin, 2026-11-17): its
     server id goes, its unsent edits fold into a create of the record as it is, and every device
     gets it again at its next sync. Without it, a take or camera setup that links it could not
     sync. It is listed in the sync sheet under "Kept on this device" for the session, with a row
     that opens it. A record whose edit is under way is kept and sent back at a later sync.
-20. **"Used" is what this device holds:** a camera or a lens in a take or a camera setup, a
-    lighting setup in a slate, a template a slate or take was made from, a kind a reference holds by
-    name. What another device's takes use is not known here.
+20. **"Used" is what this device holds:** a camera or a lens in a take or a camera setup, a camera
+    setup a take is on or this device shoots with, a lighting setup in a slate, a template a slate
+    or take was made from, a kind a reference holds by name. What another device's takes use is not
+    known here.
 21. **A record never on Flow PT and with nothing queued is sent.** That is a template or kind kept
     on the device before #110. Two devices that each made one send both: the list keeps both.
-22. **A pulled change to an item in use changes the item only.** A take keeps the lens it has, and
-    its own focal length; a slate keeps the values its template gave it. What a person sees then
-    is open (#110): nothing is shown today.
+22. **A pulled change to an entry in use changes the entry only, and is listed until seen**
+    (Kevin, 2026-11-17). A take keeps the lens it has, and its own focal length; a slate keeps the
+    values its template gave it. The sync sheet's "Changed on another device" list names the entry
+    and the fields taken (`changed.ts`), newest first, one row an entry; opening the row marks it
+    seen. Nothing shows on the take screen. The list is kept on the device per project,
+    `sg-onset:sync:changed:<id>`, so a reload keeps what was not seen. An entry removed since leaves
+    it. A new entry, or a change of one not used here, is not listed.
 23. **On a site without the Project fields, templates and kinds wait** (#117's rule): the runner
     does not see their changes (`waiting.ts`), the status counts them as waiting, and the sync sheet
-    says an admin runs
-    Set Up Fields, then Check Setup on each device. Cameras, lenses and lighting setups are shared
-    already: they are entities every site has.
+    says an admin runs Set Up Fields, then Check Setup on each device. Cameras, lenses, camera setups
+    and lighting setups are shared already: they are entities every site has.
+24. **Every device sees every camera setup; each chooses the ones it shoots with** (Kevin,
+    2026-11-17). The choice is kept on the device, per project, never synced (`lib/gear/shooting.ts`,
+    `localStorage` `sg-onset.shooting`): the setups it does not shoot with. By default a device shoots
+    with the setups made on it; one read back from another device starts unchosen, marked before it
+    is put, so the take screen never shows it in between. The take screen's columns and Start use
+    only the chosen setups (`take/groups.ts`); a take of the slate on another setup keeps its column.
+    Gear shows a check per setup. Wrap, the exports and Flow PT keep every take.
 
 ## Not tested without a real site
 

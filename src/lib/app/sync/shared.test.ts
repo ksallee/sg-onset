@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { create, del, entry, update } from '$lib/outbox/testkit';
 import type { Entry, EntryState } from '$lib/outbox/types';
-import { keepKept, keptHref, listsWaiting, mergeShared, usedIds, USERS, type LocalState, type PulledTable } from './shared';
+import { keepKept, listsWaiting, mergeShared, sharedHref, usedIds, USERS, type LocalState, type PulledTable } from './shared';
 
 const P = 'p1';
 const KEYS = ['lensMake', 'lensModel', 'lensSerialNumber', 'focalLength', 'focalLengthMax', 'anamorphicSqueeze'];
@@ -24,7 +24,7 @@ function local(over: Partial<LocalState> = {}): LocalState {
 
 const pending = (op: Parameters<typeof entry>[0], state: EntryState = 'pending'): Entry => entry(op, { state });
 
-const NOTHING = { add: [], change: [], remove: [], kept: [], resend: [], push: [], remoteIds: {} };
+const NOTHING = { add: [], change: [], remove: [], kept: [], resend: [], push: [], remoteIds: {}, inUse: [] };
 
 describe('mergeShared: new', () => {
 	it('adds a record made on another device, under this project, and keeps its server id', () => {
@@ -66,6 +66,24 @@ describe('mergeShared: changed on another device', () => {
 	it('keeps the server id of a record that has none here yet', () => {
 		const plan = mergeShared(pulled([{ id: 'l1', remoteId: 950, fields: held(cooke) }]), local({ rows: [cooke] }));
 		expect(plan).toEqual({ ...NOTHING, remoteIds: { l1: 950 } });
+	});
+});
+
+// Kevin, #110: a change taken in of an entry this device uses goes in the sync sheet's list.
+describe('mergeShared: changed on another device, used here', () => {
+	it('names each change of an entry used here, with the fields it took', () => {
+		const there = { ...held(cooke), focalLength: 35 };
+		const plan = mergeShared(
+			pulled([{ id: 'l1', fields: there }, { id: 'l2', fields: { ...held(zeiss), lensModel: 'Supreme 50' } }]),
+			local({ rows: [cooke, zeiss], remotes: { l1: 900, l2: 901 }, used: new Set(['l1']) })
+		);
+		expect(plan.change.map((c) => c.id)).toEqual(['l1', 'l2']);
+		expect(plan.inUse).toEqual([{ id: 'l1', keys: ['focalLength'] }]);
+	});
+
+	it('names nothing for a new entry, nor for one with no field taken', () => {
+		const plan = mergeShared(pulled([{ id: 'l1', fields: held(cooke) }, { id: 'l2', fields: held(zeiss) }]), local({ rows: [cooke], remotes: { l1: 900 }, used: new Set(['l1', 'l2']) }));
+		expect(plan.inUse).toEqual([]);
 	});
 });
 
@@ -190,13 +208,14 @@ describe('keepKept', () => {
 	});
 });
 
-describe('keptHref', () => {
-	it('opens a camera or a lens in Gear, a template in Templates, a kind in Settings', () => {
-		expect(keptHref({ table: 'lens', id: 'l1' })).toBe('/gear?sel=lens.l1');
-		expect(keptHref({ table: 'camera', id: 'c 1' })).toBe('/gear?sel=camera.c%201');
-		expect(keptHref({ table: 'template', id: 'tp1' })).toBe('/templates/tp1');
-		expect(keptHref({ table: 'referenceKind', id: 'k1' })).toBe('/settings');
-		expect(keptHref({ table: 'lightingSetup', id: 'ls1' })).toBeUndefined();
+describe('sharedHref', () => {
+	it('opens a camera, a lens or a camera setup in Gear, a template in Templates, a kind in Settings', () => {
+		expect(sharedHref({ table: 'lens', id: 'l1' })).toBe('/gear?sel=lens.l1');
+		expect(sharedHref({ table: 'camera', id: 'c 1' })).toBe('/gear?sel=camera.c%201');
+		expect(sharedHref({ table: 'cameraSetup', id: 'cs1' })).toBe('/gear?sel=cameraSetup.cs1');
+		expect(sharedHref({ table: 'template', id: 'tp1' })).toBe('/templates/tp1');
+		expect(sharedHref({ table: 'referenceKind', id: 'k1' })).toBe('/settings');
+		expect(sharedHref({ table: 'lightingSetup', id: 'ls1' })).toBeUndefined();
 	});
 });
 
@@ -209,6 +228,18 @@ describe('usedIds', () => {
 		expect([...usedIds('camera', users, [])].sort()).toEqual(['c1', 'c2']);
 		expect([...usedIds('lens', users, [])].sort()).toEqual(['l1', 'l2']);
 		expect(USERS.lens).toEqual(['take', 'cameraSetup']);
+	});
+
+	// Camera setups are shared too (Kevin, #110): one is used by a take on it, or chosen here.
+	it('names the camera setups a take is on, and those this device shoots with', () => {
+		const rows = [
+			{ id: 'cs1', projectId: P },
+			{ id: 'cs2', projectId: P },
+			{ id: 'cs3', projectId: P }
+		];
+		expect([...usedIds('cameraSetup', { take: [{ id: 't1', cameraSetupId: 'cs1' }] }, rows)]).toEqual(['cs1']);
+		expect([...usedIds('cameraSetup', { take: [{ id: 't1', cameraSetupId: 'cs1' }] }, rows, new Set(['cs2']))].sort()).toEqual(['cs1', 'cs2']);
+		expect(USERS.cameraSetup).toEqual(['take']);
 	});
 
 	it('names the lighting setups that a slate holds', () => {

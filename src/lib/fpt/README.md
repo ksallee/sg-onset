@@ -594,6 +594,7 @@ app/sync README): `readShared` reads them, nothing else. Slates, takes and refer
 |---|---|---|
 | cameras | Camera, `project is <the project>` | every page, every mapped field and the client UUID |
 | lenses | Lens | the same |
+| camera setups | Camera Setup | the same; its camera and lens as their client UUIDs, read through the link (findings/138) |
 | lighting setups | Lighting Setup | the same |
 | templates, reference kinds | the Project's two fields | one search of the Project, both fields |
 
@@ -849,9 +850,10 @@ Made by Claude. Kevin can overrule any of them.
 65. **A list this version cannot read is never written over.** Its entries need a person, with the
     field named, until an admin empties it in Flow PT. It is left out of a read too, so nothing on
     the device is judged removed from it.
-66. **Cameras, lenses and lighting setups are read back from their entities,** every row of the
-    project with a client UUID. A row made by hand in Flow PT has none and is left out: matching it
-    to the device's gear by name is not done.
+66. **Cameras, lenses, camera setups and lighting setups are read back from their entities,** every
+    row of the project with a client UUID. A row made by hand in Flow PT has none and is left out:
+    matching it to the device's gear by name is not done. Which camera setups a device shoots with
+    is its own choice, kept on the device, never in Flow PT (app/sync README, decision 24).
 
 ## Where FPT did not fit the contract
 

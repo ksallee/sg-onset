@@ -172,6 +172,11 @@ Use a test project on the site, never a show.
   sync sheet, and after one more sync on A it is back in Flow PT and on B. In Flow PT, open the
   Project's fields: the two hold JSON. Say whether a Manager account may write them (fpt README,
   gap 18), and what Flow PT shows for A's takes of the lens B deleted (gap 21).
+- **Camera setups on two devices (#110).** A has setups A and B, B makes setup C. After both sync,
+  Gear on each shows A, B and C; A's are ticked on A only, C on B only. On B tick A: the take screen
+  on B shows A and C, and Start makes takes on those. On B change the lens on setup A and sync,
+  then **Sync Now** on A: the sync sheet on A lists the setup under **Changed on another device**
+  with the field; tapping it opens the setup in Gear and the row goes.
 
 ## What to send back
 

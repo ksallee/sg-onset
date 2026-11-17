@@ -190,6 +190,8 @@ gives.
 | New Take | Starts the next take as a copy of the last. | |
 | Photo | Takes a reference photo for the take. | Still, Ref |
 | Add Photos or Videos | In the take sheet: picks photos and videos from the photo library or Files for the take. | Import, Upload: Upload is a sync word |
+| Import Clips | On Slates: reads the DIT's ALE or CSV and fills clip name, camera roll and timecode on the day's takes. "Clip import" is one such import. | Ingest, Sync: sync is Flow PT's word |
+| Fill | Writes what an import found on the takes. Fills empty fields, updates what an earlier import filled, keeps what a person typed. | Apply, Merge |
 | Move, Draw, Text, Measure | The drawing's tools: pick and move, draw a line, write, draw a dimension line and type its length. | Pen, Annotate, Dimension |
 | Undo, Redo | Reverse the last edit. | |
 | Sync | Send changes to Flow PT and read back. | Upload, Push |

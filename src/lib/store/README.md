@@ -81,8 +81,8 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
 ## Tables
 
 - One per scope (`project`, `shootDay`, `lightingSetup`, `cameraSetup`, `slate`, `take`,
-  `camera`, `lens`, `reference`), `still`, `template`, `referenceKind`, `markup` and `diagram`. Key
-  `id`, index on the parent key.
+  `camera`, `lens`, `reference`), `still`, `template`, `referenceKind`, `markup`, `diagram` and
+  `clipImport`. Key `id`, index on the parent key.
 - `template`: a live template, under its project (schema version 3). Kept on the device: it is in
   the backup and on the undo stack, and nothing is queued for it (`LOCAL_TABLES`).
 - `reference`: a set reference, under its slate (schema version 4). Synced like a take.
@@ -92,6 +92,10 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
   like a template. It reaches Flow PT as the still's annotated copy (below).
 - `diagram`: a slate's setup diagram, under its slate (schema version 6, #87). Kept on the device
   like a template. The wrap package holds it as an image.
+- `clipImport`: one import of the DIT's clips, under its shoot day (schema version 7, #109):
+  `{ id, shootDayId, importedAt, fileName?, filled }`, `filled` being take id to field to the value
+  the import wrote. Kept on the device like a template. A later import of the day reads it to know
+  which fields an import filled and nobody edited since (`$lib/clips`).
 - `blobs`: one row per file, without the bytes. `blobData`: the bytes. A file may be one the app
   made: `variant: 'annotated'`, a still's photo with its drawing flattened on it, or `variant:
   'diagram'`, a slate's setup diagram as an image; `source` is the key of the drawing it was made
@@ -287,6 +291,11 @@ Made by Claude. Kevin can overrule any of them.
     sent is not deleted (there is no file delete in the queue, 21, and an Artist may not delete an
     Attachment, corpus findings/143): once the new copy is verified, the old one is taken off the
     take's photos field instead (fpt README).
+28. **What an import of the DIT's clips wrote stays on the device.** The takes hold the values and
+    sync as any edit; the record of which import wrote what has no place in Flow PT. It is created
+    in the import's undo entry, so an undo takes it back with the values. Schema version 7: a
+    backup made before it is refused (decision 13), a snapshot from before it needs
+    `acceptOlderSchema`.
 
 ## What a real iPad must still prove
 

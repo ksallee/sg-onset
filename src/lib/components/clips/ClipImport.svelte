@@ -4,7 +4,7 @@
 	// fills, updates and keeps, and the clips left over. A tap on a clip puts it on another take.
 	// Fill writes the takes and what the import wrote as one edit, so one Undo takes it all back.
 	// The rules are pure (lib/clips); this page only shows them.
-	import { CircleAlert, CircleCheck, CircleDashed, FileUp } from '@lucide/svelte';
+	import { CircleAlert, CircleCheck, CircleDashed, FileText, FileUp } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import Button from '$lib/components/ios/Button.svelte';
 	import Columns from '$lib/components/ios/Columns.svelte';
@@ -121,13 +121,12 @@
 	<Columns>
 		<div>
 			<Section header={t('clips.source')} footer={readError ? t('clips.readError') : t('clips.source.footer')}>
-				<Row
-					title={fileName || t('clips.choose')}
-					subtitle={fileName ? (preview.sheet ? tk(`clips.file.${preview.sheet.format}`, { n: preview.sheet.rows.length }) : t('clips.noTable')) : undefined}
-					detail={fileName ? t('clips.chooseAgain') : undefined}
-					class={fileName ? 'source' : 'source tint'}
-					onclick={() => input?.click()}
-				>
+				{#if fileName}
+					<Row title={fileName} subtitle={preview.sheet ? tk(`clips.file.${preview.sheet.format}`, { n: preview.sheet.rows.length }) : t('clips.noTable')}>
+						{#snippet leading()}<span class="icon quiet" aria-hidden="true"><FileText class="size-[19px]" strokeWidth={2.1} /></span>{/snippet}
+					</Row>
+				{/if}
+				<Row title={fileName ? t('clips.chooseAgain') : t('clips.choose')} class="tint" onclick={() => input?.click()}>
 					{#snippet leading()}<span class="icon tint" aria-hidden="true"><FileUp class="size-[19px]" strokeWidth={2.1} /></span>{/snippet}
 				</Row>
 			</Section>

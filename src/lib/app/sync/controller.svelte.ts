@@ -53,7 +53,7 @@ export function provideSync(projectId: () => string | undefined, everything: () 
 	$effect(() => () => engine.dispose());
 
 	const counts = $derived(state.scoped ?? everything());
-	const status = $derived(syncStatus({ auth: auth.status, linked: !!state.link, ready: state.ready, online: state.online, unsynced: counts }));
+	const status = $derived(syncStatus({ auth: auth.status, linked: !!state.link, ready: state.ready, online: state.online, unsynced: counts, waiting: state.waiting?.entries }));
 	const elsewhere = $derived(elsewhereCount(everything(), state.scoped, state.waiting));
 
 	const controller: SyncController = {

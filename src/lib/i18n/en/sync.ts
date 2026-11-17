@@ -11,6 +11,7 @@ export const sync = {
 	'sync.state.offline': 'Offline',
 	'sync.state.syncing': 'Syncing {n}',
 	'sync.state.synced': 'All synced',
+	'sync.state.waiting': 'All synced, {n} waiting',
 	'sync.state.short.attention': 'Attention',
 	'sync.state.short.signedOut': 'Sign in',
 	'sync.state.short.expired': 'Sign in',
@@ -19,6 +20,7 @@ export const sync = {
 	'sync.state.short.offline': 'Offline',
 	'sync.state.short.syncing': 'Syncing',
 	'sync.state.short.synced': 'Synced',
+	'sync.state.short.waiting': 'Synced',
 	'sync.state.open': 'Sync: {status}. {n} waiting. Open the detail.',
 
 	'sync.run.header': 'Sync',

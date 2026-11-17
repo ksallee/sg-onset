@@ -20,8 +20,8 @@
 // when what the device holds asks for other slates than the last time. Nothing is kept on the device.
 //
 // On a site without Set Reference (Kevin, #117) the runner drains a port that leaves out the set
-// references' entries (waiting.ts): they wait in the queue, out of the status, counted for the sync
-// sheet. A setup check makes a new runner, so they go at the drain after Set Up Fields.
+// references' entries (waiting.ts): they wait in the queue, and the status and the sync sheet count
+// them apart. A setup check makes a new runner, so they go at the drain after Set Up Fields.
 
 import { checkSetup, createFptTransport, readShotCodes, type FptTransport, type KeyValue, type SetupReport, type ShotResult } from '$lib/fpt';
 import { createApi, type FptOptions } from '$lib/fpt/api';

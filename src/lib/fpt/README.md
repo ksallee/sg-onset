@@ -773,8 +773,8 @@ Made by Claude. Kevin can overrule any of them.
 60. **Set Reference is optional** (Kevin, #117), as Set Shot is (decision 44). The resolution holds
     it only once the entity and all nine of its fields are there, `sg_slate` and `sg_slates` among
     them; no record of another scope links one, so nothing else waits. Until then the rest syncs,
-    the setup check names it as a note, and the sync sheet says to enable it and how many references
-    wait. A set reference is a record on the device, so it waits in the queue: the runner drains a
+    the setup check names it as a note, the status says "All synced, 3 waiting", and the sync sheet
+    says to enable it and how many references wait. A set reference is a record on the device, so it waits in the queue: the runner drains a
     port that leaves its entries out (app/sync README, decision 15). Nothing is dropped and nothing
     needs a person. The first sync after an admin enables it and runs Set Up Fields sends them, then
     sets their Slates. Should one reach the transport on such a site all the same, it is refused in

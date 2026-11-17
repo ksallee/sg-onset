@@ -125,12 +125,12 @@ Use a test project on the site, never a show.
 - **Without Set Reference.** On a test site without the Set Reference slot, link and check: Setup
   says **Ready to sync**, and Set Reference reads "Optional. To use it, enable a custom entity, name
   it Set Reference". Log an HDRI 360 and a scan on a slate of a lighting setup with two slates, and
-  capture a take: the slates and the take sync, the status says **All synced**, **Waiting, by kind**
-  lists the two references, and the sync sheet's **Set References** section counts 2 under
+  capture a take: the slates and the take sync, the status says **All synced, 2 waiting**, **Waiting,
+  by kind** lists the two references, and the sync sheet's **Set References** section counts 2 under
   **References waiting**. Nothing needs attention. With **Notes on Shots** on, the Shot's Note has no
   References. Enable the slot, tap **Set Up Fields**, then **Sync Now**: the two Set References
-  appear, the HDRI's **Slates** holds both slates, the section goes, and the Note gets a Reply
-  adding the references.
+  appear, the HDRI's **Slates** holds both slates, the section goes, the status says **All synced**,
+  and the Note gets a Reply adding the references.
 - **Two Shots, one code.** Make two Shots `TST_030_0010`, a code not typed yet. Type it on a new
   slate: the slate and its new Set Shot link both, and the sync sheet lists the code as **Several
   Shots**. Delete one of the two in Flow PT, wait a minute, tap **Sync Now**: the line goes. A

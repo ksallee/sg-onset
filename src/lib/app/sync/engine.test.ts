@@ -634,7 +634,9 @@ describe('the Slates of a set reference (#107)', () => {
 		expect(s.fpt.requests.some((r) => r.path.includes('custom_entity21'))).toBe(false);
 		await vi.waitFor(() => expect(s.engine.state.waiting).toMatchObject({ entries: 2, records: 2 }));
 		expect(s.engine.state.scoped?.entries).toBe(0);
-		expect(syncStatus({ auth: 'signed-in', linked: true, ready: true, online: true, unsynced: s.engine.state.scoped }).state).toBe('synced');
+		// Kevin, #117: the status names them, so nobody takes them for safe in Flow PT.
+		const status = () => syncStatus({ auth: 'signed-in', linked: true, ready: true, online: true, unsynced: s.engine.state.scoped, waiting: s.engine.state.waiting?.entries });
+		expect(status()).toMatchObject({ state: 'waiting', count: 2, key: 'sync.state.waiting' });
 		// The Note on the Shot lists what Flow PT holds: no references yet.
 		expect(s.fpt.live('Note')).toHaveLength(1);
 		expect(s.fpt.live('Note')[0].values.content).not.toContain('References');
@@ -650,6 +652,7 @@ describe('the Slates of a set reference (#107)', () => {
 		expect(slatesOf(s, 'r1')).toEqual(ids(s, 's1', 's2'));
 		expect(slatesOf(s, 'r2')).toEqual(ids(s, 's1'));
 		await vi.waitFor(() => expect(s.engine.state.waiting?.entries ?? 0).toBe(0));
+		expect(status().state).toBe('synced');
 		expect(s.fpt.live('Note')).toHaveLength(1);
 		expect(s.fpt.live('Note')[0].values.content).toContain('HDRI 360: HDRI_0412');
 		expect(s.fpt.live('Reply').map((r) => r.values.content)).toEqual([['Added since the last update:', 'HDRI 360: HDRI_0412', 'Lidar scan: Scan 01'].join('\n')]);

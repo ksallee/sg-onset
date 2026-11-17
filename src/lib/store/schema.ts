@@ -66,7 +66,9 @@ export const VERSIONS: readonly SchemaVersion[] = [
 	// Templates, kept on the device (tables.ts LOCAL_TABLES).
 	{ version: 3, stores: recordStores(['template']) },
 	// Set references under their slate, and the kinds a project adds, kept on the device.
-	{ version: 4, stores: recordStores(['reference', 'referenceKind']) }
+	{ version: 4, stores: recordStores(['reference', 'referenceKind']) },
+	// What each import of the DIT's clips wrote, under its shoot day, kept on the device (#109).
+	{ version: 5, stores: recordStores(['clipImport']) }
 ];
 
 export const SCHEMA_VERSION = VERSIONS[VERSIONS.length - 1].version;

@@ -22,7 +22,7 @@ describe('VERSIONS', () => {
 			expect(stores[name]).toBeTypeOf('string');
 			expect((TABLES as readonly string[]).includes(name)).toBe(false);
 		}
-		const later = ['template', 'reference', 'referenceKind'];
+		const later = ['template', 'reference', 'referenceKind', 'clipImport'];
 		expect(Object.keys(stores).sort()).toEqual([...TABLES.filter((t) => !later.includes(t)), ...INTERNAL_TABLES].sort());
 	});
 
@@ -32,6 +32,10 @@ describe('VERSIONS', () => {
 
 	it('adds the set references and the project kinds in version 4, and nothing else', () => {
 		expect(VERSIONS[3]).toEqual({ version: 4, stores: { reference: 'id, slateId', referenceKind: 'id, projectId' } });
+	});
+
+	it('adds the clip imports in version 5, and nothing else', () => {
+		expect(VERSIONS[4]).toEqual({ version: 5, stores: { clipImport: 'id, shootDayId' } });
 	});
 
 	it('adds the snapshot tables in their own version, and nothing else', () => {

@@ -3,8 +3,8 @@ import { FIELDS, SCOPES } from '$lib/model/catalogue';
 import { dependsOn, isLocal, isTable, linkKeys, LOCAL_TABLES, PARENTS, TABLES } from './tables';
 
 describe('TABLES', () => {
-	it('has one table per scope, one for stills, one for templates and one for reference kinds', () => {
-		expect(TABLES).toEqual([...SCOPES, 'still', 'template', 'referenceKind']);
+	it('has one table per scope, one for stills, one for templates, one for reference kinds and one for clip imports', () => {
+		expect(TABLES).toEqual([...SCOPES, 'still', 'template', 'referenceKind', 'clipImport']);
 		expect(isTable('take')).toBe(true);
 		expect(isTable('reference')).toBe(true);
 		expect(isTable('template')).toBe(true);
@@ -13,10 +13,11 @@ describe('TABLES', () => {
 });
 
 describe('LOCAL_TABLES', () => {
-	it('are the tables kept on the device and never synced: templates and reference kinds', () => {
-		expect(LOCAL_TABLES).toEqual(['template', 'referenceKind']);
+	it('are the tables kept on the device and never synced: templates, reference kinds and clip imports', () => {
+		expect(LOCAL_TABLES).toEqual(['template', 'referenceKind', 'clipImport']);
 		expect(isLocal('template')).toBe(true);
 		expect(isLocal('referenceKind')).toBe(true);
+		expect(isLocal('clipImport')).toBe(true);
 		expect(isLocal('take')).toBe(false);
 		expect(isLocal('reference')).toBe(false);
 	});
@@ -25,6 +26,11 @@ describe('LOCAL_TABLES', () => {
 		expect(PARENTS.template).toEqual({ key: 'projectId', table: 'project' });
 		expect(linkKeys('template')).toEqual([{ key: 'projectId', table: 'project' }]);
 		expect(PARENTS.referenceKind).toEqual({ key: 'projectId', table: 'project' });
+	});
+
+	it('keeps a clip import under its shoot day', () => {
+		expect(PARENTS.clipImport).toEqual({ key: 'shootDayId', table: 'shootDay' });
+		expect(linkKeys('clipImport')).toEqual([{ key: 'shootDayId', table: 'shootDay' }]);
 	});
 });
 

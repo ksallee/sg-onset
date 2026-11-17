@@ -13,7 +13,7 @@
 
 import { formatRational } from '$lib/model/rational';
 import type { Length } from '$lib/model/length';
-import { crifDate, crifTime, crifTimestamp, feetInches, metresText, signed, trimNumber } from './format';
+import { crifDate, crifTime, crifTimestamp, feetInches, metresText, signed, takeTypeName, trimNumber } from './format';
 import { naturalCompare, type FlatTake } from './selection';
 import { uuidV5 } from './uuid';
 
@@ -101,6 +101,7 @@ export const CRIF_EXTRA_COLUMNS: readonly Column[] = [
 	{ name: 'Tk End Time Of Take' },
 	{ name: 'Tk Circled' },
 	{ name: 'Tk No Good' },
+	{ name: 'Tk Type' },
 	{ name: 'Tk Timecode End' },
 	{ name: 'Tk Lens Make' },
 	{ name: 'Tk Anamorphic Squeeze' },
@@ -264,6 +265,7 @@ export function crifRecords(rows: readonly FlatTake[], options: CrifOptions): Cr
 			'Tk End Time Of Take': take.endedAt ? crifTime(take.endedAt, tz) : '',
 			'Tk Circled': take.circleTake ? 'Yes' : '',
 			'Tk No Good': take.noGood ? 'Yes' : '',
+			'Tk Type': takeTypeName(take),
 			'Tk Timecode End': text(take.timecodeEnd),
 			'Tk Lens Make': text(lens?.lensMake),
 			'Tk Anamorphic Squeeze': lens?.anamorphicSqueeze ? formatRational(lens.anamorphicSqueeze) : '',

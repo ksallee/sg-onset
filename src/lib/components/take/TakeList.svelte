@@ -1,10 +1,12 @@
 <script lang="ts">
 	// The takes of the slate being shot, one row per take number. `at` side: a column of rows with
-	// the slate on top. `at` top: one strip that scrolls sideways. The take on screen is marked; a
-	// running take shows a square and its time. The slate opens the slate picker.
+	// the slate on top, a take's type under its name when it is not Main. `at` top: one strip that
+	// scrolls sideways. The take on screen is marked; a running take shows a square and its time.
+	// The slate opens the slate picker.
 	import { Ban, ChevronDown, CircleCheck, Images } from '@lucide/svelte';
 	import { formatTime } from '$lib/app/format';
-	import { t } from '$lib/i18n/messages';
+	import { t, tk } from '$lib/i18n/messages';
+	import { groupType } from '$lib/model/takeType';
 	import { groupPhase, groupTimes } from '$lib/take/phase';
 	import { groupMark } from '$lib/take/marks';
 	import { elapsedMs, formatElapsed } from '$lib/take/record';
@@ -19,6 +21,11 @@
 		return shoot.stills.value.filter((s) => ids.has(s.takeId)).length;
 	};
 	const shown = $derived(shoot.group?.number);
+	/** The take's type, when it is not Main. */
+	const typed = (g: TakeGroup) => {
+		const type = groupType(g.takes);
+		return type && type !== 'main' ? tk(`field.take.takeType.${type}`) : '';
+	};
 
 	// The take on screen stays in view, moved only when out of it, without a scroll animation.
 	let el = $state<HTMLElement | null>(null);
@@ -59,11 +66,13 @@
 		{#each shoot.groups as g (g.number)}
 			{@const on = g.number === shown}
 			{@const n = photos(g)}
-			<button type="button" class="row" class:on aria-current={on} aria-label={t('take.row.full', { slate: slate?.slateUID ?? '', take: g.number })} onclick={() => shoot.select(g.number)}>
+			{@const type = typed(g)}
+			<button type="button" class="row" class:on aria-current={on} aria-label={[t('take.row.full', { slate: slate?.slateUID ?? '', take: g.number }), type].filter(Boolean).join(', ')} onclick={() => shoot.select(g.number)}>
 				<span class="n num">{g.number}</span>
 				{#if at === 'side'}
 					<span class="meta">
 						<span class="name">{t('take.row', { take: g.number })}</span>
+						{#if type}<span class="type">{type}</span>{/if}
 						{@render status(g)}
 					</span>
 					<span class="icons">
@@ -185,6 +194,16 @@
 		line-height: 21px;
 		font-weight: 600;
 		letter-spacing: -0.31px;
+	}
+	/* The take type, when it is not Main: a line of its own, so it is never cut. */
+	.type {
+		font-size: 13px;
+		line-height: 18px;
+		font-weight: 600;
+		color: var(--label);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.state {
 		display: flex;

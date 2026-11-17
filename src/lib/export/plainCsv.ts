@@ -6,6 +6,7 @@ import { endKey, FIELDS, type FieldDef, type Scope, type Unit } from '$lib/model
 import { formatField } from '$lib/model/fieldText';
 import type { Length, UnitSystem } from '$lib/model/length';
 import { formatRational, type Rational } from '$lib/model/rational';
+import { takeTypeOf } from '$lib/model/takeType';
 import type { Dimensions } from '$lib/model/types';
 import { csvText } from './csvWrite';
 import { lengthNumber, trimNumber } from './format';
@@ -82,10 +83,11 @@ export function plainColumns(options: Pick<PlainOptions, 'labels' | 'units' | 'l
 	return columns;
 }
 
-/** The stored value of a column on a row. Take focal length is the one the take was shot at. */
+/** The stored value of a column on a row. Take focal length is the one the take was shot at; a take with no type is Main. */
 function valueOf(row: FlatTake, column: PlainColumn): unknown {
 	const { def, end } = column;
 	if (def.scope === 'take' && def.key === 'focalLength') return end ? row.focalLength?.end : row.focalLength?.start;
+	if (def.scope === 'take' && def.key === 'takeType') return takeTypeOf(row.take);
 	return rowValue(row, def.scope, end ? endKey(def.key) : def.key);
 }
 

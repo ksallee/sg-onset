@@ -15,12 +15,12 @@
 	import { settings } from '$lib/app/settings.svelte';
 	import { t, tk } from '$lib/i18n/messages';
 	import { fieldLabel } from '$lib/i18n/modelText';
-	import { bulkEdit } from '$lib/model/bulkEdit';
 	import type { TemplateRecord } from '$lib/model/template';
 	import type { Take } from '$lib/model/types';
 	import { sameValue } from '$lib/model/value';
-	import { bulkFields, bulkPreview, linkPreview, MARKS } from '$lib/slates/bulk';
+	import { bulkFields, bulkPatch, bulkPreview, linkPreview, MARKS } from '$lib/slates/bulk';
 	import type { FieldRef } from '$lib/slates/fields';
+	import { applyTakeEdit } from '$lib/take/typeEdit';
 	import FieldRow from './FieldRow.svelte';
 	import { useRefs } from './refs.svelte';
 	import { valueText } from './values';
@@ -78,9 +78,10 @@
 
 	async function apply() {
 		if (!field || !target || !preview?.change.length) return;
-		const { patch } = bulkEdit(chosen, ids, field.key as keyof Take & string, target.value as never);
+		const patch = bulkPatch(chosen, ids, field.key, target.value);
 		const label = { key: mode === 'clear' ? 'slates.bulk.done.clear' : 'slates.bulk.done.set', params: { field: fieldLabel(field.def, field.end), n: patch.length } };
-		await app.edit.apply('take', patch, label);
+		// A change of take type turns its switches on and offers to turn off what it leaves on: one notice.
+		await applyTakeEdit(app, patch, label);
 		fieldOpen = false;
 		open = false;
 	}

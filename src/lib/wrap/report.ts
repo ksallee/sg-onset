@@ -12,6 +12,7 @@ import { fieldShortLabel, optionLabel } from '$lib/i18n/modelText';
 import { findField } from '$lib/model/catalogue';
 import { formatLength, type Length, type UnitSystem } from '$lib/model/length';
 import { formatRational } from '$lib/model/rational';
+import { takeTypeOf } from '$lib/model/takeType';
 
 export type Paper = 'a4' | 'letter';
 
@@ -51,6 +52,8 @@ const length = (l: Length | undefined, units: UnitSystem) => (l ? formatLength(l
 function columns(units: UnitSystem): { head: string; cls?: string; cell: (r: FlatTake) => string }[] {
 	return [
 		{ head: short('cameraSetupId'), cls: 'c', cell: (r) => r.cameraLetter },
+		// Main says nothing: the column shows only on a day with another type.
+		{ head: short('takeType'), cell: (r) => (takeTypeOf(r.take) === 'main' ? '' : optionLabel(findField('take', 'takeType')!.def, takeTypeOf(r.take))) },
 		{ head: short('startedAt'), cls: 'n', cell: (r) => formatTime(r.take.startedAt) },
 		{ head: short('endedAt'), cls: 'n', cell: (r) => formatTime(r.take.endedAt) },
 		{ head: short('focalLength'), cls: 'n', cell: (r) => (r.focalLength ? range(`${r.focalLength.start}`, `${r.focalLength.end}`) : '') },

@@ -3,20 +3,22 @@ import { FIELDS, SCOPES } from '$lib/model/catalogue';
 import { dependsOn, isLocal, isTable, linkKeys, LOCAL_TABLES, PARENTS, TABLES } from './tables';
 
 describe('TABLES', () => {
-	it('has one table per scope, one for stills, one for templates and one for reference kinds', () => {
-		expect(TABLES).toEqual([...SCOPES, 'still', 'template', 'referenceKind']);
+	it('has one table per scope, one for stills, one for templates, one for reference kinds and one for the drawings on photos', () => {
+		expect(TABLES).toEqual([...SCOPES, 'still', 'template', 'referenceKind', 'markup']);
 		expect(isTable('take')).toBe(true);
 		expect(isTable('reference')).toBe(true);
 		expect(isTable('template')).toBe(true);
+		expect(isTable('markup')).toBe(true);
 		expect(isTable('outbox')).toBe(false);
 	});
 });
 
 describe('LOCAL_TABLES', () => {
-	it('are the tables kept on the device and never synced: templates and reference kinds', () => {
-		expect(LOCAL_TABLES).toEqual(['template', 'referenceKind']);
+	it('are the tables kept on the device and never synced: templates, reference kinds and the drawings on photos', () => {
+		expect(LOCAL_TABLES).toEqual(['template', 'referenceKind', 'markup']);
 		expect(isLocal('template')).toBe(true);
 		expect(isLocal('referenceKind')).toBe(true);
+		expect(isLocal('markup')).toBe(true);
 		expect(isLocal('take')).toBe(false);
 		expect(isLocal('reference')).toBe(false);
 	});
@@ -33,6 +35,10 @@ describe('references', () => {
 		expect(PARENTS.reference).toEqual({ key: 'slateId', table: 'slate' });
 		expect(linkKeys('reference')).toEqual([{ key: 'slateId', table: 'slate' }]);
 		expect(dependsOn('reference', { id: 'r1', slateId: 's1', name: 'HDRI_0412' })).toEqual(['s1']);
+	});
+
+	it('keeps a drawing under its photo', () => {
+		expect(PARENTS.markup).toEqual({ key: 'stillId', table: 'still' });
 	});
 });
 

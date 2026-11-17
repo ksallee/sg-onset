@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { enqueue } from './queue';
+import { dropUpload, enqueue } from './queue';
 import { blob, create, del, entry, fresh, update } from './testkit';
 import type { CreateOp, Entry, UpdateOp } from './types';
 
@@ -189,5 +189,22 @@ describe('enqueue an upload', () => {
 		q = enqueue(q, blob('p1', 'b2'), ['p1'], fresh());
 		expect(q).toHaveLength(2);
 		expect(q[0].dependsOn).toEqual(['p1']);
+	});
+});
+
+describe('dropUpload', () => {
+	it('takes an upload that has not left out of the queue', () => {
+		const q = [entry(create('still', 'p1')), entry(blob('p1', 'b1')), entry(blob('p1', 'b2'))];
+		expect(dropUpload(q, 'b1')?.map((e) => e.op)).toEqual([create('still', 'p1'), blob('p1', 'b2')]);
+		expect(dropUpload([entry(blob('p1', 'b1'), { state: 'failedRetryable' })], 'b1')).toEqual([]);
+	});
+	it('gives the queue as it is when nothing was queued for the file', () => {
+		const q = [entry(create('still', 'p1'))];
+		expect(dropUpload(q, 'b9')).toEqual(q);
+	});
+	it('refuses once the upload has left, or may have: Flow PT may hold the file', () => {
+		for (const state of ['inFlight', 'sentUnconfirmed', 'needsAttention'] as const) {
+			expect(dropUpload([entry(blob('p1', 'b1'), { state })], 'b1')).toBeUndefined();
+		}
 	});
 });

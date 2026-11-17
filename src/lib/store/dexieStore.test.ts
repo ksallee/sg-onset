@@ -424,6 +424,52 @@ describe('files', () => {
 		expect(metas.find((m) => m.id === other.id)).not.toHaveProperty('prunedAt');
 		expect(await s.store.pruneBlobs()).toBe(0);
 	});
+
+	it('keeps what a copy is and what it was made from, and queues its upload as that copy', async () => {
+		const s = setup();
+		await withPhoto(s);
+		const copy = await s.store.putBlob('still', 'ph1', { blob: photo('flat'), variant: 'annotated', source: 'k1' });
+		expect((await s.store.blobsOf('ph1')).at(-1)).toMatchObject({ id: copy.id, variant: 'annotated', source: 'k1' });
+		expect((await s.store.outbox.entries()).at(-1)!.op).toMatchObject({ kind: 'blob', blobId: copy.id, variant: 'annotated' });
+	});
+
+	it('dropBlob takes back a file whose upload has not left: description, bytes and upload', async () => {
+		const s = setup();
+		const meta = await withPhoto(s);
+		const copy = await s.store.putBlob('still', 'ph1', { blob: photo('flat'), variant: 'annotated', source: 'k1' });
+		const events: StoreEvent[] = [];
+		s.store.subscribe((e) => events.push(e));
+		expect(await s.store.dropBlob(copy.id)).toBe(true);
+		expect((await s.store.blobsOf('ph1')).map((m) => m.id)).toEqual([meta.id]);
+		expect(await s.store.blob(copy.id)).toBeUndefined();
+		expect((await s.store.outbox.entries()).some((e) => e.op.kind === 'blob' && e.op.blobId === copy.id)).toBe(false);
+		expect(events.flatMap((e) => e.tables)).toEqual(expect.arrayContaining(['blobs', 'outbox']));
+		expect(await s.store.dropBlob('nope')).toBe(true);
+	});
+
+	it('dropBlob keeps a file whose upload has left or landed: Flow PT may hold it', async () => {
+		const s = setup();
+		await withPhoto(s);
+		const copy = await s.store.putBlob('still', 'ph1', { blob: photo('flat'), variant: 'annotated', source: 'k1' });
+		await s.store.outbox.update((q) => markInFlight(q, q.filter((e) => e.op.kind === 'blob' && e.op.blobId === copy.id).map((e) => e.id)));
+		expect(await s.store.dropBlob(copy.id)).toBe(false);
+		expect((await s.store.blobsOf('ph1')).some((m) => m.id === copy.id)).toBe(true);
+		await s.store.outbox.update((q) => markApplied(q, q.filter((e) => e.state === 'inFlight').map((e) => ({ id: e.id, remoteId: 3 }))));
+		expect(await s.store.dropBlob(copy.id)).toBe(false);
+	});
+});
+
+describe('the drawings on photos', () => {
+	it('stores a drawing beside its photo and queues nothing for it', async () => {
+		const s = setup();
+		await shoot(s);
+		await s.store.create('still', { id: 'ph1', takeId: 't1', capturedAt: 'x' });
+		const before = await s.store.outbox.entries();
+		const markup = { id: 'm1', stillId: 'ph1', width: 400, height: 300, shapes: [] };
+		await s.store.create('markup', markup);
+		expect(await s.store.list('markup', 'ph1')).toEqual([markup]);
+		expect(await s.store.outbox.entries()).toEqual(before);
+	});
 });
 
 describe('outbox port', () => {

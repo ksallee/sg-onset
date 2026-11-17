@@ -66,7 +66,9 @@ export const VERSIONS: readonly SchemaVersion[] = [
 	// Templates, kept on the device (tables.ts LOCAL_TABLES).
 	{ version: 3, stores: recordStores(['template']) },
 	// Set references under their slate, and the kinds a project adds, kept on the device.
-	{ version: 4, stores: recordStores(['reference', 'referenceKind']) }
+	{ version: 4, stores: recordStores(['reference', 'referenceKind']) },
+	// The drawings on photos, kept on the device beside their still (tables.ts LOCAL_TABLES).
+	{ version: 5, stores: recordStores(['markup']) }
 ];
 
 export const SCHEMA_VERSION = VERSIONS[VERSIONS.length - 1].version;

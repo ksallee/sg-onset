@@ -8,6 +8,7 @@ import type { App } from '$lib/app/app.svelte';
 import type { Current } from '$lib/app/current.svelte';
 import { live } from '$lib/app/live.svelte';
 import { settings } from '$lib/app/settings.svelte';
+import { currentFiles } from '$lib/draw/markup';
 import { dayReport, type DayReport } from '$lib/export/dayReport';
 import { selectSlates, type ExportInput } from '$lib/export/selection';
 import type { PhotoBlob } from '$lib/export/wrapPackage';
@@ -132,7 +133,7 @@ export class Wrap {
 		this.#app = app;
 		this.#current = current;
 		this.data = live<Loaded>(
-			['project', 'shootDay', 'lightingSetup', 'cameraSetup', 'camera', 'lens', 'slate', 'take', 'still', 'reference', 'referenceKind', 'blobs'],
+			['project', 'shootDay', 'lightingSetup', 'cameraSetup', 'camera', 'lens', 'slate', 'take', 'still', 'markup', 'reference', 'referenceKind', 'blobs'],
 			async (store) => {
 				const projectId = current.project?.id;
 				if (!projectId) return undefined;
@@ -151,8 +152,10 @@ export class Wrap {
 				]);
 				const input = projectInput(projectId, { projects, shootDays, lightingSetups, cameraSetups, cameras, lenses, slates, takes, stills, references });
 				if (!input) return undefined;
-				const blobs = (await Promise.all(input.stills.map((s) => store.blobsOf(s.id)))).flat();
-				return { input, blobs, kinds: kinds.map((k) => k.name) };
+				const files = (await Promise.all(input.stills.map((s) => store.blobsOf(s.id)))).flat();
+				const markups = (await Promise.all(input.stills.map((s) => store.list('markup', s.id)))).flat();
+				// A photo's annotated copy goes only while it matches the drawing (#86).
+				return { input, blobs: currentFiles(files, markups), kinds: kinds.map((k) => k.name) };
 			},
 			undefined
 		);

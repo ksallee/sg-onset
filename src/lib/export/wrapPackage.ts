@@ -15,13 +15,13 @@ import { referencesBySlate, type FlatTake } from './selection';
 import { slateManifest } from './slateManifest';
 
 /** What the plan needs of a stored file: `BlobMeta` without the sync fields. */
-export type PhotoBlob = Pick<BlobMeta, 'id' | 'recordId' | 'type' | 'size' | 'createdAt' | 'name' | 'prunedAt'>;
+export type PhotoBlob = Pick<BlobMeta, 'id' | 'recordId' | 'type' | 'size' | 'createdAt' | 'name' | 'prunedAt' | 'variant'>;
 
 /**
- * What a file in a slate's folder is. A photo today. Videos (#94), audio notes (#89) and
- * annotated copies (#86) of a take, and the setup diagram (#87) of a slate, add theirs.
+ * What a file in a slate's folder is: a photo, or a photo's annotated copy, its drawing flattened
+ * on it (#86). Audio notes (#89) of a take, and the setup diagram (#87) of a slate, add theirs.
  */
-export type Media = 'photo';
+export type Media = 'photo' | 'annotated';
 
 /** A file in a slate's folder: one of a take's, or the slate's own. Its bytes are a stored file. */
 export type SlateFile = {
@@ -106,23 +106,38 @@ export type FileContext = {
 	photos: boolean;
 	/** The first stored file of each record: later ones are derived, such as a thumbnail. */
 	firstBlob: Map<string, PhotoBlob>;
+	/** The annotated copy of each photo that has one, by still id (#86). */
+	annotated: Map<string, PhotoBlob>;
 	/** The next photo number per slate and camera. */
 	counters: Map<string, number>;
 	/** Records with no stored file. */
 	missing: string[];
 };
 
-/** The first stored file of each record, by record id. */
+const byAge = (a: PhotoBlob, b: PhotoBlob) => a.createdAt - b.createdAt || a.id.localeCompare(b.id);
+
+/** The first stored file of each record, by record id. A copy made from it never is. */
 export function firstBlobs(blobs: readonly PhotoBlob[]): Map<string, PhotoBlob> {
 	const first = new Map<string, PhotoBlob>();
-	for (const b of [...blobs].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))) if (!first.has(b.recordId)) first.set(b.recordId, b);
+	for (const b of [...blobs].sort(byAge)) if (b.variant === undefined && !first.has(b.recordId)) first.set(b.recordId, b);
 	return first;
 }
 
 /**
+ * The annotated copy of each photo, by still id: the newest. Pass only the copies that match
+ * their drawing (`$lib/draw/markup` `currentFiles`).
+ */
+export function annotatedBlobs(blobs: readonly PhotoBlob[]): Map<string, PhotoBlob> {
+	const copies = new Map<string, PhotoBlob>();
+	for (const b of [...blobs].sort(byAge)) if (b.variant === 'annotated') copies.set(b.recordId, b);
+	return copies;
+}
+
+/**
  * A take's files, as they sit in its slate's folder: its photos, named as CRIF names them and
- * numbered per slate and camera in take order, then the order taken. A later kind of file of a
- * take (a video, an audio note, an annotated copy) is added here.
+ * numbered per slate and camera in take order, then the order taken. A photo's annotated copy
+ * follows it, under its name with "-annotated" (#86). A later kind of file of a take (an audio
+ * note) is added here.
  */
 export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
 	const files: SlateFile[] = [];
@@ -147,6 +162,19 @@ export function takeFiles(row: FlatTake, ctx: FileContext): SlateFile[] {
 			pruned: blob.prunedAt !== undefined,
 			...(still.caption ? { caption: still.caption } : {})
 		});
+		const copy = ctx.annotated.get(still.id);
+		if (copy) {
+			files.push({
+				media: 'annotated',
+				name: photoFileName(slate, row.cameraLetter, n, extensionFor(copy.type, copy.name), true),
+				mime: copy.type,
+				size: copy.size,
+				blobId: copy.id,
+				recordId: still.id,
+				pruned: copy.prunedAt !== undefined,
+				...(still.caption ? { caption: still.caption } : {})
+			});
+		}
 	}
 	return files;
 }
@@ -180,6 +208,7 @@ function groupBySlate(rows: readonly FlatTake[], options: WrapOptions): Group[] 
  *       <slate>/
  *         <slate>_manifest.csv              its takes, files and references
  *         <slate>-<camera>-reference-<n>.<ext>
+ *         <slate>-<camera>-reference-<n>-annotated.jpg   the photo with its drawing (#86)
  *         <kind>/<reference>/               empty, for what was shot on another device
  *
  * A slate gets a folder when it has a take in the rows or a set reference. Names come from
@@ -194,7 +223,7 @@ export function wrapPlan(rows: readonly FlatTake[], options: WrapOptions): WrapP
 		{ kind: 'ale', path: file('editorial'), mime: 'text/plain' },
 		{ kind: 'json', path: file('data'), mime: 'application/json' }
 	];
-	const ctx: FileContext = { photos: options.photos !== false, firstBlob: firstBlobs(options.blobs), counters: new Map(), missing: [] };
+	const ctx: FileContext = { photos: options.photos !== false, firstBlob: firstBlobs(options.blobs), annotated: annotatedBlobs(options.blobs), counters: new Map(), missing: [] };
 	const groups = groupBySlate(rows, options);
 	const kindFolder = kindFolders(
 		groups.flatMap((g) => g.references.map((r) => r.kind ?? '')),

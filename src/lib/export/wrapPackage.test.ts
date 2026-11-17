@@ -102,6 +102,20 @@ describe('wrapPlan', () => {
 		expect(files[2]).toMatchObject({ blobId: 'b3', pruned: true });
 	});
 
+	it('puts the annotated copy of a photo beside it in the slate folder, same number, -annotated, in the manifest', () => {
+		const { rows, slates, references } = day3Input();
+		// The copy was stored before its photo: it is still not the photo's own file.
+		const withCopy: PhotoBlob[] = [...blobs, { id: 'b2flat', recordId: 'st2', type: 'image/jpeg', size: 150, createdAt: 0, variant: 'annotated' }];
+		const p = wrapPlan(rows, { project, shootDays: [day3], blobs: withCopy, slates, references });
+		const files = p.entries.filter((x) => x.kind === 'file');
+		expect(files.map(inside)).toEqual(['42A/42A-A-reference-1.heic', '42A/42A-A-reference-1-annotated.jpg', '42A/42A-A-reference-2.jpg', '42A/42A-A-reference-3.jpg']);
+		expect(files[0]).toMatchObject({ media: 'photo', blobId: 'b2' });
+		expect(files[1]).toMatchObject({ media: 'annotated', blobId: 'b2flat', recordId: 'st2', takeId: t42A1A.id, mime: 'image/jpeg', size: 150, pruned: false });
+		const manifest = p.entries.find((x) => x.kind === 'manifest' && x.path.endsWith('42A_manifest.csv'));
+		expect(manifest?.kind === 'manifest' && manifest.text).toContain('Annotated photo,1,A,');
+		expect(manifest?.kind === 'manifest' && manifest.text).toContain('42A/42A-A-reference-1-annotated.jpg');
+	});
+
 	it('names the photos that have no file at all', () => {
 		const { rows, slates, references } = day3Input();
 		const p = wrapPlan(rows, { project, shootDays: [day3], blobs: blobs.filter((b) => b.recordId !== 'st3'), slates, references });

@@ -42,6 +42,7 @@ interface Store {
 	blob(id): Promise<Blob | undefined>;
 	blobsOf(recordId): Promise<BlobMeta[]>;
 	pruneBlobs(keepMs?): Promise<number>;
+	dropBlob(id): Promise<boolean>;
 
 	outbox: OutboxPort;
 	unsynced(): Promise<Unsynced>;
@@ -80,14 +81,21 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
 ## Tables
 
 - One per scope (`project`, `shootDay`, `lightingSetup`, `cameraSetup`, `slate`, `take`,
-  `camera`, `lens`, `reference`), `still`, `template` and `referenceKind`. Key `id`, index on the
-  parent key.
+  `camera`, `lens`, `reference`), `still`, `template`, `referenceKind` and `markup`. Key `id`,
+  index on the parent key.
 - `template`: a live template, under its project (schema version 3). Kept on the device: it is in
   the backup and on the undo stack, and nothing is queued for it (`LOCAL_TABLES`).
 - `reference`: a set reference, under its slate (schema version 4). Synced like a take.
 - `referenceKind`: a kind of set reference the project added, `{ id, projectId, name }` (schema
   version 4). Kept on the device, as a template is.
-- `blobs`: one row per file, without the bytes. `blobData`: the bytes.
+- `markup`: the drawing on a photo, under its still (schema version 5, #86). Kept on the device
+  like a template. It reaches Flow PT as the still's annotated copy (below).
+- `blobs`: one row per file, without the bytes. `blobData`: the bytes. A file may be a copy of its
+  record's first file: `variant: 'annotated'`, the photo with its drawing flattened on it, and
+  `source`, the key of the drawing it was made from (`$lib/draw/markup`). Its upload carries the
+  variant, so Flow PT names it with an "-annotated" suffix. `dropBlob(id)` takes back a file whose
+  upload has not left: its description, its unpinned bytes and its queued upload. Once the upload
+  has left, or may have, it refuses and the file stays.
 - `outbox`: the queue. `remotes`: client UUID to server id. `trash`: removed records.
   `meta`: the queue counter (`seq`, also the change counter of the snapshots) and the times of the
   last off-device copies.
@@ -270,6 +278,12 @@ Made by Claude. Kevin can overrule any of them.
     place for the list; each reference carries its kind as text, so Flow PT sees every kind used.
     Schema version 4 adds them with the references: a backup made before it is refused
     (decision 13), a snapshot from before it needs `acceptOlderSchema`.
+27. **A drawing stays on the device; its flattened copy is a file of the still.** The photo is
+    never touched. The flattener (`$lib/draw/flattener.ts`) makes the copy after the drawing
+    changes, and drops the copies that no longer match while they are unsent. A copy already
+    sent is not deleted (there is no file delete in the queue, 21, and an Artist may not delete an
+    Attachment, corpus findings/143): once the new copy is verified, the old one is taken off the
+    take's photos field instead (fpt README).
 
 ## What a real iPad must still prove
 

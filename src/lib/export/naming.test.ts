@@ -196,6 +196,10 @@ describe('photoFileName', () => {
 	it('makes an unsafe slate safe', () => {
 		expect(photoFileName('42/A', 'B', 1, 'jpg')).toBe('42-A-B-reference-1.jpg');
 	});
+
+	it('names the annotated copy of a photo with an -annotated suffix', () => {
+		expect(photoFileName('22ac', 'A', 1, 'jpg', true)).toBe('22ac-A-reference-1-annotated.jpg');
+	});
 });
 
 describe('extensionFor', () => {

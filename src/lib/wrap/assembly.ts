@@ -94,11 +94,12 @@ export function packagePlan(rows: readonly FlatTake[], choice: WrapChoice, sourc
 			const takeId = e.takeId ?? '';
 			const row = byTake.get(takeId);
 			const p = pruned.get(takeId) ?? { takeId, slate: row?.slate.slateUID ?? '', take: row?.take.take ?? '', cameraLetter: row?.cameraLetter ?? '', count: 0 };
-			p.count += 1;
+			// A photo's annotated copy goes with the photo: it is not one more.
+			if (e.media !== 'annotated') p.count += 1;
 			pruned.set(takeId, p);
 			continue;
 		}
-		if (e.media === 'photo') photoBytes += e.size;
+		if (e.media === 'photo' || e.media === 'annotated') photoBytes += e.size;
 		entries.push({ kind: 'file', media: e.media, path: e.path, mime: e.mime, size: e.size, blobId: e.blobId });
 	}
 	return {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TransportError } from '$lib/outbox/transport';
 import { memoryKeyValue, resolutionKey } from './cache';
 import { BEARER, fakeFpt, type FakeFpt } from './fakeFpt';
-import { ENTITY_SCOPES, VERSION_COLUMNS, wantedColumns } from './mapping';
+import { ENTITY_SCOPES, NOTE_COLUMNS, VERSION_COLUMNS, wantedColumns } from './mapping';
 import { parseResolution } from './schema';
 import { checkSetup, type SetupReport } from './setup';
 import { rawField, TYPES } from './testkit';
@@ -17,8 +17,8 @@ function world(fields: 'complete' | 'bare' = 'complete') {
 
 const creates = (fpt: FakeFpt) => fpt.requests.filter((r) => r.method === 'POST' && r.path.includes('/schema/'));
 const field = (report: SetupReport, scope: string, name: string) => report.fields.find((f) => f.scope === scope && f.name === name)!;
-/** Every field of ours: on the eight entities, and the client UUID on Version, where videos go. */
-const WANTED = ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length;
+/** Every field of ours: on the eight entities, the client UUID on Version, where videos go, and the two on Note (#97). */
+const WANTED = ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length + NOTE_COLUMNS.length;
 
 describe('checkSetup', () => {
 	it('finds a site that is ready, and changes nothing on it', async () => {
@@ -34,12 +34,33 @@ describe('checkSetup', () => {
 	});
 
 	// corpus endpoints/get_schema.md: /schema is cheap and /fields is not. One read per type.
-	it('reads the type list once and the fields of each of the nine types, Attachment, Shot and Version once', async () => {
+	it('reads the type list once and the fields of each of the nine types, Attachment, Shot, Version and Note once', async () => {
 		const { fpt, check } = world();
 		await check();
 		expect(fpt.requests.map((r) => r.path).sort()).toEqual(
-			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment', 'Shot', 'Version'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
+			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment', 'Shot', 'Version', 'Note'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
 		);
+	});
+
+	// Notes on Shots (#97): one Note per Shot, keyed in a unique text field (findings/146).
+	it('creates the key on Note, unique, and the list beside it, and the transport may use them', async () => {
+		const { fpt, cache, check } = world('bare');
+		const report = await check();
+		expect(field(report, 'note', 'sg_onset_key')).toMatchObject({ entityType: 'Note', status: 'created', unique: true });
+		expect(field(report, 'note', 'sg_onset_captured')).toMatchObject({ entityType: 'Note', status: 'created' });
+		expect(fpt.fields.Note.sg_onset_key.unique?.value).toBe(true);
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.note).toEqual({ key: 'sg_onset_key', captured: 'sg_onset_captured' });
+	});
+
+	// They are optional: a site set up before them syncs the rest, and the Notes wait.
+	it('is ready while Note lacks them, and says they are missing', async () => {
+		const { fpt, cache, check } = world();
+		delete fpt.fields.Note.sg_onset_key;
+		delete fpt.fields.Note.sg_onset_captured;
+		const report = await check({ createFields: false });
+		expect(report.ready).toBe(true);
+		expect(field(report, 'note', 'sg_onset_key')).toMatchObject({ status: 'missing' });
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.note).toBeUndefined();
 	});
 
 	// Videos go up as Versions linked to their take (Kevin, 2026-11-17): a create sent twice must

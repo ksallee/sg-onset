@@ -9,6 +9,9 @@ import {
 	ENTITY_TYPES,
 	isOptionalColumn,
 	isOptionalScope,
+	NOTE_CAPTURED,
+	NOTE_COLUMNS,
+	NOTE_KEY,
 	OPTIONAL_SCOPES,
 	UUID,
 	VERSION_COLUMNS,
@@ -23,8 +26,14 @@ import {
 import { codeName, reverseField } from './names';
 import { VERSION } from './versions';
 
-/** Where a planned field is: one of our scopes' entities, or Version, where a take's videos go. */
-export type PlanScope = EntityScope | 'version';
+/**
+ * Where a planned field is: one of our scopes' entities, Version, where a take's videos go, or
+ * Note, where the Note on a Shot is kept (#97).
+ */
+export type PlanScope = EntityScope | 'version' | 'note';
+
+/** Note, a stock type. */
+export const NOTE = 'Note';
 
 /** `GET /schema`, its `data`: one entry per enabled type, keyed by schema name. */
 export type SchemaTypes = Record<string, { name: Property<string> }>;
@@ -138,6 +147,8 @@ export type SiteContext = {
 	others?: Record<string, RawFields>;
 	/** The fields of Version, where a take's videos go. Left out: nothing is planned there. */
 	version?: RawFields;
+	/** The fields of Note, for the Notes on Shots (#97). Left out: nothing is planned there. */
+	note?: RawFields;
 };
 
 function targetType(target: Target, types: Partial<Record<EntityScope, string>>): string | undefined {
@@ -169,7 +180,8 @@ function mismatch(column: Column, field: RawField, valid: string | undefined): s
  */
 export function planFields(types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>, site: SiteContext = {}): FieldPlan[] {
 	const version = site.version ? VERSION_COLUMNS.map((column) => planColumn('version', VERSION, column, site.version!, types)) : [];
-	return planReverses([...planOwn(types, fields), ...version], types, fields, site);
+	const note = site.note ? NOTE_COLUMNS.map((column) => planColumn('note', NOTE, column, site.note!, types)) : [];
+	return planReverses([...planOwn(types, fields), ...version, ...note], types, fields, site);
 }
 
 /**
@@ -195,7 +207,7 @@ function planReverses(plans: FieldPlan[], types: Partial<Record<EntityScope, str
 	};
 	return plans.map((plan) => {
 		const target = plan.validTypes?.[0];
-		if (!target || plan.column.stock || plan.scope === 'version' || (plan.dataType !== 'entity' && plan.dataType !== 'multi_entity') || plan.status === 'blocked') return plan;
+		if (!target || plan.column.stock || plan.scope === 'version' || plan.scope === 'note' || (plan.dataType !== 'entity' && plan.dataType !== 'multi_entity') || plan.status === 'blocked') return plan;
 		const source = site.names?.[plan.entityType]?.trim() || ENTITY_TYPES[plan.scope].displayName;
 		const predicted = { entityType: target, ...reverseField(plan.entityType, source, plan.name, plan.displayName, plan.dataType) };
 		const have = fieldsOf(target);
@@ -290,6 +302,11 @@ export type Resolution = {
 	fields: Record<RequiredScope, Record<string, string>> & Partial<Record<OptionalScope, Record<string, string>>>;
 	/** The name on the site of the client UUID field of Version, where a take's videos go. */
 	versionUuid: string;
+	/**
+	 * The names on the site of the Note fields of the Notes on Shots (#97): the key and what the
+	 * Note lists. Here only once both are there; until then the Notes wait.
+	 */
+	note?: { key: string; captured: string };
 };
 
 /** The fields of an optional scope and the fields that link it, by scope. */
@@ -331,7 +348,21 @@ export function toResolution(site: string, entities: readonly EntityResolution[]
 	}
 	const uuid = plans.find((p) => p.scope === 'version' && p.column.name === UUID.name);
 	if (uuid?.status !== 'present') return undefined;
-	return { version: 1, site, entities: types as Resolution['entities'], fields: fields as Resolution['fields'], versionUuid: uuid.name };
+	const noteOf = (column: Column) => plans.find((p) => p.scope === 'note' && p.column.name === column.name && p.status === 'present')?.name;
+	const [key, captured] = [noteOf(NOTE_KEY), noteOf(NOTE_CAPTURED)];
+	return {
+		version: 1,
+		site,
+		entities: types as Resolution['entities'],
+		fields: fields as Resolution['fields'],
+		versionUuid: uuid.name,
+		...(key && captured ? { note: { key, captured } } : {})
+	};
+}
+
+/** Whether the site has the Note fields of the Notes on Shots (#97). */
+export function hasNotes(resolution: Resolution): boolean {
+	return resolution.note !== undefined;
 }
 
 /** Whether the site has an optional entity, with its fields and the fields that link it. */
@@ -362,6 +393,8 @@ export function parseResolution(raw: string | undefined | null, site: string): R
 	const r = value as Partial<Resolution>;
 	// Without `versionUuid`: written before videos went up as Versions. Resolve again.
 	if (r.version !== 1 || r.site !== site || !r.entities || !r.fields || typeof r.versionUuid !== 'string') return undefined;
+	// Without `note`: the Notes on Shots wait, the rest syncs. A `note` kept must name both fields.
+	if (r.note !== undefined && (r.note === null || typeof r.note.key !== 'string' || typeof r.note.captured !== 'string')) return undefined;
 	const entities: Partial<Record<EntityScope, unknown>> = r.entities;
 	const fields: Partial<Record<EntityScope, Record<string, unknown>>> = r.fields;
 	for (const scope of ENTITY_SCOPES) {

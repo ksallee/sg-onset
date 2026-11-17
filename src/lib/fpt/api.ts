@@ -209,6 +209,15 @@ export function createApi(options: FptOptions) {
 			return run(() => rest('write', signal).batch(requests));
 		},
 
+		/**
+		 * `POST /entity/<type>`: one create, plain JSON, the row back. Unlike a create in a `_batch`, it
+		 * is validated: a project-scoped type without `project` is refused (entity_types/Note.md,
+		 * corpus reports/001). A Note and its Reply are made so, as recipes/026 does.
+		 */
+		create(entityType: string, data: Record<string, unknown>, signal?: AbortSignal): Promise<EntityRow> {
+			return run(() => rest('write', signal).create(entityType, data));
+		},
+
 		/** `PUT /entity/<type>/<id>`. */
 		async update(entityType: string, id: number, patch: Record<string, unknown>, signal?: AbortSignal): Promise<void> {
 			await run(() => rest('write', signal).update(entityType, id, patch));

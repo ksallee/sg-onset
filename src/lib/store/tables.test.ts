@@ -3,8 +3,8 @@ import { FIELDS, SCOPES } from '$lib/model/catalogue';
 import { dependsOn, isLocal, isTable, linkKeys, LOCAL_TABLES, PARENTS, TABLES } from './tables';
 
 describe('TABLES', () => {
-	it('has one table per scope, one for stills, one for templates, one for reference kinds, one for the drawings on photos and one for setup diagrams', () => {
-		expect(TABLES).toEqual([...SCOPES, 'still', 'template', 'referenceKind', 'markup', 'diagram']);
+	it('has one table per scope, one for stills, templates, reference kinds, drawings on photos, setup diagrams and clip imports', () => {
+		expect(TABLES).toEqual([...SCOPES, 'still', 'template', 'referenceKind', 'markup', 'diagram', 'clipImport']);
 		expect(isTable('take')).toBe(true);
 		expect(isTable('reference')).toBe(true);
 		expect(isTable('template')).toBe(true);
@@ -14,8 +14,9 @@ describe('TABLES', () => {
 });
 
 describe('LOCAL_TABLES', () => {
-	it('are the tables kept on the device and never synced: templates, reference kinds, the drawings on photos and setup diagrams', () => {
-		expect(LOCAL_TABLES).toEqual(['template', 'referenceKind', 'markup', 'diagram']);
+	it('are the tables kept on the device and never synced: templates, reference kinds, the drawings on photos, setup diagrams and clip imports', () => {
+		expect(LOCAL_TABLES).toEqual(['template', 'referenceKind', 'markup', 'diagram', 'clipImport']);
+		expect(isLocal('clipImport')).toBe(true);
 		expect(isLocal('diagram')).toBe(true);
 		expect(isLocal('template')).toBe(true);
 		expect(isLocal('referenceKind')).toBe(true);
@@ -28,6 +29,11 @@ describe('LOCAL_TABLES', () => {
 		expect(PARENTS.template).toEqual({ key: 'projectId', table: 'project' });
 		expect(linkKeys('template')).toEqual([{ key: 'projectId', table: 'project' }]);
 		expect(PARENTS.referenceKind).toEqual({ key: 'projectId', table: 'project' });
+	});
+
+	it('keeps a clip import under its shoot day', () => {
+		expect(PARENTS.clipImport).toEqual({ key: 'shootDayId', table: 'shootDay' });
+		expect(linkKeys('clipImport')).toEqual([{ key: 'shootDayId', table: 'shootDay' }]);
 	});
 });
 

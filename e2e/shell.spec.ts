@@ -28,7 +28,7 @@ test.describe('first run', () => {
 
 		await page.getByRole('button', { name: 'Shoot This Slate' }).tap();
 		await expect(page).toHaveURL(/\/shoot$/);
-		await expect(page.getByText('Slate 42A')).toBeVisible();
+		await expect(page.getByText('Slate 42A', { exact: true })).toBeVisible();
 	});
 
 	test('the sample project loads through the store and survives a reload', async ({ page }) => {

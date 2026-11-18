@@ -63,13 +63,14 @@ export function sampleProject(options: { newId: () => string; now: Date }): Samp
 	const s42a = slate(day2, '42A', { sceneNumber: '42', description: 'The car slides to the kerb. Wide.', lightingSetupId: street.id, interiorExterior: 'ext', scriptTime: 'dusk', vfxShots: ['SMP_042_0010'], lidar: true, witnessCamera: true });
 	const s42b = slate(day2, '42B', { sceneNumber: '42', description: 'Driver through the windscreen.', lightingSetupId: street.id, interiorExterior: 'ext', scriptTime: 'dusk' });
 
-	// Takes are timed back from now, a few minutes apart, so the sample day reads as today's.
+	// Takes are timed back from now, a few minutes apart, so the sample day reads as today's. The
+	// cameras of one take start and end together, as on set: one take number, one start.
 	let minutes = 95;
 	const fps = rational(24, 1);
-	const take = (s: Slate, setup: CameraSetup, n: string, rest: Partial<Take>): Take => {
+	const shot = (s: Slate, n: string, cams: [CameraSetup, Partial<Take>][]): Take[] => {
 		const start = now.getTime() - minutes * 60_000;
 		minutes -= 4;
-		return {
+		return cams.map(([setup, rest]) => ({
 			id: newId(),
 			slateId: s.id,
 			take: n,
@@ -83,20 +84,26 @@ export function sampleProject(options: { newId: () => string; now: Date }): Samp
 			isoSpeed: 800,
 			whiteBalance: 4300,
 			...rest
-		};
+		}));
 	};
+	// A on a prime, B on a zoom. Take 1 of 42A is no good, take 2 circled; B is off for take 3.
 	const a = { tStop: 2.8, focusDistance: metres(4.2), lensHeight: metres(1.45), tilt: -3 };
 	const b = { tStop: 4, focusDistance: metres(12), lensHeight: metres(2.1), tilt: -8, focalLength: 135 };
+	const ng = { noGood: true, notes: 'Car late on the mark.' };
 	const takes: Take[] = [
-		take(s12a, camA, '1', { ...a, noGood: true, notes: 'Wire in frame.' }),
-		take(s12a, camA, '2', { ...a, circleTake: true }),
-		take(s12b, camA, '1', { tStop: 2, focusDistance: metres(0.9), lensHeight: metres(1.2), tilt: -12, lensId: prime50.id, circleTake: true }),
-		take(s42a, camA, '1', a),
-		take(s42a, camB, '1', b),
-		take(s42a, camA, '2', { ...a, circleTake: true }),
-		take(s42a, camB, '2', { ...b, focalLength: 150, focalLengthEnd: 85, circleTake: true }),
-		take(s42a, camA, '3', { ...a, tilt: -5 }),
-		take(s42b, camA, '1', { tStop: 2, focusDistance: metres(1.8), lensHeight: metres(1.52), tilt: 0 })
+		...shot(s12a, '1', [[camA, { ...a, noGood: true, notes: 'Wire in frame.' }]]),
+		...shot(s12a, '2', [[camA, { ...a, circleTake: true }]]),
+		...shot(s12b, '1', [[camA, { tStop: 2, focusDistance: metres(0.9), lensHeight: metres(1.2), tilt: -12, lensId: prime50.id, circleTake: true }]]),
+		...shot(s42a, '1', [
+			[camA, { ...a, ...ng }],
+			[camB, { ...b, ...ng }]
+		]),
+		...shot(s42a, '2', [
+			[camA, { ...a, circleTake: true }],
+			[camB, { ...b, focalLength: 150, focalLengthEnd: 85, circleTake: true }]
+		]),
+		...shot(s42a, '3', [[camA, { ...a, tilt: -5 }]]),
+		...shot(s42b, '1', [[camA, { tStop: 2, focusDistance: metres(1.8), lensHeight: metres(1.52), tilt: 0 }]])
 	];
 
 	return {

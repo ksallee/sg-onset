@@ -4,7 +4,7 @@
 
 import { endKey, fieldsOf, type FieldDef } from '$lib/model/catalogue';
 import { formatField } from '$lib/model/fieldText';
-import type { UnitSystem } from '$lib/model/length';
+import type { Length, UnitSystem } from '$lib/model/length';
 import { effectiveFocalLength, isPrime } from '$lib/model/take';
 import type { Lens, Take } from '$lib/model/types';
 import { THIRD_STOPS, type NumberSpec } from '$lib/ios/keypad';
@@ -39,11 +39,13 @@ export function slotKey(key: string, end: boolean): string {
 
 /**
  * A value as the table shows it, '' for none. A prime's focal length is the lens's, with no end. A
- * length is in `units`, as typed when it can be; metric shows no unit word (the row says m).
+ * length is in `units`, as typed when it can be; metric shows no unit word (the row says m). A
+ * focus at infinity is ∞, typed "inf" or not.
  */
 export function shownValue(def: FieldDef, take: Take, lens: Lens | undefined, units: UnitSystem, end = false): string {
 	if (isLocked(def, lens)) return end ? '' : String(effectiveFocalLength(take, lens)!.start);
 	const value = (take as Record<string, unknown>)[slotKey(def.key, end)];
+	if (def.type === 'length' && (value as Length | undefined)?.m === 'inf') return '∞';
 	const text = formatField(def, value, units);
 	return def.type === 'length' && units === 'metric' ? text.replace(/\s*m$/, '') : text;
 }

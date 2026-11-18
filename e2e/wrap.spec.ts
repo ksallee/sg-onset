@@ -51,7 +51,8 @@ test.describe('wrap', () => {
 		await openApp(page, '/wrap');
 		await expect(page.getByRole('heading', { name: 'Wrap', level: 1 })).toBeVisible();
 		const values = summary(page).getByRole('definition');
-		await expect(values).toHaveText(['2', '6', '2', '0', '0', /min$/]);
+		// Slates, takes, circled, no good (42A take 1 on A and B), photos, running time.
+		await expect(values).toHaveText(['2', '6', '2', '2', '0', /min$/]);
 		await expect(page.getByText('Camera A')).toBeVisible();
 		await expect(page.getByText('Camera B')).toBeVisible();
 		await expect(page.getByText('Not exported yet')).toBeVisible();

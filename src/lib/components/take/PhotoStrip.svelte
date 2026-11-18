@@ -1,16 +1,18 @@
 <script lang="ts">
-	// The photos and videos of the take on screen, as a strip of thumbnails, each with its camera
-	// and a remove button; a video has a mark. Removing is undoable, so nothing asks first. A tap on
-	// a photo opens it to draw on (#86); a photo still being saved opens once it is. A video takes
-	// no drawing.
+	// The photos and videos of the take on screen, each with its camera and a remove button; a video
+	// has a mark. `grid`: they wrap in rows and fill the column (an iPad); else one strip that scrolls
+	// sideways (a phone). Removing is undoable, so nothing asks first. A tap on a photo opens it to
+	// draw on (#86); a photo still being saved opens once it is. A video takes no drawing. A photo
+	// that lands fades in; one removed fades where it was while the others close up (listMotion).
 	import { Video, X } from '@lucide/svelte';
 	import PhotoMarkup from '$lib/components/draw/PhotoMarkup.svelte';
+	import { listMotion } from '$lib/components/ios/motion';
 	import { t } from '$lib/i18n/messages';
 	import type { Still } from '$lib/model/types';
 	import type { Shoot } from '$lib/take/shoot.svelte';
 	import PhotoThumb from './PhotoThumb.svelte';
 
-	let { shoot }: { shoot: Shoot } = $props();
+	let { shoot, grid = false }: { shoot: Shoot; grid?: boolean } = $props();
 	const number = $derived(shoot.group?.number ?? '');
 	const camOf = (takeId: string) => {
 		const take = shoot.group?.takes.find((x) => x.id === takeId);
@@ -24,7 +26,7 @@
 <section class="photos" aria-label={t('photos.title')}>
 	<h2>{t('photos.title')} <span class="num">{shoot.groupStills.length || ''}</span></h2>
 	{#if shoot.groupStills.length}
-		<ul>
+		<ul class:grid {@attach listMotion()}>
 			{#each shoot.groupStills as still, i (still.id)}
 				{@const cam = camOf(still.takeId)}
 				{@const video = shoot.kindOf(still) === 'video'}
@@ -69,6 +71,12 @@
 		scrollbar-width: none;
 		padding-bottom: 2px;
 	}
+	/* An iPad: rows of thumbnails as wide as the column allows. */
+	ul.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+		overflow: visible;
+	}
 	li {
 		position: relative;
 		flex: none;
@@ -78,8 +86,12 @@
 		overflow: hidden;
 		background: var(--fill-3);
 	}
+	.grid li {
+		width: auto;
+	}
+	/* Red night mode: the photo goes grey, then red through this, no brighter than secondary text. */
 	:global([data-night='true']) li {
-		background: var(--label);
+		background: var(--label-2);
 	}
 	.open {
 		position: relative;
@@ -123,8 +135,8 @@
 		display: flex;
 		align-items: flex-start;
 		justify-content: flex-end;
-		width: 44px;
-		height: 44px;
+		width: var(--touch, 44px);
+		height: var(--touch, 44px);
 		padding: 6px;
 		color: var(--label);
 	}

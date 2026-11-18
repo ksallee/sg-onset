@@ -10,8 +10,8 @@ import { expect, openApp, test } from './fixtures';
 const ZONE = 'Europe/Paris';
 test.use({ timezoneId: ZONE });
 
-/** The sample times today's takes back from now, 4 minutes apart: 42A A1, B1, A2, B2, A3, then 42B A1 (lib/app/sample.ts). */
-const AGO = { a1: 83, b1: 79, a2: 75, b2: 71, a3: 67, b42: 63 };
+/** The sample times today's takes back from now, 4 minutes apart, the cameras of a take together: 42A 1, 2, 3, then 42B 1 (lib/app/sample.ts). */
+const AGO = { a1: 83, b1: 83, a2: 79, b2: 79, a3: 75, b42: 71 };
 
 /** Time of day timecode at 24 fps, in the device's zone, `seconds` after `ms`. */
 function tod(ms: number, seconds = 0): string {

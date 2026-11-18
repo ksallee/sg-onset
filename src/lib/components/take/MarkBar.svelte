@@ -1,6 +1,8 @@
 <script lang="ts">
-	// Circled, No good and the note of the take on screen. The two marks are toggles: on reads by
-	// its filled face and its tick, not by colour alone. The note opens a sheet.
+	// Circled, No good and the note of the take on screen, under the thumb. The two marks are
+	// toggles: on reads by its filled face and its tick, not by colour alone. The note opens a
+	// sheet; beside the rail it shows the note on as many lines as it has, up to ten. In a
+	// phone-width window the three share one row and the note is one line.
 	import { Ban, CircleCheck, NotebookPen } from '@lucide/svelte';
 	import { t } from '$lib/i18n/messages';
 	import type { Shoot } from '$lib/take/shoot.svelte';
@@ -17,7 +19,7 @@
 		<Ban class="size-6" strokeWidth={2.2} /><span>{t('marks.noGood')}</span>
 	</button>
 	<button type="button" class="note" class:has={!!shoot.note} disabled={off} aria-label={shoot.note ? `${t('marks.note')}: ${shoot.note}` : t('marks.note.add')} onclick={onnote}>
-		<NotebookPen class="size-6" strokeWidth={2} />
+		<span class="icon"><NotebookPen class="size-6" strokeWidth={2} /></span>
 		<span class="text">{shoot.note || (compact ? t('marks.note') : t('marks.note.add'))}</span>
 	</button>
 </div>
@@ -57,14 +59,40 @@
 	.note {
 		grid-column: 1 / -1;
 		justify-content: flex-start;
+		align-items: flex-start;
 		min-width: 0;
+		padding: 14px 14px;
+		text-align: left;
+	}
+	.icon {
+		flex: none;
+		display: flex;
+		margin-top: -1px;
+	}
+	/* Beside the rail: the note on its lines, as typed. */
+	.note .text {
+		min-width: 0;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		font-size: 16px;
+		line-height: 22px;
+		display: -webkit-box;
+		-webkit-line-clamp: 10;
+		line-clamp: 10;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
 	}
 	.compact .note {
 		grid-column: auto;
+		align-items: center;
+		padding: 0 12px;
 	}
-	.note .text {
+	.compact .note .text {
+		display: block;
+		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		font-size: 15px;
 	}
 	.note:not(.has) .text {
 		color: var(--tint);

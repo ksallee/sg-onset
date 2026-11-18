@@ -16,11 +16,16 @@ export const take = {
 	'take.template.manage': 'Open Templates',
 	'take.setup': 'Cam {id}',
 	'take.setup.none': 'No cam',
+	/** A column for takes on a camera setup Gear no longer has: deleted, or not read back yet. */
+	'take.setup.gone': 'Cam not in Gear',
+	'take.setup.gone.short': 'Not in Gear',
+	/** The slate's scene, under the slate on the take screen. */
+	'take.scene.line': 'Scene {scene}',
 	'take.fromLens': 'From the lens',
 	'take.empty': 'Not set',
 	'take.cell': '{camera}, {field}, {value}',
 	'take.cell.locked': '{camera}, {field}, {value}, from the lens',
-	'take.changed': 'Changed since the take before',
+	'take.cell.changed': 'changed since the take before',
 	'take.fields.all': 'All Fields',
 	'take.fields.fewer': 'Fewer Fields',
 	'take.slate.change': 'Change Slate',
@@ -43,6 +48,9 @@ export const take = {
 	'take.video.large': 'This video is {size}. It takes room on this iPad and a long time to sync.',
 	'take.videos.large': 'These {n} videos are {size}. They take room on this iPad and a long time to sync.',
 
+	/** The picked camera's take before the one on screen, read only, in the dock. */
+	'take.before.title': 'Take before',
+
 	'phase.idle': 'Ready',
 	'phase.rolling': 'Running',
 	'phase.filed': 'Ended',
@@ -51,8 +59,8 @@ export const take = {
 	'timing.end': 'End time',
 
 	'rail.label': 'Capture',
-	'rail.record': 'Start',
-	'rail.cut': 'End',
+	'rail.start': 'Start',
+	'rail.end': 'End',
 	'rail.photo': 'Photo',
 	'rail.newTake': 'New Take',
 	'rail.undo': 'Undo',
@@ -108,8 +116,7 @@ export const take = {
 	'keypad.slot.end': 'End',
 
 	'take.edit.start': 'Take {take} started',
-	/** The End press. Named for the shared message test. */
-	'undo.filed': 'Take {take} ended',
+	'take.edit.end': 'Take {take} ended',
 	'take.edit.new': 'Take {take} added',
 	'take.edit.value': '{field} set to {value}',
 	'take.edit.cleared': '{field} cleared',

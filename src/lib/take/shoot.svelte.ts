@@ -23,6 +23,7 @@ import { shooting } from '$lib/gear/shooting.svelte';
 import { sortTemplates } from '$lib/templates/list';
 import { canStepEntry, commitEntry, pressEntry, startEntry, stepEntry, type EntryKey, type FieldEntry } from './entry';
 import { entrySpec, isLocked, numberFields, shownValue, slotKey, visibleFields, type EntrySpec } from './fields';
+import { changedSince, takeBefore } from './before';
 import { activeSetupIds, cameraColumns, groupTakes, NO_SETUP, type TakeGroup } from './groups';
 import { groupMark, groupNote, markPatch, newStill, notePatch, photoTake, type Mark } from './marks';
 import { addedLabel, failedLabel, mediaKind, pickedAt, pickedType, removedLabel, type MediaKind } from './library';
@@ -80,13 +81,16 @@ export class Shoot {
 	readonly openedAt = Date.now();
 	/** Photos the store is still writing. */
 	unsaved = $state.raw<Still[]>([]);
+	/** The value last stored from the dock: its camera, its slot and a count that moves on each. The table answers it. */
+	saved = $state.raw<{ setupId: string; key: string; n: number } | null>(null);
 
 	readonly groups = $derived.by(() => groupTakes(this.takes.value));
 	/** The camera setups this device shoots with (#110, lib/gear/shooting.ts): the columns and Start use only these. */
 	readonly chosen = $derived.by(() => chosenSetups(this.setups.value, shooting.value, this.#current.project?.id ?? ''));
 	readonly columns = $derived.by(() => cameraColumns(this.setups.value, this.groups, this.chosen));
 	readonly group = $derived.by(() => shownGroup(this.groups, this.selected));
-	readonly previous = $derived.by(() => (this.group ? this.groups[this.groups.indexOf(this.group) - 1] : undefined));
+	/** The picked camera's take before the one on screen, for the dock's card; none for the first. */
+	readonly before = $derived.by(() => takeBefore(this.groups, this.group, this.setupId));
 	readonly phase = $derived(this.group ? groupPhase(this.group) : 'idle');
 	readonly times = $derived.by(() => (this.group ? groupTimes(this.group) : { start: null, end: null }));
 	readonly running = $derived.by(() => runningGroup(this.groups));
@@ -205,13 +209,10 @@ export class Shoot {
 		return take ? shownValue(def, take, this.lensOf(take), settings.value.units, end) : '';
 	}
 
-	/** The value differs from the same camera's take before. */
+	/** The value differs from the same camera's take before (before.ts). */
 	changed(setupId: string, def: FieldDef): boolean {
 		const take = this.takeOf(setupId);
-		const before = this.previous?.bySetup[setupId];
-		if (!take || !before || isLocked(def, this.lensOf(take))) return false;
-		const rec = (r: Take, key: string) => (r as Record<string, unknown>)[key];
-		return !sameValue(rec(take, def.key), rec(before, def.key)) || !sameValue(rec(take, slotKey(def.key, true)), rec(before, slotKey(def.key, true)));
+		return changedSince(def, take, takeBefore(this.groups, this.group, setupId)?.take, this.lensOf(take));
 	}
 
 	locked(setupId: string, def: FieldDef): boolean {
@@ -233,7 +234,7 @@ export class Shoot {
 		const plan = startEndPlan({ groups: this.groups, selected: this.selected, active: this.active, setups: this.setups.value, slateId: slate.id, at, newId: () => this.#app.newId() });
 		const take = plan.number;
 		if (plan.kind === 'end') {
-			await this.#app.edit.apply('take', plan.patch, this.#label('undo.filed', { take }));
+			await this.#app.edit.apply('take', plan.patch, this.#label('take.edit.end', { take }));
 		} else if (plan.kind === 'start') {
 			this.selected = take;
 			await this.#app.edit.apply('take', plan.patch, this.#label('take.edit.start', { take }));
@@ -492,6 +493,7 @@ export class Shoot {
 		const field = fieldLabel(f.def, f.end);
 		const label = value === undefined ? this.#label('take.edit.cleared', { field }) : this.#label('take.edit.value', { field, value: text });
 		void this.#app.edit.set('take', take, key, value, label);
+		this.saved = { setupId: f.setupId, key, n: (this.saved?.n ?? 0) + 1 };
 	}
 
 	/** Saves what was typed. False when it does not read: the issue shows, the keypad stays. */

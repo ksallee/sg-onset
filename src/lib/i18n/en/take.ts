@@ -32,6 +32,8 @@ export const take = {
 	'take.noSetups': 'No camera setups yet',
 	'take.noSetups.message': 'Takes are kept with no camera. Add camera setups in Gear to log lens numbers per camera.',
 	'take.noSetups.action': 'Go to Gear',
+	'take.noChosen': 'No camera setup on this device',
+	'take.noChosen.message': 'Takes are kept with no camera. In Gear, tick the setups this device shoots with.',
 	'take.photo.failed': 'The photo did not save. The device may be full.',
 	'take.video.failed': 'The video did not save. The device may be full.',
 	'take.photos.failed': '{n} photos did not save. The device may be full.',

@@ -107,7 +107,7 @@ export async function goldenRun(fpt: FakeFpt, extra: Partial<FptOptions> = {}): 
 	};
 	const linksOf = (fields: Record<string, unknown>) =>
 		Object.fromEntries(Object.values(fields).flatMap((v) => (typeof v === 'string' && remote[v] !== undefined ? [[v, remote[v]]] : [])));
-	const create = (scope: EntityScope | 'project' | 'still', id: string, fields: Record<string, unknown>) => op({ kind: 'create', table: scope, recordId: id, fields }, linksOf(fields));
+	const create = (scope: EntityScope | 'project' | 'still' | 'template' | 'referenceKind', id: string, fields: Record<string, unknown>) => op({ kind: 'create', table: scope, recordId: id, fields }, linksOf(fields));
 
 	await push([create('project', 'p1', { name: 'Show' })]);
 	await push(['shootDay', 'camera', 'lens', 'lightingSetup'].map((s) => create(s as EntityScope, IDS[s], everyKey(s as EntityScope))));
@@ -140,6 +140,13 @@ export async function goldenRun(fpt: FakeFpt, extra: Partial<FptOptions> = {}): 
 		op({ kind: 'update', table: 'take', recordId: 't1', changes: { tStop: { base: 2.8, value: 4 }, circleTake: { base: true, value: false }, lensId: { base: 'l1', value: undefined } } }, {}, remote.t1),
 		op({ kind: 'update', table: 'slate', recordId: 's1', changes: { vfxShots: { base: ['SH010', 'SH020'], value: ['SH010'] } } }, {}, remote.s1)
 	]);
+
+	// The lists a show shares (#110): a template and a kind of set reference, then all read back.
+	await push([
+		create('template', 'tp1', { projectId: 'p1', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } }),
+		create('referenceKind', 'k1', { projectId: 'p1', name: 'Drone scan' })
+	]);
+	expect(await transport.readShared()).toHaveLength(6);
 
 	// When a drain ends: the slates, the references, the Notes.
 	const shots = await transport.linkShots([{ slate: 's1', remoteId: remote.s1 as number, codes: ['SH010'] }]);

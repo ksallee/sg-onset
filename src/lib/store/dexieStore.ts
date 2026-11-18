@@ -404,6 +404,72 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 			return (await remotes.get(id))?.remoteId;
 		},
 
+		async reconcile(name, users, plan) {
+			let touched = false;
+			let queued = false;
+			const result = await write([name, ...users], async () => {
+				const rows = await table<Row>(name).toArray();
+				const others: Partial<Record<TableName, Row[]>> = {};
+				for (const user of users) others[user] = await table<Row>(user).toArray();
+				const entries = (await outbox.toArray()).sort((a, b) => a.seq - b.seq);
+				const known = Object.fromEntries((await remotes.toArray()).map((r) => [r.id, r.remoteId]));
+				const trashed = new Set((await trash.toArray()).filter((t) => t.table === name).map((t) => t.id));
+				const p = plan({ rows, users: others, remotes: known, entries, trashed });
+				const at = now();
+				const byId = new Map(rows.map((r) => [r.id, r]));
+
+				for (const row of p.add) {
+					// Never over a record the device holds: what it holds may be newer.
+					if (byId.has(row.id)) continue;
+					await table(name).put(row);
+					touched = true;
+				}
+				for (const { id, set } of p.change) {
+					const row = byId.get(id);
+					if (!row) continue;
+					const next: Row = { ...row };
+					for (const [key, value] of Object.entries(set)) {
+						if (value === undefined) delete next[key];
+						else next[key] = value;
+					}
+					await table(name).put(next);
+					touched = true;
+				}
+				for (const id of p.remove) {
+					if (!byId.has(id)) continue;
+					await table(name).delete(id);
+					await remotes.delete(id);
+					touched = true;
+				}
+				for (const [id, remoteId] of Object.entries(p.remoteIds)) await remotes.put({ id, table: name, remoteId, at });
+
+				const creates: QueueOp[] = [];
+				for (const id of [...p.resend, ...p.push]) {
+					const row = byId.get(id);
+					if (!row) continue;
+					const { id: _id, ...fields } = row;
+					creates.push({ op: { kind: 'create', table: name, recordId: id, fields }, dependsOn: dependsOn(name, fields) });
+				}
+				if (p.resend.length) {
+					const resend = new Set(p.resend.filter((id) => byId.has(id)));
+					for (const id of resend) await remotes.delete(id);
+					// The create carries the record as it is: the edits it holds are not sent again.
+					await editQueue([...resend], (q) => q.filter((e) => !(resend.has(e.op.recordId) && e.op.kind === 'update' && (isOpen(e) || e.state === 'needsAttention'))));
+				}
+				// The links to a record sent back, written again: Flow PT reads them as none now. Only where
+				// the record still holds the link; the update resolves to the new row when it is sent.
+				for (const link of p.relink ?? []) {
+					const row = others[link.table]?.find((r) => r.id === link.id);
+					if (row?.[link.key] !== link.value) continue;
+					creates.push({ op: { kind: 'update', table: link.table, recordId: link.id, changes: { [link.key]: { base: undefined, value: link.value } } }, dependsOn: [link.value] });
+				}
+				if (creates.length) queued = await queue(creates);
+				return p;
+			});
+			if (touched || queued) emit([...(touched ? [name] : []), ...(queued ? ['outbox'] : [])]);
+			return result;
+		},
+
 		subscribe(listener) {
 			listeners.add(listener);
 			return () => void listeners.delete(listener);

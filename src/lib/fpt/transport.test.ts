@@ -166,14 +166,15 @@ describe('push', () => {
 		await applied(w, [create('camera', 'c1', { projectId: 'p1', cameraModel: 'A' }, { p1: w.projectId })]);
 		const reads = () => w.fpt.count((r) => r.path.startsWith('/api/v1/schema'));
 		// /schema, the nine types, Attachment and Shot, where the photos and Shots fields add one each
-		// (findings/142), Version, where videos go, and Note, where the Notes on Shots are keyed (#97).
-		expect(reads()).toBe(14);
+		// (findings/142), Version, where videos go, Note, where the Notes on Shots are keyed (#97), and
+		// Project, where the shared lists are kept (#110).
+		expect(reads()).toBe(15);
 		await applied(w, [create('camera', 'c2', { projectId: 'p1', cameraModel: 'B' }, { p1: w.projectId })]);
-		expect(reads()).toBe(14);
+		expect(reads()).toBe(15);
 		expect(await w.cache.get(resolutionKey(w.fpt.site))).toBeDefined();
 		// Another session on the same device starts from the cache.
 		await w.make().push([create('camera', 'c3', { projectId: 'p1', cameraModel: 'C' }, { p1: w.projectId })]);
-		expect(reads()).toBe(14);
+		expect(reads()).toBe(15);
 	});
 
 	it('does not send to a site that is not set up, and says what is missing', async () => {
@@ -293,6 +294,21 @@ describe('push, refused', () => {
 		expect(batches(w)).toEqual([]);
 		const table = create('reel', 'r1', {});
 		expect(await w.transport.push([table])).toMatchObject({ outcome: 'refused', refusals: [{ entryId: table.entryId, reason: 'invalid' }] });
+	});
+
+	// findings/161: a write naming a deleted row is refused as one naming an id that never existed:
+	// 400 code 104 "Value is not legal.", nothing applied.
+	it('is refused a link to a row deleted on Flow PT, which reads as no link', async () => {
+		const w = world();
+		const ids = await shoot(w);
+		const lens = Object.values(await applied(w, [create('lens', 'l1', { projectId: 'p1', lensModel: 'A' }, { p1: w.projectId })]))[0];
+		await applied(w, [update('take', 't1', ids.t1, { lensId: [undefined, 'l1'] }, { l1: lens })]);
+		w.fpt.rows.get(`CustomEntity19:${lens}`)!.retired = true;
+		expect(await w.transport.read([{ table: 'take', id: 't1', remoteId: ids.t1, keys: ['lensId'] }])).toEqual([{ table: 'take', id: 't1', remoteId: ids.t1, fields: {} }]);
+		const relink = update('take', 't1', ids.t1, { tStop: [2.8, 4], lensId: [undefined, 'l1'] }, { l1: lens });
+		const result = await w.transport.push([relink]);
+		expect(result).toEqual({ outcome: 'refused', refusals: [{ entryId: relink.entryId, reason: 'invalid', message: expect.stringContaining('Value is not legal') }] });
+		expect(w.fpt.byUuid('CustomEntity09', 't1')!.values.sg_t_stop).toBe(2.8);
 	});
 
 	// corpus field_types/entity.md: "Value is not legal" for an id that does not exist.
@@ -1685,5 +1701,184 @@ describe('the names an admin picked (#111)', () => {
 			outcome: 'refused',
 			refusals: [{ entryId: r1.entryId, reason: 'invalid', message: 'This Flow PT site has no Set Ref entity yet. Once an admin enables it and runs Set Up Fields, tap Try Again.' }]
 		});
+	});
+});
+
+// The lists a show shares (#110). Templates and the kinds of set reference a project adds have no
+// entity in Flow PT: each list is JSON in a text field of the Project (lists.ts). Cameras, lenses
+// and lighting setups are read back from their entities.
+describe('the shared lists', () => {
+	const project = (w: World) => w.fpt.rows.get(`Project:${w.projectId}`)!.values;
+	const listOf = (w: World, field: string) => JSON.parse(String(project(w)[field])).entries;
+	const tp = { projectId: 'p1', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } };
+
+	it('writes a template to the Project, and answers its own id as its server id', async () => {
+		const w = world();
+		const make = create('template', 'tp1', tp, { p1: w.projectId });
+		expect(await applied(w, [make])).toEqual({ [make.entryId]: 'tp1' });
+		expect(listOf(w, 'sg_onset_templates')).toEqual([{ id: 'tp1', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } }]);
+		expect(project(w).sg_onset_reference_kinds).toBeUndefined();
+	});
+
+	it('keeps what other devices wrote: it reads the list, applies its changes, writes it whole', async () => {
+		const w = world();
+		await applied(w, [create('referenceKind', 'k1', { projectId: 'p1', name: 'Drone scan' })]);
+		await applied(w, [create('referenceKind', 'k2', { projectId: 'p1', name: 'Sky dome' })]);
+		await applied(w, [update('referenceKind', 'k1', 'k1', { name: ['Drone scan', 'Drone LiDAR'] }), del('referenceKind', 'k2', 'k2')]);
+		expect(listOf(w, 'sg_onset_reference_kinds')).toEqual([{ id: 'k1', name: 'Drone LiDAR' }]);
+	});
+
+	it('sends the list and the records of one push: the list first, then the batch', async () => {
+		const w = world();
+		const ops = [create('template', 'tp1', tp, { p1: w.projectId }), create('camera', 'c1', { projectId: 'p1', cameraModel: 'Alexa 35' }, { p1: w.projectId })];
+		await applied(w, ops);
+		expect(listOf(w, 'sg_onset_templates')).toHaveLength(1);
+		expect(w.fpt.byUuid('Camera', 'c1')).toBeDefined();
+		const writes = w.fpt.requests.filter((r) => r.method !== 'GET' && !r.path.endsWith('/_search'));
+		expect(writes.map((r) => `${r.method} ${r.path}`)).toEqual([`PUT /api/v1/entity/projects/${w.projectId}`, 'POST /api/v1/entity/_batch']);
+	});
+
+	it('refuses a create the list holds as a duplicate, an update of an entry it lacks as gone, and sends nothing', async () => {
+		const w = world();
+		await applied(w, [create('template', 'tp1', tp)]);
+		const before = w.fpt.count((r) => r.method === 'PUT');
+		const again = create('template', 'tp1', tp);
+		const edit = update('template', 'tp9', 'tp9', { name: ['a', 'b'] });
+		const result = await w.transport.push([again, edit]);
+		expect(result).toEqual({
+			outcome: 'refused',
+			refusals: [
+				{ entryId: again.entryId, reason: 'duplicate' },
+				{ entryId: edit.entryId, reason: 'gone' }
+			]
+		});
+		expect(w.fpt.count((r) => r.method === 'PUT')).toBe(before);
+	});
+
+	// No conditional write (recipes/005): another device may write the field between our read and our write.
+	it('sends the push to the check when another device wrote the list in between', async () => {
+		const w = world();
+		const site = w.fpt.fetch;
+		// The other device's write lands right after ours.
+		const racing = (async (input: RequestInfo | URL, init?: RequestInit) => {
+			const response = await site(input, init);
+			if (init?.method === 'PUT' && String(input).includes('/projects/')) {
+				project(w).sg_onset_reference_kinds = JSON.stringify({ list: 'referenceKind', version: 1, entries: [{ id: 'k7', name: 'Theirs' }] });
+			}
+			return response;
+		}) as typeof fetch;
+		const t = createFptTransport({ site: w.fpt.site, bearer: async () => BEARER, fetch: racing, schemaCache: w.cache, projectId: w.projectId, online: () => true });
+		expect(await kindOf(t.push([create('referenceKind', 'k1', { name: 'Mine' })]))).toBe('timeout');
+		// The check finds ours missing: it goes again, and the list then holds both.
+		expect(await w.transport.lookup([{ table: 'referenceKind', id: 'k1' }])).toEqual([]);
+		await applied(w, [create('referenceKind', 'k1', { name: 'Mine' })]);
+		expect(listOf(w, 'sg_onset_reference_kinds').map((e: { id: string }) => e.id)).toEqual(['k7', 'k1']);
+	});
+
+	it('never writes over text it cannot read: the entries need a person, with the field named', async () => {
+		const w = world();
+		project(w).sg_onset_templates = 'Day ext, Night int';
+		const make = create('template', 'tp1', tp);
+		const result = await w.transport.push([make]);
+		expect(result).toEqual({ outcome: 'refused', refusals: [{ entryId: make.entryId, reason: 'invalid', message: expect.stringContaining('sg_onset_templates') }] });
+		expect(project(w).sg_onset_templates).toBe('Day ext, Night int');
+	});
+
+	// findings/159: an Artist in the project reads the field and gets 400 code 104 on a PUT.
+	it('says in plain words when the account may not change the Project, and holds the lists back after', async () => {
+		const w = world();
+		w.fpt.forbidden.add('update:Project');
+		const make = create('referenceKind', 'k1', { name: 'Drone scan' });
+		const result = await w.transport.push([make]);
+		expect(result).toEqual({ outcome: 'refused', refusals: [{ entryId: make.entryId, reason: 'invalid', message: expect.stringContaining("can't change the Project") }] });
+		const puts = w.fpt.count((r) => r.method === 'PUT');
+		await w.transport.push([create('referenceKind', 'k2', { name: 'Sky' })]);
+		expect(w.fpt.count((r) => r.method === 'PUT')).toBe(puts);
+	});
+
+	// findings/159: an Artist outside the project gets 400 code 104 "Entity can not be accessed by this user."
+	it('says the same plain words when the account may not reach the Project at all', async () => {
+		const w = world();
+		w.fpt.failNext((r) => r.method === 'PUT' && r.path.includes('/projects/'), { status: 400, body: { errors: [{ status: 400, code: 104, title: 'Entity can not be accessed by this user.' }] } });
+		const make = create('referenceKind', 'k1', { name: 'Drone scan' });
+		expect(await w.transport.push([make])).toEqual({ outcome: 'refused', refusals: [{ entryId: make.entryId, reason: 'invalid', message: expect.stringContaining("can't change the Project") }] });
+	});
+
+	// findings/158: outer spaces and newlines are stripped, the rest kept byte for byte. A list written
+	// by another serializer reads the same: values are compared parsed, never as strings.
+	it('takes a list another writer formatted, its outer newline stripped by Flow PT, as the same list', async () => {
+		const w = world();
+		project(w).sg_onset_reference_kinds = JSON.stringify({ list: 'referenceKind', version: 1, entries: [{ id: 'k7', name: 'Theirs' }] }, null, 2);
+		await applied(w, [create('referenceKind', 'k1', { name: 'Mine' })]);
+		expect(listOf(w, 'sg_onset_reference_kinds')).toEqual([
+			{ id: 'k7', name: 'Theirs' },
+			{ id: 'k1', name: 'Mine' }
+		]);
+	});
+
+	it('finds an entry by its id, and reads the values the list holds', async () => {
+		const w = world();
+		await applied(w, [create('template', 'tp1', tp)]);
+		expect(await w.transport.lookup([{ table: 'template', id: 'tp1' }, { table: 'template', id: 'tp2' }])).toEqual([{ table: 'template', id: 'tp1', remoteId: 'tp1' }]);
+		expect(await w.transport.read([{ table: 'template', id: 'tp1', keys: ['values', 'name'] }])).toEqual([
+			{ table: 'template', id: 'tp1', remoteId: 'tp1', fields: { values: { tStop: 2.8 }, name: 'Day ext' } }
+		]);
+		expect(await w.transport.read([{ table: 'template', id: 'tp2', keys: ['name'] }])).toEqual([]);
+	});
+
+	it('reads back every list of the project, each record by its client UUID, in our field form', async () => {
+		const w = world();
+		await applied(w, [
+			create('camera', 'c1', { projectId: 'p1', cameraModel: 'Alexa 35', activeSensorPhysicalDimensions: { width: 27.99, height: 19.22 } }, { p1: w.projectId }),
+			create('lens', 'l1', { projectId: 'p1', lensModel: 'S4/i 32mm', focalLength: 32 }, { p1: w.projectId }),
+			create('lightingSetup', 'ls1', { projectId: 'p1', label: 'Day ext', hdri: true }, { p1: w.projectId }),
+			create('template', 'tp1', tp),
+			create('referenceKind', 'k1', { name: 'Drone scan' })
+		]);
+		const r = await applied(w, [create('lens', 'l2', { projectId: 'p1', lensModel: 'Supreme 50mm' }, { p1: w.projectId })]);
+		const ids = { p1: w.projectId, c1: w.fpt.byUuid('Camera', 'c1')!.id, l2: Object.values(r)[0] };
+		await applied(w, [create('cameraSetup', 'cs1', { projectId: 'p1', cameraLabel: 'A', cameraId: 'c1', lensId: 'l2' }, ids)]);
+		// A lens of another project, and one made by hand in Flow PT, with no client UUID.
+		const other = w.fpt.seed('Project', { name: 'Other' });
+		w.fpt.seed('CustomEntity19', { project: { type: 'Project', id: other }, code: 'Theirs', sg_onset_uuid: 'l9' });
+		w.fpt.seed('CustomEntity19', { project: { type: 'Project', id: w.projectId }, code: 'By hand' });
+		const writes = w.fpt.requests.length;
+
+		const read = await w.transport.readShared();
+		expect(read?.map((t) => [t.table, t.records.map((r) => r.id), t.complete])).toEqual([
+			['cameraSetup', ['cs1'], true],
+			['camera', ['c1'], true],
+			['lens', ['l1', 'l2'], true],
+			['lightingSetup', ['ls1'], true],
+			['template', ['tp1'], true],
+			['referenceKind', ['k1'], true]
+		]);
+		// A camera setup's camera and lens come back as their client UUIDs, read through the link (findings/138).
+		expect(read!.find((t) => t.table === 'cameraSetup')!.records[0].fields).toEqual({ cameraLabel: 'A', cameraId: 'c1', lensId: 'l2' });
+		const lens = read!.find((t) => t.table === 'lens')!;
+		expect(lens.records[0]).toEqual({ id: 'l1', remoteId: w.fpt.byUuid('CustomEntity19', 'l1')!.id, fields: { lensModel: 'S4/i 32mm', focalLength: 32 } });
+		expect(lens.keys).toContain('lensSerialNumber');
+		expect(lens.keys).not.toContain('projectId');
+		expect(read!.find((t) => t.table === 'camera')!.records[0].fields).toEqual({ cameraModel: 'Alexa 35', activeSensorPhysicalDimensions: { width: 27.99, height: 19.22 } });
+		expect(read!.find((t) => t.table === 'template')!.records[0]).toEqual({ id: 'tp1', remoteId: 'tp1', fields: { name: 'Day ext', scope: 'take', values: { tStop: 2.8 } } });
+		// It only reads.
+		expect(w.fpt.requests.slice(writes).every((r) => r.method === 'GET' || r.path.endsWith('/_search'))).toBe(true);
+	});
+
+	it('reads no list on a site without the Project fields, and leaves out a list it cannot read', async () => {
+		const bare = world();
+		delete bare.fpt.fields.Project.sg_onset_templates;
+		delete bare.fpt.fields.Project.sg_onset_reference_kinds;
+		expect((await bare.transport.readShared())?.map((t) => t.table)).toEqual(['cameraSetup', 'camera', 'lens', 'lightingSetup']);
+
+		const w = world();
+		project(w).sg_onset_templates = 'typed by hand';
+		expect((await w.transport.readShared())?.map((t) => t.table)).toEqual(['cameraSetup', 'camera', 'lens', 'lightingSetup', 'referenceKind']);
+	});
+
+	it('answers nothing, and never throws, when the site cannot be asked', async () => {
+		const w = world();
+		w.fpt.online = false;
+		expect(await w.transport.readShared()).toBeUndefined();
 	});
 });

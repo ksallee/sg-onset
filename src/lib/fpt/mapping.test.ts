@@ -21,6 +21,7 @@ import {
 	STILLS,
 	UUID,
 	NOTE_COLUMNS,
+	PROJECT_COLUMNS,
 	VERSION_COLUMNS,
 	wantedColumns,
 	wantedFields,
@@ -291,7 +292,8 @@ describe('mappingTable', () => {
 describe('wantedFields', () => {
 	it('lists every field the app wants, by where it is, stock ones aside', () => {
 		const fields = wantedFields();
-		expect(fields.length).toBe(ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length + NOTE_COLUMNS.length);
+		expect(fields.length).toBe(ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length + NOTE_COLUMNS.length + PROJECT_COLUMNS.length);
+		expect(fields).toContainEqual({ place: 'project', column: expect.objectContaining({ name: 'sg_onset_templates' }) });
 		expect(fields).toContainEqual({ place: 'take', column: expect.objectContaining({ name: 'sg_focal_length' }) });
 		expect(fields).toContainEqual({ place: 'version', column: expect.objectContaining({ name: 'sg_onset_uuid' }) });
 		expect(fields).toContainEqual({ place: 'note', column: expect.objectContaining({ name: 'sg_onset_captured' }) });

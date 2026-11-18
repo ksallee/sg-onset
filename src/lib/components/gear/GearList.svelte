@@ -2,7 +2,8 @@
 	// The gear of the project as one list: camera setups first (they change all day), then
 	// cameras, then lenses. A search finds across the three. Each section ends with its Add row;
 	// cameras and lenses also with the library and Import. Out of a search, setups move by the grip on each row:
-	// drag it, or the up and down arrow keys on it. One move is one edit.
+	// drag it, or the up and down arrow keys on it. One move is one edit. Each setup has a check: this
+	// device shoots with it (#110). Every device sees every setup; the take screen shows the ticked.
 	import { tick } from 'svelte';
 	import { Camera as CameraIcon, FileUp, LibraryBig, Plus } from '@lucide/svelte';
 	import Row from '$lib/components/ios/Row.svelte';
@@ -29,7 +30,9 @@
 		onadd,
 		onimport,
 		onlibrary,
-		onmove
+		onmove,
+		shootsWith,
+		onshoot
 	}: {
 		cameras: Camera[];
 		lenses: Lens[];
@@ -44,6 +47,9 @@
 		onlibrary: (scope: GearScope) => void;
 		/** Move a setup to an index of `setups`. Resolves once it is saved. */
 		onmove: (setup: CameraSetup, to: number) => Promise<void>;
+		/** Whether this device shoots with a setup (lib/gear/shooting.ts). */
+		shootsWith: (setup: CameraSetup) => boolean;
+		onshoot: (setup: CameraSetup, on: boolean) => void;
 	} = $props();
 
 	// ---- moving setups: drag the grip, or arrow keys on it
@@ -141,7 +147,7 @@
 		<!-- The grip button is the control; the drag it starts is followed here, where it bubbles. -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="setups" bind:this={list} onpointermove={follow} onpointerup={drop} onpointercancel={drop}>
-		<Section header={header(t('gear.setups'), shownSetups.length, setups.length)}>
+		<Section header={header(t('gear.setups'), shownSetups.length, setups.length)} footer={setups.length ? t('gear.setups.footer') : undefined}>
 			{#each shownSetups as setup, i (setup.id)}
 				<SetupRow
 					id={setup.id}
@@ -156,6 +162,7 @@
 					chevron={!wide}
 					onopen={() => onselect({ scope: 'cameraSetup', id: setup.id })}
 					onlens={() => onlens(setup)}
+					shoot={{ on: shootsWith(setup), onchange: (on) => onshoot(setup, on) }}
 				/>
 			{:else}
 				<Row title={t('gear.none.cameraSetup')} class="quiet" />

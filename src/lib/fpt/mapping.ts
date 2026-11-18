@@ -189,6 +189,30 @@ export const NOTE_CAPTURED: Column = {
 /** Ours on Note, a stock type: Notes on Shots (#97). Optional: a site without them syncs the rest. */
 export const NOTE_COLUMNS: readonly Column[] = [NOTE_KEY, NOTE_CAPTURED];
 
+/**
+ * The live templates of the project, shared by every device of the show (#110): JSON in a text
+ * field of the Project (lists.ts). A text field on Project is created by API (corpus findings/157)
+ * and keeps 1,000,000 characters byte for byte (findings/158); jsonb cannot be created
+ * (findings/160). Flow PT has no entity for a template, and Kevin wants no new required custom entity.
+ */
+export const PROJECT_TEMPLATES: Column = {
+	name: 'sg_onset_templates',
+	display: 'Onset Templates',
+	dataType: 'text',
+	note: 'The templates of SG OnSet for this project, as JSON. Edit them in SG OnSet'
+};
+
+/** The kinds of set reference the project adds (#93), shared the same way (#110). */
+export const PROJECT_KINDS: Column = {
+	name: 'sg_onset_reference_kinds',
+	display: 'Onset Reference Kinds',
+	dataType: 'text',
+	note: 'The kinds of set reference this project adds in SG OnSet, as JSON. Edit them in SG OnSet'
+};
+
+/** Ours on Project, a stock type: the shared lists (#110). Optional: a site without them syncs the rest. */
+export const PROJECT_COLUMNS: readonly Column[] = [PROJECT_TEMPLATES, PROJECT_KINDS];
+
 /** The key whose value a new record takes as `created_at` (corpus findings/070_authored_timestamps.md). */
 export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt', reference: 'loggedAt' };
 
@@ -385,16 +409,17 @@ export function wantedColumns(scope: EntityScope): Column[] {
 
 /**
  * Where a field the app wants is: one of our scopes' entities, Version, where a take's videos go,
- * or Note, where the Note on a Shot is kept (#97).
+ * Note, where the Note on a Shot is kept (#97), or Project, where the shared lists are (#110).
  */
-export type FieldPlace = EntityScope | 'version' | 'note';
+export type FieldPlace = EntityScope | 'version' | 'note' | 'project';
 
 /** Every field the app wants, stock ones aside, by where it is: what an admin may name (#111). */
 export function wantedFields(): { place: FieldPlace; column: Column }[] {
 	return [
 		...ENTITY_SCOPES.flatMap((scope) => wantedColumns(scope).map((column) => ({ place: scope as FieldPlace, column }))),
 		...VERSION_COLUMNS.map((column) => ({ place: 'version' as const, column })),
-		...NOTE_COLUMNS.map((column) => ({ place: 'note' as const, column }))
+		...NOTE_COLUMNS.map((column) => ({ place: 'note' as const, column })),
+		...PROJECT_COLUMNS.map((column) => ({ place: 'project' as const, column }))
 	];
 }
 

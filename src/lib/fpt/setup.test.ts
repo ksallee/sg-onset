@@ -3,7 +3,7 @@ import { TransportError } from '$lib/outbox/transport';
 import { createApi } from './api';
 import { memoryKeyValue, resolutionKey } from './cache';
 import { BEARER, fakeFpt, type FakeFpt } from './fakeFpt';
-import { ENTITY_SCOPES, NOTE_COLUMNS, VERSION_COLUMNS, wantedColumns } from './mapping';
+import { ENTITY_SCOPES, NOTE_COLUMNS, PROJECT_COLUMNS, VERSION_COLUMNS, wantedColumns } from './mapping';
 import type { Naming } from './naming';
 import { parseResolution } from './schema';
 import { checkSetup, loadResolution, type SetupReport } from './setup';
@@ -19,8 +19,11 @@ function world(fields: 'complete' | 'bare' = 'complete') {
 
 const creates = (fpt: FakeFpt) => fpt.requests.filter((r) => r.method === 'POST' && r.path.includes('/schema/'));
 const field = (report: SetupReport, scope: string, name: string) => report.fields.find((f) => f.scope === scope && f.name === name)!;
-/** Every field of ours: on the eight entities, the client UUID on Version, where videos go, and the two on Note (#97). */
-const WANTED = ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length + NOTE_COLUMNS.length;
+/**
+ * Every field of ours: on the entities, the client UUID on Version, where videos go, the two on Note
+ * (#97) and the two shared lists on Project (#110).
+ */
+const WANTED = ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length + NOTE_COLUMNS.length + PROJECT_COLUMNS.length;
 
 describe('checkSetup', () => {
 	it('finds a site that is ready, and changes nothing on it', async () => {
@@ -36,12 +39,32 @@ describe('checkSetup', () => {
 	});
 
 	// corpus endpoints/get_schema.md: /schema is cheap and /fields is not. One read per type.
-	it('reads the type list once and the fields of each of the nine types, Attachment, Shot, Version and Note once', async () => {
+	it('reads the type list once and the fields of each of the nine types, Attachment, Shot, Version, Note and Project once', async () => {
 		const { fpt, check } = world();
 		await check();
 		expect(fpt.requests.map((r) => r.path).sort()).toEqual(
-			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment', 'Shot', 'Version', 'Note'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
+			['/api/v1/schema', ...[...Object.values(TYPES), 'Attachment', 'Shot', 'Version', 'Note', 'Project'].map((t) => `/api/v1/schema/${t}/fields`)].sort()
 		);
+	});
+
+	// The shared lists (#110): the templates and the kinds of set reference, as JSON in two text
+	// fields of the Project. Optional: a site set up before them syncs the rest, and the lists wait.
+	it('creates the two lists on Project, and the transport may use them', async () => {
+		const { fpt, cache, check } = world('bare');
+		const report = await check();
+		expect(field(report, 'project', 'sg_onset_templates')).toMatchObject({ entityType: 'Project', status: 'created', dataType: 'text' });
+		expect(field(report, 'project', 'sg_onset_reference_kinds')).toMatchObject({ entityType: 'Project', status: 'created', dataType: 'text' });
+		expect(fpt.fields.Project.sg_onset_templates.data_type.value).toBe('text');
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.project).toEqual({ templates: 'sg_onset_templates', referenceKinds: 'sg_onset_reference_kinds' });
+	});
+
+	it('is ready while Project lacks them, and says they are missing', async () => {
+		const { fpt, cache, check } = world();
+		delete fpt.fields.Project.sg_onset_templates;
+		const report = await check({ createFields: false });
+		expect(report.ready).toBe(true);
+		expect(field(report, 'project', 'sg_onset_templates')).toMatchObject({ status: 'missing' });
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.project).toBeUndefined();
 	});
 
 	// Notes on Shots (#97): one Note per Shot, keyed in a unique text field (findings/146).

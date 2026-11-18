@@ -116,6 +116,18 @@ export function noteFields(ours = true): RawFields {
 	};
 }
 
+/**
+ * Project's fields (corpus entity_types/Project.md): its name and code, and with `ours` the two
+ * lists Set Up Fields makes for the templates and the kinds of set reference (#110).
+ */
+export function projectFields(ours = true): RawFields {
+	return {
+		name: rawField('text', 'Project Name'),
+		code: rawField('text', 'Project Code'),
+		...(ours ? { sg_onset_templates: rawField('text', 'Onset Templates'), sg_onset_reference_kinds: rawField('text', 'Onset Reference Kinds') } : {})
+	};
+}
+
 /** The probed site's habit: Lens.sg_focal_length is a text field of the site's own. */
 export function steppedAsideFields(): Record<EntityScope, RawFields> {
 	const out = completeFields();
@@ -131,7 +143,7 @@ export function jwtWith(claims: Record<string, unknown>): string {
 }
 
 const resolve = (fields: Record<EntityScope, RawFields>): Resolution =>
-	toResolution(SITE_URL, resolveEntities(siteTypes()), planFields(TYPES, fields, { version: versionFields(), note: noteFields() }))!;
+	toResolution(SITE_URL, resolveEntities(siteTypes()), planFields(TYPES, fields, { version: versionFields(), note: noteFields(), project: projectFields() }))!;
 
 export const RESOLUTION: Resolution = resolve(completeFields());
 export const STEPPED_ASIDE: Resolution = resolve(steppedAsideFields());

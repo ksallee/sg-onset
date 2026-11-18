@@ -30,6 +30,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `sendPlan.ts` | yes | What a run of the action covers (`sendScope`) and what it did per Shot (`shotReports`). |
 | `setShotLinks.ts` | no | The calls of the Set Shot links, shared by the sync and the action: read by key, match once, read and write a slate's links. |
 | `sendSetData.ts` | no | `previewSend`, `sendSetData`: the action's reads and writes, from Flow PT only, with the person's session. |
+| `lists.ts` | yes | The shared lists (#110): templates and reference kinds as JSON in a text field of the Project. Read, write, apply a push's operations, check they landed. |
 | `errors.ts` | yes | What a refusal or a missing answer means. |
 | `token.ts` | yes | The bearer's `exp`, and when to renew it. |
 | `uploadPlan.ts` | yes | Upload sizes, URL life, the completion body. |
@@ -87,6 +88,7 @@ if (report.ready) {
 | (none) | Reply, on that Note, when a sync adds to it | written, never read |
 | (none) | Task, of the Shot: who is assigned | read only |
 | (none) | ActionMenuItem "Send set data to artists", on Shot and on Set Shot (#106) | title and URL. Made by Set Up Fields, one per entity type and deploy, holding each project that ran it |
+| `template`, `referenceKind` | Project, JSON in `sg_onset_templates` and `sg_onset_reference_kinds` | the entry's client UUID, in the list. Optional |
 
 Custom entities are matched trimmed and whatever the case, among `CustomEntityNN` types only.
 Never by slot number. The display names are the default; an admin may pick others (#111).
@@ -356,6 +358,17 @@ Set Shots, and from them the slates (findings/142).
 Set Up Fields makes the two Note fields on every site. They are optional: a site without them syncs
 the rest, and the Notes wait.
 
+**Project** (the shared lists, #110; the Project is the one the device syncs with, never created)
+
+| what | field | type | note |
+|---|---|---|---|
+| the templates of the project | `sg_onset_templates`, "Onset Templates" | text | JSON: `{"list":"template","version":1,"entries":[{"id","name","scope","values"}]}` |
+| the kinds of set reference it adds | `sg_onset_reference_kinds`, "Onset Reference Kinds" | text | JSON: `{"list":"referenceKind","version":1,"entries":[{"id","name"}]}` |
+
+A template's values are in our field form, as on the device: a length in metres, a rational as
+`{num, den}`. Only SG OnSet reads them. Set Up Fields makes both fields on every site. They are
+optional: a site without them syncs the rest, and templates and kinds wait on the device.
+
 **still** (an Attachment)
 
 | key | field | note |
@@ -405,10 +418,10 @@ type Naming = {
 ```
 
 - A custom entity is looked for under the name picked, alone. Left out, under the app's own.
-- A field is keyed by where it is (a scope, `version` or `note`) and its default name. `display`:
-  the field that display name makes, found or created, stepping aside to "Onset <name>" as the
-  default does (decision 3). `field`: a field the site has, used as it is, never created; blocked
-  when it is missing or does not fit. Left out, the app's own display name.
+- A field is keyed by where it is (a scope, `version`, `note` or `project`) and its default name.
+  `display`: the field that display name makes, found or created, stepping aside to "Onset <name>"
+  as the default does (decision 3). `field`: a field the site has, used as it is, never created;
+  blocked when it is missing or does not fit. Left out, the app's own display name.
 - The default naming is empty. It plans exactly what the app always did.
 
 Only the planning reads it: `resolveEntities` and `planFields` (`schema.ts`). The resolution they
@@ -419,8 +432,8 @@ the names picked with no change of their own. The resolution keeps the naming it
 which entity to enable say the name picked.
 
 `golden.test.ts` proves both ends: with the default naming, every request of Set Up Fields, a push
-of every key of every scope, the uploads, reads, links, Notes, the action and deletes is the one
-`golden.requests.json` recorded before the naming existed; with every field and entity renamed, it
+of every key of every scope, the uploads, reads, the shared lists (#110), links, Notes, the action
+and deletes is the one `golden.requests.json` recorded before the naming existed; with every field and entity renamed, it
 is the same list under the new names, less the creates of the fields mapped to fields the site has.
 
 Not built yet (the second part of #111): the review in Set Up Fields that makes a naming, where on
@@ -677,6 +690,56 @@ What Flow PT sends (findings/156, probe 156 in Chrome): a new tab posts
    - per Shot: whether this run linked its Set Shot, its slates, whether a slate write failed, its
      Note. The Set Shots selected that still hold no Shot are listed.
 
+## The shared lists
+
+At each sync the app reads back the lists a show shares and merges them with the device's (#110,
+app/sync README): `readShared` reads them, nothing else. Slates, takes and references are not read.
+
+| list | read from | one search |
+|---|---|---|
+| cameras | Camera, `project is <the project>` | every page, every mapped field and the client UUID |
+| lenses | Lens | the same |
+| camera setups | Camera Setup | the same; its camera and lens as their client UUIDs, read through the link (findings/138) |
+| lighting setups | Lighting Setup | the same |
+| templates, reference kinds | the Project's two fields | one search of the Project, both fields |
+
+A row with no client UUID was made in Flow PT, not by a device: it is left out. A read of 40 full
+pages (20,000 rows) is not judged whole, so nothing is judged removed from it. A list whose field
+holds text this version cannot read (typed by hand, or written by a later version) is left out.
+
+A push writes a list so (`plan`, `writeLists`):
+
+1. One search of the Project for the field. The push's operations are applied to the entries in
+   order (`applyListOps`): a create whose id is there is `duplicate`, an update or a delete of an
+   entry not there is `gone`, a key the list has no place for is `invalid`. Any refusal sends
+   nothing, as for a batch.
+2. One `PUT` of the Project with the whole list, before the push's batch. Both lists of a push go
+   in the one `PUT`.
+3. One search again: the list must hold every operation (`landed`). Flow PT has no conditional
+   write (recipes/005), so another device may have written the field between our read and our
+   write. If so the push answers `timeout`: the runner checks every entry of it, by `lookup` and
+   `read`, and sends again what did not land, read-modify-write once more.
+
+`lookup` finds an entry by its id in the list; `read` gives its values. The server id of an entry is
+its own id. A text field on Project kept 1,000,000 characters of JSON byte for byte, with no refusal
+(findings/158): some 700 templates of 20 fields each. Nothing is cut to fit. It strips outer spaces
+and newlines, so what is read back is parsed and compared as values, never as text. Every read of
+the Project names its fields: with none named, a `GET` returns the whole list, and every client of
+the site would pay for it (findings/158).
+
+A refusal of the `PUT` for want of rights says so in plain words, and every later list operation
+waits for the session, as a row write does (How a push goes): an Artist in the project gets 400 code
+104 `The field is not editable for this user`, one outside it `Entity can not be accessed by this
+user` (findings/159). An Admin may; a Manager is unmeasured (gap 22).
+
+A record removed on another device and kept here is sent back as a new row under the same client
+UUID, with a new id (app/sync README, decision 20). Flow PT reads every link to the deleted row as
+none and refuses any write naming it (findings/161). So the synced takes and slates here that link
+it, the history no device reads back, are written again: an update from no link to the record,
+resolved to the new id by client UUID when sent, after the record's create (`relink`,
+app/sync/shared.ts). The old id is never written. A camera setup follows Flow PT (Kevin, #110): its
+link reads as none, and it takes that.
+
 ## Decisions
 
 Made by Claude. Kevin can overrule any of them.
@@ -909,22 +972,57 @@ Made by Claude. Kevin can overrule any of them.
     More is refused in words.
 67. **The page reads the site's schema fresh, into memory.** It needs nothing on the device, and
     a schema kept from before an admin enabled Set Shot would hide it.
-68. **The names an admin picks change the planning only** (#111). The resolution already held each
+68. **Templates and reference kinds are JSON in two text fields of the Project** (#110). Flow PT has
+    no entity for either, and Kevin wants no new required custom entity (#117): a site without the
+    fields syncs the rest. The Project is the one the device syncs with, so the list is the show's,
+    and Set Up Fields makes the fields as it makes the others: a text field on Project is created by
+    API as on any type, an Admin's 201, an Artist's 500 code 105 (findings/157). It kept 1,000,000
+    characters of JSON byte for byte (findings/158). A custom jsonb field cannot be created at all,
+    400 code 103 (findings/160; recipe 028 does the same). A custom entity per list was weighed: it
+    would give one row per entry and a unique client UUID, but it is one more slot each studio
+    enables.
+69. **One field per list,** so an edit of a kind never writes over a template another device saved
+    at the same moment, and the reverse.
+70. **A list is written whole, read again, and checked.** No conditional write exists: `If-Match`
+    is ignored (recipes/005). Two devices that write one list within a second may lose one write,
+    and the check finds it and sends it again. The window is the time between the search and the
+    `PUT`. The check parses what it reads and compares values: Flow PT strips outer spaces and
+    newlines (findings/158), so a list another writer formatted reads as the same list.
+71. **A list holds the keys the device has, but the project:** a template's `name`, `scope` and
+    `values`, a kind's `name`. The project is the field's own; a device reading it puts the entry
+    under its own project.
+72. **A list this version cannot read is never written over.** Its entries need a person, with the
+    field named, until an admin empties it in Flow PT. It is left out of a read too, so nothing on
+    the device is judged removed from it.
+73. **Cameras, lenses, camera setups and lighting setups are read back from their entities,** every
+    row of the project with a client UUID. A row made by hand in Flow PT has none and is left out:
+    matching it to the device's gear by name is not done. Which camera setups a device shoots with
+    is its own choice, kept on the device, never in Flow PT (app/sync README, decision 25).
+74. **A record sent back writes the links of the history again, with its new id.** Flow PT reads a
+    link to a deleted row as none and refuses any write naming one, as it refuses an id that never
+    existed (findings/161). The record kept here is a new row; the synced takes and slates here that
+    link it each get an update from no link to it, after its create, resolved by client UUID when
+    sent. A camera setup does not (Kevin, 2026-11-17): it is read back and follows Flow PT. Another
+    device that took the lens off it and deleted the lens, or a person who deleted the lens in Flow
+    PT, both read as no link, and the setup here takes it, listed under "Changed on another device".
+    Camera setups are read first, so a lens they no longer hold is not counted as used when the
+    lenses merge: it is kept only for a take.
+75. **The names an admin picks change the planning only** (#111). The resolution already held each
     field's name on the site by the mapping's name (decision 3), and every call reads names from
     it. So a naming changes what Set Up Fields looks for and creates, and nothing past the
     resolution. The default naming changes nothing, which `golden.test.ts` holds to the request.
-69. **A field is named in a naming by where it is and its default name,** `take.sg_focal_length`:
+76. **A field is named in a naming by where it is and its default name,** `take.sg_focal_length`:
     stable whatever a site calls it, and the key the resolution already used.
-70. **A renamed field keeps the step-aside rule** of decision 3. **A field mapped to one the site has
+77. **A renamed field keeps the step-aside rule** of decision 3. **A field mapped to one the site has
     is used as it is or not at all:** never created, never changed. Not there, or not fitting, it
     blocks, with the reason.
-71. **A custom entity given a name is looked for under that name alone.** Lenses, the other spelling
+78. **A custom entity given a name is looked for under that name alone.** Lenses, the other spelling
     of Lens, holds for the default only.
-72. **A naming is refused whole** (`parseNaming`) when two custom entities would be found under one
+79. **A naming is refused whole** (`parseNaming`) when two custom entities would be found under one
     name, when two fields of one entity ask for one name, or when a display name has outer spaces
     or a character outside ASCII: the server names such a field `sg_<data_type>` (findings/117).
-73. **The resolution keeps the naming it was made with.** A check on the device reads under the
-    names of the one kept (app/sync README, decision 17); the transport reads a stale one again
+80. **The resolution keeps the naming it was made with.** A check on the device reads under the
+    names of the one kept (app/sync README, decision 26); the transport reads a stale one again
     under its names; a caller that asks for other names reads the site again.
 
 ## Where FPT did not fit the contract
@@ -965,6 +1063,17 @@ Closed on 2026-11-11 by probes 132–145 (`~/dev/sg-groundtruth`, corpus finding
 | Non-admin rows | Artist may not create, edit or delete custom rows, nor delete an Attachment | 143 |
 | A rate limit | none at 28 requests a second for 10 s | 144 |
 | date_time precision, timecode, duration | whole seconds, rounded or truncated by path; ms; minutes | 145 |
+
+Closed on 2026-11-17 by probes 157 to 161 and recipe 028 (`~/dev/sg-groundtruth`, PR #116), for the
+shared lists (#110):
+
+| was | answer | finding |
+|---|---|---|
+| A custom field on Project: create, and a `PUT` | `POST /schema/Project/fields`, `text`, 201 for an Admin, 500 code 105 for an Artist; `Onset Templates` gives `sg_onset_templates`. Reads like a field on any type | 157 |
+| A text field past 100,000 characters | 1,000,000 characters of JSON stored byte for byte, newlines and tabs kept; outer spaces and newlines stripped. A `GET` of a Project with no `fields` returns the whole value | 158 |
+| Who may update a Project's field | Admin and script 200, member or not; an Artist in the project reads it and gets 400 code 104 `The field is not editable for this user` on a `PUT`; outside it, 404 on the read and 400 code 104 `Entity can not be accessed by this user` | 159 |
+| A custom jsonb field | cannot be created: 400 code 103 `data_type is not valid`, on Project or any type | 160 |
+| A link to a deleted row | reads as null (entity) or drops out (multi_entity), matches no filter; any write naming a deleted row is 400 code 104 `Value is not legal.`, as for an id that never existed | 161 |
 
 Closed on 2026-11-17 by probes 154 and 155 (`~/dev/sg-groundtruth`, PR #108, not merged yet):
 
@@ -1022,6 +1131,9 @@ Still open:
     (probe 156 ran Chrome). The route takes any origin, so only the content type matters.
 21. What `selected_ids` holds when a person runs the item with no row selected, and what
     `selection_required` changes. The route reads an empty or missing value as nothing selected.
+22. Whether a Manager or a Vendor may update a Project's field (findings/159 read their rights,
+    update allowed for Manager, denied for Vendor, and exercised neither) or create one
+    (findings/157). A refusal is said in plain words and the lists wait; the rest syncs.
 
 ## On the probed site, read 2026-11-11
 
@@ -1049,3 +1161,7 @@ Notes on Shots came after too (#97). Set Up Fields makes `sg_onset_key` (unique)
 
 The Action Menu Item came after too (#106). Set Up Fields makes it on Shot and on Set Shot for the
 linked project, pointing at the deploy it runs on. An admin runs it once per project.
+
+The shared lists came after too (#110). Set Up Fields makes `sg_onset_templates` and
+`sg_onset_reference_kinds` on Project, a stock type. Until then the rest syncs and templates and
+kinds wait on the device.

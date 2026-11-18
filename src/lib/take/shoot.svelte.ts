@@ -18,6 +18,8 @@ import type { FieldValue, Lens, Still, Take } from '$lib/model/types';
 import { audioType } from '$lib/media/audioFormat';
 import { readCaptureTime } from '$lib/media/readCaptureTime';
 import { sameValue } from '$lib/model/value';
+import { chosenSetups } from '$lib/gear/shooting';
+import { shooting } from '$lib/gear/shooting.svelte';
 import { sortTemplates } from '$lib/templates/list';
 import { canStepEntry, commitEntry, pressEntry, startEntry, stepEntry, type EntryKey, type FieldEntry } from './entry';
 import { entrySpec, isLocked, numberFields, shownValue, slotKey, visibleFields, type EntrySpec } from './fields';
@@ -80,7 +82,9 @@ export class Shoot {
 	unsaved = $state.raw<Still[]>([]);
 
 	readonly groups = $derived.by(() => groupTakes(this.takes.value));
-	readonly columns = $derived.by(() => cameraColumns(this.setups.value, this.groups));
+	/** The camera setups this device shoots with (#110, lib/gear/shooting.ts): the columns and Start use only these. */
+	readonly chosen = $derived.by(() => chosenSetups(this.setups.value, shooting.value, this.#current.project?.id ?? ''));
+	readonly columns = $derived.by(() => cameraColumns(this.setups.value, this.groups, this.chosen));
 	readonly group = $derived.by(() => shownGroup(this.groups, this.selected));
 	readonly previous = $derived.by(() => (this.group ? this.groups[this.groups.indexOf(this.group) - 1] : undefined));
 	readonly phase = $derived(this.group ? groupPhase(this.group) : 'idle');
@@ -88,7 +92,7 @@ export class Shoot {
 	readonly running = $derived.by(() => runningGroup(this.groups));
 	readonly runningStart = $derived.by(() => (this.running ? groupTimes(this.running).start : null));
 	readonly target = $derived.by(() => pressTarget(this.groups, this.selected));
-	readonly active = $derived.by(() => activeSetupIds(this.groups, this.setups.value));
+	readonly active = $derived.by(() => activeSetupIds(this.groups, this.setups.value, this.chosen));
 	readonly setupId = $derived.by(() => {
 		const ids = this.columns.map((c) => c.id);
 		if (this.picked !== undefined && ids.includes(this.picked)) return this.picked;

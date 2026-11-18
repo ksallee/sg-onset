@@ -70,6 +70,11 @@
   "path": "/api/v1/schema/Note/fields"
  },
  {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Project/fields"
+ },
+ {
   "method": "POST",
   "host": "site",
   "path": "/api/v1/schema/ShootDay/fields",
@@ -1988,6 +1993,42 @@
  {
   "method": "POST",
   "host": "site",
+  "path": "/api/v1/schema/Project/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset Templates"
+    },
+    {
+     "property_name": "description",
+     "value": "The templates of SG OnSet for this project, as JSON. Edit them in SG OnSet. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Project/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset Reference Kinds"
+    },
+    {
+     "property_name": "description",
+     "value": "The kinds of set reference this project adds in SG OnSet, as JSON. Edit them in SG OnSet. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
   "path": "/api/v1/entity/action_menu_items/_search",
   "body": {
    "filters": {
@@ -3328,6 +3369,181 @@
  {
   "method": "POST",
   "host": "site",
+  "path": "/api/v1/entity/projects/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "is",
+      1000
+     ]
+    ]
+   },
+   "page": {
+    "size": 1,
+    "number": 1
+   },
+   "fields": "sg_onset_templates,sg_onset_reference_kinds"
+  }
+ },
+ {
+  "method": "PUT",
+  "host": "site",
+  "path": "/api/v1/entity/projects/1000",
+  "body": {
+   "sg_onset_templates": "{\"list\":\"template\",\"version\":1,\"entries\":[{\"id\":\"tp1\",\"name\":\"Day ext\",\"scope\":\"take\",\"values\":{\"tStop\":2.8}}]}",
+   "sg_onset_reference_kinds": "{\"list\":\"referenceKind\",\"version\":1,\"entries\":[{\"id\":\"k1\",\"name\":\"Drone scan\"}]}"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/projects/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "is",
+      1000
+     ]
+    ]
+   },
+   "page": {
+    "size": 1,
+    "number": 1
+   },
+   "fields": "sg_onset_templates,sg_onset_reference_kinds"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity10s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,code,sg_camera,sg_camera.Camera.sg_onset_uuid,sg_lens,sg_lens.CustomEntity19.sg_onset_uuid,sg_sort_order"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/cameras/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,sg_camera_make,code,sg_camera_serial_number,sg_sensor_width_mm,sg_sensor_height_mm,sg_sensor_resolution_width,sg_sensor_resolution_height"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity19s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,sg_lens_make,code,sg_lens_serial_number,sg_focal_length,sg_focal_length_long_end,sg_anamorphic_squeeze"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity11s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,code,sg_hdri,sg_hdri_filename,sg_grey_and_chrome_balls,sg_colour_chart,sg_set_notes"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/projects/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "is",
+      1000
+     ]
+    ]
+   },
+   "page": {
+    "size": 1,
+    "number": 1
+   },
+   "fields": "sg_onset_templates,sg_onset_reference_kinds"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
   "path": "/api/v1/entity/slates/_search",
   "body": {
    "filters": {
@@ -3789,6 +4005,11 @@
   "method": "GET",
   "host": "site",
   "path": "/api/v1/schema/Note/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Project/fields"
  },
  {
   "method": "POST",

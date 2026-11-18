@@ -173,6 +173,15 @@ test.describe('take screen', () => {
 		}
 	});
 
+	test('the take before shows the picked camera’s values on the take before, and nothing on take 1', async ({ page }) => {
+		await openShoot(page);
+		const before = page.getByRole('region', { name: 'Take before' });
+		await expect(before).toContainText('Take 2 · Cam A');
+		await expect(before.getByRole('definition')).toHaveText(['32 mm', '4.2 m', '2.8', '1.45 m', /^-3°.*changed since the take before$/]);
+		await page.getByRole('navigation', { name: 'Takes' }).getByRole('button', { name: 'Slate 42A, take 1' }).tap();
+		await expect(before).toHaveCount(0);
+	});
+
 	test('the note keeps its lines', async ({ page }) => {
 		await openShoot(page);
 		await page.getByRole('button', { name: /^(Add Note|Note:)/ }).first().tap();

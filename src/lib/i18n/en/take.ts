@@ -48,6 +48,9 @@ export const take = {
 	'take.video.large': 'This video is {size}. It takes room on this iPad and a long time to sync.',
 	'take.videos.large': 'These {n} videos are {size}. They take room on this iPad and a long time to sync.',
 
+	/** The picked camera's take before the one on screen, read only, in the dock. */
+	'take.before.title': 'Take before',
+
 	'phase.idle': 'Ready',
 	'phase.rolling': 'Running',
 	'phase.filed': 'Ended',

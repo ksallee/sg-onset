@@ -1,9 +1,11 @@
 <script lang="ts">
 	// The take on screen: what is read at arm's length first, the slate (with its scene under it)
 	// and the take number, then where the take stands and what it is for; the numbers of every
-	// camera (CameraTable); the photos on it. The take number never shrinks or cuts; a long slate
-	// wraps to a second line. The elapsed time shows here only while the dock's timing does not
-	// (`time`, or a short phone-width window): once on the screen. With no camera setup yet, a line says where to add them.
+	// camera (CameraTable); the photos on it; in a phone-width window the take before under them
+	// (TakeBefore; beside the rail it is in the dock). The take number never shrinks or cuts; a
+	// long slate wraps to a second line. The elapsed time shows here only while the dock's timing
+	// does not (`time`, or a short phone-width window): once on the screen. With no camera setup
+	// yet, a line says where to add them.
 	import { Camera } from '@lucide/svelte';
 	import { t } from '$lib/i18n/messages';
 	import type { Form } from '$lib/ios/handedness';
@@ -13,6 +15,7 @@
 	import CameraTable from './CameraTable.svelte';
 	import { feedback, SETTLE } from './feedback.svelte';
 	import PhotoStrip from './PhotoStrip.svelte';
+	import TakeBefore from './TakeBefore.svelte';
 
 	let { shoot, form, time = false }: { shoot: Shoot; form: Form; time?: boolean } = $props();
 	const slate = $derived(shoot.slate);
@@ -63,6 +66,8 @@
 			{shoot.showAll ? t('take.fields.fewer') : t('take.fields.all')}
 		</button>
 		<PhotoStrip {shoot} grid={form !== 'compact'} />
+		<!-- A phone-width window has no room in the dock: the take before closes the column. -->
+		{#if form === 'compact'}<TakeBefore {shoot} />{/if}
 	{:else}
 		<p class="none">{t('take.none')}</p>
 	{/if}

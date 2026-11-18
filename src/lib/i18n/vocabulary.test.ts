@@ -33,7 +33,9 @@ const BANNED: readonly [RegExp, string][] = [
 ];
 
 /** The take button and its states: Start / End and Ready / Running / Ended. */
-const TAKE_BUTTON_PREFIXES = ['rail.', 'phase.', 'timing.', 'undo.'];
+const TAKE_BUTTON_PREFIXES = ['rail.', 'phase.', 'timing.'];
+/** What the take button's presses are called in the notice, with Undo. */
+const TAKE_BUTTON_KEYS = ['take.edit.start', 'take.edit.end'];
 
 /**
  * Words the take button and its states may not use (Kevin, 2026-11-17, #89): the take stamps
@@ -132,11 +134,19 @@ describe('every string', () => {
 	it('never says Roll, Record or Stop for the take button or its states', () => {
 		const found: string[] = [];
 		for (const [key, text] of Object.entries(messages)) {
-			if (!TAKE_BUTTON_PREFIXES.some((p) => key.startsWith(p))) continue;
+			if (!TAKE_BUTTON_PREFIXES.some((p) => key.startsWith(p)) && !TAKE_BUTTON_KEYS.includes(key)) continue;
 			const shown = text.replace(/\{\w+\}/g, '');
 			for (const [pattern, why] of BANNED_FOR_TAKE) if (pattern.test(shown)) found.push(`${key}: "${text}" (${why})`);
 		}
 		expect(found).toEqual([]);
+	});
+
+	// #52: a key says what its string means. The take button's keys once said record, cut and filed.
+	it('names the take button keys for Start and End', () => {
+		expect(TAKE_BUTTON_KEYS.every(hasMessage)).toBe(true);
+		const keys = Object.keys(messages).filter((key) => key.startsWith('rail.') || TAKE_BUTTON_KEYS.includes(key) || key.startsWith('undo.'));
+		expect(keys.filter((key) => /record|cut|filed|roll/i.test(key))).toEqual([]);
+		expect([tk('rail.start'), tk('rail.end')]).toEqual(['Start', 'End']);
 	});
 
 	// An audio note is recorded (#89): the word is free outside the take button.

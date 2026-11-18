@@ -33,8 +33,8 @@
 	<RecordButton
 		rolling={ending}
 		{phase}
-		label={ending ? t('rail.cut') : t('rail.record')}
-		caption={ending ? t('rail.cut') : t('rail.record')}
+		label={ending ? t('rail.end') : t('rail.start')}
+		caption={ending ? t('rail.end') : t('rail.start')}
 		detail={t('take.row', { take: shoot.target.number })}
 		since={ending ? shoot.runningStart : null}
 		shortcut="s"

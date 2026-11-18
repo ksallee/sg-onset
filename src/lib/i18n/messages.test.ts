@@ -14,10 +14,10 @@ describe('fill', () => {
 
 describe('t', () => {
 	it('reads the catalogue', () => {
-		expect(t('rail.record')).toBe(en['rail.record']);
+		expect(t('rail.start')).toBe(en['rail.start']);
 	});
 	it('fills values', () => {
-		expect(t('undo.filed', { take: '3' })).toContain('3');
+		expect(t('take.edit.end', { take: '3' })).toContain('3');
 	});
 	it('has no empty message', () => {
 		expect(Object.values(en).every((m) => m.trim().length > 0)).toBe(true);

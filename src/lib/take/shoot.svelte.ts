@@ -233,7 +233,7 @@ export class Shoot {
 		const plan = startEndPlan({ groups: this.groups, selected: this.selected, active: this.active, setups: this.setups.value, slateId: slate.id, at, newId: () => this.#app.newId() });
 		const take = plan.number;
 		if (plan.kind === 'end') {
-			await this.#app.edit.apply('take', plan.patch, this.#label('undo.filed', { take }));
+			await this.#app.edit.apply('take', plan.patch, this.#label('take.edit.end', { take }));
 		} else if (plan.kind === 'start') {
 			this.selected = take;
 			await this.#app.edit.apply('take', plan.patch, this.#label('take.edit.start', { take }));

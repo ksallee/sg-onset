@@ -51,8 +51,8 @@ export const take = {
 	'timing.end': 'End time',
 
 	'rail.label': 'Capture',
-	'rail.record': 'Start',
-	'rail.cut': 'End',
+	'rail.start': 'Start',
+	'rail.end': 'End',
 	'rail.photo': 'Photo',
 	'rail.newTake': 'New Take',
 	'rail.undo': 'Undo',
@@ -108,8 +108,7 @@ export const take = {
 	'keypad.slot.end': 'End',
 
 	'take.edit.start': 'Take {take} started',
-	/** The End press. Named for the shared message test. */
-	'undo.filed': 'Take {take} ended',
+	'take.edit.end': 'Take {take} ended',
 	'take.edit.new': 'Take {take} added',
 	'take.edit.value': '{field} set to {value}',
 	'take.edit.cleared': '{field} cleared',

@@ -13,7 +13,7 @@ import type { KeyValue } from './cache';
 import { bearerRefusal, failureOf, isSessionRefusal, networkKind, statusKind, type ApiFailure } from './errors';
 import { renewDue } from './token';
 import type { Naming } from './naming';
-import type { CreateInput, RawFields, SchemaTypes } from './schema';
+import type { CreateInput, RawField, RawFields, SchemaTypes } from './schema';
 
 export type FptOptions = {
 	/** The site's origin, `https://<host>`. */
@@ -33,10 +33,12 @@ export type FptOptions = {
 	online?: () => boolean;
 	/**
 	 * The names an admin picked (#111, naming.ts): what Set Up Fields looks for and creates. A schema
-	 * kept on the device under other names is read again. Default: the names the app always used,
-	 * or, for one kept, the names it was read with.
+	 * kept on the device under other names is read again. Default: the names saved on the project
+	 * (`projectId`), else the names the app always used, or, for one kept, the names it was read with.
 	 */
 	naming?: Naming;
+	/** The Flow PT project whose saved names apply (#111): `Project.sg_onset_naming`. */
+	projectId?: number;
 };
 
 /** The site answered, and the answer is a refusal. */
@@ -174,6 +176,21 @@ export function createApi(options: FptOptions) {
 		/** `GET /schema/<Type>/fields`. About 48 KB a type (corpus endpoints/get_schema_type_fields.md). */
 		fields(entityType: string, signal?: AbortSignal): Promise<RawFields> {
 			return run(() => schema('read', signal).readRawFields(entityType)) as Promise<RawFields>;
+		},
+
+		/**
+		 * `GET /schema/<Type>/fields/<field>`, or undefined when the site has no such field: 404 code
+		 * 103 (corpus findings/119, 157). With `projectId`, `editable` is the caller's: false for an
+		 * Artist on a Project field (findings/159).
+		 */
+		async field(entityType: string, name: string, projectId?: number, signal?: AbortSignal): Promise<RawField | undefined> {
+			try {
+				const body = (await link('GET', `/api/v1/schema/${entityType}/fields/${name}`, 'read', signal, undefined, projectId !== undefined ? { project_id: String(projectId) } : undefined)) as { data?: RawField };
+				return body?.data;
+			} catch (error) {
+				if (error instanceof ApiRefusal && error.failure.status === 404) return undefined;
+				throw error;
+			}
 		},
 
 		/**

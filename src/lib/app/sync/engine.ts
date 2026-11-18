@@ -518,8 +518,8 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 				// The Action Menu Item is for the linked project, on this deploy (#106).
 				const link = state.link;
 				const actionMenu = link && deps.origin ? { projectId: link.projectId, url: actionUrl(deps.origin) } : undefined;
-				// Under the names of the schema kept on the device (#111): a check never changes them.
-				const report = await checkSetup({ ...fptOptions(site), createFields, naming: state.naming, ...(actionMenu ? { actionMenu } : {}) });
+				// Under the names the linked project keeps (#111): every device of the project reads the same.
+				const report = await checkSetup({ ...fptOptions(site), createFields, ...(link ? { projectId: link.projectId } : {}), ...(actionMenu ? { actionMenu } : {}) });
 				set({ report, ...(await readSetup(site)) });
 				recount();
 				// A new transport reads the resolution the check kept, and a new runner sees what waited

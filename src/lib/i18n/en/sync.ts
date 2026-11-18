@@ -103,6 +103,10 @@ export const sync = {
 	'sync.review.notNow': 'Not Now',
 	'sync.prototype': 'Early prototype: use a test project on a test site.',
 
+	// The names an admin picks (#111), kept on the Flow PT project (lib/fpt/naming.ts).
+	'sync.names.unreadable': 'The names on this Flow PT project were saved by a newer SG OnSet. Update SG OnSet on this device.',
+	'sync.names.raced': 'Another device saved names at the same moment. Check Setup, then try again.',
+
 	'sync.shots.header': 'VFX shots to check',
 	'sync.shots.several': 'Several Shots: {codes}',
 	'sync.shots.footer':

@@ -42,7 +42,8 @@ export class SendDriver {
 	) {}
 
 	#options(): FptOptions {
-		return { site: this.request.site, bearer: this.io.bearer, schemaCache: memoryKeyValue(), ...(this.io.fetch ? { fetch: this.io.fetch } : {}), ...(this.io.online ? { online: this.io.online } : {}) };
+		// The project the request names: its names apply (#111).
+		return { site: this.request.site, bearer: this.io.bearer, schemaCache: memoryKeyValue(), projectId: this.request.projectId, ...(this.io.fetch ? { fetch: this.io.fetch } : {}), ...(this.io.online ? { online: this.io.online } : {}) };
 	}
 
 	#online(): boolean {

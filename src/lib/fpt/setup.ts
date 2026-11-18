@@ -8,16 +8,18 @@ import { ACTION_FIELDS, ACTION_MENU_ITEM, actionMenuData, actionMenuFilter, acti
 import { ApiRefusal, createApi, type Api, type FptOptions } from './api';
 import { resolutionKey } from './cache';
 import { isFieldCreateRefusal, isPermissionRefusal } from './errors';
-import { ENTITY_SCOPES, isOptionalColumn, type EntityScope, type FptDataType } from './mapping';
-import { DEFAULT_NAMING, type Naming } from './naming';
+import { ENTITY_SCOPES, isOptionalColumn, isRecordScope, PROJECT_NAMING, UUID, type FptDataType } from './mapping';
+import { DEFAULT_NAMING, readNaming, sameNaming, writeNaming, type Naming } from './naming';
 import { SHOT } from './shots';
 import {
 	createInput,
 	foundTypes,
+	isCustomEntityType,
 	NOTE,
+	OTHER_TYPES,
 	parseResolution,
 	PROJECT,
-	planFields,
+	planSite,
 	resolveEntities,
 	serializeResolution,
 	toResolution,
@@ -25,7 +27,9 @@ import {
 	type FieldPlan,
 	type PlanScope,
 	type RawFields,
-	type Resolution
+	type Resolution,
+	type SchemaTypes,
+	type SiteSchema
 } from './schema';
 import { VERSION } from './versions';
 
@@ -79,7 +83,20 @@ export type SetupReport = {
 	 * Shot and Set Shot when its slot is found. Absent when no project was given.
 	 */
 	action?: { title: string; url: string; items: ActionReport[] };
+	/**
+	 * The names the check went by (#111) and what the project keeps of them. Absent when no project
+	 * was given. `unreadable`: saved by a later version; nothing was planned (decision 82).
+	 */
+	naming?: { saved: ProjectNaming['saved']; naming: Naming };
 };
+
+/**
+ * What a Flow PT project keeps of the names (#111), in `Project.sg_onset_naming`:
+ * - `none`: no field, or an empty one: the default names.
+ * - `saved`: names an admin saved.
+ * - `unreadable`: text this version cannot read, from a later version. Never guessed at, never written over.
+ */
+export type ProjectNaming = { saved: 'none' | 'saved' | 'unreadable'; naming: Naming };
 
 export type ActionReport = {
 	/** `Shot`, or the Set Shot slot. */
@@ -108,55 +125,70 @@ export type ReverseReport = {
 
 const siteOf = (options: FptOptions) => options.site.replace(/\/+$/, '');
 
-/** Linked types outside our scopes: a link field of ours adds a field on each (findings/142). */
-const OTHERS = ['Attachment', SHOT];
+/** What was read before the site: the type list and Project's fields, read for the project's names. */
+type Known = { listed?: SchemaTypes; project?: RawFields };
 
-async function inspect(api: Api, naming: Naming, signal?: AbortSignal): Promise<{ entities: EntityResolution[]; plans: FieldPlan[] }> {
+/**
+ * Reads what Set Up Fields plans from (`planSite`): the type list, then at once the fields of the
+ * types found under the naming, of Attachment and Shot, Version, Note and Project. The fields of a
+ * type not in /schema are a 404 (corpus findings/008): only the listed ones are read. Attachment's
+ * and Shot's because the photos field and the Shots field add one there each, checked for a clash
+ * (findings/134, 142); Version's for a take's videos (versions.ts); Note's for the Notes on Shots
+ * (#97); Project's for the shared lists (#110) and the names (#111). `allCustoms`: the fields of
+ * every custom entity too, for the review of the names, which may look for any of them.
+ */
+export async function readSite(api: Api, naming: Naming, signal?: AbortSignal, known: Known & { allCustoms?: boolean } = {}): Promise<SiteSchema> {
+	const listed = known.listed ?? (await api.types(signal));
+	const types = foundTypes(resolveEntities(listed, naming));
+	const wanted = [
+		...ENTITY_SCOPES.flatMap((scope) => (types[scope] ? [types[scope]!] : [])),
+		...OTHER_TYPES.filter((type) => listed[type]),
+		...[VERSION, NOTE, PROJECT].filter((type) => listed[type] && !(type === PROJECT && known.project)),
+		...(known.allCustoms ? Object.keys(listed).filter(isCustomEntityType).sort() : [])
+	];
+	const fields: Record<string, RawFields> = known.project ? { [PROJECT]: known.project } : {};
+	await Promise.all(
+		[...new Set(wanted)].map(async (type) => {
+			fields[type] = await api.fields(type, signal);
+		})
+	);
+	return { types: listed, fields };
+}
+
+async function inspect(api: Api, naming: Naming, signal?: AbortSignal, known: Known = {}): Promise<{ entities: EntityResolution[]; plans: FieldPlan[] }> {
+	return planSite(await readSite(api, naming, signal, known), naming);
+}
+
+/**
+ * The names a project keeps (#111), from Project's fields as read. No `sg_onset_naming`: the
+ * default names, and nothing more is asked. Else one read of its value, named: a Project read
+ * without fields carries every field (corpus findings/158). Not visible to the person: the default.
+ */
+export async function readProjectNaming(api: Api, projectId: number, projectFields: RawFields | undefined, signal?: AbortSignal): Promise<ProjectNaming> {
+	if (!projectFields?.[PROJECT_NAMING.name]) return { saved: 'none', naming: DEFAULT_NAMING };
+	const [row] = await api.search(PROJECT, ['id', 'is', projectId], [PROJECT_NAMING.name], 1, signal);
+	const raw = row?.attributes[PROJECT_NAMING.name];
+	const read = readNaming(raw);
+	if (!read.ok) return { saved: 'unreadable', naming: DEFAULT_NAMING };
+	return { saved: raw ? 'saved' : 'none', naming: read.naming };
+}
+
+/** The names a project keeps, Project's fields unread: the field alone (404 when the site has none, findings/157), then its value. */
+export async function currentNaming(api: Api, projectId: number, signal?: AbortSignal): Promise<ProjectNaming> {
+	const field = await api.field(PROJECT, PROJECT_NAMING.name, undefined, signal);
+	return readProjectNaming(api, projectId, field ? { [PROJECT_NAMING.name]: field } : undefined, signal);
+}
+
+/**
+ * The names a check goes by: those asked for, else the project's (#111), else the default. Reading
+ * the project's first reads the type list and Project's fields, which the check then uses.
+ */
+async function namesOf(api: Api, options: FptOptions, signal?: AbortSignal): Promise<{ known: Known; named?: ProjectNaming; naming: Naming }> {
+	if (options.naming || options.projectId === undefined) return { known: {}, naming: options.naming ?? DEFAULT_NAMING };
 	const listed = await api.types(signal);
-	const entities = resolveEntities(listed, naming);
-	const types = foundTypes(entities);
-	const fields: Partial<Record<EntityScope, RawFields>> = {};
-	const others: Record<string, RawFields> = {};
-	let version: RawFields | undefined;
-	let note: RawFields | undefined;
-	let project: RawFields | undefined;
-	// The fields of a type that is not in /schema are a 404 (corpus findings/008): only the found ones are read.
-	// Attachment's and Shot's too: the photos field and the Shots field add one there each, checked
-	// for a clash (findings/134, 142). Version's: a take's videos go there, under our client UUID
-	// (versions.ts).
-	await Promise.all([
-		...ENTITY_SCOPES.filter((scope) => types[scope]).map(async (scope) => {
-			fields[scope] = await api.fields(types[scope]!, signal);
-		}),
-		...OTHERS.filter((type) => listed[type]).map(async (type) => {
-			others[type] = await api.fields(type, signal);
-		}),
-		...(listed[VERSION]
-			? [
-					api.fields(VERSION, signal).then((f) => {
-						version = f;
-					})
-				]
-			: []),
-		// Note's: the Notes on Shots keep their key and what they list there (#97).
-		...(listed[NOTE]
-			? [
-					api.fields(NOTE, signal).then((f) => {
-						note = f;
-					})
-				]
-			: []),
-		// Project's: the shared lists, the templates and the kinds of set reference, are kept there (#110).
-		...(listed[PROJECT]
-			? [
-					api.fields(PROJECT, signal).then((f) => {
-						project = f;
-					})
-				]
-			: [])
-	]);
-	const names = Object.fromEntries(Object.entries(listed).map(([type, t]) => [type, t.name.value]));
-	return { entities, plans: planFields(types, fields, { names, others, version, note, project }, naming) };
+	const project = listed[PROJECT] ? await api.fields(PROJECT, signal) : undefined;
+	const named = await readProjectNaming(api, options.projectId, project, signal);
+	return { known: { listed, ...(project ? { project } : {}) }, named, naming: named.naming };
 }
 
 const reportOf = (plan: FieldPlan, status: FieldReport['status'], reason = plan.reason): FieldReport => ({
@@ -177,23 +209,36 @@ const reportOf = (plan: FieldPlan, status: FieldReport['status'], reason = plan.
  * refusal it stops creating and marks every field left `needsAdmin`. A link field whose added
  * field would clash with one already there is `blocked`, never created. No field is ever
  * deleted or changed: deleting a field a link added deletes the link too (findings/142). Every
- * entity and field is looked for, and made, under the names of `naming` (#111).
+ * entity and field is looked for, and made, under the names of `naming`, else those the project
+ * keeps (`projectId`), else the default (#111). Names saved by a later version stop it: nothing is
+ * planned or made, and the report says so.
  *
  * Throws a `TransportError` when the site cannot be asked: `unreachable`, `unauthorized`, `failed`.
  */
-export async function checkSetup(
-	options: FptOptions & {
-		createFields?: boolean;
-		signal?: AbortSignal;
-		/** The Flow PT project the device is linked to, and the item's URL (actionMenu.ts): the Action Menu Item is looked for, and made with `createFields`. */
-		actionMenu?: { projectId: number; url: string };
-	}
-): Promise<SetupReport> {
+export async function checkSetup(options: CheckOptions): Promise<SetupReport> {
+	const { report, resolution } = await runSetup(options);
+	const site = siteOf(options);
+	if (resolution) await options.schemaCache.set(resolutionKey(site), serializeResolution(resolution));
+	else await options.schemaCache.delete(resolutionKey(site));
+	return report;
+}
+
+type CheckOptions = FptOptions & {
+	createFields?: boolean;
+	signal?: AbortSignal;
+	/** The Flow PT project the device is linked to, and the item's URL (actionMenu.ts): the Action Menu Item is looked for, and made with `createFields`. */
+	actionMenu?: { projectId: number; url: string };
+};
+
+/** `checkSetup`, keeping nothing on the device: the report, and the resolution to keep. */
+async function runSetup(options: CheckOptions): Promise<{ report: SetupReport; resolution?: Resolution }> {
 	const api = createApi(options);
 	const site = siteOf(options);
 	const { signal } = options;
-	const naming = options.naming ?? DEFAULT_NAMING;
-	const { entities, plans } = await inspect(api, naming, signal);
+	const { known, named, naming } = await namesOf(api, options, signal);
+	const said = named ? { naming: { saved: named.saved, naming } } : {};
+	if (named?.saved === 'unreadable') return { report: { ready: false, site, entities: [], fields: [], reverseFields: [], ...said } };
+	const { entities, plans } = await inspect(api, naming, signal, known);
 
 	const fields: FieldReport[] = [];
 	const settled: FieldPlan[] = [];
@@ -234,18 +279,18 @@ export async function checkSetup(
 	}
 
 	const resolution = toResolution(site, entities, settled, naming);
-	if (resolution) await options.schemaCache.set(resolutionKey(site), serializeResolution(resolution));
-	else await options.schemaCache.delete(resolutionKey(site));
 	const action = options.actionMenu ? await actionMenu(api, entities, options.actionMenu, options.createFields !== false, signal) : undefined;
-	return {
+	const report: SetupReport = {
 		ready: resolution !== undefined,
 		site,
 		entities,
 		fields,
 		reverseFields: reversesOf(settled, fields),
 		...(allowed !== undefined ? { canCreateFields: allowed } : {}),
-		...(action ? { action } : {})
+		...(action ? { action } : {}),
+		...said
 	};
+	return { report, ...(resolution ? { resolution } : {}) };
 }
 
 /**
@@ -321,16 +366,134 @@ function missing(entities: EntityResolution[], plans: FieldPlan[]): string {
  * ready throws `failed` and names what is missing.
  *
  * With `naming`, one kept under other names is read again under those (#111). Without, one kept is
- * used whatever its names, and one read is read under the default names.
+ * used whatever its names, and one read is read under the project's names (`projectId`), else the
+ * default names. Names saved by a later version throw `failed` (decision 82).
  */
 export async function loadResolution(api: Api, options: FptOptions, signal?: AbortSignal): Promise<Resolution> {
 	const site = siteOf(options);
 	const cached = parseResolution(await options.schemaCache.get(resolutionKey(site)), site, options.naming);
 	if (cached) return cached;
-	const naming = options.naming ?? DEFAULT_NAMING;
-	const { entities, plans } = await inspect(api, naming, signal);
+	const { known, named, naming } = await namesOf(api, options, signal);
+	if (named?.saved === 'unreadable') throw new TransportError('failed', t('sync.names.unreadable'));
+	const { entities, plans } = await inspect(api, naming, signal, known);
 	const resolution = toResolution(site, entities, plans, naming);
 	if (!resolution) throw new TransportError('failed', `Flow Production Tracking is not set up for SG OnSet. Missing: ${missing(entities, plans)}.`);
 	await options.schemaCache.set(resolutionKey(site), serializeResolution(resolution));
 	return resolution;
+}
+
+// ---------------------------------------------------------------------------- the names (#111)
+
+/**
+ * Whether the project has synced: Flow PT holds a record of it that SG OnSet wrote, one with our
+ * client UUID (`is_not` null matches the rows that hold a value, corpus field_types/text.md). One
+ * search of a row per entity, the gear first, until one is found. Kevin, #111: once synced, the
+ * names in use stay as they are.
+ */
+export async function projectSynced(api: Api, entities: readonly EntityResolution[], plans: readonly FieldPlan[], projectId: number, signal?: AbortSignal): Promise<boolean> {
+	const order = ['shootDay', 'camera', 'lens', 'lightingSetup', 'cameraSetup', 'slate', 'take', 'reference'] as const;
+	for (const scope of order) {
+		if (!isRecordScope(scope)) continue;
+		const type = entities.find((e) => e.scope === scope && e.status === 'found')?.entityType;
+		const uuid = plans.find((p) => p.scope === scope && p.column.name === UUID.name && p.status === 'present')?.name;
+		if (!type || !uuid) continue;
+		const conditions = [['project', 'is', { type: PROJECT, id: projectId }], [uuid, 'is_not', null]] as [string, string, unknown][];
+		if ((await api.search(type, { logical_operator: 'and', conditions }, ['id'], 1, signal)).length) return true;
+	}
+	return false;
+}
+
+/**
+ * What the review of the names needs (#111): the site read once, every custom entity's fields
+ * included, so it is planned under any names with no second read; what the project keeps; whether
+ * it has synced, under the names it keeps; whether the person may save (findings/159: `editable` per
+ * caller predicted every answer). `canSave` is undefined while the field is not there: whether its
+ * create and write are allowed is known only by trying.
+ */
+export type NamesReview = { site: SiteSchema; named: ProjectNaming; synced: boolean; canSave?: boolean };
+
+export async function readNamesReview(options: FptOptions & { projectId: number; signal?: AbortSignal }): Promise<NamesReview> {
+	const api = createApi(options);
+	const { signal, projectId } = options;
+	const listed = await api.types(signal);
+	const project = listed[PROJECT] ? await api.fields(PROJECT, signal) : undefined;
+	const named = await readProjectNaming(api, projectId, project, signal);
+	const site = await readSite(api, named.naming, signal, { listed, ...(project ? { project } : {}), allCustoms: true });
+	const { entities, plans } = planSite(site, named.naming);
+	const synced = await projectSynced(api, entities, plans, projectId, signal);
+	const field = project?.[PROJECT_NAMING.name] ? await api.field(PROJECT, PROJECT_NAMING.name, projectId, signal) : undefined;
+	return { site, named, synced, ...(field ? { canSave: field.editable?.value !== false } : {}) };
+}
+
+/**
+ * What saving the names came to:
+ * - `saved`: kept on the project; the fields made under them.
+ * - `unchanged`: the project keeps them already; Set Up Fields ran as before.
+ * - `notReady`: not kept. The site is not ready under them and was under the names it keeps:
+ *   another device would stop syncing. The fields made stay, unused.
+ * - `needsAdmin`: this account may not make the field or write it (findings/157, 159).
+ * - `unreadable`: the project keeps names of a later version: never written over.
+ * - `failed`: the site refused, or another device saved names at the same moment. `reason` says.
+ */
+export type NamesOutcome = 'saved' | 'unchanged' | 'notReady' | 'needsAdmin' | 'unreadable' | 'failed';
+
+/**
+ * Set Up Fields under names an admin picked (#111): makes `Project.sg_onset_naming` if the site has
+ * none, makes the fields under the names, then keeps the names on the project, so every device of
+ * it reads them. The names are kept unless the site is not ready under them while it was under the
+ * names the project keeps: no device then goes from syncing to stopped (decision 83). The schema on
+ * this device follows what the project keeps. The write is read back and its parsed value compared
+ * (findings/158).
+ */
+export async function setUpNames(options: CheckOptions & { projectId: number; naming: Naming }): Promise<{ report: SetupReport; names: NamesOutcome; reason?: string }> {
+	const api = createApi(options);
+	const { signal, projectId, naming } = options;
+	const kept = (report: SetupReport, names: NamesOutcome, reason?: string) => ({ report, names, ...(reason ? { reason } : {}) });
+	const { naming: _asked, ...byProject } = options;
+	const listed = await api.types(signal);
+	const project = listed[PROJECT] ? await api.fields(PROJECT, signal) : undefined;
+	const named = await readProjectNaming(api, projectId, project, signal);
+	if (named.saved === 'unreadable') return kept(await checkSetup({ ...byProject, createFields: false }), 'unreadable');
+	if (sameNaming(named.naming, naming)) return kept(await checkSetup({ ...byProject, createFields: true }), 'unchanged');
+
+	const before = planSite(await readSite(api, named.naming, signal, { listed, ...(project ? { project } : {}) }), named.naming);
+	const readyBefore = toResolution(siteOf(options), before.entities, before.plans, named.naming) !== undefined;
+
+	// The field of the names: this account must be able to write it, or to make it (findings/157, 159).
+	const field = project?.[PROJECT_NAMING.name] ? await api.field(PROJECT, PROJECT_NAMING.name, projectId, signal) : undefined;
+	if (field?.editable?.value === false) return kept(await checkSetup({ ...byProject, createFields: false }), 'needsAdmin');
+	if (!project?.[PROJECT_NAMING.name]) {
+		const plan: FieldPlan = { scope: 'project', entityType: PROJECT, column: PROJECT_NAMING, name: PROJECT_NAMING.name, displayName: PROJECT_NAMING.display, dataType: 'text', status: 'create' };
+		try {
+			const made = await api.createField(PROJECT, createInput(plan), signal);
+			if (made !== PROJECT_NAMING.name) return kept(await checkSetup({ ...byProject, createFields: false }), 'failed', `the site created ${PROJECT}.${made} instead of ${PROJECT_NAMING.name}: an admin deletes it and empties the field trash`);
+		} catch (error) {
+			if (!(error instanceof ApiRefusal)) throw error;
+			const denied = isFieldCreateRefusal(error.failure) || isPermissionRefusal(error.failure);
+			return kept(await checkSetup({ ...byProject, createFields: false }), denied ? 'needsAdmin' : 'failed', denied ? undefined : error.failure.title);
+		}
+	}
+
+	const run = await runSetup({ ...options, createFields: true });
+	if (!run.report.ready && readyBefore) {
+		// The schema on this device stays under the names the project keeps.
+		await checkSetup({ ...byProject, createFields: false });
+		return kept(run.report, 'notReady');
+	}
+	try {
+		await api.update(PROJECT, projectId, { [PROJECT_NAMING.name]: writeNaming(naming) }, signal);
+	} catch (error) {
+		if (!(error instanceof ApiRefusal)) throw error;
+		await checkSetup({ ...byProject, createFields: false });
+		return isPermissionRefusal(error.failure) ? kept(run.report, 'needsAdmin') : kept(run.report, 'failed', error.failure.title);
+	}
+	const now = await readProjectNaming(api, projectId, { [PROJECT_NAMING.name]: field ?? { name: { value: PROJECT_NAMING.display }, data_type: { value: 'text' } } }, signal);
+	if (now.saved === 'unreadable' || !sameNaming(now.naming, naming)) {
+		await checkSetup({ ...byProject, createFields: false });
+		return kept(run.report, 'failed', t('sync.names.raced'));
+	}
+	const cache = resolutionKey(siteOf(options));
+	if (run.resolution) await options.schemaCache.set(cache, serializeResolution(run.resolution));
+	else await options.schemaCache.delete(cache);
+	return kept({ ...run.report, naming: { saved: 'saved', naming } }, 'saved');
 }

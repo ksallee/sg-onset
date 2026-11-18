@@ -4,9 +4,9 @@ import type { Op, RemoteId } from '$lib/outbox/types';
 import { memoryKeyValue, resolutionKey } from './cache';
 import { BEARER, fakeFpt, STORAGE } from './fakeFpt';
 import type { Naming } from './naming';
-import { checkSetup } from './setup';
+import { checkSetup, setUpNames } from './setup';
 import { encodeStillRemote } from './stills';
-import { jwtWith } from './testkit';
+import { jwtWith, rawField } from './testkit';
 import { createFptTransport, readShotCodes, type ShotResult } from './transport';
 
 type World = ReturnType<typeof world>;
@@ -167,14 +167,14 @@ describe('push', () => {
 		const reads = () => w.fpt.count((r) => r.path.startsWith('/api/v1/schema'));
 		// /schema, the nine types, Attachment and Shot, where the photos and Shots fields add one each
 		// (findings/142), Version, where videos go, Note, where the Notes on Shots are keyed (#97), and
-		// Project, where the shared lists are kept (#110).
-		expect(reads()).toBe(15);
+		// Project, where the shared lists are kept (#110), and the names the project keeps, read once (#111).
+		expect(reads()).toBe(16);
 		await applied(w, [create('camera', 'c2', { projectId: 'p1', cameraModel: 'B' }, { p1: w.projectId })]);
-		expect(reads()).toBe(15);
+		expect(reads()).toBe(16);
 		expect(await w.cache.get(resolutionKey(w.fpt.site))).toBeDefined();
 		// Another session on the same device starts from the cache.
 		await w.make().push([create('camera', 'c3', { projectId: 'p1', cameraModel: 'C' }, { p1: w.projectId })]);
-		expect(reads()).toBe(15);
+		expect(reads()).toBe(17);
 	});
 
 	it('does not send to a site that is not set up, and says what is missing', async () => {
@@ -1664,7 +1664,8 @@ describe('the names an admin picked (#111)', () => {
 	async function named(w: World) {
 		w.fpt.types.CustomEntity09 = { name: { value: 'Shot Take' } };
 		w.fpt.types.CustomEntity21 = { name: { value: 'Set Ref' } };
-		const report = await checkSetup({ site: w.fpt.site, bearer: async () => BEARER, fetch: w.fpt.fetch, schemaCache: w.cache, online: () => w.fpt.online, naming, createFields: true });
+		const { names, report } = await setUpNames({ site: w.fpt.site, bearer: async () => BEARER, fetch: w.fpt.fetch, schemaCache: w.cache, online: () => w.fpt.online, projectId: w.projectId, naming, createFields: true });
+		expect(names).toBe('saved');
 		expect(report.ready).toBe(true);
 	}
 
@@ -1690,6 +1691,29 @@ describe('the names an admin picked (#111)', () => {
 			kind: 'failed',
 			message: expect.stringContaining('CustomEntity09.sg_studio_t_stop')
 		});
+	});
+
+	// Decision 84: the names are read at a transport's first call that needs the schema.
+	it('writes under the names another device saved after this one kept its schema', async () => {
+		const w = world({ fields: 'bare' });
+		await checkSetup({ site: w.fpt.site, bearer: async () => BEARER, fetch: w.fpt.fetch, schemaCache: w.cache, online: () => w.fpt.online, createFields: true });
+		// Before this device sends anything, an admin saves other names from another device.
+		const other = { site: w.fpt.site, bearer: async () => BEARER, fetch: w.fpt.fetch, schemaCache: memoryKeyValue(), online: () => w.fpt.online, projectId: w.projectId };
+		expect((await setUpNames({ ...other, naming: { fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' } } }, createFields: true })).names).toBe('saved');
+		await shoot(w);
+		expect(w.fpt.byUuid('CustomEntity09', 't1')!.values).toMatchObject({ sg_studio_t_stop: 2.8 });
+		expect(w.fpt.byUuid('CustomEntity09', 't1')!.values.sg_t_stop).toBeUndefined();
+		// Read once in the life of the transport.
+		await applied(w, [update('take', 't1', w.fpt.byUuid('CustomEntity09', 't1')!.id, { tStop: [2.8, 4] })]);
+		expect(w.fpt.count((r) => r.path === '/api/v1/schema/Project/fields/sg_onset_naming')).toBe(1);
+	});
+
+	it('sends nothing under names a later version saved', async () => {
+		const w = world();
+		w.fpt.fields.Project.sg_onset_naming = rawField('text', 'Onset Naming');
+		w.fpt.rows.get(`Project:${w.projectId}`)!.values.sg_onset_naming = '{"app":"sg-onset","naming":9}';
+		expect(await kindOf(w.transport.push([create('camera', 'c1', { projectId: 'p1', cameraModel: 'A' }, { p1: w.projectId })]))).toBe('failed');
+		expect(batches(w)).toEqual([]);
 	});
 
 	it('says which entity to enable under its chosen name', async () => {

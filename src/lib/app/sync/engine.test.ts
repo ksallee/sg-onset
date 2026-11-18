@@ -3,7 +3,7 @@
 
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { describe, expect, it, vi } from 'vitest';
-import { checkSetup } from '$lib/fpt';
+import { setUpNames } from '$lib/fpt/setup';
 import { memoryKeyValue } from '$lib/fpt/cache';
 import { BEARER, fakeFpt, type FakeFpt } from '$lib/fpt/fakeFpt';
 import { DEFAULT_NAMING, entityName, type Naming } from '$lib/fpt/naming';
@@ -822,13 +822,15 @@ describe('Notes on Shots', () => {
 describe('the names an admin picked (#111)', () => {
 	const naming: Naming = { entities: { take: 'Shot Take', reference: 'Set Ref', setShot: 'Shot Code' }, fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' }, 'take.sg_photos': { display: 'Stills' } } };
 
-	it('syncs under the names the schema on the device was set up with, and keeps them through a check', async () => {
+	it('syncs under the names the project keeps, saved from another device, and names the entities to enable by them', async () => {
 		const s = setup({ fields: 'bare' });
 		s.fpt.types.CustomEntity09 = { name: { value: 'Shot Take' } };
 		delete s.fpt.types.CustomEntity21;
 		delete s.fpt.types.CustomEntity22;
 		expect(s.engine.state.naming).toEqual(DEFAULT_NAMING);
-		const report = await checkSetup({ site: s.fpt.site, bearer: async () => BEARER, fetch: s.fpt.fetch, schemaCache: s.schemaCache, naming, createFields: true });
+		// An admin saves the names on another device: this one has nothing kept.
+		const { names, report } = await setUpNames({ site: s.fpt.site, bearer: async () => BEARER, fetch: s.fpt.fetch, schemaCache: memoryKeyValue(), projectId: s.fptProject, naming, createFields: true });
+		expect(names).toBe('saved');
 		expect(report.ready).toBe(true);
 		await shoot(s);
 		await linked(s);

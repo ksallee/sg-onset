@@ -364,6 +364,8 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			const hit = (v: unknown) => (Array.isArray(have) ? have.some((h) => sameRef(h, v)) : isRef(have) || isRef(v) ? sameRef(have, v) : typeof have === 'number' ? have === v : text(have) === text(v));
 			// A text filter is case-blind (field_types/text.md).
 			if (relation === 'is') return hit(value);
+			// `is_not` null: the rows that hold a value; `is_not` a value: the others, null ones included (field_types/text.md).
+			if (relation === 'is_not') return value === null || value === '' ? text(have) !== '' : !hit(value);
 			if (relation === 'in') return (Array.isArray(value) ? value : [value]).some(hit);
 			if (relation === 'starts_with') return text(have).startsWith(text(value));
 			throw new Refusal(400, `API read() ${row.type}.${path}'s data type doesn't support '${relation}' 'relation'`);
@@ -440,6 +442,14 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 				if (!types[type]) return refuse(404, 'Not Found', 103, { detail: `Entity type '${type}' does not exist.` });
 				if (parts[2] === 'fields' && parts.length === 3 && r.method === 'GET') return json(200, { data: fields[type] ?? {} });
 				if (parts[2] === 'fields' && parts.length === 3 && r.method === 'POST') return createField(type, r);
+				// One field: 404 code 103 when the site has none (findings/119, 157). With `project_id`,
+				// `editable` is the caller's: false where this account may not update the type (findings/159).
+				if (parts[2] === 'fields' && parts.length === 4 && r.method === 'GET') {
+					const field = fields[type]?.[parts[3]];
+					if (!field) return refuse(404, 'Not Found', 103, { detail: `Field '${type}.${parts[3]}' does not exist.` });
+					const mine = r.query.get('project_id') && fpt.forbidden.has(`update:${type}`) ? { editable: { value: false, editable: false } } : {};
+					return json(200, { data: { ...field, ...mine } });
+				}
 			}
 
 			if (parts[0] === 'entity' && parts[1] === '_batch' && r.method === 'POST') {

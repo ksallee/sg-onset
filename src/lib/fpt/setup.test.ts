@@ -6,7 +6,7 @@ import { BEARER, fakeFpt, type FakeFpt } from './fakeFpt';
 import { ENTITY_SCOPES, NOTE_COLUMNS, PROJECT_COLUMNS, VERSION_COLUMNS, wantedColumns } from './mapping';
 import type { Naming } from './naming';
 import { parseResolution } from './schema';
-import { checkSetup, loadResolution, type SetupReport } from './setup';
+import { checkSetup, loadResolution, readNamesReview, setUpNames, type SetupReport } from './setup';
 import { rawField, TYPES } from './testkit';
 
 function world(fields: 'complete' | 'bare' = 'complete') {
@@ -581,6 +581,142 @@ describe('checkSetup and loadResolution: the names an admin picked', () => {
 		// Asked for the default names, it is read again: the site has no entity named Take.
 		await expect(loadResolution(createApi(options(fpt, cache)), { ...options(fpt, cache), naming: {} })).rejects.toMatchObject({ kind: 'failed' });
 		expect(reads()).toBe(before + 1);
+	});
+});
+
+// #111, the second part: the names kept on the Flow PT project, in `Project.sg_onset_naming`
+// (Kevin: one fixed text field, never renamed; a site without it uses today's names).
+describe('the names a project keeps', () => {
+	const naming: Naming = { entities: { take: 'Shot Take' }, fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' } } };
+	function world() {
+		const fpt = fakeFpt({ fields: 'bare' });
+		const projectId = fpt.seed('Project', { name: 'Show' });
+		const cache = memoryKeyValue();
+		const options = { site: fpt.site, bearer: async () => BEARER, fetch: fpt.fetch, schemaCache: cache, online: () => fpt.online, projectId };
+		return { fpt, projectId, cache, options };
+	}
+	/** A site with the take named Shot Take. */
+	function named() {
+		const w = world();
+		w.fpt.types.CustomEntity09 = { name: { value: 'Shot Take' } };
+		return w;
+	}
+	const stored = (w: ReturnType<typeof world>) => w.fpt.rows.get(`Project:${w.projectId}`)!.values.sg_onset_naming;
+
+	it('saves the names on the project, making the field once, with the fields under them', async () => {
+		const w = named();
+		const { names, report } = await setUpNames({ ...w.options, naming, createFields: true });
+		expect(names).toBe('saved');
+		expect(report.ready).toBe(true);
+		expect(report.naming).toEqual({ saved: 'saved', naming });
+		// One text field on Project (findings/157), JSON in it (findings/158).
+		expect(w.fpt.fields.Project.sg_onset_naming).toMatchObject({ data_type: { value: 'text' }, name: { value: 'Onset Naming' } });
+		expect(JSON.parse(String(stored(w)))).toEqual({ app: 'sg-onset', naming: 1, entities: { take: 'Shot Take' }, fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' } } });
+		expect(w.fpt.fields.CustomEntity09.sg_studio_t_stop).toBeDefined();
+		// The schema kept here is under them.
+		expect(parseResolution(await w.cache.get(resolutionKey(w.fpt.site)), w.fpt.site)?.naming).toEqual(naming);
+		// Saved again: changed nothing.
+		const again = await setUpNames({ ...w.options, naming: { fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' } }, entities: { take: 'Shot Take' } }, createFields: true });
+		expect(again.names).toBe('unchanged');
+	});
+
+	it('checks under the names the project keeps, and says so', async () => {
+		const w = named();
+		await setUpNames({ ...w.options, naming, createFields: true });
+		const fresh = memoryKeyValue();
+		const report = await checkSetup({ ...w.options, schemaCache: fresh });
+		expect(report.ready).toBe(true);
+		expect(report.naming).toEqual({ saved: 'saved', naming });
+		expect(report.entities.find((e) => e.scope === 'take')).toMatchObject({ displayName: 'Shot Take', entityType: 'CustomEntity09' });
+		expect((await loadResolution(createApi({ ...w.options, schemaCache: memoryKeyValue() }), { ...w.options, schemaCache: memoryKeyValue() })).fields.take.sg_t_stop).toBe('sg_studio_t_stop');
+	});
+
+	it('uses the default names on a site without the field, asking nothing more of the project', async () => {
+		const w = world();
+		const report = await checkSetup({ ...w.options, createFields: true });
+		expect(report.ready).toBe(true);
+		expect(report.naming).toEqual({ saved: 'none', naming: {} });
+		expect(w.fpt.requests.some((r) => r.path === '/api/v1/entity/projects/_search')).toBe(false);
+	});
+
+	it('neither plans nor makes anything under names a later version saved, and never writes over them', async () => {
+		const w = world();
+		w.fpt.fields.Project.sg_onset_naming = rawField('text', 'Onset Naming');
+		w.fpt.rows.get(`Project:${w.projectId}`)!.values.sg_onset_naming = JSON.stringify({ app: 'sg-onset', naming: 2, entities: {}, fields: {} });
+		const report = await checkSetup({ ...w.options, createFields: true });
+		expect(report).toMatchObject({ ready: false, entities: [], fields: [], naming: { saved: 'unreadable' } });
+		expect(creates(w.fpt)).toEqual([]);
+		await expect(loadResolution(createApi(w.options), w.options)).rejects.toMatchObject({ kind: 'failed', message: expect.stringContaining('newer SG OnSet') });
+		const { names } = await setUpNames({ ...w.options, naming, createFields: true });
+		expect(names).toBe('unreadable');
+		expect(JSON.parse(String(stored(w))).naming).toBe(2);
+	});
+
+	it('keeps the names off the project while the site is not ready under them and was under the ones it keeps', async () => {
+		const w = world();
+		await checkSetup({ ...w.options, createFields: true });
+		// Shot Take is not enabled: the site would not be ready, and other devices would stop.
+		const { names, report } = await setUpNames({ ...w.options, naming, createFields: true });
+		expect(names).toBe('notReady');
+		expect(report.ready).toBe(false);
+		expect(report.entities.find((e) => e.scope === 'take')).toMatchObject({ displayName: 'Shot Take', status: 'missing' });
+		expect(stored(w) ?? null).toBeNull();
+		// The schema kept here stays under the default names.
+		expect(parseResolution(await w.cache.get(resolutionKey(w.fpt.site)), w.fpt.site, {})).toBeDefined();
+	});
+
+	it('saves names a site not ready yet will need: nothing syncs there to stop', async () => {
+		const w = world();
+		const { names } = await setUpNames({ ...w.options, naming, createFields: true });
+		expect(names).toBe('saved');
+		expect(stored(w)).toBeDefined();
+	});
+
+	it('needs an admin: an Artist may neither make the field nor write it (findings/157, 159)', async () => {
+		const artist = named();
+		artist.fpt.canCreateFields = false;
+		expect((await setUpNames({ ...artist.options, naming, createFields: true })).names).toBe('needsAdmin');
+		expect(artist.fpt.fields.Project.sg_onset_naming).toBeUndefined();
+
+		const member = named();
+		await setUpNames({ ...member.options, naming: { fields: { 'take.sg_tilt': { display: 'Studio Tilt' } }, entities: { take: 'Shot Take' } }, createFields: true });
+		member.fpt.forbidden.add('update:Project');
+		const before = stored(member);
+		expect((await setUpNames({ ...member.options, naming, createFields: true })).names).toBe('needsAdmin');
+		expect(stored(member)).toBe(before);
+	});
+});
+
+describe('readNamesReview', () => {
+	it('reads the site once with every custom entity, what the project keeps, and whether it synced', async () => {
+		const fpt = fakeFpt();
+		const projectId = fpt.seed('Project', { name: 'Show' });
+		const options = { site: fpt.site, bearer: async () => BEARER, fetch: fpt.fetch, schemaCache: memoryKeyValue(), online: () => fpt.online, projectId };
+		const review = await readNamesReview(options);
+		expect(review.named).toEqual({ saved: 'none', naming: {} });
+		expect(review.synced).toBe(false);
+		expect(review.canSave).toBeUndefined();
+		// The Location slot is read too: an admin may look for any custom entity.
+		expect(Object.keys(review.site.fields)).toEqual(expect.arrayContaining(['CustomEntity09', 'CustomEntity29', 'Project', 'Version', 'Note', 'Attachment', 'Shot']));
+		// A record of ours in the project: it has synced.
+		fpt.seed('Camera', { project: { type: 'Project', id: projectId }, sg_onset_uuid: 'c1' });
+		expect((await readNamesReview(options)).synced).toBe(true);
+		// Another project's record says nothing about this one.
+		const other = fakeFpt();
+		const mine = other.seed('Project', { name: 'Show' });
+		other.seed('Camera', { project: { type: 'Project', id: other.seed('Project', { name: 'Other' }) }, sg_onset_uuid: 'c1' });
+		other.seed('Camera', { project: { type: 'Project', id: mine } });
+		expect((await readNamesReview({ ...options, site: other.site, fetch: other.fetch, projectId: mine })).synced).toBe(false);
+	});
+
+	it('says whether this account may save, once the field is there (findings/159)', async () => {
+		const fpt = fakeFpt();
+		const projectId = fpt.seed('Project', { name: 'Show' });
+		fpt.fields.Project.sg_onset_naming = rawField('text', 'Onset Naming');
+		const options = { site: fpt.site, bearer: async () => BEARER, fetch: fpt.fetch, schemaCache: memoryKeyValue(), online: () => fpt.online, projectId };
+		expect((await readNamesReview(options)).canSave).toBe(true);
+		fpt.forbidden.add('update:Project');
+		expect((await readNamesReview(options)).canSave).toBe(false);
 	});
 });
 

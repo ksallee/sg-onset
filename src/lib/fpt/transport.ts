@@ -48,12 +48,12 @@ import { blamedField, isPermissionRefusal, isUniqueRefusal, missingRecord, rowRe
 import { DIAGRAM_SHOWN, diagramFilename, diagramPrefix } from './diagrams';
 import { DIAGRAMS, ENTITY_SCOPES, fieldMaps, isRecordScope, STILLS, REFERENCE_SLATES, type RecordScope } from './mapping';
 import { applyListOps, isListTable, landed, listFields, LIST_KEYS, LIST_TABLES, readList, writeList, type ListEntry, type ListOp, type ListRead, type ListTable } from './lists';
-import { entityName, type Naming } from './naming';
+import { entityName, sameNaming, type Naming } from './naming';
 import { referenceSlatesWrite, type ReferenceSlates } from './referenceSlates';
 import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
 import { fieldName, namingOf, PROJECT as PROJECT_TYPE, type Resolution } from './schema';
-import { loadResolution } from './setup';
+import { currentNaming, loadResolution } from './setup';
 import { derivedShots, linkIdsOf, missingCodes, setShotData, setShotKey, severalCodes, slateSetShots, type SetShotRow } from './setShots';
 import { matchSetShots, readSetShots, setShotFields, slateLinks, writeSlateLinks, type SetShotFields, type SlateLinks } from './setShotLinks';
 import { codesOf, linkValue, SHOT, shotChange, shotCodes } from './shots';
@@ -195,10 +195,33 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	/** The names to read the schema under (#111): those given, or after a stale one, the names it had. */
 	let naming: Naming | undefined = options.naming;
 
-	/** The site's schema: from memory, the device, or the site. Throws `failed` while the site is not set up. */
-	async function resolved(signal?: AbortSignal): Promise<Resolution> {
+	/** The site's schema: from memory, the device, or the site, under the names it has. */
+	async function load(signal?: AbortSignal): Promise<Resolution> {
 		resolution ??= await loadResolution(api, { ...options, ...(naming ? { naming } : {}) }, signal);
 		return resolution;
+	}
+
+	/** The project's names were read in this transport's life, or given (#111). */
+	let namesRead = options.naming !== undefined;
+
+	/**
+	 * The site's schema under the names the project keeps now. Throws `failed` while the site is not
+	 * set up. The names are read at the first call of a transport that needs the schema (#111): another
+	 * device may have saved names after this one kept its schema, and names that differ make it read
+	 * the schema again under them. Once a project has synced its names in use never change (Kevin,
+	 * #111), so once a transport is enough (decision 84). A site without the field answers 404 to the
+	 * read, and the default names hold.
+	 */
+	async function resolved(signal?: AbortSignal): Promise<Resolution> {
+		if (namesRead) return load(signal);
+		const named = await currentNaming(api, projectId, signal);
+		if (named.saved === 'unreadable') throw new TransportError('failed', message('sync.names.unreadable'));
+		const res = await load(signal);
+		namesRead = true;
+		if (sameNaming(namingOf(res), named.naming)) return res;
+		await forget();
+		naming = named.naming;
+		return load(signal);
 	}
 
 	/**

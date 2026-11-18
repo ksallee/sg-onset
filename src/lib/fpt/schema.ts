@@ -80,6 +80,9 @@ export type EntityResolution = {
 /** A project custom entity. Connection types are `CustomEntity29_sg_scene_Connection`. */
 const CUSTOM_ENTITY = /^CustomEntity\d+$/;
 
+/** Whether a type of /schema is a project custom entity slot. */
+export const isCustomEntityType = (type: string): boolean => CUSTOM_ENTITY.test(type);
+
 // Display names are free text and may hold outer spaces (corpus findings/008_custom_entities.md).
 const loose = (text: string) => text.trim().toLowerCase();
 
@@ -178,6 +181,45 @@ function mismatch(column: Column, field: RawField, valid: string | undefined): s
 		if (!Array.isArray(types) || !types.includes(valid)) return `does not link ${valid}`;
 	}
 	return undefined;
+}
+
+/** The stock fields the mapping names records and projects by: never offered for another field. */
+const STOCK_NAMES = new Set(['code', 'description', 'project']);
+
+/**
+ * The fields of an entity a wanted field may be mapped to (#111): of its type, editable, linking
+ * what it links, unique when it must be, as a field found under our name must be. The stock fields
+ * of the mapping and the names other fields ask for (`taken`) are left out. By name.
+ */
+export function fieldOptions(column: Column, have: RawFields, types: Partial<Record<EntityScope, string>>, taken: ReadonlySet<string>): { name: string; displayName: string }[] {
+	const valid = column.target ? targetType(column.target, types) : undefined;
+	if (column.target && !valid) return [];
+	return Object.entries(have)
+		.filter(([name, field]) => !STOCK_NAMES.has(name) && !taken.has(name) && !mismatch(column, field, valid))
+		.map(([name, field]) => ({ name, displayName: field.name.value }))
+		.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * A site's schema as read: its type list, and the fields of each type read, by type. Read once,
+ * it is planned under any naming (`planSite`), so the review of #111 needs no second read.
+ */
+export type SiteSchema = { types: SchemaTypes; fields: Record<string, RawFields> };
+
+/** The linked types outside our scopes whose fields a plan checks: a link of ours adds a field on each (findings/142). */
+export const OTHER_TYPES = ['Attachment', 'Shot'];
+
+/** What Set Up Fields would find and plan on a site read, under a naming. Pure. */
+export function planSite(site: SiteSchema, naming: Naming = DEFAULT_NAMING): { entities: EntityResolution[]; plans: FieldPlan[] } {
+	const entities = resolveEntities(site.types, naming);
+	const types = foundTypes(entities);
+	const fields: Partial<Record<EntityScope, RawFields>> = {};
+	for (const scope of ENTITY_SCOPES) if (types[scope] && site.fields[types[scope]!]) fields[scope] = site.fields[types[scope]!];
+	// An entity found whose fields were not read is planned as not found: nothing is asked of it.
+	for (const scope of ENTITY_SCOPES) if (!fields[scope]) delete types[scope];
+	const others = Object.fromEntries(OTHER_TYPES.filter((t) => site.fields[t]).map((t) => [t, site.fields[t]]));
+	const names = Object.fromEntries(Object.entries(site.types).map(([type, t]) => [type, t.name.value]));
+	return { entities, plans: planFields(types, fields, { names, others, version: site.fields.Version, note: site.fields.Note, project: site.fields.Project }, naming) };
 }
 
 /**

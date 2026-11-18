@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { ENTITY_SCOPES, ENTITY_TYPES, SET_SHOT_KEY, UUID, wantedFields, type Column } from './mapping';
-import { CUSTOM_SCOPES, DEFAULT_NAMING, entityName, entityNames, fieldChoice, fieldKey, parseNaming, sameNaming, type Naming } from './naming';
+import {
+	CUSTOM_SCOPES,
+	DEFAULT_NAMING,
+	entityName,
+	entityNames,
+	fieldChoice,
+	fieldKey,
+	namingProblems,
+	parseNaming,
+	readNaming,
+	sameNaming,
+	withEntity,
+	withField,
+	withPrefix,
+	writeNaming,
+	type Naming
+} from './naming';
 
 const focal: Column = { name: 'sg_focal_length', display: 'Focal Length', dataType: 'float' };
 
@@ -94,5 +110,75 @@ describe('parseNaming', () => {
 	it('can rename every field the app wants', () => {
 		const fields = Object.fromEntries(wantedFields().map(({ place, column }) => [fieldKey(place, column), { display: `Studio ${column.display}` }]));
 		expect(parseNaming({ fields })).toEqual({ fields });
+	});
+});
+
+// #111, the second part: the naming kept in `Project.sg_onset_naming` and in a file.
+describe('the naming as text', () => {
+	const naming: Naming = { entities: { take: 'Shot Take' }, fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' }, 'lens.sg_focal_length': { field: 'sg_mm' } } };
+
+	it('is JSON with its format, its keys in order, and reads back as the same naming', () => {
+		const text = writeNaming(naming);
+		expect(JSON.parse(text)).toEqual({ app: 'sg-onset', naming: 1, entities: { take: 'Shot Take' }, fields: { 'lens.sg_focal_length': { field: 'sg_mm' }, 'take.sg_t_stop': { display: 'Studio T-Stop' } } });
+		expect(readNaming(text)).toEqual({ ok: true, naming: { entities: { take: 'Shot Take' }, fields: { 'lens.sg_focal_length': { field: 'sg_mm' }, 'take.sg_t_stop': { display: 'Studio T-Stop' } } } });
+		expect(sameNaming((readNaming(text) as { naming: Naming }).naming, naming)).toBe(true);
+		// Flow PT strips outer spaces and newlines (corpus findings/158): the parsed value counts.
+		expect(readNaming(`\n  ${JSON.stringify(JSON.parse(text), null, 2)}\n`)).toEqual(readNaming(text));
+	});
+
+	it('reads an empty field as the default names', () => {
+		for (const empty of [null, undefined, '']) expect(readNaming(empty)).toEqual({ ok: true, naming: DEFAULT_NAMING });
+		expect(writeNaming(DEFAULT_NAMING)).toBe('{"app":"sg-onset","naming":1,"entities":{},"fields":{}}');
+	});
+
+	it('cannot read what is no naming of this version', () => {
+		for (const bad of ['{not json', '[]', '7', '{"app":"other","naming":1}', '{"app":"sg-onset","naming":2,"entities":{},"fields":{}}', '{"app":"sg-onset","naming":1,"entities":{"take":"Lens"},"fields":{}}'])
+			expect(readNaming(bad)).toEqual({ ok: false });
+		expect(readNaming(42)).toEqual({ ok: false });
+	});
+});
+
+describe('namingProblems', () => {
+	it('names what makes a naming refused, each once', () => {
+		expect(namingProblems({})).toEqual([]);
+		expect(namingProblems({ entities: { take: 'Clip', lens: 'clip' } })).toEqual([{ kind: 'entities', scopes: ['take', 'lens'], name: 'clip' }]);
+		expect(namingProblems({ fields: { 'take.sg_focal_length': { display: 'Focal Length End' } } })).toEqual([
+			{ kind: 'fields', place: 'take', keys: ['take.sg_focal_length', 'take.sg_focal_length_end'], name: 'sg_focal_length_end' }
+		]);
+		expect(namingProblems({ fields: { 'take.sg_t_stop': { display: 'Arrêt' }, 'take.sg_tilt': { display: ' Tilt' } } })).toEqual([
+			{ kind: 'display', key: 'take.sg_t_stop' },
+			{ kind: 'display', key: 'take.sg_tilt' }
+		]);
+	});
+});
+
+describe('changing a naming', () => {
+	const tStop: Column = { name: 'sg_t_stop', display: 'T-Stop', dataType: 'float' };
+
+	it('looks for an entity under a name, and back under its own when given its own or nothing', () => {
+		expect(withEntity({}, 'take', ' Shot Take ')).toEqual({ entities: { take: 'Shot Take' } });
+		expect(withEntity({ entities: { take: 'Shot Take' } }, 'take', 'take')).toEqual({ entities: {} });
+		expect(withEntity({ entities: { take: 'Shot Take' } }, 'take', '')).toEqual({ entities: {} });
+		// Named Lens, the lens is found under Lens or Lenses, as by default.
+		expect(withEntity({}, 'lens', 'Lens')).toEqual({ entities: {} });
+	});
+
+	it('gives a field a choice, and drops one that is its default', () => {
+		expect(withField({}, 'take', tStop, { display: 'Stop' })).toEqual({ fields: { 'take.sg_t_stop': { display: 'Stop' } } });
+		expect(withField({ fields: { 'take.sg_t_stop': { display: 'Stop' } } }, 'take', tStop, { display: 'T-Stop' })).toEqual({ fields: {} });
+		expect(withField({ fields: { 'take.sg_t_stop': { display: 'Stop' } } }, 'take', tStop, undefined)).toEqual({ fields: {} });
+		expect(withField({}, 'take', tStop, { field: 'sg_stop' })).toEqual({ fields: { 'take.sg_t_stop': { field: 'sg_stop' } } });
+	});
+
+	it('names every field given with a prefix, and leaves a field mapped to one of the site alone', () => {
+		const fields = [
+			{ place: 'take' as const, column: focal },
+			{ place: 'take' as const, column: tStop }
+		];
+		const mapped: Naming = { fields: { 'take.sg_t_stop': { field: 'sg_stop' } } };
+		expect(withPrefix({}, ' Studio ', fields)).toEqual({ fields: { 'take.sg_focal_length': { display: 'Studio Focal Length' }, 'take.sg_t_stop': { display: 'Studio T-Stop' } } });
+		expect(withPrefix(mapped, 'Studio', fields)).toEqual({ fields: { 'take.sg_t_stop': { field: 'sg_stop' }, 'take.sg_focal_length': { display: 'Studio Focal Length' } } });
+		// No prefix: back to the app's own names.
+		expect(withPrefix({ fields: { 'take.sg_focal_length': { display: 'Studio Focal Length' } } }, '', fields)).toEqual({ fields: {} });
 	});
 });

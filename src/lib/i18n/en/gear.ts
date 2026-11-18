@@ -12,6 +12,8 @@ export const gear = {
 	'gear.cameras': 'Cameras',
 	'gear.lenses': 'Lenses',
 	'gear.setups': 'Camera setups',
+	'gear.setups.footer': 'Tick the setups this device shoots with. The take screen shows only those. Every device of the show sees every setup.',
+	'gear.shoot': 'This device shoots with {setup}',
 	'gear.count.camera.one': '{n} camera',
 	'gear.count.camera.other': '{n} cameras',
 	'gear.count.lens.one': '{n} lens',

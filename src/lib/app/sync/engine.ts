@@ -22,12 +22,18 @@
 // On a site without Set Reference (Kevin, #117) the runner drains a port that leaves out the set
 // references' entries (waiting.ts): they wait in the queue, and the status and the sync sheet count
 // them apart. A setup check makes a new runner, so they go at the drain after Set Up Fields.
+//
+// Then the lists a show shares are read back from Flow PT and merged with this device's (#110,
+// shared.ts): cameras, lenses, lighting setups, templates and reference kinds. At most once a
+// minute, at once on Sync Now. No drain runs while they are merged, and they are not read while a
+// drain runs: a change confirmed between the read and the merge would look like a change made
+// elsewhere.
 
 import { checkSetup, createFptTransport, readShotCodes, type FptTransport, type KeyValue, type SetupReport, type ShotResult } from '$lib/fpt';
 import { actionUrl } from '$lib/fpt/actionMenu';
 import { createApi, type FptOptions } from '$lib/fpt/api';
 import { resolutionKey } from '$lib/fpt/cache';
-import { hasNotes, hasScope, parseResolution } from '$lib/fpt/schema';
+import { hasLists, hasNotes, hasScope, parseResolution } from '$lib/fpt/schema';
 import { browserEnv, runInForeground, type Foreground, type Page } from '$lib/outbox/foreground';
 import { createRunner, type DrainReport, type Progress, type Runner, type StopReason } from '$lib/outbox/runner';
 import { unsynced, type Unsynced } from '$lib/outbox/select';
@@ -39,11 +45,15 @@ import { notesKey, readNotesOn, shotsToNote, writeNotesOn } from './notes';
 import { PROJECT_FILTER, projectChoices, type ProjectChoice } from './projects';
 import { legacyReferenceSlatesKey, referenceSlateItems } from './referenceSlates';
 import { projectScope, withoutWaiting, type ProjectScope } from './scope';
+import { chosenSetups, type Shooting } from '$lib/gear/shooting';
+import type { CameraSetup } from '$lib/model/types';
+import { changedKey, markSeen, noteChanged, parseChanged, serializeChanged, type Changed } from './changed';
+import { keepKept, mergeShared, usedIds, USERS, type Kept } from './shared';
 import { CODES_MS, legacyKeys, linkDue, linkItems, mergeSeveral, projectSlates, type Several } from './shots';
 import { splitWaiting, waitingTables } from './waiting';
 
 export interface SyncDeps {
-	store: Pick<DexieStore, 'get' | 'list' | 'rows' | 'outbox' | 'remoteId' | 'subscribe'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
+	store: Pick<DexieStore, 'get' | 'list' | 'rows' | 'outbox' | 'remoteId' | 'subscribe' | 'reconcile'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
 	/** The signed-in site, or null. */
 	site(): string | null;
 	/** A live session (`auth.canSync`). */
@@ -61,6 +71,11 @@ export interface SyncDeps {
 	 * queued, so this drain sends it. It never stops the drain: a failure is its own to tell.
 	 */
 	beforeDrain?: () => Promise<void>;
+	/**
+	 * The camera setups this device shoots with, kept on the device (#110, lib/gear/shooting.ts): a
+	 * setup it shoots with counts as used, and one read back from another device starts unchosen.
+	 */
+	shooting?: { get(): Shooting; leaveOff(projectId: string, setupIds: readonly string[]): void };
 	/**
 	 * This deploy's origin, `location.origin`: the Action Menu Item of the linked project points at
 	 * it (#106, lib/fpt/actionMenu.ts). Without it the item is neither looked for nor made.
@@ -99,6 +114,12 @@ export interface SyncState {
 	notesOnShots: boolean;
 	/** The site is ready, without the Note fields: the Notes on Shots wait for Set Up Fields (#97). */
 	notesMissing?: boolean;
+	/** The site is ready, without the Project fields: templates and reference kinds wait on the device (#110). */
+	listsMissing?: boolean;
+	/** Records removed on another device and kept here, used or edited here, this session (#110). */
+	kept?: Kept[];
+	/** Changes read back from Flow PT of entries this device uses, not seen yet (#110). Kept on the device. */
+	changed: Changed[];
 	error?: SyncError;
 }
 
@@ -122,6 +143,8 @@ export interface SyncEngine {
 	 * resolution lacks the Note fields, the setup is checked again: it only reads.
 	 */
 	setNotesOnShots(on: boolean): Promise<void>;
+	/** An entry of the "Changed on another device" list was opened: it leaves the list (#110). */
+	seenChanged(table: string, id: string): Promise<void>;
 	/**
 	 * The Shot codes of the linked FPT project, for the slate's VFX shots field. None without a
 	 * link, a session or a network: the field is free text then. Kept a few minutes.
@@ -135,7 +158,7 @@ const lastKey = (projectId: string) => `last:${projectId}`;
 export function createSyncEngine(deps: SyncDeps): SyncEngine {
 	const links: LinkStore = linkStore(deps.kv);
 	const listeners = new Set<(state: SyncState) => void>();
-	let state: SyncState = { ready: false, checking: false, creatingFields: false, running: false, online: deps.page.online(), notesOnShots: false };
+	let state: SyncState = { ready: false, checking: false, creatingFields: false, running: false, online: deps.page.online(), notesOnShots: false, changed: [] };
 	let disposed = false;
 
 	type Live = { key: string; runner: Runner; foreground: Foreground; drain(asked: boolean): Promise<DrainReport> };
@@ -183,14 +206,15 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		deps.page.listen('offline', () => set({ online: false }))
 	];
 
-	/** The site passed the check, and whether it has Set Shot, Set Reference and the Note fields: from the resolution kept on the device. */
-	async function readSetup(site: string | null): Promise<{ ready: boolean; setShotsMissing: boolean; referencesMissing: boolean; notesMissing: boolean }> {
+	/** The site passed the check, and whether it has Set Shot, Set Reference, the Note fields and the Project fields: from the resolution kept on the device. */
+	async function readSetup(site: string | null): Promise<{ ready: boolean; setShotsMissing: boolean; referencesMissing: boolean; notesMissing: boolean; listsMissing: boolean }> {
 		const res = site ? parseResolution(await deps.schemaCache.get(resolutionKey(site)), site) : undefined;
 		return {
 			ready: res !== undefined,
 			setShotsMissing: res !== undefined && !hasScope(res, 'setShot'),
 			referencesMissing: res !== undefined && !hasScope(res, 'reference'),
-			notesMissing: res !== undefined && !hasNotes(res)
+			notesMissing: res !== undefined && !hasNotes(res),
+			listsMissing: res !== undefined && !hasLists(res)
 		};
 	}
 
@@ -266,6 +290,63 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		return linkingReferences;
 	}
 
+	// ------------------------------------------------------------------ the shared lists
+
+	/** When each project last read its lists back. */
+	const pulledAt = new Map<string, number>();
+	/** A merge under way: a drain waits for it. */
+	let pulling: Promise<void> | undefined;
+
+	/**
+	 * Reads the lists a show shares back from Flow PT and merges them with this device's (#110),
+	 * table by table, each in one transaction of the store. Skipped while a drain runs: its end pulls.
+	 * Never throws.
+	 */
+	function pullShared(projectId: string, transport: FptTransport, asked: boolean, draining: () => boolean): Promise<void> {
+		if (pulling || draining() || !linkDue(pulledAt.get(projectId), deps.page.now(), asked)) return Promise.resolve();
+		pulledAt.set(projectId, deps.page.now());
+		pulling = (async () => {
+			try {
+				const read = await transport.readShared();
+				if (!read || state.projectId !== projectId) return;
+				const kept: Kept[] = [];
+				let changed = state.changed;
+				for (const table of read) {
+					if (table.table === 'cameraSetup' && deps.shooting) {
+						// A setup made on another device starts unchosen here: marked before it is put, so the
+						// take screen never shows it in between (Kevin, #110).
+						const here = new Set(((await deps.store.rows('cameraSetup')) as { id: string }[]).map((r) => r.id));
+						deps.shooting.leaveOff(
+							projectId,
+							table.records.map((r) => r.id).filter((id) => !here.has(id))
+						);
+					}
+					const shotWith = table.table === 'cameraSetup' && deps.shooting ? deps.shooting.get() : undefined;
+					const plan = await deps.store.reconcile(table.table, USERS[table.table], (local) =>
+						mergeShared(table, {
+							projectId,
+							rows: local.rows,
+							remotes: local.remotes,
+							entries: local.entries,
+							trashed: local.trashed,
+							users: local.users,
+							used: usedIds(table.table, local.users, local.rows, shotWith ? chosenSetups(local.rows as CameraSetup[], shotWith, projectId) : undefined)
+						})
+					);
+					kept.push(...plan.kept.map((id) => ({ table: table.table, id })));
+					changed = noteChanged(changed, table.table, plan.inUse, plan.remove, deps.page.now());
+				}
+				if (changed !== state.changed) await deps.kv.set(changedKey(projectId), serializeChanged(changed));
+				if (state.projectId === projectId) set({ kept: keepKept(state.kept ?? [], kept), changed });
+			} catch {
+				// Read again at the next sync.
+			}
+		})().finally(() => {
+			pulling = undefined;
+		});
+		return pulling;
+	}
+
 	let codes: { key: string; at: number; codes: string[] } | undefined;
 
 	async function onReport(projectId: string, report: DrainReport): Promise<void> {
@@ -315,9 +396,15 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		// a person tapped Sync Now, so the slates' links are brought in line at once.
 		const drain = runner.drain.bind(runner);
 		const before = () => (deps.beforeDrain ? deps.beforeDrain().catch(() => undefined) : Promise.resolve());
+		// A merge of the shared lists under way ends first. The check and the start are one step, so a
+		// merge never starts between them (`pullShared` checks `runner.running` as it starts).
+		const drainAlone = async () => {
+			while (pulling) await pulling;
+			return drain();
+		};
 		const reported = (asked: boolean) =>
 			before()
-				.then(() => drain())
+				.then(drainAlone)
 				.then(
 					async (report) => {
 						await onReport(projectId!, report);
@@ -325,6 +412,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 							// The references first: the Notes written with the slates read their Slates.
 							await linkReferences(projectId!, transport, asked);
 							await linkSlates(projectId!, transport, asked);
+							await pullShared(projectId!, transport, asked, () => runner.running);
 						}
 						return report;
 					},
@@ -352,6 +440,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		const setup = await readSetup(site);
 		const last = projectId ? Number(await deps.kv.get(lastKey(projectId))) : NaN;
 		const notesOnShots = projectId ? readNotesOn(await deps.kv.get(notesKey(projectId))) : false;
+		const changed = projectId ? parseChanged(await deps.kv.get(changedKey(projectId))) : [];
 		// Nothing about links is kept any more: what an older version kept is removed (Kevin, #102).
 		if (projectId) await Promise.all([...legacyKeys(projectId), legacyReferenceSlatesKey(projectId)].map((key) => deps.kv.delete(key))).catch(() => undefined);
 		if (state.projectId !== projectId) return;
@@ -359,6 +448,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			link: linkOn(stored, site),
 			...setup,
 			notesOnShots,
+			changed,
 			lastSyncAt: Number.isFinite(last) && last > 0 ? last : undefined,
 			...(state.report && state.report.site !== site ? { report: undefined } : {})
 		});
@@ -377,7 +467,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		async setProject(projectId) {
 			if (state.projectId === projectId) return load();
 			stopRunner();
-			set({ projectId, link: undefined, scoped: undefined, waiting: undefined, several: undefined, stopped: undefined, lastSyncAt: undefined, error: undefined });
+			set({ projectId, link: undefined, scoped: undefined, waiting: undefined, several: undefined, kept: undefined, changed: [], stopped: undefined, lastSyncAt: undefined, error: undefined });
 			recount();
 			await load();
 		},
@@ -433,6 +523,14 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		async syncNow() {
 			if (!live) return undefined;
 			return live.drain(true);
+		},
+		async seenChanged(table, id) {
+			const projectId = state.projectId;
+			if (!projectId) return;
+			const changed = markSeen(state.changed, table, id);
+			if (changed === state.changed) return;
+			set({ changed });
+			await deps.kv.set(changedKey(projectId), serializeChanged(changed));
 		},
 		async setNotesOnShots(on) {
 			const projectId = state.projectId;

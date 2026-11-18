@@ -19,7 +19,9 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `shots.ts` | yes | Which slates to bring in line, when, and what the sync sheet lists of their Set Shots. Nothing kept. |
 | `notes.ts` | yes | Notes on Shots (#97): the setting per project, what the sheet shows, which Shots get a Note. |
 | `referenceSlates.ts` | yes | The slates each set reference shows on, by Flow PT id, for its Slates field (#107). Nothing kept. |
-| `waiting.ts` | yes | What waits on the device for an entity the site lacks: the set references, without Set Reference (#117). |
+| `waiting.ts` | yes | What waits on the device for what the site lacks: the set references, without Set Reference (#117); templates and reference kinds, without the Project fields (#110). |
+| `shared.ts` | yes | The lists a show shares (#110): `mergeShared`, what a list read back from Flow PT does to the device's; `usedIds`; the sheet's kept list. |
+| `changed.ts` | yes | The sheet's "Changed on another device" list (#110): what a merge changed of entries used here, until seen. |
 | `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. `withoutWaiting`: and without what waits. |
 | `engine.ts` | no | `createSyncEngine`: link, check, runner. No runes. |
 | `controller.svelte.ts` | no | `provideSync`, `useSync`: the engine on the real page, as runes. |
@@ -105,6 +107,55 @@ Made by Claude. Kevin can overrule any of them.
     missing, Set Up Fields is offered and runs with no review: the item changes no schema and an
     admin deletes it in Flow PT. When fields are missing too, the review lists it. A dev server on
     localhost makes one pointing at localhost: that is the deploy it runs on.
+17. **The lists a show shares are read back when a drain ends** (#110): cameras, lenses, camera
+    setups, lighting setups, templates and the kinds of set reference the project adds. At most once a minute, at
+    once on Sync Now, after the slates' links. A new device starts with them at its first sync.
+    Slates, takes and references are not read back: they stay with the device that made them
+    (Kevin, 2026-11-17).
+18. **The merge is `mergeShared`, table by table, inside one store transaction** (`reconcile`):
+    matched by client UUID; a record made elsewhere is added; a field changed elsewhere is taken,
+    unless it was edited here and the edit is not confirmed, in any state; a record removed elsewhere
+    is removed here, unless something here uses it or an edit of it waits. Nothing taken in is
+    queued or put on the undo stack.
+19. **No drain runs while the lists are merged, and they are not read while a drain runs.** A
+    change confirmed between the read and the merge would look like a change made elsewhere and be
+    put back. A drain waits for a merge under way; a drain that ends while another runs skips the
+    read, and the last one reads.
+20. **A record removed elsewhere and kept here is sent back with its id** (Kevin, 2026-11-17): its
+    server id goes, its unsent edits fold into a create of the record as it is, and every device
+    gets it again at its next sync. Without it, a take or camera setup that links it could not
+    sync. It is listed in the sync sheet under "Kept on this device" for the session, with a row
+    that opens it. A record whose edit is under way is kept and sent back at a later sync. It comes
+    back as a new row with a new id, and Flow PT reads every link to the old row as none
+    (findings/161): the synced takes and slates here that hold it get their link written again,
+    resolved to the new id when sent (`relink`; lib/fpt README, decision 74). A camera setup follows
+    Flow PT instead (Kevin, 2026-11-17): if another device took the lens off it and deleted the lens,
+    it is without it here too, and listed as changed. Setups are merged first for this.
+21. **"Used" is what this device holds:** a camera or a lens in a take or a camera setup, a camera
+    setup a take is on or this device shoots with, a lighting setup in a slate, a template a slate
+    or take was made from, a kind a reference holds by name. What another device's takes use is not
+    known here. A camera or lens is counted after the setups merge, so one another device took off a
+    setup counts only for a take.
+22. **A record never on Flow PT and with nothing queued is sent.** That is a template or kind kept
+    on the device before #110. Two devices that each made one send both: the list keeps both.
+23. **A pulled change to an entry in use changes the entry only, and is listed until seen**
+    (Kevin, 2026-11-17). A take keeps the lens it has, and its own focal length; a slate keeps the
+    values its template gave it. The sync sheet's "Changed on another device" list names the entry
+    and the fields taken (`changed.ts`), newest first, one row an entry; opening the row marks it
+    seen. Nothing shows on the take screen. The list is kept on the device per project,
+    `sg-onset:sync:changed:<id>`, so a reload keeps what was not seen. An entry removed since leaves
+    it. A new entry, or a change of one not used here, is not listed.
+24. **On a site without the Project fields, templates and kinds wait** (#117's rule): the runner
+    does not see their changes (`waiting.ts`), the status counts them as waiting, and the sync sheet
+    says an admin runs Set Up Fields, then Check Setup on each device. Cameras, lenses, camera setups
+    and lighting setups are shared already: they are entities every site has.
+25. **Every device sees every camera setup; each chooses the ones it shoots with** (Kevin,
+    2026-11-17). The choice is kept on the device, per project, never synced (`lib/gear/shooting.ts`,
+    `localStorage` `sg-onset.shooting`): the setups it does not shoot with. By default a device shoots
+    with the setups made on it; one read back from another device starts unchosen, marked before it
+    is put, so the take screen never shows it in between. The take screen's columns and Start use
+    only the chosen setups (`take/groups.ts`); a take of the slate on another setup keeps its column.
+    Gear shows a check per setup. Wrap, the exports and Flow PT keep every take.
 
 ## Not tested without a real site
 

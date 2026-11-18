@@ -7,6 +7,7 @@ import { memoryKeyValue } from '$lib/fpt/cache';
 import { BEARER, fakeFpt, type FakeFpt } from '$lib/fpt/fakeFpt';
 import type { Page, PageEvent } from '$lib/outbox/foreground';
 import type { DrainReport } from '$lib/outbox/runner';
+import { leaveOff, setShooting, shootsWith, type Shooting } from '$lib/gear/shooting';
 import { openStore, type DexieStore } from '$lib/store/dexieStore';
 import { createEditor } from '../editor';
 import { createSyncEngine, type SyncEngine } from './engine';
@@ -23,7 +24,11 @@ function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: De
 	const fptProject = fpt.seed('Project', { name: 'Show', is_template: false, is_demo: false, archived: false });
 	fpt.seed('Project', { name: 'Template', is_template: true, is_demo: false, archived: false });
 	const other = fpt.seed('Project', { name: 'Other Show', is_template: false, is_demo: false, archived: false });
+	return { fpt, fptProject, other, ...device(fpt, options) };
+}
 
+/** One device: its store, editor, page, session and sync engine, on the site given. */
+function device(fpt: FakeFpt, options: { beforeDrain?: (store: DexieStore) => Promise<void>; origin?: string } = {}) {
 	const store = openStore({ name: `sync-${++n}`, indexedDB: new IDBFactory(), IDBKeyRange, now: () => fpt.clock.t });
 	const edit = createEditor(store, () => undefined);
 
@@ -55,7 +60,10 @@ function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: De
 	};
 
 	const kv = memoryKeyValue();
-	const engine = createSyncEngine({
+	// The camera setups this device shoots with, as lib/gear/shooting.svelte keeps them (#110).
+	const choice = { value: {} as Shooting };
+	const shooting = { get: () => choice.value, leaveOff: (projectId: string, ids: readonly string[]) => (choice.value = leaveOff(choice.value, projectId, ids)) };
+	const deps = {
 		store,
 		site: () => fpt.site,
 		canSync: () => auth.token !== null,
@@ -64,10 +72,14 @@ function setup(options: { fields?: 'complete' | 'bare'; beforeDrain?: (store: De
 		schemaCache: memoryKeyValue(),
 		kv,
 		page,
+		shooting,
 		...(options.beforeDrain ? { beforeDrain: () => options.beforeDrain!(store) } : {}),
 		...(options.origin ? { origin: options.origin } : {})
-	});
-	return { fpt, fptProject, other, store, edit, world, emit, auth, kv, engine };
+	} satisfies Parameters<typeof createSyncEngine>[0];
+	const engine = createSyncEngine(deps);
+	/** The same device opened again: its store, its keys and its choice, a new engine. */
+	const reopen = () => createSyncEngine(deps);
+	return { store, edit, world, emit, auth, kv, engine, choice, reopen };
 }
 
 type S = ReturnType<typeof setup>;
@@ -701,9 +713,15 @@ describe('the Slates of a set reference (#107)', () => {
 		await stage(s);
 		await linked(s);
 		s.world.visible = true;
-		s.fpt.failNext((r) => r.method === 'PUT' && r.path.startsWith('/api/v1/entity/custom_entity21s/'), { status: 503 }, 2);
+		// Every write of a reference's Slates fails during the first sync, from each drain's end that
+		// runs then (a drain a store change started, too), and lands at a later one.
+		const site = s.fpt.fetch;
+		let failing = true;
+		s.fpt.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
+			failing && init?.method === 'PUT' && String(input).includes('/api/v1/entity/custom_entity21s/') ? new Response('{}', { status: 503 }) : site(input, init)) as typeof fetch;
 		await settle(s.engine, s.fpt);
 		expect(slatesOf(s, 'r1')).toEqual([]);
+		failing = false;
 		await settle(s.engine, s.fpt);
 		expect(slatesOf(s, 'r1')).toEqual(ids(s, 's1', 's2'));
 		expect(slatesOf(s, 'r2')).toEqual(ids(s, 's1'));
@@ -793,5 +811,318 @@ describe('Notes on Shots', () => {
 		await later(s);
 		expect(notes(s)).toHaveLength(1);
 		expect((notes(s)[0].values.note_links as Ref[])[0].type).toBe('Shot');
+	});
+});
+
+// Two devices on one show (#110): the lists a show shares are read back at each sync. Slates and
+// takes stay with the device that made them.
+describe('the shared lists', () => {
+	type D = ReturnType<typeof device>;
+
+	/** A second device, its own project linked to the same Flow PT project. */
+	async function second(s: S): Promise<D> {
+		const b = device(s.fpt);
+		await b.edit.create('project', { id: 'pB', name: 'Show on B' });
+		await b.engine.setProject('pB');
+		expect(await b.engine.link({ id: s.fptProject, name: 'Show' })).toBe('linked');
+		b.world.visible = true;
+		return b;
+	}
+
+	/** The first device's lists, synced. */
+	async function lists(s: S) {
+		await s.edit.create('project', { id: 'p1', name: 'Show' });
+		await s.edit.create('camera', { id: 'c1', projectId: 'p1', cameraModel: 'Alexa 35' });
+		await s.edit.create('lens', { id: 'l1', projectId: 'p1', lensModel: 'S4/i 32mm', focalLength: 32 });
+		await s.edit.create('lens', { id: 'l2', projectId: 'p1', lensModel: 'Supreme 50mm', focalLength: 50 });
+		await s.edit.create('lightingSetup', { id: 'ls1', projectId: 'p1', label: 'Day ext' });
+		await s.edit.create('template', { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } });
+		await s.edit.create('referenceKind', { id: 'k1', projectId: 'p1', name: 'Drone scan' });
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+	}
+
+	const ids = async (store: DexieStore, table: string) => ((await store.rows(table)) as { id: string }[]).map((r) => r.id).sort();
+
+	it('starts a new device with every list of the show, under its own project, and sends nothing back', async () => {
+		const s = setup();
+		await lists(s);
+		const b = await second(s);
+		const writes = s.fpt.count((r) => r.method !== 'GET' && !r.path.endsWith('/_search'));
+		await settle(b.engine, s.fpt);
+		expect(await ids(b.store, 'camera')).toEqual(['c1']);
+		expect(await ids(b.store, 'lens')).toEqual(['l1', 'l2']);
+		expect(await ids(b.store, 'lightingSetup')).toEqual(['ls1']);
+		expect(await b.store.get('template', 'tp1')).toEqual({ id: 'tp1', projectId: 'pB', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } });
+		expect(await b.store.get('referenceKind', 'k1')).toEqual({ id: 'k1', projectId: 'pB', name: 'Drone scan' });
+		expect(await b.store.get('lens', 'l1')).toEqual({ id: 'l1', projectId: 'pB', lensModel: 'S4/i 32mm', focalLength: 32 });
+		expect(await b.store.remoteId('l1')).toBe(s.fpt.byUuid('CustomEntity19', 'l1')!.id);
+		expect((await b.store.outbox.entries()).length).toBe(0);
+		// B's project create sends nothing (lib/fpt README, decision 1): nothing was written.
+		expect(s.fpt.count((r) => r.method !== 'GET' && !r.path.endsWith('/_search'))).toBe(writes);
+	});
+
+	it('takes an edit made on another device, and never a slate or a take', async () => {
+		const s = setup();
+		await lists(s);
+		await s.edit.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.edit.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '42A' });
+		await settle(s.engine, s.fpt);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		expect(await b.store.rows('slate')).toEqual([]);
+
+		await b.edit.apply('lens', [{ id: 'l1', key: 'lensModel', from: 'S4/i 32mm', to: 'S4/i 32 mm T2' }]);
+		await b.edit.apply('template', [{ id: 'tp1', key: 'values', from: { tStop: 2.8 }, to: { tStop: 4 } }]);
+		await settle(b.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		expect((await s.store.get('lens', 'l1'))!.lensModel).toBe('S4/i 32 mm T2');
+		expect((await s.store.get('template', 'tp1'))!.values).toEqual({ tStop: 4 });
+		expect((await s.store.outbox.entries()).length).toBe(0);
+	});
+
+	it('never overwrites an edit made here and not yet synced: both edits of one field wait for a person', async () => {
+		const s = setup();
+		await lists(s);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		await b.edit.apply('lens', [
+			{ id: 'l1', key: 'lensModel', from: 'S4/i 32mm', to: 'Theirs' },
+			{ id: 'l1', key: 'focalLength', from: 32, to: 35 }
+		]);
+		await settle(b.engine, s.fpt);
+		// The model edited here too: it stays, and the focal length edited there only is taken.
+		await s.edit.apply('lens', [{ id: 'l1', key: 'lensModel', from: 'S4/i 32mm', to: 'Mine' }]);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.get('lens', 'l1')).toMatchObject({ lensModel: 'Mine', focalLength: 35 });
+		const [waiting] = await s.store.outbox.entries();
+		expect(waiting).toMatchObject({ state: 'needsAttention', attention: { reason: 'conflict' } });
+	});
+
+	it('removes here what another device removed, when nothing here uses it', async () => {
+		const s = setup();
+		await lists(s);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		await b.edit.remove('lens', 'l2');
+		await b.edit.remove('referenceKind', 'k1');
+		await settle(b.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		expect(await ids(s.store, 'lens')).toEqual(['l1']);
+		expect(await s.store.rows('referenceKind')).toEqual([]);
+		expect(await s.store.remoteId('l2')).toBeUndefined();
+		expect(s.engine.state.kept ?? []).toEqual([]);
+	});
+
+	it('keeps one used here, lists it, and sends it back so every device has it again', async () => {
+		const s = setup();
+		await lists(s);
+		await s.edit.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.edit.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '42A' });
+		await s.edit.create('take', { id: 't1', slateId: 's1', take: '1', lensId: 'l1' });
+		await settle(s.engine, s.fpt);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		await b.edit.remove('lens', 'l1');
+		await settle(b.engine, s.fpt);
+		expect(s.fpt.byUuid('CustomEntity19', 'l1')).toBeUndefined();
+
+		await settle(s.engine, s.fpt);
+		expect(await s.store.get('lens', 'l1')).toBeDefined();
+		expect(s.engine.state.kept).toEqual([{ table: 'lens', id: 'l1' }]);
+		// Sent back as a new row under the same client UUID (findings/136), and the take links it.
+		await settle(s.engine, s.fpt);
+		const row = s.fpt.byUuid('CustomEntity19', 'l1')!;
+		expect(row.values.code).toBe('S4/i 32mm');
+		expect(await s.store.remoteId('l1')).toBe(row.id);
+		await settle(b.engine, s.fpt);
+		expect(await b.store.get('lens', 'l1')).toBeDefined();
+	});
+
+	it('sends the templates and kinds a device kept before they were shared', async () => {
+		const s = setup();
+		await s.edit.create('project', { id: 'p1', name: 'Show' });
+		await s.store.putRows('template', [{ id: 'tp0', projectId: 'p1', name: 'Older', scope: 'slate', values: {} }]);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		const held = JSON.parse(String(s.fpt.rows.get(`Project:${s.fptProject}`)!.values.sg_onset_templates));
+		expect(held.entries.map((e: { id: string }) => e.id)).toEqual(['tp0']);
+	});
+
+	// The Project fields are optional (#117's rule): without them templates and kinds wait, and the rest syncs.
+	it('holds templates and kinds back on a site without the Project fields, and sends them once it is set up', async () => {
+		const s = setup();
+		delete s.fpt.fields.Project.sg_onset_templates;
+		delete s.fpt.fields.Project.sg_onset_reference_kinds;
+		await lists(s);
+		expect(s.engine.state.listsMissing).toBe(true);
+		const left = await s.store.outbox.entries();
+		expect(left.map((e) => e.op.table).sort()).toEqual(['referenceKind', 'template']);
+		expect(left.every((e) => e.state === 'pending' && e.attempts === 0)).toBe(true);
+		expect(s.fpt.byUuid('CustomEntity19', 'l1')).toBeDefined();
+
+		expect((await s.engine.check(true))?.ready).toBe(true);
+		expect(s.engine.state.listsMissing).toBe(false);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.outbox.entries()).toEqual([]);
+		expect(s.fpt.rows.get(`Project:${s.fptProject}`)!.values.sg_onset_reference_kinds).toContain('Drone scan');
+	});
+});
+
+// Kevin, #110: camera setups are shared too, and each device chooses the ones it shoots with; a
+// change read back of an entry this device uses is listed until seen.
+describe('the shared camera setups', () => {
+	type D = ReturnType<typeof device>;
+
+	async function second(s: S): Promise<D> {
+		const b = device(s.fpt);
+		await b.edit.create('project', { id: 'pB', name: 'Show on B' });
+		await b.engine.setProject('pB');
+		expect(await b.engine.link({ id: s.fptProject, name: 'Show' })).toBe('linked');
+		b.world.visible = true;
+		return b;
+	}
+
+	async function gear(s: S) {
+		await s.edit.create('project', { id: 'p1', name: 'Show' });
+		await s.edit.create('camera', { id: 'c1', projectId: 'p1', cameraModel: 'Alexa 35' });
+		await s.edit.create('lens', { id: 'l1', projectId: 'p1', lensModel: 'S4/i 32mm', focalLength: 32 });
+		await s.edit.create('lens', { id: 'l2', projectId: 'p1', lensModel: 'Supreme 50mm', focalLength: 50 });
+		await s.edit.create('cameraSetup', { id: 'csA', projectId: 'p1', cameraLabel: 'A', cameraId: 'c1', lensId: 'l1' });
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+	}
+
+	it('gives every device every setup, and a setup made on another device starts unchosen', async () => {
+		const s = setup();
+		await gear(s);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		expect(await b.store.get('cameraSetup', 'csA')).toEqual({ id: 'csA', projectId: 'pB', cameraLabel: 'A', cameraId: 'c1', lensId: 'l1' });
+		expect(shootsWith(b.choice.value, 'pB', 'csA')).toBe(false);
+
+		// B makes its own: B shoots with it, A sees it and does not.
+		await b.edit.create('cameraSetup', { id: 'csB', projectId: 'pB', cameraLabel: 'B', cameraId: 'c1', lensId: 'l2' });
+		await settle(b.engine, s.fpt);
+		expect(shootsWith(b.choice.value, 'pB', 'csB')).toBe(true);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.get('cameraSetup', 'csB')).toBeDefined();
+		expect(shootsWith(s.choice.value, 'p1', 'csB')).toBe(false);
+		expect(shootsWith(s.choice.value, 'p1', 'csA')).toBe(true);
+	});
+
+	it('keeps a setup this device shoots with when another device removes it, and sends it back', async () => {
+		const s = setup();
+		await gear(s);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		await b.edit.remove('cameraSetup', 'csA');
+		await settle(b.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.get('cameraSetup', 'csA')).toBeDefined();
+		expect(s.engine.state.kept).toEqual([{ table: 'cameraSetup', id: 'csA' }]);
+
+		// One B does not shoot with, and A does not either, goes.
+		await s.edit.create('cameraSetup', { id: 'csC', projectId: 'p1', cameraLabel: 'C' });
+		s.choice.value = setShooting(s.choice.value, 'p1', 'csC', false);
+		await settle(s.engine, s.fpt);
+		await settle(b.engine, s.fpt);
+		await b.edit.remove('cameraSetup', 'csC');
+		await settle(b.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.get('cameraSetup', 'csC')).toBeUndefined();
+	});
+
+	// findings/161: Flow PT reads a link to a deleted row as none, and refuses any write naming one.
+	// The lens sent back is a new row under the same client UUID: the synced takes and the setup that
+	// hold it are written again with its new id, never the old one.
+	it('links the synced takes and setup again to the new row of a lens another device deleted', async () => {
+		const s = setup();
+		await gear(s);
+		await s.edit.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.edit.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '42A' });
+		await s.edit.create('take', { id: 't1', slateId: 's1', take: '1', cameraSetupId: 'csA', cameraId: 'c1', lensId: 'l1' });
+		await s.edit.create('take', { id: 't2', slateId: 's1', take: '2', cameraSetupId: 'csA', cameraId: 'c1', lensId: 'l1' });
+		await settle(s.engine, s.fpt);
+		const old = s.fpt.byUuid('CustomEntity19', 'l1')!.id;
+		expect(s.fpt.byUuid(TAKE, 't1')!.values.sg_lens).toEqual({ type: 'CustomEntity19', id: old });
+
+		// B deletes the lens. Gear takes it off B's copy of the setup too, as one edit.
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		await b.edit.apply('cameraSetup', [{ id: 'csA', key: 'lensId', from: 'l1', to: undefined }]);
+		await b.edit.remove('lens', 'l1');
+		await settle(b.engine, s.fpt);
+		expect(s.fpt.byUuid('CustomEntity19', 'l1')).toBeUndefined();
+
+		// A: the lens is used by its takes, so it is kept and sent back, and every link to it written again.
+		await settle(s.engine, s.fpt);
+		await settle(s.engine, s.fpt);
+		const fresh = s.fpt.byUuid('CustomEntity19', 'l1')!;
+		expect(fresh.id).not.toBe(old);
+		expect(s.fpt.byUuid(TAKE, 't1')!.values.sg_lens).toEqual({ type: 'CustomEntity19', id: fresh.id });
+		expect(s.fpt.byUuid(TAKE, 't2')!.values.sg_lens).toEqual({ type: 'CustomEntity19', id: fresh.id });
+		expect(await s.store.remoteId('l1')).toBe(fresh.id);
+		expect(await s.store.outbox.entries()).toEqual([]);
+		// The setup follows Flow PT (Kevin, #110): B took the lens off it, so it holds none here either,
+		// and the change is listed. Only the takes, history, keep the lens.
+		expect((await s.store.get('cameraSetup', 'csA'))!.lensId).toBeUndefined();
+		expect(s.fpt.byUuid('CustomEntity10', 'csA')!.values.sg_lens).toBeNull();
+		expect(s.engine.state.changed.map((c) => [c.table, c.id, c.keys])).toContainEqual(['cameraSetup', 'csA', ['lensId']]);
+		await settle(b.engine, s.fpt);
+		expect(await b.store.get('lens', 'l1')).toBeDefined();
+		expect((await b.store.get('cameraSetup', 'csA'))!.lensId).toBeUndefined();
+	});
+
+	// Deleted by hand in Flow PT: the setup's link reads as none (findings/161), and the setup follows
+	// what the person did (Kevin, #110). A lens nothing else uses here is gone too.
+	it('takes the empty lens of a setup whose lens was deleted in Flow PT, lists it, and keeps no unused lens', async () => {
+		const s = setup();
+		await gear(s);
+		s.fpt.rows.get(`CustomEntity19:${s.fpt.byUuid('CustomEntity19', 'l1')!.id}`)!.retired = true;
+		await settle(s.engine, s.fpt);
+		expect((await s.store.get('cameraSetup', 'csA'))!.lensId).toBeUndefined();
+		expect(s.engine.state.changed.map((c) => [c.table, c.id, c.keys])).toEqual([['cameraSetup', 'csA', ['lensId']]]);
+		expect(await s.store.get('lens', 'l1')).toBeUndefined();
+		expect(await s.store.outbox.entries()).toEqual([]);
+	});
+
+	it('lists a change made on another device of an entry used here, until it is seen, across a reload', async () => {
+		const s = setup();
+		await gear(s);
+		const b = await second(s);
+		await settle(b.engine, s.fpt);
+		// B swaps the lens on A's setup to the second lens, and changes both lenses.
+		await b.edit.apply('cameraSetup', [{ id: 'csA', key: 'lensId', from: 'l1', to: 'l2' }]);
+		await b.edit.apply('lens', [
+			{ id: 'l1', key: 'focalLength', from: 32, to: 35 },
+			{ id: 'l2', key: 'lensModel', from: 'Supreme 50mm', to: 'Supreme 50' }
+		]);
+		await settle(b.engine, s.fpt);
+		expect(b.engine.state.changed).toEqual([]);
+
+		await settle(s.engine, s.fpt);
+		expect((await s.store.get('cameraSetup', 'csA'))!.lensId).toBe('l2');
+		// The setups merge first, so the second lens is the one A's setup uses when the lenses merge: its
+		// change is listed, the first lens's is not. Newest first.
+		expect(s.engine.state.changed.map((c) => [c.table, c.id, c.keys])).toEqual([
+			['lens', 'l2', ['lensModel']],
+			['cameraSetup', 'csA', ['lensId']]
+		]);
+
+		const again = s.reopen();
+		await again.setProject('p1');
+		expect(again.state.changed).toHaveLength(2);
+		await again.seenChanged('cameraSetup', 'csA');
+		expect(again.state.changed.map((c) => c.id)).toEqual(['l2']);
+		const third = s.reopen();
+		await third.setProject('p1');
+		expect(third.state.changed.map((c) => c.id)).toEqual(['l2']);
+		again.dispose();
+		third.dispose();
 	});
 });

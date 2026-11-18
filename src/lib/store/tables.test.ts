@@ -14,13 +14,14 @@ describe('TABLES', () => {
 });
 
 describe('LOCAL_TABLES', () => {
-	it('are the tables kept on the device and never synced: templates, reference kinds, the drawings on photos, setup diagrams and clip imports', () => {
-		expect(LOCAL_TABLES).toEqual(['template', 'referenceKind', 'markup', 'diagram', 'clipImport']);
+	it('are the tables kept on the device and never synced: the drawings on photos, setup diagrams and clip imports', () => {
+		expect(LOCAL_TABLES).toEqual(['markup', 'diagram', 'clipImport']);
 		expect(isLocal('clipImport')).toBe(true);
 		expect(isLocal('diagram')).toBe(true);
-		expect(isLocal('template')).toBe(true);
-		expect(isLocal('referenceKind')).toBe(true);
 		expect(isLocal('markup')).toBe(true);
+		// Shared by every device of the show since #110.
+		expect(isLocal('template')).toBe(false);
+		expect(isLocal('referenceKind')).toBe(false);
 		expect(isLocal('take')).toBe(false);
 		expect(isLocal('reference')).toBe(false);
 	});

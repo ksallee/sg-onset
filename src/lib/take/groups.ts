@@ -43,10 +43,13 @@ export function groupTakes(takes: readonly Take[]): TakeGroup[] {
 
 /**
  * The columns: the project's camera setups by letter, then any setup a take points at that is no
- * longer there, then NO_SETUP when a take has none.
+ * longer there, then NO_SETUP when a take has none. With `shooting`, the setups this device shoots
+ * with (#110): another setup has a column only when a take of these groups is on it.
  */
-export function cameraColumns(setups: readonly CameraSetup[], groups: readonly TakeGroup[]): Column[] {
-	const columns: Column[] = [...setups]
+export function cameraColumns(setups: readonly CameraSetup[], groups: readonly TakeGroup[], shooting?: ReadonlySet<string>): Column[] {
+	const onTakes = new Set(groups.flatMap((g) => Object.keys(g.bySetup)));
+	const shown = shooting ? setups.filter((s) => shooting.has(s.id) || onTakes.has(s.id)) : setups;
+	const columns: Column[] = [...shown]
 		.sort((a, b) => collator.compare(a.cameraLabel ?? '', b.cameraLabel ?? ''))
 		.map((setup) => ({ id: setup.id, label: setup.cameraLabel ?? '', setup }));
 	const known = new Set(columns.map((c) => c.id));
@@ -65,11 +68,16 @@ export function cameraColumns(setups: readonly CameraSetup[], groups: readonly T
 
 /**
  * The cameras a new take is made on: those on the last take of the slate, else every setup of the
- * project, else one take with no setup.
+ * project, else one take with no setup. With `shooting` (#110), only setups this device shoots
+ * with: those of the last take still chosen, else every chosen one. A setup since deleted, and no
+ * setup, carry as before.
  */
-export function activeSetupIds(groups: readonly TakeGroup[], setups: readonly CameraSetup[]): string[] {
+export function activeSetupIds(groups: readonly TakeGroup[], setups: readonly CameraSetup[], shooting?: ReadonlySet<string>): string[] {
 	const last = groups[groups.length - 1];
-	const columns = cameraColumns(setups, last ? [last] : []);
-	const ids = last ? columns.filter((c) => c.id in last.bySetup).map((c) => c.id) : columns.map((c) => c.id);
+	const columns = cameraColumns(setups, last ? [last] : [], shooting);
+	const chosen = (c: Column) => !shooting || !c.setup || shooting.has(c.id);
+	const onLast = last ? columns.filter((c) => c.id in last.bySetup && chosen(c)).map((c) => c.id) : [];
+	const every = columns.filter((c) => c.setup && chosen(c)).map((c) => c.id);
+	const ids = onLast.length ? onLast : every;
 	return ids.length ? ids : [NO_SETUP];
 }

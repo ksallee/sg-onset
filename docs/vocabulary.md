@@ -36,7 +36,7 @@ enforces the parts a test can check.
 | Project | | One show. | `project` | CRIF Job; OMC CreativeWork | Project |
 | Shoot day | Day {n} | One day of shooting for one unit, numbered. | `shootDay` | CRIF Shoot Day; VES 3.3 | Shoot Day |
 | Lighting setup | | One lighting state, with its HDRI, balls and chart. | `lightingSetup` | VES scope Lighting setup | Lighting Setup |
-| Camera setup | Cam | A camera with a lens, known by its letter: A, B, C. A take is one camera setup's take. | `cameraSetup` | CRIF Camera Letter; OMC cameraLabel | Camera Setup |
+| Camera setup | Cam | A camera with a lens, known by its letter: A, B, C. A take is one camera setup's take. Every device of the show sees every setup and ticks the ones it shoots with. | `cameraSetup` | CRIF Camera Letter; OMC cameraLabel | Camera Setup |
 | Camera | | The camera body. | `camera` | CRIF Camera Body; OMC cameraMake/Model | Camera |
 | Lens | | One lens, by serial number. | `lens` | CRIF Tk Lens ID | Lens |
 | Slate | | The number on the clapperboard and the takes shot under it. | `slate` | CRIF Slate; OMC Slate.slateUID | Slate |
@@ -45,7 +45,7 @@ enforces the parts a test can check.
 | Video | | A reference video picked from the photo library or Files, kept on the take. "Photos and videos" names both. | `still`, a video file | | Version, linked to the take |
 | Audio note | | A note spoken into the microphone from the take sheet, kept on the take as the browser wrote it. | `still`, an audio file | | Version, linked to the take |
 | Reference | | One thing captured for the slate on another device, logged by name: an HDRI, a scan, a witness clip. The file stays on that device. An HDRI 360, a 360 video or an HDR reference shows on every slate of the slate's lighting setup. | `reference` | VES 2.1, 4.2, 5.1 | Set Reference, linked to its slate (Slate) and to the slates it shows on (Slates) |
-| Reference kind | | What a reference is: HDRI 360, 360 video, HDR reference, Witness camera, Lidar scan, Textured model, Photogrammetry, Splat, Other, or a kind the project adds. | `reference.kind` | | Kind |
+| Reference kind | | What a reference is: HDRI 360, 360 video, HDR reference, Witness camera, Lidar scan, Textured model, Photogrammetry, Splat, Other, or a kind the project adds. | `reference.kind` | | Kind; the project's own kinds in Onset Reference Kinds on the Project |
 | Drawing | | What is drawn over a photo: lines, text and measurements. Kept beside the photo, which stays as taken. | `markup` | | |
 | Annotated copy | | The photo with its drawing on it, one image. Sent to Flow PT and put in the wrap package beside the photo, its name ending "-annotated". | `variant: 'annotated'` | | Photos |
 | Measurement | | A dimension line on a drawing with the length typed for it. | `dimension` | | |
@@ -53,7 +53,7 @@ enforces the parts a test can check.
 | Subject, Light, Marker | | The symbols of a setup diagram beside the cameras: who is filmed, a light, a tracking marker. | `symbol` | | |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
 | Change | | One edit waiting to sync. | outbox entry | | |
-| Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
+| Template | | Values that fill a new slate or take. Entries made from it follow its later edits. Shared by every device of the project. | `template` | | Onset Template on a slate or take; the list in Onset Templates on the Project |
 | Gear | | The cameras, lenses and camera setups of a project. | | | |
 | Wrap | | The destination for the end of the day: the day's summary, what is left to fix, the export and the hand-over. | | | |
 | Wrap package | | One zip of a day's (or several days') files, and a folder per slate with its photos and audio notes, a list of its takes and references, and an empty folder for each reference, made on Wrap, for the people after set. | | | |

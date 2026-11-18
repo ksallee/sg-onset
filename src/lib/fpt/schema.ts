@@ -13,6 +13,9 @@ import {
 	NOTE_COLUMNS,
 	NOTE_KEY,
 	OPTIONAL_SCOPES,
+	PROJECT_COLUMNS,
+	PROJECT_KINDS,
+	PROJECT_TEMPLATES,
 	UUID,
 	VERSION_COLUMNS,
 	wantedColumns,
@@ -27,13 +30,16 @@ import { codeName, reverseField } from './names';
 import { VERSION } from './versions';
 
 /**
- * Where a planned field is: one of our scopes' entities, Version, where a take's videos go, or
- * Note, where the Note on a Shot is kept (#97).
+ * Where a planned field is: one of our scopes' entities, Version, where a take's videos go, Note,
+ * where the Note on a Shot is kept (#97), or Project, where the shared lists are kept (#110).
  */
-export type PlanScope = EntityScope | 'version' | 'note';
+export type PlanScope = EntityScope | 'version' | 'note' | 'project';
 
 /** Note, a stock type. */
 export const NOTE = 'Note';
+
+/** Project, a stock type. */
+export const PROJECT = 'Project';
 
 /** `GET /schema`, its `data`: one entry per enabled type, keyed by schema name. */
 export type SchemaTypes = Record<string, { name: Property<string> }>;
@@ -149,6 +155,8 @@ export type SiteContext = {
 	version?: RawFields;
 	/** The fields of Note, for the Notes on Shots (#97). Left out: nothing is planned there. */
 	note?: RawFields;
+	/** The fields of Project, for the shared lists (#110). Left out: nothing is planned there. */
+	project?: RawFields;
 };
 
 function targetType(target: Target, types: Partial<Record<EntityScope, string>>): string | undefined {
@@ -181,7 +189,8 @@ function mismatch(column: Column, field: RawField, valid: string | undefined): s
 export function planFields(types: Partial<Record<EntityScope, string>>, fields: Partial<Record<EntityScope, RawFields>>, site: SiteContext = {}): FieldPlan[] {
 	const version = site.version ? VERSION_COLUMNS.map((column) => planColumn('version', VERSION, column, site.version!, types)) : [];
 	const note = site.note ? NOTE_COLUMNS.map((column) => planColumn('note', NOTE, column, site.note!, types)) : [];
-	return planReverses([...planOwn(types, fields), ...version, ...note], types, fields, site);
+	const project = site.project ? PROJECT_COLUMNS.map((column) => planColumn('project', PROJECT, column, site.project!, types)) : [];
+	return planReverses([...planOwn(types, fields), ...version, ...note, ...project], types, fields, site);
 }
 
 /**
@@ -207,7 +216,7 @@ function planReverses(plans: FieldPlan[], types: Partial<Record<EntityScope, str
 	};
 	return plans.map((plan) => {
 		const target = plan.validTypes?.[0];
-		if (!target || plan.column.stock || plan.scope === 'version' || plan.scope === 'note' || (plan.dataType !== 'entity' && plan.dataType !== 'multi_entity') || plan.status === 'blocked') return plan;
+		if (!target || plan.column.stock || plan.scope === 'version' || plan.scope === 'note' || plan.scope === 'project' || (plan.dataType !== 'entity' && plan.dataType !== 'multi_entity') || plan.status === 'blocked') return plan;
 		const source = site.names?.[plan.entityType]?.trim() || ENTITY_TYPES[plan.scope].displayName;
 		const predicted = { entityType: target, ...reverseField(plan.entityType, source, plan.name, plan.displayName, plan.dataType) };
 		const have = fieldsOf(target);
@@ -307,6 +316,11 @@ export type Resolution = {
 	 * Note lists. Here only once both are there; until then the Notes wait.
 	 */
 	note?: { key: string; captured: string };
+	/**
+	 * The names on the site of the Project fields of the shared lists (#110): the templates and the
+	 * kinds of set reference. Here only once both are there; until then the lists wait on the device.
+	 */
+	project?: { templates: string; referenceKinds: string };
 };
 
 /** The fields of an optional scope and the fields that link it, by scope. */
@@ -350,19 +364,27 @@ export function toResolution(site: string, entities: readonly EntityResolution[]
 	if (uuid?.status !== 'present') return undefined;
 	const noteOf = (column: Column) => plans.find((p) => p.scope === 'note' && p.column.name === column.name && p.status === 'present')?.name;
 	const [key, captured] = [noteOf(NOTE_KEY), noteOf(NOTE_CAPTURED)];
+	const projectOf = (column: Column) => plans.find((p) => p.scope === 'project' && p.column.name === column.name && p.status === 'present')?.name;
+	const [templates, referenceKinds] = [projectOf(PROJECT_TEMPLATES), projectOf(PROJECT_KINDS)];
 	return {
 		version: 1,
 		site,
 		entities: types as Resolution['entities'],
 		fields: fields as Resolution['fields'],
 		versionUuid: uuid.name,
-		...(key && captured ? { note: { key, captured } } : {})
+		...(key && captured ? { note: { key, captured } } : {}),
+		...(templates && referenceKinds ? { project: { templates, referenceKinds } } : {})
 	};
 }
 
 /** Whether the site has the Note fields of the Notes on Shots (#97). */
 export function hasNotes(resolution: Resolution): boolean {
 	return resolution.note !== undefined;
+}
+
+/** Whether the site has the Project fields of the shared lists (#110). */
+export function hasLists(resolution: Resolution): boolean {
+	return resolution.project !== undefined;
 }
 
 /** Whether the site has an optional entity, with its fields and the fields that link it. */
@@ -395,6 +417,8 @@ export function parseResolution(raw: string | undefined | null, site: string): R
 	if (r.version !== 1 || r.site !== site || !r.entities || !r.fields || typeof r.versionUuid !== 'string') return undefined;
 	// Without `note`: the Notes on Shots wait, the rest syncs. A `note` kept must name both fields.
 	if (r.note !== undefined && (r.note === null || typeof r.note.key !== 'string' || typeof r.note.captured !== 'string')) return undefined;
+	// Without `project`: the shared lists wait, the rest syncs. A `project` kept must name both fields.
+	if (r.project !== undefined && (r.project === null || typeof r.project.templates !== 'string' || typeof r.project.referenceKinds !== 'string')) return undefined;
 	const entities: Partial<Record<EntityScope, unknown>> = r.entities;
 	const fields: Partial<Record<EntityScope, Record<string, unknown>>> = r.fields;
 	for (const scope of ENTITY_SCOPES) {

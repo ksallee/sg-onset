@@ -7,9 +7,12 @@
 import type { Unsynced } from '$lib/outbox/select';
 import type { Entry } from '$lib/outbox/types';
 
-/** The tables whose entries wait on the device: the set references', on a site without Set Reference. */
-export function waitingTables(setup: { referencesMissing?: boolean; setShotsMissing?: boolean }): string[] {
-	return setup.referencesMissing ? ['reference'] : [];
+/**
+ * The tables whose entries wait on the device: the set references', on a site without Set
+ * Reference; the templates' and the reference kinds', on a site without the Project fields (#110).
+ */
+export function waitingTables(setup: { referencesMissing?: boolean; setShotsMissing?: boolean; listsMissing?: boolean }): string[] {
+	return [...(setup.referencesMissing ? ['reference'] : []), ...(setup.listsMissing ? ['template', 'referenceKind'] : [])];
 }
 
 /** Whether an entry waits for an entity the site lacks. */

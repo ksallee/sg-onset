@@ -120,6 +120,9 @@ export const sync = {
 	'sync.refused.update': "This Flow PT account can't change {things}. Ask an Admin for the permission.",
 	'sync.refused.delete': "This Flow PT account can't delete {things}. Ask an Admin for the permission.",
 	'sync.refused.missing': 'This Flow PT site has no {entity} entity yet. Once an admin enables it and runs Set Up Fields, tap Try Again.',
+	'sync.refused.lists': "This Flow PT account can't change the Project, where templates and reference kinds are kept. Ask an Admin for the permission.",
+	'sync.lists.unreadable': 'The {field} field of the Flow PT project holds text SG OnSet cannot read. An admin empties it in Flow PT. Then tap Try Again.',
+	'sync.lists.missing': 'This Flow PT site has no place yet for templates and reference kinds. An admin runs Set Up Fields.',
 	'sync.things.shootDay': 'Shoot Days',
 	'sync.things.slate': 'Slates',
 	'sync.things.take': 'Takes',
@@ -135,6 +138,20 @@ export const sync = {
 
 	'sync.conflict.line': '{field}: this device {mine}, Flow PT {theirs}',
 	'sync.conflict.empty': 'empty',
+	'sync.conflict.template.name': 'Name',
+	'sync.conflict.template.values': 'Fields',
+
+	// The lists a show shares (#110): on a site without the Project fields, and what was kept here.
+	'sync.lists.header': 'Templates and reference kinds',
+	'sync.lists.waiting': 'Changes waiting',
+	'sync.lists.footer':
+		'This Flow PT site has no place yet for the templates and reference kinds of a project. An admin runs Set Up Fields: it adds two fields to Project. Then Check Setup on each device. Until then they wait on this device. Cameras, lenses and lighting setups are shared already.',
+	'sync.changed.header': 'Changed on another device',
+	'sync.changed.fields': 'Changed: {fields}',
+	'sync.changed.footer': 'Entries this device uses that another device changed. Takes keep the values they were shot with. Open one to mark it seen.',
+	'sync.kept.header': 'Kept on this device',
+	'sync.kept.subtitle': 'Removed on another device. Used or changed here.',
+	'sync.kept.footer': 'Each one goes back to Flow PT, so every device of the show has it again. To remove it on every device, first take it off what uses it here.',
 
 	// Notes on Shots (#97): the setting, in the sync detail.
 	'sync.notes.header': 'Notes on Shots',

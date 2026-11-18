@@ -213,6 +213,19 @@ export const PROJECT_KINDS: Column = {
 /** Ours on Project, a stock type: the shared lists (#110). Optional: a site without them syncs the rest. */
 export const PROJECT_COLUMNS: readonly Column[] = [PROJECT_TEMPLATES, PROJECT_KINDS];
 
+/**
+ * The names an admin picked for the project (#111, naming.ts): JSON in a text field of the Project,
+ * read by every device of the project, written by an Admin (corpus findings/157, 158, 159; recipes/028).
+ * Its name is fixed and never in a naming: it is read before any name is known. A site without it
+ * uses the default names. Made by Set Up Fields when an admin first saves names.
+ */
+export const PROJECT_NAMING: Column = {
+	name: 'sg_onset_naming',
+	display: 'Onset Naming',
+	dataType: 'text',
+	note: 'The names SG OnSet uses on this site for this project, as JSON. Change them in SG OnSet'
+};
+
 /** The key whose value a new record takes as `created_at` (corpus findings/070_authored_timestamps.md). */
 export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt', reference: 'loggedAt' };
 

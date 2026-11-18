@@ -1,18 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { ENTITY_SCOPES, wantedColumns, type EntityScope } from './mapping';
+import { ENTITY_SCOPES, wantedColumns, type Column, type EntityScope } from './mapping';
 import {
 	createInput,
 	entityTypesOf,
+	fieldOptions,
 	hasLists,
 	hasNotes,
 	hasScope,
 	parseResolution,
 	planFields,
+	planSite,
 	resolveEntities,
 	serializeResolution,
 	toResolution,
 	type RawFields,
-	type SchemaTypes
+	type SchemaTypes,
+	type SiteSchema
 } from './schema';
 import { DEFAULT_NAMING, type Naming } from './naming';
 import { completeFields as complete, noteFields, projectFields, rawField as raw, TYPES, versionFields } from './testkit';
@@ -701,5 +704,75 @@ describe('a naming', () => {
 		expect(parseResolution(plain, 'https://a.example', DEFAULT_NAMING)).toBeDefined();
 		expect(parseResolution(plain, 'https://a.example', naming)).toBeUndefined();
 		expect(parseResolution(JSON.stringify({ ...res, naming: { entities: { slate: 'Plate' } } }), 'https://a.example')).toBeUndefined();
+	});
+});
+
+// #111, the second part: the review plans a site's schema, read once, under any naming.
+describe('planSite', () => {
+	/** The site as read: the type list, and the fields of every type read, by type. */
+	const read = (fields = complete()): SiteSchema => ({
+		types: { ...SITE, Attachment: type('File'), Shot: type('Shot'), Version: type('Version'), Note: type('Note'), Project: type('Project'), CustomEntity30: type('Shot Take') },
+		fields: {
+			...Object.fromEntries(Object.entries(TYPES).map(([scope, entityType]) => [entityType, fields[scope as EntityScope]])),
+			CustomEntity30: { ...fields.take },
+			Version: versionFields(true),
+			Note: noteFields(true),
+			Project: projectFields(true)
+		}
+	});
+
+	it('plans as Set Up Fields does, under the default names', () => {
+		const site = read();
+		const { entities, plans } = planSite(site, DEFAULT_NAMING);
+		expect(entityTypesOf(entities)).toEqual(TYPES);
+		expect(toResolution('s', entities, plans)).toEqual(toResolution('s', resolveEntities(SITE), planFields(TYPES, complete(), { ...VERSION_DONE, note: noteFields(true), project: projectFields(true), names: Object.fromEntries(Object.entries(site.types).map(([t, v]) => [t, v.name.value])) })));
+	});
+
+	it('plans under another naming, another custom entity included', () => {
+		const { entities, plans } = planSite(read(), { entities: { take: 'Shot Take' }, fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' } } });
+		expect(entities.find((e) => e.scope === 'take')).toMatchObject({ status: 'found', entityType: 'CustomEntity30', displayName: 'Shot Take' });
+		expect(plans.find((p) => p.scope === 'take' && p.column.name === 'sg_t_stop')).toMatchObject({ entityType: 'CustomEntity30', status: 'create', name: 'sg_studio_t_stop' });
+	});
+
+	it('plans nothing on an entity whose fields were not read', () => {
+		const site = read();
+		delete site.fields.CustomEntity30;
+		const { plans } = planSite(site, { entities: { take: 'Shot Take' } });
+		expect(plans.some((p) => p.scope === 'take')).toBe(false);
+	});
+});
+
+describe('fieldOptions', () => {
+	const tStop = { name: 'sg_t_stop', display: 'T-Stop', dataType: 'float' as const };
+	const lensLink = { name: 'sg_lens', display: 'Lens', dataType: 'entity' as const, target: 'lens' as const };
+	const key = { name: 'sg_onset_uuid', display: 'Onset UUID', dataType: 'text' as const, unique: true as const };
+
+	it('offers the fields of the entity that fit: same type, editable, linking the type, unique when it must be', () => {
+		const have = {
+			...complete().take,
+			sg_stop: raw('float', 'Stop'),
+			sg_stop_text: raw('text', 'Stop Text'),
+			sg_locked: raw('float', 'Locked', { editable: false }),
+			sg_glass: raw('entity', 'Glass', { validTypes: ['CustomEntity19'] }),
+			sg_other: raw('entity', 'Other', { validTypes: ['Shot'] }),
+			sg_id: raw('text', 'Id', { unique: true })
+		};
+		const names = (column: Column) => fieldOptions(column, have, TYPES, new Set()).map((o) => o.name);
+		expect(names(tStop)).toContain('sg_stop');
+		expect(names(tStop)).not.toContain('sg_stop_text');
+		expect(names(tStop)).not.toContain('sg_locked');
+		expect(names(lensLink)).toEqual(expect.arrayContaining(['sg_glass', 'sg_lens']));
+		expect(names(lensLink)).not.toContain('sg_other');
+		expect(names(key)).toEqual(['sg_id', 'sg_onset_uuid']);
+	});
+
+	it('leaves out the stock fields and the names other fields ask for', () => {
+		const have = { ...complete().take, description: raw('text', 'Description'), sg_note: raw('text', 'Note') };
+		const notes = { name: 'sg_set_notes', display: 'Set Notes', dataType: 'text' as const };
+		const options = fieldOptions(notes, have, TYPES, new Set(['sg_note'])).map((o) => o.name);
+		expect(options).not.toContain('description');
+		expect(options).not.toContain('code');
+		expect(options).not.toContain('sg_note');
+		expect(fieldOptions(notes, have, TYPES, new Set())[0]).toMatchObject({ name: expect.any(String), displayName: expect.any(String) });
 	});
 });

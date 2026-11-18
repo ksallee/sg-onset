@@ -3,7 +3,7 @@
 
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { describe, expect, it, vi } from 'vitest';
-import { checkSetup } from '$lib/fpt';
+import { setUpNames } from '$lib/fpt/setup';
 import { memoryKeyValue } from '$lib/fpt/cache';
 import { BEARER, fakeFpt, type FakeFpt } from '$lib/fpt/fakeFpt';
 import { DEFAULT_NAMING, entityName, type Naming } from '$lib/fpt/naming';
@@ -822,13 +822,15 @@ describe('Notes on Shots', () => {
 describe('the names an admin picked (#111)', () => {
 	const naming: Naming = { entities: { take: 'Shot Take', reference: 'Set Ref', setShot: 'Shot Code' }, fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' }, 'take.sg_photos': { display: 'Stills' } } };
 
-	it('syncs under the names the schema on the device was set up with, and keeps them through a check', async () => {
+	it('syncs under the names the project keeps, saved from another device, and names the entities to enable by them', async () => {
 		const s = setup({ fields: 'bare' });
 		s.fpt.types.CustomEntity09 = { name: { value: 'Shot Take' } };
 		delete s.fpt.types.CustomEntity21;
 		delete s.fpt.types.CustomEntity22;
 		expect(s.engine.state.naming).toEqual(DEFAULT_NAMING);
-		const report = await checkSetup({ site: s.fpt.site, bearer: async () => BEARER, fetch: s.fpt.fetch, schemaCache: s.schemaCache, naming, createFields: true });
+		// An admin saves the names on another device: this one has nothing kept.
+		const { names, report } = await setUpNames({ site: s.fpt.site, bearer: async () => BEARER, fetch: s.fpt.fetch, schemaCache: memoryKeyValue(), projectId: s.fptProject, naming, createFields: true });
+		expect(names).toBe('saved');
 		expect(report.ready).toBe(true);
 		await shoot(s);
 		await linked(s);
@@ -843,6 +845,35 @@ describe('the names an admin picked (#111)', () => {
 		expect((take.values.sg_stills as { id: number }[]).length).toBe(1);
 		expect(take.values.sg_t_stop).toBeUndefined();
 		expect(s.fpt.fields[TAKE].sg_photos).toBeUndefined();
+	});
+
+	it('reads the review once, saves names from it, and the next sync goes under them', async () => {
+		const s = setup({ fields: 'bare' });
+		s.fpt.types.CustomEntity09 = { name: { value: 'Shot Take' } };
+		await s.engine.setProject('p1');
+		await s.engine.link({ id: s.fptProject, name: 'Show' });
+		const review = await s.engine.names();
+		expect(review).toMatchObject({ named: { saved: 'none' }, synced: false });
+		const draft: Naming = { entities: { take: 'Shot Take' }, fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' } } };
+		expect(await s.engine.saveNames(draft)).toEqual({ outcome: 'saved' });
+		expect(s.engine.state.ready).toBe(true);
+		expect(s.engine.state.naming).toEqual(draft);
+		expect(s.engine.state.report?.naming).toEqual({ saved: 'saved', naming: draft });
+		await shoot(s);
+		s.world.visible = true;
+		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
+		expect(s.fpt.byUuid(TAKE, 't1')!.values).toMatchObject({ sg_studio_t_stop: 2.8 });
+		// Synced now: the review says so.
+		expect((await s.engine.names())?.synced).toBe(true);
+	});
+
+	it('says plainly when only an admin may save the names', async () => {
+		const s = setup();
+		await linked(s);
+		s.fpt.canCreateFields = false;
+		expect(await s.engine.saveNames({ fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' } } })).toEqual({ outcome: 'needsAdmin' });
+		expect(s.engine.state.naming).toEqual(DEFAULT_NAMING);
+		expect(s.engine.state.ready).toBe(true);
 	});
 });
 

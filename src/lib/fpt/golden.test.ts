@@ -232,15 +232,24 @@ function renamed(log: unknown[], naming: Naming): unknown[] {
 		});
 }
 
+/**
+ * The read of the names a project keeps (#111) that a transport makes at its first call needing the
+ * schema: new since the list was recorded, and asserted on its own. A site without the field
+ * answers 404 (corpus findings/157).
+ */
+const namesRead = (r: unknown) => (r as { method: string; path: string }).method === 'GET' && (r as { path: string }).path === '/api/v1/schema/Project/fields/sg_onset_naming';
+
 describe('the requests the app sends', () => {
-	it('are the requests it sent before the names were an admin’s choice', async () => {
+	it('are the requests it sent before the names were an admin’s choice, and one read of the project’s names', async () => {
 		const log = await goldenRun(fakeFpt({ fields: 'bare' }));
-		await expect(JSON.stringify(log, null, 1)).toMatchFileSnapshot('./golden.requests.json');
+		expect(log.filter(namesRead)).toHaveLength(1);
+		await expect(JSON.stringify(log.filter((r) => !namesRead(r)), null, 1)).toMatchFileSnapshot('./golden.requests.json');
 	});
 
 	it('are the same requests under the names an admin chose, everywhere', async () => {
 		expect(parseNaming(STUDIO)).toEqual(STUDIO);
-		const plain = await goldenRun(fakeFpt({ fields: 'bare' }));
+		// Names given to the transport are not read from the project: the read is left out of both.
+		const plain = (await goldenRun(fakeFpt({ fields: 'bare' }))).filter((r) => !namesRead(r));
 		const fpt = studioSite();
 		const studio = await goldenRun(fpt, { naming: STUDIO });
 		expect(studio).toEqual(renamed(plain, STUDIO));

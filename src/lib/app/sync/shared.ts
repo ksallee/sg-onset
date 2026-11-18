@@ -73,8 +73,9 @@ export type SharedPlan = {
 	 * The links to write again, on the synced records here that hold a record of `resend`: Flow PT reads
 	 * a link to a deleted row as none and refuses a write naming one (findings/161), and the record
 	 * sent back is a new row. Queued as an update from no link to the record, resolved to its new id
-	 * by client UUID when it is sent. A camera setup too: the record is kept because it is used here,
-	 * and the setup that uses it keeps it, whatever Flow PT reads of its link now.
+	 * by client UUID when it is sent. Only takes and slates, the history this device keeps to itself.
+	 * A camera setup is read back and follows Flow PT (Kevin, #110): another device that took the
+	 * lens off it, or a person who deleted the lens in Flow PT, both read as no link, and it takes that.
 	 */
 	relink: { table: TableName; id: string; key: string; value: string }[];
 };
@@ -146,12 +147,16 @@ export function mergeShared(pulled: PulledTable, local: LocalState): SharedPlan 
 	return plan;
 }
 
-/** The synced records here that link a record sent back, by an entity field. A template or kind is text in Flow PT: none. */
+/**
+ * The synced takes and slates here that link a record sent back, by an entity field: the tables no
+ * device reads back. A template or kind is text in Flow PT: none.
+ */
 function relinks(table: SharedTable, resend: readonly string[], users: Partial<Record<TableName, readonly Row[]>>, remotes: Readonly<Record<string, RemoteId>>): SharedPlan['relink'] {
 	if (!resend.length || table === 'template' || table === 'referenceKind') return [];
 	const key = HELD_BY[table];
 	const sent = new Set(resend);
-	return USERS[table].flatMap((name) =>
+	const history = USERS[table].filter((name) => !(SHARED_TABLES as readonly string[]).includes(name));
+	return history.flatMap((name) =>
 		(users[name] ?? []).flatMap((r) => (typeof r[key] === 'string' && sent.has(r[key] as string) && remotes[r.id] !== undefined ? [{ table: name, id: r.id, key, value: r[key] as string }] : []))
 	);
 }

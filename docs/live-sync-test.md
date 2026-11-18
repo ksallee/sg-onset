@@ -179,11 +179,14 @@ Use a test project on the site, never a show.
   template and a reference kind, and sync. On device B (another browser, or the laptop), make a
   project, link it to the same Flow PT project and sync: B has all of them, and no slate or take
   of A. Rename a lens on B and sync B, then **Sync Now** on A: A shows the new name. On B delete
-  the other lens and the kind, sync B, then A: both are gone on A. Give A a camera setup with the
-  first lens, delete that lens on B, sync B then A: A keeps it under **Kept on this device** in the
-  sync sheet, and after one more sync on A it is back in Flow PT and on B. In Flow PT, open the
-  Project's fields: the two hold JSON. A's takes of that lens and the setup link the lens's new row
-  (fpt README, decision 74). Say whether a Manager account may write the two fields (gap 22).
+  the other lens and the kind, sync B, then A: both are gone on A. In Flow PT, open the Project's
+  fields: the two hold JSON. Say whether a Manager account may write the two fields
+  (fpt README, gap 22).
+- **A lens deleted while another device's takes use it (#110).** On A, shoot two takes with a lens
+  on setup A and sync. On B, delete that lens in Gear (it comes off setup A) and sync, then **Sync
+  Now** twice on A. A keeps the lens under **Kept on this device**; in Flow PT the lens has a new
+  row, and A's two takes link it (fpt README, decision 74). Setup A has no lens, on A and in Flow PT,
+  and A lists it under **Changed on another device**.
 - **Camera setups on two devices (#110).** A has setups A and B, B makes setup C. After both sync,
   Gear on each shows A, B and C; A's are ticked on A only, C on B only. On B tick A: the take screen
   on B shows A and C, and Start makes takes on those. On B change the lens on setup A and sync,

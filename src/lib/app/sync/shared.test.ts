@@ -160,13 +160,26 @@ describe('mergeShared: sent back', () => {
 		cameraSetup: [{ id: 'cs1', cameraId: 'c1', lensId: 'l1' }]
 	};
 
-	it('writes the link again on each synced take and camera setup here that holds the record sent back', () => {
+	it('writes the link again on each synced take here that holds the record sent back', () => {
 		const plan = mergeShared(pulled([]), local({ rows: [cooke], remotes: { l1: 900, t1: 50, t2: undefined as never, t3: 52, cs1: 60 }, used: new Set(['l1']), users }));
 		expect(plan.resend).toEqual(['l1']);
-		expect(plan.relink).toEqual([
-			{ table: 'take', id: 't1', key: 'lensId', value: 'l1' },
-			{ table: 'cameraSetup', id: 'cs1', key: 'lensId', value: 'l1' }
-		]);
+		expect(plan.relink).toEqual([{ table: 'take', id: 't1', key: 'lensId', value: 'l1' }]);
+	});
+
+	// Kevin, #110: a camera setup is read back and follows Flow PT. Another device that took the lens
+	// off it, or a person who deleted the lens in Flow PT, both read as no link: the setup takes it.
+	it('writes no link again on a camera setup: it follows what Flow PT holds', () => {
+		const plan = mergeShared(pulled([]), local({ rows: [cooke], remotes: { l1: 900, cs1: 60 }, used: new Set(['l1']), users: { cameraSetup: users.cameraSetup } }));
+		expect(plan.relink).toEqual([]);
+	});
+
+	it('writes the lighting setup again on each synced slate of one sent back', () => {
+		const lighting = { id: 'ls1', projectId: P, label: 'Day ext' };
+		const plan = mergeShared(
+			{ table: 'lightingSetup', keys: ['label'], complete: true, records: [] },
+			local({ rows: [lighting], remotes: { ls1: 70, s1: 80 }, used: new Set(['ls1']), users: { slate: [{ id: 's1', lightingSetupId: 'ls1' }] } })
+		);
+		expect(plan.relink).toEqual([{ table: 'slate', id: 's1', key: 'lightingSetupId', value: 'ls1' }]);
 	});
 
 	it('writes the camera setup again on each synced take of a setup sent back', () => {

@@ -693,10 +693,11 @@ user` (findings/159). An Admin may; a Manager is unmeasured (gap 22).
 
 A record removed on another device and kept here is sent back as a new row under the same client
 UUID, with a new id (app/sync README, decision 20). Flow PT reads every link to the deleted row as
-none and refuses any write naming it (findings/161). So the synced takes, slates and camera setups
-here that link it are written again, an update from no link to the record, resolved to the new id
-by client UUID when sent, after the record's create (`relink`, app/sync/shared.ts). The old id is
-never written.
+none and refuses any write naming it (findings/161). So the synced takes and slates here that link
+it, the history no device reads back, are written again: an update from no link to the record,
+resolved to the new id by client UUID when sent, after the record's create (`relink`,
+app/sync/shared.ts). The old id is never written. A camera setup follows Flow PT (Kevin, #110): its
+link reads as none, and it takes that.
 
 ## Decisions
 
@@ -956,15 +957,15 @@ Made by Claude. Kevin can overrule any of them.
     row of the project with a client UUID. A row made by hand in Flow PT has none and is left out:
     matching it to the device's gear by name is not done. Which camera setups a device shoots with
     is its own choice, kept on the device, never in Flow PT (app/sync README, decision 25).
-74. **A record sent back writes its links again, with its new id.** Flow PT reads a link to a deleted
-    row as none and refuses any write naming one, as it refuses an id that never existed
-    (findings/161). The record kept here is a new row; the synced takes, slates and camera setups
-    here that link it each get an update from no link to it, after its create, resolved by client
-    UUID when sent. A camera setup too, though setups are read back: the record is kept because it
-    is used here, and the setup that uses it keeps it, whatever Flow PT reads of its link. Camera
-    setups are read after cameras and lenses for this: the setup's link waits as an unsent edit when
-    the setups merge, so it is not taken for a change made elsewhere. A link a person took off by
-    hand in Flow PT before a sync reads the same and is written again.
+74. **A record sent back writes the links of the history again, with its new id.** Flow PT reads a
+    link to a deleted row as none and refuses any write naming one, as it refuses an id that never
+    existed (findings/161). The record kept here is a new row; the synced takes and slates here that
+    link it each get an update from no link to it, after its create, resolved by client UUID when
+    sent. A camera setup does not (Kevin, 2026-11-17): it is read back and follows Flow PT. Another
+    device that took the lens off it and deleted the lens, or a person who deleted the lens in Flow
+    PT, both read as no link, and the setup here takes it, listed under "Changed on another device".
+    Camera setups are read first, so a lens they no longer hold is not counted as used when the
+    lenses merge: it is kept only for a take.
 
 ## Where FPT did not fit the contract
 

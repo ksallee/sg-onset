@@ -127,12 +127,15 @@ Made by Claude. Kevin can overrule any of them.
     sync. It is listed in the sync sheet under "Kept on this device" for the session, with a row
     that opens it. A record whose edit is under way is kept and sent back at a later sync. It comes
     back as a new row with a new id, and Flow PT reads every link to the old row as none
-    (findings/161): the synced takes, slates and camera setups here that hold it get their link
-    written again, resolved to the new id when sent (`relink`; lib/fpt README, decision 74).
+    (findings/161): the synced takes and slates here that hold it get their link written again,
+    resolved to the new id when sent (`relink`; lib/fpt README, decision 74). A camera setup follows
+    Flow PT instead (Kevin, 2026-11-17): if another device took the lens off it and deleted the lens,
+    it is without it here too, and listed as changed. Setups are merged first for this.
 21. **"Used" is what this device holds:** a camera or a lens in a take or a camera setup, a camera
     setup a take is on or this device shoots with, a lighting setup in a slate, a template a slate
     or take was made from, a kind a reference holds by name. What another device's takes use is not
-    known here.
+    known here. A camera or lens is counted after the setups merge, so one another device took off a
+    setup counts only for a take.
 22. **A record never on Flow PT and with nothing queued is sent.** That is a template or kind kept
     on the device before #110. Two devices that each made one send both: the list keeps both.
 23. **A pulled change to an entry in use changes the entry only, and is listed until seen**

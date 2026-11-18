@@ -98,10 +98,11 @@ export type SharedRead = {
 };
 
 /**
- * The entity tables read back, beside the lists of lists.ts. Camera setups after the gear: a lens kept
- * here writes its setups' links again before the setups merge, so they keep it (findings/161).
+ * The entity tables read back, beside the lists of lists.ts. Camera setups first: a setup follows Flow
+ * PT (Kevin, #110), so a lens another device took off it and deleted is no longer used by it here
+ * when the lenses merge, and goes unless a take uses it.
  */
-const SHARED_SCOPES = ['camera', 'lens', 'cameraSetup', 'lightingSetup'] as const;
+const SHARED_SCOPES = ['cameraSetup', 'camera', 'lens', 'lightingSetup'] as const;
 
 /** Pages of 500 read of each shared table: 20,000 records. A list that reaches it is not judged whole. */
 const SHARED_PAGES = 40;

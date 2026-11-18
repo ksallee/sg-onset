@@ -918,7 +918,9 @@ describe('the shared lists', () => {
 	it('keeps one used here, lists it, and sends it back so every device has it again', async () => {
 		const s = setup();
 		await lists(s);
-		await s.edit.create('cameraSetup', { id: 'cs1', projectId: 'p1', cameraLabel: 'A', cameraId: 'c1', lensId: 'l1' });
+		await s.edit.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.edit.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '42A' });
+		await s.edit.create('take', { id: 't1', slateId: 's1', take: '1', lensId: 'l1' });
 		await settle(s.engine, s.fpt);
 		const b = await second(s);
 		await settle(b.engine, s.fpt);
@@ -929,7 +931,7 @@ describe('the shared lists', () => {
 		await settle(s.engine, s.fpt);
 		expect(await s.store.get('lens', 'l1')).toBeDefined();
 		expect(s.engine.state.kept).toEqual([{ table: 'lens', id: 'l1' }]);
-		// Sent back as a new row under the same client UUID (findings/136), and the setup links it.
+		// Sent back as a new row under the same client UUID (findings/136), and the take links it.
 		await settle(s.engine, s.fpt);
 		const row = s.fpt.byUuid('CustomEntity19', 'l1')!;
 		expect(row.values.code).toBe('S4/i 32mm');
@@ -1066,27 +1068,26 @@ describe('the shared camera setups', () => {
 		expect(s.fpt.byUuid(TAKE, 't2')!.values.sg_lens).toEqual({ type: 'CustomEntity19', id: fresh.id });
 		expect(await s.store.remoteId('l1')).toBe(fresh.id);
 		expect(await s.store.outbox.entries()).toEqual([]);
-		// The setup that uses it here keeps it too, on Flow PT with the new id: the lens is kept because
-		// it is used here (Kevin, #110), and B gets both back at its next sync.
-		expect((await s.store.get('cameraSetup', 'csA'))!.lensId).toBe('l1');
-		expect(s.fpt.byUuid('CustomEntity10', 'csA')!.values.sg_lens).toEqual({ type: 'CustomEntity19', id: fresh.id });
+		// The setup follows Flow PT (Kevin, #110): B took the lens off it, so it holds none here either,
+		// and the change is listed. Only the takes, history, keep the lens.
+		expect((await s.store.get('cameraSetup', 'csA'))!.lensId).toBeUndefined();
+		expect(s.fpt.byUuid('CustomEntity10', 'csA')!.values.sg_lens).toBeNull();
+		expect(s.engine.state.changed.map((c) => [c.table, c.id, c.keys])).toContainEqual(['cameraSetup', 'csA', ['lensId']]);
 		await settle(b.engine, s.fpt);
 		expect(await b.store.get('lens', 'l1')).toBeDefined();
-		expect((await b.store.get('cameraSetup', 'csA'))!.lensId).toBe('l1');
+		expect((await b.store.get('cameraSetup', 'csA'))!.lensId).toBeUndefined();
 	});
 
-	// Deleted by hand in Flow PT: the setup's link reads as none (findings/161) and is written again.
-	it('links a synced setup again to the new row of a lens deleted in Flow PT', async () => {
+	// Deleted by hand in Flow PT: the setup's link reads as none (findings/161), and the setup follows
+	// what the person did (Kevin, #110). A lens nothing else uses here is gone too.
+	it('takes the empty lens of a setup whose lens was deleted in Flow PT, lists it, and keeps no unused lens', async () => {
 		const s = setup();
 		await gear(s);
-		const old = s.fpt.byUuid('CustomEntity19', 'l1')!.id;
-		s.fpt.rows.get(`CustomEntity19:${old}`)!.retired = true;
+		s.fpt.rows.get(`CustomEntity19:${s.fpt.byUuid('CustomEntity19', 'l1')!.id}`)!.retired = true;
 		await settle(s.engine, s.fpt);
-		await settle(s.engine, s.fpt);
-		const fresh = s.fpt.byUuid('CustomEntity19', 'l1')!;
-		expect(fresh.id).not.toBe(old);
-		expect(s.fpt.byUuid('CustomEntity10', 'csA')!.values.sg_lens).toEqual({ type: 'CustomEntity19', id: fresh.id });
-		expect((await s.store.get('cameraSetup', 'csA'))!.lensId).toBe('l1');
+		expect((await s.store.get('cameraSetup', 'csA'))!.lensId).toBeUndefined();
+		expect(s.engine.state.changed.map((c) => [c.table, c.id, c.keys])).toEqual([['cameraSetup', 'csA', ['lensId']]]);
+		expect(await s.store.get('lens', 'l1')).toBeUndefined();
 		expect(await s.store.outbox.entries()).toEqual([]);
 	});
 
@@ -1095,7 +1096,7 @@ describe('the shared camera setups', () => {
 		await gear(s);
 		const b = await second(s);
 		await settle(b.engine, s.fpt);
-		// B swaps the lens on A's setup and changes the first lens; and changes the second, used by nothing on A.
+		// B swaps the lens on A's setup to the second lens, and changes both lenses.
 		await b.edit.apply('cameraSetup', [{ id: 'csA', key: 'lensId', from: 'l1', to: 'l2' }]);
 		await b.edit.apply('lens', [
 			{ id: 'l1', key: 'focalLength', from: 32, to: 35 },
@@ -1106,20 +1107,21 @@ describe('the shared camera setups', () => {
 
 		await settle(s.engine, s.fpt);
 		expect((await s.store.get('cameraSetup', 'csA'))!.lensId).toBe('l2');
-		// Newest first: the setup was merged after the lens. The second lens is used by nothing here.
+		// The setups merge first, so the second lens is the one A's setup uses when the lenses merge: its
+		// change is listed, the first lens's is not. Newest first.
 		expect(s.engine.state.changed.map((c) => [c.table, c.id, c.keys])).toEqual([
-			['cameraSetup', 'csA', ['lensId']],
-			['lens', 'l1', ['focalLength']]
+			['lens', 'l2', ['lensModel']],
+			['cameraSetup', 'csA', ['lensId']]
 		]);
 
 		const again = s.reopen();
 		await again.setProject('p1');
 		expect(again.state.changed).toHaveLength(2);
 		await again.seenChanged('cameraSetup', 'csA');
-		expect(again.state.changed.map((c) => c.id)).toEqual(['l1']);
+		expect(again.state.changed.map((c) => c.id)).toEqual(['l2']);
 		const third = s.reopen();
 		await third.setProject('p1');
-		expect(third.state.changed.map((c) => c.id)).toEqual(['l1']);
+		expect(third.state.changed.map((c) => c.id)).toEqual(['l2']);
 		again.dispose();
 		third.dispose();
 	});

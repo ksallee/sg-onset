@@ -1794,9 +1794,9 @@ describe('the shared lists', () => {
 
 		const read = await w.transport.readShared();
 		expect(read?.map((t) => [t.table, t.records.map((r) => r.id), t.complete])).toEqual([
+			['cameraSetup', ['cs1'], true],
 			['camera', ['c1'], true],
 			['lens', ['l1', 'l2'], true],
-			['cameraSetup', ['cs1'], true],
 			['lightingSetup', ['ls1'], true],
 			['template', ['tp1'], true],
 			['referenceKind', ['k1'], true]
@@ -1817,11 +1817,11 @@ describe('the shared lists', () => {
 		const bare = world();
 		delete bare.fpt.fields.Project.sg_onset_templates;
 		delete bare.fpt.fields.Project.sg_onset_reference_kinds;
-		expect((await bare.transport.readShared())?.map((t) => t.table)).toEqual(['camera', 'lens', 'cameraSetup', 'lightingSetup']);
+		expect((await bare.transport.readShared())?.map((t) => t.table)).toEqual(['cameraSetup', 'camera', 'lens', 'lightingSetup']);
 
 		const w = world();
 		project(w).sg_onset_templates = 'typed by hand';
-		expect((await w.transport.readShared())?.map((t) => t.table)).toEqual(['camera', 'lens', 'cameraSetup', 'lightingSetup', 'referenceKind']);
+		expect((await w.transport.readShared())?.map((t) => t.table)).toEqual(['cameraSetup', 'camera', 'lens', 'lightingSetup', 'referenceKind']);
 	});
 
 	it('answers nothing, and never throws, when the site cannot be asked', async () => {

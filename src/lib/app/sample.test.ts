@@ -36,6 +36,24 @@ describe('sampleProject', () => {
 		expect(s.takes.filter((t) => t.lensId === zoom.id).every((t) => typeof t.focalLength === 'number')).toBe(true);
 		expect(s.takes.filter((t) => t.lensId !== zoom.id).every((t) => t.focalLength === undefined)).toBe(true);
 	});
+	it('starts and ends the cameras of a take together, as on set', () => {
+		const s = build();
+		const byTake = Map.groupBy(s.takes, (t) => `${t.slateId} ${t.take}`);
+		const twoCams = [...byTake.values()].filter((g) => g.length > 1);
+		expect(twoCams.length).toBeGreaterThan(1);
+		for (const g of twoCams) {
+			expect(new Set(g.map((t) => t.startedAt)).size).toBe(1);
+			expect(new Set(g.map((t) => t.endedAt)).size).toBe(1);
+		}
+	});
+	it('has a no good and a circled take on the slate Shoot opens on, 42A', () => {
+		const s = build();
+		const s42a = s.slates.find((x) => x.slateUID === '42A')!;
+		const takes = s.takes.filter((t) => t.slateId === s42a.id);
+		expect(takes.some((t) => t.noGood)).toBe(true);
+		expect(takes.some((t) => t.circleTake)).toBe(true);
+		expect(takes.some((t) => t.noGood && t.circleTake)).toBe(false);
+	});
 	it('ends before now', () => {
 		const now = new Date(2026, 10, 11, 15, 30).getTime();
 		expect(build().takes.every((t) => Date.parse(t.endedAt!) < now)).toBe(true);

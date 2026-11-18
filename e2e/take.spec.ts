@@ -148,6 +148,31 @@ test.describe('take screen', () => {
 		expect(box.y + box.height <= field.y || field.y + field.height <= box.y).toBe(true);
 	});
 
+	test('motion is feedback: a stored value answers, the next field is there at once, Reduced stills it', async ({ page }) => {
+		/** Animations that move something, running now. A 0.01 ms one (the reduced rule) is none. */
+		const moving = () =>
+			page.evaluate(
+				() =>
+					document.getAnimations().filter((a) => {
+						const effect = a.effect as KeyframeEffect | null;
+						return Number(effect?.getTiming().duration ?? 0) > 1 && JSON.stringify(effect?.getKeyframes() ?? []).includes('transform');
+					}).length
+			);
+		await openShoot(page);
+		for (const motion of ['full', 'reduced'] as const) {
+			await setting(page, { motion });
+			await page.getByRole('button', { name: /^Cam A, T-stop,/ }).tap();
+			await key(page, motion === 'full' ? '4' : '5').tap();
+			await page.getByRole('button', { name: 'Next', exact: true }).tap();
+			const n = await moving();
+			// Nothing waits on it: the next field is in the keypad on the first frame.
+			await expect(page.getByRole('region', { name: 'Lens height' })).toBeVisible();
+			if (motion === 'full') expect(n).toBeGreaterThan(0);
+			else expect(n).toBe(0);
+			await page.getByRole('button', { name: 'Done', exact: true }).tap();
+		}
+	});
+
 	test('the note keeps its lines', async ({ page }) => {
 		await openShoot(page);
 		await page.getByRole('button', { name: /^(Add Note|Note:)/ }).first().tap();

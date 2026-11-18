@@ -21,10 +21,11 @@ feature area uses are in the kit README, under "Motion".
 5. **Springs, critically damped.** Nothing overshoots. A spring is two numbers, `response`
    (seconds) and `damping`, as Apple gives them. Tap-driven motion uses the spring as a CSS
    `linear()` easing; finger-driven motion steps it per frame from the finger's release speed.
-6. **The capture path never moves.** The take screen's rail, the start button, the keypad and the
+6. **The capture path never waits.** The take screen's rail, the start button, the keypad and the
    chips (`Rail`, `RailButton`, `RecordButton`, `Keypad`, `Chip`) have no motion beyond a press
    state. A change of page to or from Shoot is there on the first frame; the sidebar never eases
-   beside it; the notice comes and goes with no motion there.
+   beside it. The rest of the take screen answers with feedback once the change has landed
+   (below, "The take screen"): nothing there is waited on.
 7. **The setting wins.** Motion is `data-motion="full|reduced"` on `<html>`, resolved before first
    paint (`app.html`): Settings ▸ Motion is System, Full or Reduced; System follows
    `prefers-reduced-motion`. Style against the attribute, never the media query.
@@ -66,11 +67,27 @@ being when the spring is within 0.5 % of its target.
 | **Toggle** | On, off | The knob slides, `snappy`; pressed it gives to 0.92. The track's colour follows in 300 ms. | A second tap turns it from where it is. | Instant |
 | **Segmented** | The pick | The thumb slides, `snappy`; pressed on the picked option it gives to 0.96. | Retargets. | Instant |
 
+## The take screen
+
+Feedback only (#52): the change is on screen on the first frame, the motion follows, and the next
+press lands at once. `components/take/feedback.svelte.ts` runs the kit's spring on a part when what
+it shows changes, never when it first shows; reduced, nothing moves.
+
+| Motion | What it says | How |
+|---|---|---|
+| **New take** | A new number | The take number by the slate settles from 0.12 em below; the take's chip in the list grows from 0.9. `snappy`. |
+| **Value stored** | It is kept | The number in its cell gives to 1.1 and back. `snappy`. |
+| **Keypad moves to a field** | Here now | The field's name slides in 14 px from the side, from 0.4 opacity; the cell grows from 0.9. The typed characters settle from 0.14 em below (160 ms `--ease-out`). |
+| **Camera picked** | This one | Its letter grows from 0.9. `snappy`. |
+| **Photo lands, or goes** | On the take | `listMotion`: it fades in; removed, it fades where it was while the others close up. |
+| **Notice** | It landed | Comes up 10 px from 0.4 opacity (over the take strip on a phone: comes down); new words settle in place. `smooth`. |
+| **Take sheet** | On top | The kit's sheet. |
+
 ## What never moves
 
 - Width, height, top, left, margins, padding: layout changes once, at once.
 - The capture path: the take screen's rail, start button, keypad and chips; any change of page to
-  or from Shoot; the sidebar beside it.
+  or from Shoot; the sidebar beside it. The rest of the take screen only answers (above).
 - A change of page beside the sidebar's own motion: the sidebar eases only after its button.
 - Focus rings, text, colour tokens, the large title (it follows the scroll, frame for frame).
 - First paint: the app is there when it is drawn.

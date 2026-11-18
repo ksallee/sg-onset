@@ -103,13 +103,6 @@
 	[data-form='compact'] .marks {
 		margin-top: 0;
 	}
-	/* A short phone-width window (a phone on its side, 200 % zoom): the marks only, the elapsed
-	   time by the take (TakeDetail), so the numbers keep some room. */
-	@media (max-height: 560px) {
-		[data-form='compact'] .timing {
-			display: none;
-		}
-	}
 	[data-form='compact'] .timing {
 		display: flex;
 		align-items: center;
@@ -149,6 +142,13 @@
 		[data-form='compact'] dl div {
 			flex-direction: column;
 			gap: 0;
+		}
+	}
+	/* Last, so it wins. A short phone-width window (200 % zoom on an iPad on its side): the marks
+	   only, the elapsed time by the take (TakeDetail), so the numbers keep some room. */
+	@media (max-height: 560px) {
+		[data-form='compact'] .timing {
+			display: none;
 		}
 	}
 </style>

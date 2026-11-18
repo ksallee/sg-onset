@@ -1,10 +1,9 @@
 <script lang="ts">
-	// The take on screen in a sheet: its note, its type (one tap), the plates at its tail (either or
-	// both, a tap each), its template, photos and videos from the library or Files, its audio notes
-	// from the microphone (AudioNotes), and the cameras on it, one of which can be taken off. A full
-	// sheet, so the keyboard never covers the note. Everything is undoable. The rail's Photo stays
-	// the camera, in one press.
-	import InputRow from '$lib/components/ios/InputRow.svelte';
+	// The take on screen in a sheet: its note on as many lines as it takes (NoteField), its type
+	// (one tap), the plates at its tail (either or both, a tap each), its template, photos and
+	// videos from the library or Files, its audio notes from the microphone (AudioNotes), and the
+	// cameras on it, one of which can be taken off. A full sheet, so the keyboard never covers the
+	// note. Everything is undoable. The rail's Photo stays the camera, in one press.
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Sheet from '$lib/components/ios/Sheet.svelte';
@@ -13,6 +12,7 @@
 	import { TAKE_TYPES } from '$lib/model/takeType';
 	import type { Shoot } from '$lib/take/shoot.svelte';
 	import AudioNotes from './AudioNotes.svelte';
+	import NoteField from './NoteField.svelte';
 	import TakeTemplate from './TakeTemplate.svelte';
 
 	let { shoot, open = $bindable(false) }: { shoot: Shoot; open?: boolean } = $props();
@@ -36,7 +36,7 @@
 <!-- What was typed is kept when the sheet closes, even if the field never lost focus. -->
 <Sheet bind:open title={t('take.row', { take: number })} done={t('common.done')} onclose={() => note.trim() !== shoot.note && shoot.setNote(note)}>
 	<Section header={t('note.label')}>
-		<InputRow label={t('marks.note')} bind:value={note} placeholder={t('note.placeholder')} onchange={(text) => shoot.setNote(text)} />
+		<NoteField label={t('marks.note')} bind:value={note} placeholder={t('note.placeholder')} onchange={(text) => shoot.setNote(text)} />
 	</Section>
 	{#if shoot.group}
 		<Section header={tk('field.take.takeType')}>

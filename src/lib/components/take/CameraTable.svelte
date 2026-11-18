@@ -1,21 +1,24 @@
 <script lang="ts">
 	// The take's numbers for every camera at once: one column per camera setup (letter, camera,
-	// lens), one row per number. The column picked is the one the dock types into and a photo goes
-	// on. Tapping a number picks its camera and puts it in the keypad. A prime's focal length comes
-	// from the lens: shown with a lock, not typed. A diamond marks a number that changed since the
+	// lens), one row per number, its unit once beside its label. The column picked is the one the
+	// dock types into and a photo goes on. Every number that can be typed sits in a well: tap it to
+	// pick its camera and put it in the keypad. A prime's focal length comes from the lens: no well,
+	// a small lock in the corner, not typed. A small diamond marks a number that changed since the
 	// take before. A value that changed over the take shows its end under it. More cameras than fit
-	// scroll sideways; the picked one is kept in view.
+	// scroll sideways; the picked one is kept in view. A value just stored, the field the keypad
+	// moves to and the camera just picked each answer with a little motion (feedback.svelte.ts).
 	import { Lock, Plus } from '@lucide/svelte';
 	import { settings } from '$lib/app/settings.svelte';
 	import { t } from '$lib/i18n/messages';
 	import { radioStep } from '$lib/ios/keys';
+	import { slotKey } from '$lib/take/fields';
 	import type { Shoot } from '$lib/take/shoot.svelte';
-	import { shortLabel, spoken, unitText } from './labels';
+	import { feedback, PICKED, STORED } from './feedback.svelte';
+	import { cameraName, cellLabel, shortLabel, spoken, unitText } from './labels';
 
 	let { shoot }: { shoot: Shoot } = $props();
 
 	const units = $derived(settings.value.units);
-	const camName = (label: string) => (label ? t('take.setup', { id: label }) : t('take.setup.none'));
 
 	let el = $state<HTMLElement | null>(null);
 	let cams = $state<HTMLElement | null>(null);
@@ -26,6 +29,11 @@
 		el?.querySelectorAll<HTMLElement>('[role="radio"]')[to]?.focus();
 		shoot.pick(shoot.columns[to].id);
 	}
+	/** The count of the value just stored, for the cell that holds it; null for every other. */
+	const storedHere = (setupId: string, fieldKey: string) => {
+		const s = shoot.saved;
+		return s && s.setupId === setupId && (s.key === slotKey(fieldKey, false) || s.key === slotKey(fieldKey, true)) ? s.n : null;
+	};
 
 	// The picked camera and the number in the keypad stay in view, moved only when out of it.
 	$effect(() => {
@@ -63,19 +71,24 @@
 			{@const on = col.id === shoot.setupId}
 			{@const lens = shoot.lensOf(take, col.id)}
 			{@const body = shoot.cameraName(take, col.id)}
+			{@const name = cameraName(col)}
+			{@const gone = !col.label && !!col.id}
 			<div class="cam" class:on class:off={!take}>
 				<button
 					type="button"
 					class="head"
 					role="radio"
 					aria-checked={on}
-					aria-label={[camName(col.label), body, lens?.lensModel].filter(Boolean).join(', ')}
+					aria-label={[name, body, lens?.lensModel].filter(Boolean).join(', ')}
 					tabindex={on ? 0 : -1}
 					onclick={() => shoot.pick(col.id)}
 					onkeydown={(e) => key(e, i)}
 				>
-					<span class="letter">{col.label || '–'}</span>
-					<span class="what"><span class="body">{body || '–'}</span><span class="lens">{lens?.lensModel ?? ''}</span></span>
+					<span class="letter" {@attach feedback(() => (on ? col.id : null), PICKED)}>{col.label || '–'}</span>
+					<span class="what">
+						{#if gone}<span class="body gone">{t('take.setup.gone.short')}</span>{:else}<span class="body">{body || '–'}</span>{/if}
+						<span class="lens">{lens?.lensModel ?? ''}</span>
+					</span>
 				</button>
 				{#if !take}
 					{#if shoot.group && col.setup}
@@ -89,9 +102,11 @@
 						{@const value = shoot.shown(col.id, def)}
 						{@const end = def.end ? shoot.shown(col.id, def, true) : ''}
 						{@const active = on && shoot.field?.def.key === def.key}
+						{@const changed = shoot.changed(col.id, def)}
+						{@const say = { camera: name, field: shortLabel(def), value: spoken(value, def, units) }}
 						{#if shoot.locked(col.id, def)}
-							<div class="cell num locked" role="img" aria-label={t('take.cell.locked', { camera: camName(col.label), field: shortLabel(def), value: spoken(value, def, units) })}>
-								<Lock class="size-3.5" strokeWidth={2.4} /><span class="n">{value}</span>
+							<div class="cell num locked" role="img" aria-label={cellLabel({ ...say, locked: true })}>
+								<span class="lock" aria-hidden="true"><Lock class="size-3" strokeWidth={2.6} /></span><span class="n">{value}</span>
 							</div>
 						{:else}
 							<button
@@ -99,11 +114,12 @@
 								class="cell num"
 								class:active
 								aria-pressed={active}
-								aria-label={t('take.cell', { camera: camName(col.label), field: shortLabel(def), value: spoken(value, def, units) }) + (end ? `, ${shortLabel(def, true)} ${spoken(end, def, units)}` : '')}
+								aria-label={cellLabel({ ...say, changed, end: end ? { field: shortLabel(def, true), value: spoken(end, def, units) } : undefined })}
 								onclick={() => shoot.open(col.id, def, active ? shoot.field!.end : false)}
+								{@attach feedback(() => (active ? `${def.key}${shoot.field?.end}` : null), PICKED)}
 							>
-								{#if shoot.changed(col.id, def)}<span class="mark" title={t('take.changed')}></span>{/if}
-								<span class="n" class:empty={!value} class:small={!!end}>{value || '–'}</span>
+								{#if changed}<span class="mark" aria-hidden="true"></span>{/if}
+								<span class="n" class:empty={!value} class:small={!!end} {@attach feedback(() => storedHere(col.id, def.key), STORED)}>{value || '–'}</span>
 								{#if end}<span class="end">→ {end}</span>{/if}
 							</button>
 						{/if}
@@ -116,7 +132,8 @@
 
 <style>
 	.camera-table {
-		--row: 60px;
+		/* A row is a touch target: taller at the large button size. */
+		--row: max(60px, calc(var(--touch, 44px) + 8px));
 		--head: 76px;
 		display: grid;
 		grid-template-columns: 76px minmax(0, 1fr);
@@ -149,7 +166,7 @@
 	.cam {
 		padding: 4px;
 		border-radius: 20px;
-		background: var(--fill-3);
+		background: var(--fill-4);
 		scroll-snap-align: start;
 	}
 	.cam.on {
@@ -166,6 +183,7 @@
 	.head {
 		height: var(--head);
 	}
+	/* The unit once per row, under its label. */
 	.labels .cell {
 		display: flex;
 		flex-direction: column;
@@ -181,8 +199,9 @@
 		white-space: nowrap;
 	}
 	.labels .unit {
-		font-size: 12px;
-		line-height: 15px;
+		font-size: 14px;
+		line-height: 17px;
+		font-weight: 600;
 		color: var(--label-2);
 	}
 	button.head {
@@ -203,6 +222,7 @@
 		align-items: center;
 		justify-content: center;
 		min-width: 34px;
+		max-width: 100%;
 		height: 30px;
 		padding: 0 6px;
 		border-radius: 9px;
@@ -210,6 +230,9 @@
 		font-family: var(--font-rounded);
 		font-size: 20px;
 		font-weight: 700;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.on .letter {
 		background: var(--tint-solid);
@@ -234,11 +257,15 @@
 		line-height: 16px;
 		font-weight: 600;
 	}
+	.body.gone {
+		color: var(--warning);
+	}
 	.lens {
 		font-size: 12px;
 		line-height: 15px;
 		color: var(--label-2);
 	}
+	/* Every number that can be typed sits in a well; the picked camera's are full strength. */
 	.cam .cell {
 		position: relative;
 		display: flex;
@@ -247,24 +274,29 @@
 		justify-content: center;
 		height: var(--row);
 		border-radius: 14px;
+		background: var(--fill-3);
 		color: var(--label-2);
 		font-family: var(--font-rounded);
 	}
 	.cam.on .cell {
 		color: var(--label);
-		background: var(--fill-3);
 	}
-	.cam .cell.locked,
-	.cam.on .cell.locked {
-		flex-direction: row;
-		gap: 5px;
+	/* From the lens: no well, the lock small in the corner, the number where the others are. */
+	.cam .cell.locked {
 		background: transparent;
 		color: var(--label-2);
+	}
+	.lock {
+		position: absolute;
+		top: 6px;
+		left: 7px;
+		display: flex;
+		color: var(--label-3);
 	}
 	button.cell:active {
 		background: var(--press);
 	}
-	.cam.on .cell.active {
+	.cam .cell.active {
 		background: var(--tint-fill);
 		box-shadow: inset 0 0 0 2.5px var(--tint);
 	}
@@ -292,13 +324,14 @@
 		color: var(--label-2);
 		white-space: nowrap;
 	}
+	/* Changed since the take before: a small diamond in the corner, clear of the number. */
 	.mark {
 		position: absolute;
-		top: 8px;
-		right: 8px;
-		width: 8px;
-		height: 8px;
-		border-radius: 2px;
+		top: 7px;
+		right: 7px;
+		width: 6px;
+		height: 6px;
+		border-radius: 1px;
 		background: var(--changed);
 		transform: rotate(45deg);
 	}
@@ -331,7 +364,7 @@
 	@container (max-width: 420px) {
 		.camera-table {
 			--head: 58px;
-			--row: 54px;
+			--row: max(54px, var(--touch, 44px));
 			grid-template-columns: 64px minmax(0, 1fr);
 			gap: 4px;
 		}

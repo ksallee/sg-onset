@@ -16,11 +16,16 @@ export const take = {
 	'take.template.manage': 'Open Templates',
 	'take.setup': 'Cam {id}',
 	'take.setup.none': 'No cam',
+	/** A column for takes on a camera setup Gear no longer has: deleted, or not read back yet. */
+	'take.setup.gone': 'Cam not in Gear',
+	'take.setup.gone.short': 'Not in Gear',
+	/** The slate's scene, under the slate on the take screen. */
+	'take.scene.line': 'Scene {scene}',
 	'take.fromLens': 'From the lens',
 	'take.empty': 'Not set',
 	'take.cell': '{camera}, {field}, {value}',
 	'take.cell.locked': '{camera}, {field}, {value}, from the lens',
-	'take.changed': 'Changed since the take before',
+	'take.cell.changed': 'changed since the take before',
 	'take.fields.all': 'All Fields',
 	'take.fields.fewer': 'Fewer Fields',
 	'take.slate.change': 'Change Slate',

@@ -80,6 +80,8 @@ export class Shoot {
 	readonly openedAt = Date.now();
 	/** Photos the store is still writing. */
 	unsaved = $state.raw<Still[]>([]);
+	/** The value last stored from the dock: its camera, its slot and a count that moves on each. The table answers it. */
+	saved = $state.raw<{ setupId: string; key: string; n: number } | null>(null);
 
 	readonly groups = $derived.by(() => groupTakes(this.takes.value));
 	/** The camera setups this device shoots with (#110, lib/gear/shooting.ts): the columns and Start use only these. */
@@ -492,6 +494,7 @@ export class Shoot {
 		const field = fieldLabel(f.def, f.end);
 		const label = value === undefined ? this.#label('take.edit.cleared', { field }) : this.#label('take.edit.value', { field, value: text });
 		void this.#app.edit.set('take', take, key, value, label);
+		this.saved = { setupId: f.setupId, key, n: (this.saved?.n ?? 0) + 1 };
 	}
 
 	/** Saves what was typed. False when it does not read: the issue shows, the keypad stays. */

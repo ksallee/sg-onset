@@ -56,7 +56,9 @@ test('a clean plate take turns the slate switch on; retyped, the notice offers T
 	await openShoot(page);
 	await typeTake(page, 'Clean plate');
 	await expect(notice(page, 'Take 3 set to Clean plate. Slate 42A: Clean plate on')).toBeVisible();
-	await expect(page.getByRole('navigation', { name: 'Takes' }).getByRole('button', { name: 'Slate 42A, take 3, Clean plate' })).toBeVisible();
+	// The words show on the take row, the strip of a phone and an iPad in portrait too (#92, #52), and by the take.
+	await expect(page.getByRole('navigation', { name: 'Takes' }).getByRole('button', { name: 'Slate 42A, take 3, Clean plate' })).toContainText('Clean plate');
+	await expect(page.getByRole('main').getByText('Clean plate', { exact: true })).toBeVisible();
 	await expect(await cleanPlate(page)).toBeChecked();
 
 	await openShoot(page);

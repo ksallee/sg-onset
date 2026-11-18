@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The dock at rest, beside the rail: the take's timing (what Start and End stamped), then the
-	// marks and the note under the thumb. In a phone-width window: the timing on one band; the
-	// marks sit with the take there.
+	// marks and the note under the thumb, the note on its lines. In a phone-width window: the
+	// timing on one band and the marks on one row under it, just over the rail, in the thumb's reach.
 	import { formatTime } from '$lib/app/format';
 	import { t } from '$lib/i18n/messages';
 	import type { Form } from '$lib/ios/handedness';
@@ -31,9 +31,7 @@
 		</dl>
 	</section>
 
-	{#if form !== 'compact'}
-		<div class="marks"><MarkBar {shoot} {onnote} /></div>
-	{/if}
+	<div class="marks"><MarkBar {shoot} {onnote} compact={form === 'compact'} /></div>
 </div>
 
 <style>
@@ -95,11 +93,22 @@
 		margin-top: max(0px, calc(45cqh - 60px - 150px));
 	}
 
-	/* A phone-width window: one band. */
+	/* A phone-width window: the timing on one band, the marks under it. */
 	.tray[data-form='compact'] {
 		flex: none;
+		gap: 8px;
 		padding: 8px 16px;
 		overflow: hidden;
+	}
+	[data-form='compact'] .marks {
+		margin-top: 0;
+	}
+	/* A short phone-width window (a phone on its side, 200 % zoom): the marks only, the elapsed
+	   time by the take (TakeDetail), so the numbers keep some room. */
+	@media (max-height: 560px) {
+		[data-form='compact'] .timing {
+			display: none;
+		}
 	}
 	[data-form='compact'] .timing {
 		display: flex;

@@ -1,8 +1,9 @@
 <script lang="ts">
 	// The takes of the slate being shot, one row per take number. `at` side: a column of rows with
 	// the slate on top, under a take's name its type when it is not Main and the plates at its tail.
-	// `at` top: one strip that scrolls sideways. The take on screen is marked; a running take shows a square and its time.
-	// The slate opens the slate picker.
+	// `at` top: one strip that scrolls sideways, each take its number and, when it has them, its
+	// type and plates beside it (#92). The take on screen is marked; a running take shows a square
+	// and its time; a no good take's number is struck through. The slate opens the slate picker.
 	import { Ban, ChevronDown, CircleCheck, Images } from '@lucide/svelte';
 	import { formatTime } from '$lib/app/format';
 	import { t } from '$lib/i18n/messages';
@@ -13,6 +14,7 @@
 	import { elapsedMs, formatElapsed } from '$lib/take/record';
 	import type { Shoot, TakeGroup } from '$lib/take/shoot.svelte';
 	import { typeWords } from '$lib/take/typeText';
+	import { feedback, PICKED } from './feedback.svelte';
 
 	let { shoot, at, onslate }: { shoot: Shoot; at: 'side' | 'top'; onslate: () => void } = $props();
 
@@ -67,8 +69,9 @@
 			{@const on = g.number === shown}
 			{@const n = photos(g)}
 			{@const type = typed(g)}
-			<button type="button" class="row" class:on aria-current={on} aria-label={[t('take.row.full', { slate: slate?.slateUID ?? '', take: g.number }), type].filter(Boolean).join(', ')} onclick={() => shoot.select(g.number)}>
-				<span class="n num">{g.number}</span>
+			{@const ng = groupMark(g, 'noGood')}
+			<button type="button" class="row" class:on class:typed={!!type} aria-current={on} aria-label={[t('take.row.full', { slate: slate?.slateUID ?? '', take: g.number }), type].filter(Boolean).join(', ')} onclick={() => shoot.select(g.number)}>
+				<span class="n num" class:ng {@attach feedback(() => (on ? g.number : null), PICKED)}>{g.number}</span>
 				{#if at === 'side'}
 					<span class="meta">
 						<span class="name">{t('take.row', { take: g.number })}</span>
@@ -76,16 +79,19 @@
 						{@render status(g)}
 					</span>
 					<span class="icons">
-						{#if n}<span class="photos num"><Images class="size-4" strokeWidth={2} />{n}</span>{/if}
 						<span class="mark">
 							{#if groupMark(g, 'circleTake')}<CircleCheck class="size-5" strokeWidth={2.4} aria-label={t('marks.circle')} />{/if}
 							{#if groupMark(g, 'noGood')}<Ban class="size-5" strokeWidth={2.4} aria-label={t('marks.noGood')} />{/if}
 						</span>
+						{#if n}<span class="photos num"><Images class="size-4" strokeWidth={2} />{n}</span>{/if}
 					</span>
-				{:else if groupPhase(g) === 'rolling'}
-					<span class="sq" aria-hidden="true"></span>
-				{:else if groupMark(g, 'circleTake')}
-					<span class="ring" aria-hidden="true"></span>
+				{:else}
+					{#if type}<span class="type" aria-hidden="true">{type}</span>{/if}
+					{#if groupPhase(g) === 'rolling'}
+						<span class="sq" aria-hidden="true"></span>
+					{:else if groupMark(g, 'circleTake')}
+						<span class="ring" aria-hidden="true"></span>
+					{/if}
 				{/if}
 			</button>
 		{:else}
@@ -202,7 +208,7 @@
 		line-height: 18px;
 		font-weight: 600;
 		color: var(--label);
-		overflow-wrap: anywhere;
+		overflow-wrap: break-word;
 	}
 	.state {
 		display: flex;
@@ -224,11 +230,13 @@
 		border-radius: 2px;
 		background: var(--record);
 	}
+	/* The mark in a fixed slot at the top, the photo count under it: the type beside keeps its width. */
 	.icons {
 		flex: none;
 		display: flex;
-		align-items: center;
-		gap: 6px;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 4px;
 		color: var(--label-2);
 	}
 	.mark {
@@ -237,6 +245,7 @@
 		justify-content: flex-end;
 		gap: 6px;
 		min-width: 20px;
+		min-height: 20px;
 	}
 	/* Wide enough for a count of two digits: the photo icons line up too. */
 	.photos {
@@ -291,11 +300,46 @@
 		position: relative;
 		flex: none;
 		min-height: 0;
+		gap: 0;
 		padding: 0;
-		border-radius: 12px;
+		border-radius: 11px;
 	}
 	[data-at='top'] .row.on {
 		background: none;
+	}
+	[data-at='top'] .n {
+		min-width: var(--touch, 44px);
+		height: var(--touch, 44px);
+	}
+	/* A take with a type: the number and the words on one chip. */
+	[data-at='top'] .row.typed {
+		background: var(--fill-3);
+	}
+	[data-at='top'] .row.typed.on {
+		background: var(--tint-solid);
+		color: var(--on-tint-solid);
+		box-shadow: inset 0 0 0 var(--state-ring) var(--on-tint-solid);
+	}
+	[data-at='top'] .row.typed .n {
+		background: none;
+		box-shadow: none;
+	}
+	[data-at='top'] .type {
+		max-width: 168px;
+		padding-right: 12px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: inherit;
+	}
+	/* No good: grey and struck through, never red. */
+	.n.ng {
+		color: var(--no-good);
+		text-decoration: line-through;
+		text-decoration-thickness: 2px;
+	}
+	.row.on .n.ng {
+		color: var(--on-tint-solid);
 	}
 	[data-at='top'] .row .sq,
 	[data-at='top'] .row .ring {

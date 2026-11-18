@@ -14,6 +14,7 @@
 	import type { Form, Hand } from '$lib/ios/handedness';
 	import { formatNumber, maxChars } from '$lib/ios/keypad';
 	import type { Shoot } from '$lib/take/shoot.svelte';
+	import { feedback } from './feedback.svelte';
 	import { unitText } from './labels';
 
 	let { shoot, form, hand, gloves }: { shoot: Shoot; form: Form; hand: Hand; gloves: boolean } = $props();
@@ -30,13 +31,15 @@
 	});
 	const text = $derived(shoot.entry.text === 'inf' ? '∞' : shoot.entry.text);
 	const chars = $derived(es ? (es.mode === 'feetInches' ? 9 : maxChars(es.spec)) : 6);
+	/** The field in the keypad, as one key: a new one slides its name in from the side Next goes to. */
+	const fieldKey = $derived(field ? `${field.setupId}|${field.def.key}|${field.end}` : null);
 	const range = $derived(es && es.mode === 'number' ? t('keypad.range', { min: formatNumber(es.spec.min, es.spec.decimals), max: formatNumber(es.spec.max, es.spec.decimals) }) : '');
 </script>
 
 {#if field && es}
 	<section class="number-dock" data-form={form} data-hand={hand} class:gloves aria-label={fieldLabel(field.def, field.end)}>
 		<header class:issue={!!shoot.issue}>
-			<h2><span>{fieldLabel(field.def)}</span>{#if camera}<span class="cam">{t('take.setup', { id: camera })}</span>{/if}</h2>
+			<h2 {@attach feedback(() => fieldKey, [{ transform: 'translateX(14px)', opacity: 0.4 }, { transform: 'none', opacity: 1 }])}><span>{fieldLabel(field.def)}</span>{#if camera}<span class="cam">{t('take.setup', { id: camera })}</span>{/if}</h2>
 			<p class="value num" style:--chars={chars} aria-hidden="true">
 				<span class="n" class:empty={!text}>
 					{#each [...(text || '–')] as ch, i (`${i}${ch}`)}<span class="ch">{ch}</span>{/each}
@@ -318,10 +321,5 @@
 
 	:global([data-motion='reduced']) .ch {
 		transition: none;
-	}
-	@media (prefers-reduced-motion: reduce) {
-		:global(:root:not([data-motion='full'])) .ch {
-			transition: none;
-		}
 	}
 </style>

@@ -121,16 +121,44 @@ test.describe('take screen', () => {
 		await key(page, '7').tap();
 		await page.getByRole('button', { name: 'Done', exact: true }).tap();
 		await expect(keypad(page)).toBeHidden();
-		await expect(cell).toHaveAccessibleName(/^Cam A, Focus, 37 m$/);
+		// Take 2 was at 4.2: the cell says its changed mark too.
+		await expect(cell).toHaveAccessibleName(/^Cam A, Focus, 37 m, changed since the take before$/);
 
 		await page.reload();
-		await expect(cell).toHaveAccessibleName(/^Cam A, Focus, 37 m$/);
+		await expect(cell).toHaveAccessibleName(/^Cam A, Focus, 37 m, changed since the take before$/);
 
 		await cell.tap();
 		const chip = page.getByRole('group', { name: 'Recent' }).getByRole('button', { name: '4.2', exact: true });
 		await chip.tap();
 		await page.getByRole('button', { name: 'Done', exact: true }).tap();
 		await expect(cell).toHaveAccessibleName(/^Cam A, Focus, 4\.2 m$/);
+	});
+
+	test('on a phone the notice shows with the keypad up, over the take strip, clear of the field', async ({ page }, testInfo) => {
+		test.skip(testInfo.project.name !== 'phone', 'a phone-width window');
+		await openShoot(page);
+		await page.getByRole('button', { name: /^Cam A, Focus,/ }).tap();
+		await key(page, '9').tap();
+		await page.getByRole('button', { name: 'Next', exact: true }).tap();
+		await expect(keypad(page)).toBeVisible();
+		const notice = page.getByRole('status').filter({ hasText: 'Focus distance set to 9' });
+		await expect(notice.getByRole('button', { name: 'Undo' })).toBeVisible();
+		const box = (await notice.boundingBox())!;
+		const field = (await page.getByRole('button', { name: /^Cam A, T-stop,/ }).boundingBox())!;
+		expect(box.y + box.height <= field.y || field.y + field.height <= box.y).toBe(true);
+	});
+
+	test('the note keeps its lines', async ({ page }) => {
+		await openShoot(page);
+		await page.getByRole('button', { name: /^(Add Note|Note:)/ }).first().tap();
+		const sheet = page.getByRole('dialog', { name: 'Take 3' });
+		await sheet.getByRole('textbox', { name: 'Note' }).fill('Car late on the mark.\nBoom in frame at the end.');
+		await sheet.getByRole('button', { name: 'Done' }).tap();
+		await expect(sheet).toBeHidden();
+		await expect(page.getByRole('button', { name: /^Note: Car late on the mark\.\s+Boom in frame at the end\.$/ })).toBeVisible();
+		await page.reload();
+		await page.getByRole('button', { name: /^Note:/ }).first().tap();
+		await expect(sheet.getByRole('textbox', { name: 'Note' })).toHaveValue('Car late on the mark.\nBoom in frame at the end.');
 	});
 
 	test('a prime focal length is locked; Next walks the numbers that are typed', async ({ page }) => {

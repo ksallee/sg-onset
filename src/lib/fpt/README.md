@@ -11,7 +11,8 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | module | pure | what it does |
 |---|---|---|
 | `names.ts` | yes | Display name to `sg_` name, as the server derives it. Type to REST slug. |
-| `mapping.ts` | yes | The mapping, derived from the catalogue. Entity types per scope. |
+| `mapping.ts` | yes | The mapping, derived from the catalogue. Entity types per scope. Every field the app wants (`wantedFields`). |
+| `naming.ts` | yes | The names an admin picks (#111): what each custom entity is called, what each field is. The default is the app's own. |
 | `convert.ts` | yes | One value, both ways, per FPT data type. |
 | `schema.ts` | yes | Entities by display name, the field plan, the `Resolution` kept per site. |
 | `payload.ts` | yes | A record to the `data` of a create or update. A row back to our keys. |
@@ -38,6 +39,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `setup.ts` | no | `checkSetup`: the readiness report, and field creation. |
 | `transport.ts` | no | `createFptTransport`: the `Transport`, with `linkShots` and `linkReferenceSlates`. |
 | `fakeFpt.ts`, `testkit.ts` | no | A site behind a `fetch`, in the corpus's shapes. For tests. |
+| `golden.test.ts` | | Every request the app sends, on the fake site, against `golden.requests.json`; and the same under other names (#111). |
 
 ## Plugging it in
 
@@ -61,6 +63,8 @@ if (report.ready) {
 - Do not start the runner before `report.ready`. A site that is not set up throws `failed`, which
   counts attempts.
 - `checkSetup({ createFields: false })` only looks.
+- `naming` (#111, "The names an admin picks"): left out, a check reads under the default names,
+  and the transport uses the schema kept on the device whatever its names.
 
 ## Entities
 
@@ -87,7 +91,7 @@ if (report.ready) {
 | `template`, `referenceKind` | Project, JSON in `sg_onset_templates` and `sg_onset_reference_kinds` | the entry's client UUID, in the list. Optional |
 
 Custom entities are matched trimmed and whatever the case, among `CustomEntityNN` types only.
-Never by slot number.
+Never by slot number. The display names are the default; an admin may pick others (#111).
 
 ## The setup report
 
@@ -397,7 +401,44 @@ notes-media probes). The older copies stay as Attachments, off the field: there 
 in the queue, and an Artist may not delete an Attachment (findings/143). A late check of an older
 copy finds it there and leaves it off.
 
-These are the names asked for. The name on a site can differ: see decision 3.
+These are the names asked for. The name on a site can differ: see decision 3, and "The names an
+admin picks".
+
+## The names an admin picks
+
+Set Up Fields looks for each custom entity by a fixed display name and asks for each field by a
+fixed name. A studio's admin may want others, or fields the site has already (#111). `naming.ts`
+holds what an admin picks, a `Naming`:
+
+```ts
+type Naming = {
+	entities?: { take?: string; lens?: string; cameraSetup?: string; lightingSetup?: string; reference?: string; setShot?: string };
+	fields?: Record<string, { display: string } | { field: string }>; // by 'take.sg_focal_length'
+};
+```
+
+- A custom entity is looked for under the name picked, alone. Left out, under the app's own.
+- A field is keyed by where it is (a scope, `version`, `note` or `project`) and its default name.
+  `display`: the field that display name makes, found or created, stepping aside to "Onset <name>"
+  as the default does (decision 3). `field`: a field the site has, used as it is, never created;
+  blocked when it is missing or does not fit. Left out, the app's own display name.
+- The default naming is empty. It plans exactly what the app always did.
+
+Only the planning reads it: `resolveEntities` and `planFields` (`schema.ts`). The resolution they
+make holds each field's name on the site by its default name, as it always did, and every call
+reads names from it. So the sync, the setup check, the Notes on Shots and the action of #106 read
+the names picked with no change of their own. The resolution keeps the naming it was made with
+(absent for the default, so one kept from before reads as it is). The words that tell an admin
+which entity to enable say the name picked.
+
+`golden.test.ts` proves both ends: with the default naming, every request of Set Up Fields, a push
+of every key of every scope, the uploads, reads, the shared lists (#110), links, Notes, the action
+and deletes is the one `golden.requests.json` recorded before the naming existed; with every field and entity renamed, it
+is the same list under the new names, less the creates of the fields mapped to fields the site has.
+
+Not built yet (the second part of #111): the review in Set Up Fields that makes a naming, where on
+the site it is kept so every iPad of the project reads it, its file export and import, and what
+happens to synced records when an admin changes it. Until then every device uses the default.
 
 ## A slate's setup diagram
 
@@ -966,6 +1007,23 @@ Made by Claude. Kevin can overrule any of them.
     PT, both read as no link, and the setup here takes it, listed under "Changed on another device".
     Camera setups are read first, so a lens they no longer hold is not counted as used when the
     lenses merge: it is kept only for a take.
+75. **The names an admin picks change the planning only** (#111). The resolution already held each
+    field's name on the site by the mapping's name (decision 3), and every call reads names from
+    it. So a naming changes what Set Up Fields looks for and creates, and nothing past the
+    resolution. The default naming changes nothing, which `golden.test.ts` holds to the request.
+76. **A field is named in a naming by where it is and its default name,** `take.sg_focal_length`:
+    stable whatever a site calls it, and the key the resolution already used.
+77. **A renamed field keeps the step-aside rule** of decision 3. **A field mapped to one the site has
+    is used as it is or not at all:** never created, never changed. Not there, or not fitting, it
+    blocks, with the reason.
+78. **A custom entity given a name is looked for under that name alone.** Lenses, the other spelling
+    of Lens, holds for the default only.
+79. **A naming is refused whole** (`parseNaming`) when two custom entities would be found under one
+    name, when two fields of one entity ask for one name, or when a display name has outer spaces
+    or a character outside ASCII: the server names such a field `sg_<data_type>` (findings/117).
+80. **The resolution keeps the naming it was made with.** A check on the device reads under the
+    names of the one kept (app/sync README, decision 26); the transport reads a stale one again
+    under its names; a caller that asks for other names reads the site again.
 
 ## Where FPT did not fit the contract
 

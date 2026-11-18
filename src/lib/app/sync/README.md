@@ -156,6 +156,11 @@ Made by Claude. Kevin can overrule any of them.
     is put, so the take screen never shows it in between. The take screen's columns and Start use
     only the chosen setups (`take/groups.ts`); a take of the slate on another setup keeps its column.
     Gear shows a check per setup. Wrap, the exports and Flow PT keep every take.
+26. **The names a site was set up under are those of the schema kept on the device** (#111, lib/fpt
+    README, "The names an admin picks"): `state.naming`, the default while none is kept. A check
+    reads under them, so it never changes them, and the sync sheet names the entities to enable by
+    them ("a custom entity named Set Shot"). Until Set Up Fields can pick names, the second part of
+    #111, they are always the default.
 
 ## Not tested without a real site
 

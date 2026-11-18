@@ -20,7 +20,11 @@ import {
 	SHOTS,
 	STILLS,
 	UUID,
+	NOTE_COLUMNS,
+	PROJECT_COLUMNS,
+	VERSION_COLUMNS,
 	wantedColumns,
+	wantedFields,
 	type EntityScope
 } from './mapping';
 import { codeName } from './names';
@@ -281,5 +285,23 @@ describe('mappingTable', () => {
 		const rows = mappingTable();
 		expect(rows).toContainEqual({ scope: 'take', key: 'tilt', field: 'sg_tilt', dataType: 'float', note: 'deg' });
 		expect(rows.length).toBe(ENTITY_SCOPES.reduce((n, s) => n + fieldMaps(s).length, 0));
+	});
+});
+
+// #111: what an admin may name.
+describe('wantedFields', () => {
+	it('lists every field the app wants, by where it is, stock ones aside', () => {
+		const fields = wantedFields();
+		expect(fields.length).toBe(ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length + NOTE_COLUMNS.length + PROJECT_COLUMNS.length);
+		expect(fields).toContainEqual({ place: 'project', column: expect.objectContaining({ name: 'sg_onset_templates' }) });
+		expect(fields).toContainEqual({ place: 'take', column: expect.objectContaining({ name: 'sg_focal_length' }) });
+		expect(fields).toContainEqual({ place: 'version', column: expect.objectContaining({ name: 'sg_onset_uuid' }) });
+		expect(fields).toContainEqual({ place: 'note', column: expect.objectContaining({ name: 'sg_onset_captured' }) });
+		expect(fields.some((f) => f.column.stock)).toBe(false);
+		// One name per place: the key of a naming (naming.ts).
+		const keys = fields.map((f) => `${f.place}.${f.column.name}`);
+		expect(new Set(keys).size).toBe(keys.length);
+		// The default name is the one the default display name makes: renaming is choosing a display name.
+		expect(fields.filter((f) => codeName(f.column.display) !== f.column.name)).toEqual([]);
 	});
 });

@@ -12,6 +12,7 @@ import { TransportError } from '$lib/outbox/transport';
 import type { KeyValue } from './cache';
 import { bearerRefusal, failureOf, isSessionRefusal, networkKind, statusKind, type ApiFailure } from './errors';
 import { renewDue } from './token';
+import type { Naming } from './naming';
 import type { CreateInput, RawFields, SchemaTypes } from './schema';
 
 export type FptOptions = {
@@ -30,6 +31,12 @@ export type FptOptions = {
 	schemaCache: KeyValue;
 	/** Is there a network. Default: `navigator.onLine`. Decides what a request with no answer means. */
 	online?: () => boolean;
+	/**
+	 * The names an admin picked (#111, naming.ts): what Set Up Fields looks for and creates. A schema
+	 * kept on the device under other names is read again. Default: the names the app always used,
+	 * or, for one kept, the names it was read with.
+	 */
+	naming?: Naming;
 };
 
 /** The site answered, and the answer is a refusal. */

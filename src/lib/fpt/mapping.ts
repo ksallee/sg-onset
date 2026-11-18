@@ -408,6 +408,22 @@ export function wantedColumns(scope: EntityScope): Column[] {
 }
 
 /**
+ * Where a field the app wants is: one of our scopes' entities, Version, where a take's videos go,
+ * Note, where the Note on a Shot is kept (#97), or Project, where the shared lists are (#110).
+ */
+export type FieldPlace = EntityScope | 'version' | 'note' | 'project';
+
+/** Every field the app wants, stock ones aside, by where it is: what an admin may name (#111). */
+export function wantedFields(): { place: FieldPlace; column: Column }[] {
+	return [
+		...ENTITY_SCOPES.flatMap((scope) => wantedColumns(scope).map((column) => ({ place: scope as FieldPlace, column }))),
+		...VERSION_COLUMNS.map((column) => ({ place: 'version' as const, column })),
+		...NOTE_COLUMNS.map((column) => ({ place: 'note' as const, column })),
+		...PROJECT_COLUMNS.map((column) => ({ place: 'project' as const, column }))
+	];
+}
+
+/**
  * A field a site may lack and still sync: one of an optional scope, or one that links it. It is
  * made once the entity is there.
  */

@@ -1,0 +1,4541 @@
+[
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/ShootDay/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity11/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity10/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Camera/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity19/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity21/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity22/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Attachment/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Shot/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Version/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Note/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Project/fields"
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/ShootDay/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset UUID"
+    },
+    {
+     "property_name": "unique",
+     "value": true
+    },
+    {
+     "property_name": "description",
+     "value": "The record id on the device. Unique: a create sent twice is refused. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/ShootDay/fields",
+  "body": {
+   "data_type": "date",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Shoot Date"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/ShootDay/fields",
+  "body": {
+   "data_type": "number",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Day Number"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/ShootDay/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Unit"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/ShootDay/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Location"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/ShootDay/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Wrangler"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity11/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset UUID"
+    },
+    {
+     "property_name": "unique",
+     "value": true
+    },
+    {
+     "property_name": "description",
+     "value": "The record id on the device. Unique: a create sent twice is refused. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity11/fields",
+  "body": {
+   "data_type": "checkbox",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "HDRI"
+    },
+    {
+     "property_name": "default_value",
+     "value": false
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity11/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "HDRI Filename"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity11/fields",
+  "body": {
+   "data_type": "checkbox",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Grey and Chrome Balls"
+    },
+    {
+     "property_name": "default_value",
+     "value": false
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity11/fields",
+  "body": {
+   "data_type": "checkbox",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Colour Chart"
+    },
+    {
+     "property_name": "default_value",
+     "value": false
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity11/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Set Notes"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity10/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset UUID"
+    },
+    {
+     "property_name": "unique",
+     "value": true
+    },
+    {
+     "property_name": "description",
+     "value": "The record id on the device. Unique: a create sent twice is refused. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity10/fields",
+  "body": {
+   "data_type": "entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Camera"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "Camera"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity10/fields",
+  "body": {
+   "data_type": "entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Lens"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "CustomEntity19"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity10/fields",
+  "body": {
+   "data_type": "number",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Sort Order"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset UUID"
+    },
+    {
+     "property_name": "unique",
+     "value": true
+    },
+    {
+     "property_name": "description",
+     "value": "The record id on the device. Unique: a create sent twice is refused. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Shoot Day"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "ShootDay"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset Template"
+    },
+    {
+     "property_name": "description",
+     "value": "The template this record was made from, by its id on the device. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Scene Number"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Setup"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Lighting Setup"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "CustomEntity11"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "VFX Shots"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Element Type"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Interior Exterior"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Script Time"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "checkbox",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "LiDAR"
+    },
+    {
+     "property_name": "default_value",
+     "value": false
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "checkbox",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Witness Camera"
+    },
+    {
+     "property_name": "default_value",
+     "value": false
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "checkbox",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Clean Plate"
+    },
+    {
+     "property_name": "default_value",
+     "value": false
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Set Notes"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "multi_entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Shots"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "Shot"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "The Shots of the VFX shot codes typed on the slate. Linked at sync. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "multi_entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Setup Diagram"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "Attachment"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "The setup diagram, from above, as an image. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields",
+  "body": {
+   "data_type": "multi_entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Set Shots"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "CustomEntity22"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "One per VFX shot code typed on the slate. Linked at sync. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset UUID"
+    },
+    {
+     "property_name": "unique",
+     "value": true
+    },
+    {
+     "property_name": "description",
+     "value": "The record id on the device. Unique: a create sent twice is refused. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Slate"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "Slate"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset Template"
+    },
+    {
+     "property_name": "description",
+     "value": "The template this record was made from, by its id on the device. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Take Type"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Take Tail"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "date_time",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Start Time"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "date_time",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "End Time"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "checkbox",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Circled"
+    },
+    {
+     "property_name": "default_value",
+     "value": false
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "checkbox",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "No Good"
+    },
+    {
+     "property_name": "default_value",
+     "value": false
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Set Notes"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Camera Setup"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "CustomEntity10"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Camera"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "Camera"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Lens"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "CustomEntity19"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Focal Length"
+    },
+    {
+     "property_name": "description",
+     "value": "mm. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Focal Length End"
+    },
+    {
+     "property_name": "description",
+     "value": "mm. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "T-Stop"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Focus Distance m"
+    },
+    {
+     "property_name": "description",
+     "value": "Metres. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Focus Distance End m"
+    },
+    {
+     "property_name": "description",
+     "value": "Metres. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Lens Height m"
+    },
+    {
+     "property_name": "description",
+     "value": "Metres. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Lens Height End m"
+    },
+    {
+     "property_name": "description",
+     "value": "Metres. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Tilt"
+    },
+    {
+     "property_name": "description",
+     "value": "deg. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Tilt End"
+    },
+    {
+     "property_name": "description",
+     "value": "deg. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Dutch Angle"
+    },
+    {
+     "property_name": "description",
+     "value": "deg. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Dutch Angle End"
+    },
+    {
+     "property_name": "description",
+     "value": "deg. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Subject Distance m"
+    },
+    {
+     "property_name": "description",
+     "value": "Metres. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Subject Distance End m"
+    },
+    {
+     "property_name": "description",
+     "value": "Metres. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Frame Rate"
+    },
+    {
+     "property_name": "description",
+     "value": "num/denom, Hz. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Shutter Angle"
+    },
+    {
+     "property_name": "description",
+     "value": "deg. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "number",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "ISO"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "number",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "White Balance"
+    },
+    {
+     "property_name": "description",
+     "value": "K. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Filter"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Camera Roll"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Clip Name"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Timecode In"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Timecode Out"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "multi_entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Photos"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "Attachment"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "Reference photos, as shot. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Camera/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset UUID"
+    },
+    {
+     "property_name": "unique",
+     "value": true
+    },
+    {
+     "property_name": "description",
+     "value": "The record id on the device. Unique: a create sent twice is refused. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Camera/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Camera Make"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Camera/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Camera Serial Number"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Camera/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Sensor Width mm"
+    },
+    {
+     "property_name": "description",
+     "value": "mm. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Camera/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Sensor Height mm"
+    },
+    {
+     "property_name": "description",
+     "value": "mm. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Camera/fields",
+  "body": {
+   "data_type": "number",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Sensor Resolution Width"
+    },
+    {
+     "property_name": "description",
+     "value": "px. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Camera/fields",
+  "body": {
+   "data_type": "number",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Sensor Resolution Height"
+    },
+    {
+     "property_name": "description",
+     "value": "px. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity19/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset UUID"
+    },
+    {
+     "property_name": "unique",
+     "value": true
+    },
+    {
+     "property_name": "description",
+     "value": "The record id on the device. Unique: a create sent twice is refused. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity19/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Lens Make"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity19/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Lens Serial Number"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity19/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Focal Length"
+    },
+    {
+     "property_name": "description",
+     "value": "mm. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity19/fields",
+  "body": {
+   "data_type": "float",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Focal Length Long End"
+    },
+    {
+     "property_name": "description",
+     "value": "mm. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity19/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Anamorphic Squeeze"
+    },
+    {
+     "property_name": "description",
+     "value": "num/denom. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity21/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset UUID"
+    },
+    {
+     "property_name": "unique",
+     "value": true
+    },
+    {
+     "property_name": "description",
+     "value": "The record id on the device. Unique: a create sent twice is refused. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity21/fields",
+  "body": {
+   "data_type": "entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Slate"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "Slate"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity21/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Kind"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity21/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Device"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity21/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Card or Roll"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity21/fields",
+  "body": {
+   "data_type": "number",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Count"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity21/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Set Notes"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity21/fields",
+  "body": {
+   "data_type": "date_time",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Logged At"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity21/fields",
+  "body": {
+   "data_type": "multi_entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Slates"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "Slate"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "The slates it shows on: every slate of its lighting setup for a lighting reference. Linked at sync. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity22/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset Key"
+    },
+    {
+     "property_name": "unique",
+     "value": true
+    },
+    {
+     "property_name": "description",
+     "value": "The project and the shot code typed on set. Unique: one Set Shot per code. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity22/fields",
+  "body": {
+   "data_type": "multi_entity",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Shots"
+    },
+    {
+     "property_name": "valid_types",
+     "value": [
+      "Shot"
+     ]
+    },
+    {
+     "property_name": "description",
+     "value": "The Shots of this shot code. Set by SG OnSet when a Shot has the code, or by hand. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity22/fields",
+  "body": {
+   "data_type": "checkbox",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset Matched"
+    },
+    {
+     "property_name": "default_value",
+     "value": false
+    },
+    {
+     "property_name": "description",
+     "value": "Ticked when SG OnSet linked the Shots of the code. It never matches a ticked Set Shot again. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Version/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset UUID"
+    },
+    {
+     "property_name": "unique",
+     "value": true
+    },
+    {
+     "property_name": "description",
+     "value": "The record id on the device. Unique: a create sent twice is refused. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Note/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset Key"
+    },
+    {
+     "property_name": "unique",
+     "value": true
+    },
+    {
+     "property_name": "description",
+     "value": "The project and the Shot of a Note SG OnSet writes. Unique: one Note per Shot. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Note/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset Captured"
+    },
+    {
+     "property_name": "description",
+     "value": "What the Note lists, as ids. SG OnSet compares with it at the next sync. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Project/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset Templates"
+    },
+    {
+     "property_name": "description",
+     "value": "The templates of SG OnSet for this project, as JSON. Edit them in SG OnSet. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/Project/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset Reference Kinds"
+    },
+    {
+     "property_name": "description",
+     "value": "The kinds of set reference this project adds in SG OnSet, as JSON. Edit them in SG OnSet. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/action_menu_items/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "title",
+      "is",
+      "Send set data to artists"
+     ],
+     [
+      "url",
+      "is",
+      "https://onset.example/action/send-set-data"
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "title,url,entity_type,projects"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/action_menu_items",
+  "body": {
+   "title": "Send set data to artists",
+   "url": "https://onset.example/action/send-set-data",
+   "entity_type": "Shot",
+   "projects": [
+    {
+     "type": "Project",
+     "id": 1000
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/action_menu_items",
+  "body": {
+   "title": "Send set data to artists",
+   "url": "https://onset.example/action/send-set-data",
+   "entity_type": "CustomEntity22",
+   "projects": [
+    {
+     "type": "Project",
+     "id": 1000
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/_batch",
+  "body": {
+   "requests": [
+    {
+     "request_type": "create",
+     "entity": "ShootDay",
+     "data": {
+      "project": {
+       "type": "Project",
+       "id": 1000
+      },
+      "sg_onset_uuid": "d1",
+      "sg_shoot_date": "2026-11-11",
+      "code": "2026-11-11",
+      "sg_day_number": 3,
+      "sg_unit": "shootDay cameraUnit",
+      "sg_location": "shootDay location",
+      "sg_wrangler": "shootDay wrangler"
+     }
+    },
+    {
+     "request_type": "create",
+     "entity": "Camera",
+     "data": {
+      "project": {
+       "type": "Project",
+       "id": 1000
+      },
+      "sg_onset_uuid": "c1",
+      "sg_camera_make": "camera cameraMake",
+      "code": "camera cameraModel",
+      "sg_camera_serial_number": "camera cameraSerialNumber",
+      "sg_sensor_width_mm": "36.7",
+      "sg_sensor_height_mm": "25.54",
+      "sg_sensor_resolution_width": 4608,
+      "sg_sensor_resolution_height": 3164
+     }
+    },
+    {
+     "request_type": "create",
+     "entity": "CustomEntity19",
+     "data": {
+      "project": {
+       "type": "Project",
+       "id": 1000
+      },
+      "sg_onset_uuid": "l1",
+      "sg_lens_make": "lens lensMake",
+      "code": "lens lensModel",
+      "sg_lens_serial_number": "lens lensSerialNumber",
+      "sg_focal_length": "2.8",
+      "sg_focal_length_long_end": "2.8",
+      "sg_anamorphic_squeeze": "24000/1001"
+     }
+    },
+    {
+     "request_type": "create",
+     "entity": "CustomEntity11",
+     "data": {
+      "project": {
+       "type": "Project",
+       "id": 1000
+      },
+      "sg_onset_uuid": "ls1",
+      "code": "lightingSetup label",
+      "sg_hdri": true,
+      "sg_hdri_filename": "lightingSetup hdriFilename",
+      "sg_grey_and_chrome_balls": true,
+      "sg_colour_chart": true,
+      "sg_set_notes": "lightingSetup notes"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/_batch",
+  "body": {
+   "requests": [
+    {
+     "request_type": "create",
+     "entity": "CustomEntity10",
+     "data": {
+      "project": {
+       "type": "Project",
+       "id": 1000
+      },
+      "sg_onset_uuid": "cs1",
+      "code": "cameraSetup cameraLabel",
+      "sg_camera": {
+       "type": "Camera",
+       "id": 1007
+      },
+      "sg_lens": {
+       "type": "CustomEntity19",
+       "id": 1008
+      },
+      "sg_sort_order": 3
+     }
+    },
+    {
+     "request_type": "create",
+     "entity": "Slate",
+     "data": {
+      "project": {
+       "type": "Project",
+       "id": 1000
+      },
+      "sg_onset_uuid": "s1",
+      "sg_shoot_day": {
+       "type": "ShootDay",
+       "id": 1006
+      },
+      "sg_onset_template": "slate templateId",
+      "code": "slate slateUID",
+      "sg_scene_number": "slate sceneNumber",
+      "sg_setup": "slate setup",
+      "sg_lighting_setup": {
+       "type": "CustomEntity11",
+       "id": 1009
+      },
+      "description": "slate description",
+      "sg_vfx_shots": "SH010, SH020",
+      "sg_element_type": "slate elementType",
+      "sg_interior_exterior": "slate interiorExterior",
+      "sg_script_time": "slate scriptTime",
+      "sg_lidar": true,
+      "sg_witness_camera": true,
+      "sg_clean_plate": true,
+      "sg_set_notes": "slate notes"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/slates/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1011
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_set_shots,sg_shots"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity22s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "sg_onset_key",
+      "in",
+      [
+       "1000:sh010",
+       "1000:sh020"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_key,code,sg_shots,sg_onset_matched"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/_batch",
+  "body": {
+   "requests": [
+    {
+     "request_type": "create",
+     "entity": "CustomEntity22",
+     "data": {
+      "project": {
+       "type": "Project",
+       "id": 1000
+      },
+      "code": "SH010",
+      "sg_onset_key": "1000:sh010"
+     }
+    },
+    {
+     "request_type": "create",
+     "entity": "CustomEntity22",
+     "data": {
+      "project": {
+       "type": "Project",
+       "id": 1000
+      },
+      "code": "SH020",
+      "sg_onset_key": "1000:sh020"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/shots/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "code",
+      "in",
+      [
+       "sh010",
+       "sh020"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/_batch",
+  "body": {
+   "requests": [
+    {
+     "request_type": "update",
+     "entity": "CustomEntity22",
+     "record_id": 1012,
+     "data": {
+      "sg_shots": {
+       "multi_entity_update_mode": "add",
+       "value": [
+        {
+         "type": "Shot",
+         "id": 1004
+        }
+       ]
+      }
+     }
+    },
+    {
+     "request_type": "update",
+     "entity": "CustomEntity22",
+     "record_id": 1012,
+     "data": {
+      "sg_onset_matched": true
+     }
+    }
+   ]
+  }
+ },
+ {
+  "method": "PUT",
+  "host": "site",
+  "path": "/api/v1/entity/slates/1011",
+  "body": {
+   "sg_set_shots": {
+    "multi_entity_update_mode": "set",
+    "value": [
+     {
+      "type": "CustomEntity22",
+      "id": 1012
+     },
+     {
+      "type": "CustomEntity22",
+      "id": 1013
+     }
+    ]
+   }
+  }
+ },
+ {
+  "method": "PUT",
+  "host": "site",
+  "path": "/api/v1/entity/slates/1011",
+  "body": {
+   "sg_shots": {
+    "multi_entity_update_mode": "set",
+    "value": [
+     {
+      "type": "Shot",
+      "id": 1004
+     }
+    ]
+   }
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/_batch",
+  "body": {
+   "requests": [
+    {
+     "request_type": "create",
+     "entity": "CustomEntity09",
+     "data": {
+      "project": {
+       "type": "Project",
+       "id": 1000
+      },
+      "sg_onset_uuid": "t1",
+      "created_at": "2026-11-11T09:00:00Z",
+      "sg_slate": {
+       "type": "Slate",
+       "id": 1011
+      },
+      "sg_onset_template": "take templateId",
+      "code": "take take",
+      "sg_take_type": "cleanPlate",
+      "sg_take_tail": "cleanPlate, ballsAndChart",
+      "sg_start_time": "2026-11-11T09:00:00Z",
+      "sg_end_time": "2026-11-11T09:00:30Z",
+      "sg_circled": true,
+      "sg_no_good": true,
+      "sg_set_notes": "take notes",
+      "sg_camera_setup": {
+       "type": "CustomEntity10",
+       "id": 1010
+      },
+      "sg_camera": {
+       "type": "Camera",
+       "id": 1007
+      },
+      "sg_lens": {
+       "type": "CustomEntity19",
+       "id": 1008
+      },
+      "sg_focal_length": "2.8",
+      "sg_focal_length_end": "2.8",
+      "sg_t_stop": "2.8",
+      "sg_focus_distance_m": "1.5",
+      "sg_focus_distance_end_m": "1.5",
+      "sg_lens_height_m": "1.5",
+      "sg_lens_height_end_m": "1.5",
+      "sg_tilt": "2.8",
+      "sg_tilt_end": "2.8",
+      "sg_dutch_angle": "2.8",
+      "sg_dutch_angle_end": "2.8",
+      "sg_subject_distance_m": "1.5",
+      "sg_subject_distance_end_m": "1.5",
+      "sg_frame_rate": "24000/1001",
+      "sg_shutter_angle": "2.8",
+      "sg_iso": 3,
+      "sg_white_balance": 3,
+      "sg_filter": "take filter",
+      "sg_camera_roll": "take cameraRoll",
+      "sg_clip_name": "take clipName",
+      "sg_timecode_in": "take timecodeStart",
+      "sg_timecode_out": "take timecodeEnd"
+     }
+    },
+    {
+     "request_type": "create",
+     "entity": "CustomEntity21",
+     "data": {
+      "project": {
+       "type": "Project",
+       "id": 1000
+      },
+      "sg_onset_uuid": "r1",
+      "created_at": "2026-11-11T09:00:00Z",
+      "sg_slate": {
+       "type": "Slate",
+       "id": 1011
+      },
+      "sg_kind": "hdri360",
+      "code": "reference name",
+      "sg_device": "reference device",
+      "sg_card_or_roll": "reference cardOrRoll",
+      "sg_count": 3,
+      "sg_set_notes": "reference notes",
+      "sg_logged_at": "2026-11-11T09:00:00Z"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity09s/1014/sg_photos/_upload",
+  "query": {
+   "filename": "onset_ph1_b-ph1.jpg"
+  }
+ },
+ {
+  "method": "PUT",
+  "host": "storage",
+  "path": "/obj-1",
+  "query": {
+   "X-Amz-Date": "1794391200000",
+   "X-Amz-Expires": "900",
+   "X-Amz-Signature": "sig"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity09s/1014/sg_photos/_upload",
+  "body": {
+   "upload_info": {
+    "timestamp": "2026-11-11T10:00:00Z",
+    "upload_type": "Attachment",
+    "upload_id": null,
+    "storage_service": "s3",
+    "original_filename": "onset_ph1_b-ph1.jpg",
+    "multipart_upload": false,
+    "__key": "obj-1"
+   },
+   "upload_data": {
+    "display_name": "Photo 2026-11-11T09:01:02.000Z"
+   }
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/attachments/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "filename",
+      "is",
+      "onset_ph1_b-ph1.jpg"
+     ]
+    ]
+   },
+   "page": {
+    "size": 50,
+    "number": 1
+   },
+   "fields": "filename,description,this_file"
+  }
+ },
+ {
+  "method": "PUT",
+  "host": "site",
+  "path": "/api/v1/entity/attachments/1016",
+  "body": {
+   "description": "Chart"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/attachments/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "filename",
+      "is",
+      "onset_ph1_b-ph1.jpg"
+     ]
+    ]
+   },
+   "page": {
+    "size": 50,
+    "number": 1
+   },
+   "fields": "filename,description,this_file"
+  }
+ },
+ {
+  "method": "GET",
+  "host": "storage",
+  "path": "/obj-1",
+  "query": {
+   "X-Amz-Date": "1794391200000",
+   "X-Amz-Expires": "900",
+   "X-Amz-Signature": "read"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity09s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "is",
+      1014
+     ]
+    ]
+   },
+   "page": {
+    "size": 1,
+    "number": 1
+   },
+   "fields": "sg_photos"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/versions/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_onset_uuid",
+      "in",
+      [
+       "v1"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,code,description,entity,sg_uploaded_movie"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/_batch",
+  "body": {
+   "requests": [
+    {
+     "request_type": "create",
+     "entity": "Version",
+     "data": {
+      "project": {
+       "type": "Project",
+       "id": 1000
+      },
+      "entity": {
+       "type": "CustomEntity09",
+       "id": 1014
+      },
+      "code": "Video 2026-11-11T09:02:00.000Z",
+      "sg_onset_uuid": "v1",
+      "description": "Witness"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/entity/versions/1017/sg_uploaded_movie/_upload",
+  "query": {
+   "filename": "onset_video_v1_b-v1.mov"
+  }
+ },
+ {
+  "method": "PUT",
+  "host": "storage",
+  "path": "/obj-2",
+  "query": {
+   "X-Amz-Date": "1794391200000",
+   "X-Amz-Expires": "900",
+   "X-Amz-Signature": "sig"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/versions/1017/sg_uploaded_movie/_upload",
+  "body": {
+   "upload_info": {
+    "timestamp": "2026-11-11T10:00:00Z",
+    "upload_type": "Attachment",
+    "upload_id": null,
+    "storage_service": "s3",
+    "original_filename": "onset_video_v1_b-v1.mov",
+    "multipart_upload": false,
+    "__key": "obj-2"
+   },
+   "upload_data": {}
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/versions/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_onset_uuid",
+      "in",
+      [
+       "v1"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,code,description,entity,sg_uploaded_movie"
+  }
+ },
+ {
+  "method": "GET",
+  "host": "storage",
+  "path": "/obj-2",
+  "query": {
+   "X-Amz-Date": "1794391200000",
+   "X-Amz-Expires": "900",
+   "X-Amz-Signature": "read"
+  }
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/entity/slates/1011/sg_setup_diagram/_upload",
+  "query": {
+   "filename": "onset_diagram_s1_b-dg1.png"
+  }
+ },
+ {
+  "method": "PUT",
+  "host": "storage",
+  "path": "/obj-3",
+  "query": {
+   "X-Amz-Date": "1794391200000",
+   "X-Amz-Expires": "900",
+   "X-Amz-Signature": "sig"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/slates/1011/sg_setup_diagram/_upload",
+  "body": {
+   "upload_info": {
+    "timestamp": "2026-11-11T10:00:00Z",
+    "upload_type": "Attachment",
+    "upload_id": null,
+    "storage_service": "s3",
+    "original_filename": "onset_diagram_s1_b-dg1.png",
+    "multipart_upload": false,
+    "__key": "obj-3"
+   },
+   "upload_data": {
+    "display_name": "Setup diagram"
+   }
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/attachments/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "filename",
+      "is",
+      "onset_diagram_s1_b-dg1.png"
+     ]
+    ]
+   },
+   "page": {
+    "size": 50,
+    "number": 1
+   },
+   "fields": "filename,description,this_file"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/attachments/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "filename",
+      "is",
+      "onset_diagram_s1_b-dg1.png"
+     ]
+    ]
+   },
+   "page": {
+    "size": 50,
+    "number": 1
+   },
+   "fields": "filename,description,this_file"
+  }
+ },
+ {
+  "method": "GET",
+  "host": "storage",
+  "path": "/obj-3",
+  "query": {
+   "X-Amz-Date": "1794391200000",
+   "X-Amz-Expires": "900",
+   "X-Amz-Signature": "read"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/attachments/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "filename",
+      "starts_with",
+      "onset_diagram_s1_"
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "filename"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/slates/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "is",
+      1011
+     ]
+    ]
+   },
+   "page": {
+    "size": 1,
+    "number": 1
+   },
+   "fields": "sg_setup_diagram"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/shoot_days/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_onset_uuid",
+      "in",
+      [
+       "d1"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/cameras/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_onset_uuid",
+      "in",
+      [
+       "c1"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity19s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_onset_uuid",
+      "in",
+      [
+       "l1"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity11s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_onset_uuid",
+      "in",
+      [
+       "ls1"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity10s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_onset_uuid",
+      "in",
+      [
+       "cs1"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/slates/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_onset_uuid",
+      "in",
+      [
+       "s1"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity09s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_onset_uuid",
+      "in",
+      [
+       "t1"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity21s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_onset_uuid",
+      "in",
+      [
+       "r1"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/shoot_days/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "or",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1006
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,project,sg_shoot_date,sg_day_number,sg_unit,sg_location,sg_wrangler"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/cameras/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "or",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1007
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,project,sg_camera_make,code,sg_camera_serial_number,sg_sensor_width_mm,sg_sensor_height_mm,sg_sensor_resolution_width,sg_sensor_resolution_height"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity19s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "or",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1008
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,project,sg_lens_make,code,sg_lens_serial_number,sg_focal_length,sg_focal_length_long_end,sg_anamorphic_squeeze"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity11s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "or",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1009
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,project,code,sg_hdri,sg_hdri_filename,sg_grey_and_chrome_balls,sg_colour_chart,sg_set_notes"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity10s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "or",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1010
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,project,code,sg_camera,sg_camera.Camera.sg_onset_uuid,sg_lens,sg_lens.CustomEntity19.sg_onset_uuid,sg_sort_order"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/slates/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "or",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1011
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,sg_shoot_day,sg_shoot_day.ShootDay.sg_onset_uuid,sg_onset_template,code,sg_scene_number,sg_setup,sg_lighting_setup,sg_lighting_setup.CustomEntity11.sg_onset_uuid,description,sg_vfx_shots,sg_element_type,sg_interior_exterior,sg_script_time,sg_lidar,sg_witness_camera,sg_clean_plate,sg_set_notes"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity09s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "or",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1014
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,sg_slate,sg_slate.Slate.sg_onset_uuid,sg_onset_template,code,sg_take_type,sg_take_tail,sg_start_time,sg_end_time,sg_circled,sg_no_good,sg_set_notes,sg_camera_setup,sg_camera_setup.CustomEntity10.sg_onset_uuid,sg_camera,sg_camera.Camera.sg_onset_uuid,sg_lens,sg_lens.CustomEntity19.sg_onset_uuid,sg_focal_length,sg_focal_length_end,sg_t_stop,sg_focus_distance_m,sg_focus_distance_end_m,sg_lens_height_m,sg_lens_height_end_m,sg_tilt,sg_tilt_end,sg_dutch_angle,sg_dutch_angle_end,sg_subject_distance_m,sg_subject_distance_end_m,sg_frame_rate,sg_shutter_angle,sg_iso,sg_white_balance,sg_filter,sg_camera_roll,sg_clip_name,sg_timecode_in,sg_timecode_out"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity21s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "or",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1015
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 6,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,sg_slate,sg_slate.Slate.sg_onset_uuid,sg_kind,code,sg_device,sg_card_or_roll,sg_count,sg_set_notes,sg_logged_at"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/_batch",
+  "body": {
+   "requests": [
+    {
+     "request_type": "update",
+     "entity": "CustomEntity09",
+     "record_id": 1014,
+     "data": {
+      "sg_t_stop": "4.0",
+      "sg_circled": false,
+      "sg_lens": null
+     }
+    },
+    {
+     "request_type": "update",
+     "entity": "Slate",
+     "record_id": 1011,
+     "data": {
+      "sg_vfx_shots": "SH010"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/slates/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1011
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_set_shots,sg_shots"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity22s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "sg_onset_key",
+      "in",
+      [
+       "1000:sh010"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_key,code,sg_shots,sg_onset_matched"
+  }
+ },
+ {
+  "method": "PUT",
+  "host": "site",
+  "path": "/api/v1/entity/slates/1011",
+  "body": {
+   "sg_set_shots": {
+    "multi_entity_update_mode": "set",
+    "value": [
+     {
+      "type": "CustomEntity22",
+      "id": 1012
+     }
+    ]
+   }
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/projects/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "is",
+      1000
+     ]
+    ]
+   },
+   "page": {
+    "size": 1,
+    "number": 1
+   },
+   "fields": "sg_onset_templates,sg_onset_reference_kinds"
+  }
+ },
+ {
+  "method": "PUT",
+  "host": "site",
+  "path": "/api/v1/entity/projects/1000",
+  "body": {
+   "sg_onset_templates": "{\"list\":\"template\",\"version\":1,\"entries\":[{\"id\":\"tp1\",\"name\":\"Day ext\",\"scope\":\"take\",\"values\":{\"tStop\":2.8}}]}",
+   "sg_onset_reference_kinds": "{\"list\":\"referenceKind\",\"version\":1,\"entries\":[{\"id\":\"k1\",\"name\":\"Drone scan\"}]}"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/projects/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "is",
+      1000
+     ]
+    ]
+   },
+   "page": {
+    "size": 1,
+    "number": 1
+   },
+   "fields": "sg_onset_templates,sg_onset_reference_kinds"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity10s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,code,sg_camera,sg_camera.Camera.sg_onset_uuid,sg_lens,sg_lens.CustomEntity19.sg_onset_uuid,sg_sort_order"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/cameras/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,sg_camera_make,code,sg_camera_serial_number,sg_sensor_width_mm,sg_sensor_height_mm,sg_sensor_resolution_width,sg_sensor_resolution_height"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity19s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,sg_lens_make,code,sg_lens_serial_number,sg_focal_length,sg_focal_length_long_end,sg_anamorphic_squeeze"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity11s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_uuid,code,sg_hdri,sg_hdri_filename,sg_grey_and_chrome_balls,sg_colour_chart,sg_set_notes"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/projects/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "is",
+      1000
+     ]
+    ]
+   },
+   "page": {
+    "size": 1,
+    "number": 1
+   },
+   "fields": "sg_onset_templates,sg_onset_reference_kinds"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/slates/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1011
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_set_shots,sg_shots"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity22s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "sg_onset_key",
+      "in",
+      [
+       "1000:sh010"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_key,code,sg_shots,sg_onset_matched"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity21s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1015
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_slates"
+  }
+ },
+ {
+  "method": "PUT",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity21s/1015",
+  "body": {
+   "sg_slates": {
+    "multi_entity_update_mode": "set",
+    "value": [
+     {
+      "type": "Slate",
+      "id": 1011
+     }
+    ]
+   }
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/shots/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "id",
+      "in",
+      [
+       1004
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity22s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "sg_shots",
+      "in",
+      [
+       {
+        "type": "Shot",
+        "id": 1004
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_shots"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/slates/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_set_shots",
+      "in",
+      [
+       {
+        "type": "CustomEntity22",
+        "id": 1012
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code,sg_set_shots"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity09s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_slate",
+      "in",
+      [
+       {
+        "type": "Slate",
+        "id": 1011
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code,sg_take_type,sg_take_tail,sg_slate,sg_photos"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity21s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_slate",
+      "in",
+      [
+       {
+        "type": "Slate",
+        "id": 1011
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code,sg_kind,sg_slate,sg_slates"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity21s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_slates",
+      "in",
+      [
+       {
+        "type": "Slate",
+        "id": 1011
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code,sg_kind,sg_slate,sg_slates"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/attachments/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1016
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "filename"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/tasks/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "entity",
+      "in",
+      [
+       {
+        "type": "Shot",
+        "id": 1004
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "entity,task_assignees"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/notes/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "sg_onset_key",
+      "in",
+      [
+       "1000:shot:1004"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_key,sg_onset_captured,addressings_to,tasks"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/notes",
+  "body": {
+   "project": {
+    "type": "Project",
+    "id": 1000
+   },
+   "subject": "Set data for SH010",
+   "content": "Elements\nClean plate: slate slateUID take take take\nBalls and chart tail: slate slateUID take take take\n\nTakes\nslate slateUID: take take\n\nReferences\nHDRI 360: reference name\n\nPhotos: 1",
+   "note_links": [
+    {
+     "type": "Shot",
+     "id": 1004
+    }
+   ],
+   "tasks": [
+    {
+     "type": "Task",
+     "id": 1005
+    }
+   ],
+   "addressings_to": [
+    {
+     "type": "HumanUser",
+     "id": 1003
+    }
+   ],
+   "sg_onset_key": "1000:shot:1004",
+   "sg_onset_captured": "ballsAndChart.tail:1011:take%20take cleanPlate:1011:take%20take photo:1016 reference:1015 take:1011:take%20take"
+  }
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/ShootDay/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity11/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity10/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Slate/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Camera/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity19/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity21/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity22/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Attachment/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Shot/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Version/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Note/fields"
+ },
+ {
+  "method": "GET",
+  "host": "site",
+  "path": "/api/v1/schema/Project/fields"
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/projects/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "is",
+      1000
+     ]
+    ]
+   },
+   "page": {
+    "size": 1,
+    "number": 1
+   },
+   "fields": "name"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/shots/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "id",
+      "in",
+      [
+       1004
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/shots/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "id",
+      "in",
+      [
+       1004
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity22s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "sg_shots",
+      "in",
+      [
+       {
+        "type": "Shot",
+        "id": 1004
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_key,code,sg_shots,sg_onset_matched"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity22s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "sg_onset_key",
+      "in",
+      [
+       "1000:sh010"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_key,code,sg_shots,sg_onset_matched"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/slates/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "sg_set_shots",
+      "in",
+      [
+       {
+        "type": "CustomEntity22",
+        "id": 1012
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_vfx_shots,sg_set_shots,sg_shots"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity22s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "sg_onset_key",
+      "in",
+      [
+       "1000:sh010"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_key,code,sg_shots,sg_onset_matched"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/shots/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "id",
+      "in",
+      [
+       1004
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity22s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "sg_shots",
+      "in",
+      [
+       {
+        "type": "Shot",
+        "id": 1004
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_shots"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/slates/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_set_shots",
+      "in",
+      [
+       {
+        "type": "CustomEntity22",
+        "id": 1012
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code,sg_set_shots"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity09s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_slate",
+      "in",
+      [
+       {
+        "type": "Slate",
+        "id": 1011
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code,sg_take_type,sg_take_tail,sg_slate,sg_photos"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity21s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_slate",
+      "in",
+      [
+       {
+        "type": "Slate",
+        "id": 1011
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code,sg_kind,sg_slate,sg_slates"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/custom_entity21s/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "sg_slates",
+      "in",
+      [
+       {
+        "type": "Slate",
+        "id": 1011
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "code,sg_kind,sg_slate,sg_slates"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/attachments/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "id",
+      "in",
+      [
+       1016
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "filename"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/tasks/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "entity",
+      "in",
+      [
+       {
+        "type": "Shot",
+        "id": 1004
+       }
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "entity,task_assignees"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/notes/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "and",
+    "conditions": [
+     [
+      "project",
+      "is",
+      {
+       "type": "Project",
+       "id": 1000
+      }
+     ],
+     [
+      "sg_onset_key",
+      "in",
+      [
+       "1000:shot:1004"
+      ]
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "sg_onset_key,sg_onset_captured,addressings_to,tasks"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/attachments/_search",
+  "body": {
+   "filters": {
+    "logical_operator": "or",
+    "conditions": [
+     [
+      "filename",
+      "starts_with",
+      "onset_ph1_"
+     ]
+    ]
+   },
+   "page": {
+    "size": 500,
+    "number": 1
+   },
+   "fields": "filename,display_name,description,attachment_links"
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/entity/_batch",
+  "body": {
+   "requests": [
+    {
+     "request_type": "delete",
+     "entity": "Attachment",
+     "record_id": 1016
+    },
+    {
+     "request_type": "delete",
+     "entity": "CustomEntity21",
+     "record_id": 1015
+    }
+   ]
+  }
+ }
+]

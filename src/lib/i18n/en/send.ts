@@ -58,7 +58,7 @@ export const send = {
 	'send.problem.none-selected': 'No rows were selected. Select Shots or Set Shots in Flow PT, then run it again.',
 	'send.problem.too-many': 'That is more than {max} rows. Select fewer, then run it again.',
 	'send.problem.type': 'Flow PT sent rows of {type}. This works on Shots and Set Shots only.',
-	'send.problem.noSetShot': 'This site has no Set Shot entity. An admin enables a custom entity named Set Shot, then runs Set Up Fields in SG OnSet.',
+	'send.problem.noSetShot': 'This site has no {name} entity. An admin enables a custom entity named {name}, then runs Set Up Fields in SG OnSet.',
 
 	'send.failure.offline': 'No network. This needs one.',
 	'send.failure.unreachable': 'Flow PT did not answer. Try again.',

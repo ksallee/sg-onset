@@ -104,7 +104,7 @@
 		{#if state.step === 'idle' || state.step === 'reading'}
 			<p class="say" role="status">{t('send.reading')}</p>
 		{:else if state.step === 'problem'}
-			<p class="say problem" role="alert">{problemText(state.problem, request.entityType)}</p>
+			<p class="say problem" role="alert">{problemText(state.problem, request.entityType, state.setShot)}</p>
 		{:else if state.step === 'failed'}
 			<p class="say problem" role="alert">{failureText(state.failure)}</p>
 			{#if state.failure !== 'session' && state.failure !== 'setup'}

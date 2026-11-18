@@ -33,7 +33,8 @@ import { checkSetup, createFptTransport, readShotCodes, type FptTransport, type 
 import { actionUrl } from '$lib/fpt/actionMenu';
 import { createApi, type FptOptions } from '$lib/fpt/api';
 import { resolutionKey } from '$lib/fpt/cache';
-import { hasLists, hasNotes, hasScope, parseResolution } from '$lib/fpt/schema';
+import { DEFAULT_NAMING, type Naming } from '$lib/fpt/naming';
+import { hasLists, hasNotes, hasScope, namingOf, parseResolution } from '$lib/fpt/schema';
 import { browserEnv, runInForeground, type Foreground, type Page } from '$lib/outbox/foreground';
 import { createRunner, type DrainReport, type Progress, type Runner, type StopReason } from '$lib/outbox/runner';
 import { unsynced, type Unsynced } from '$lib/outbox/select';
@@ -120,6 +121,11 @@ export interface SyncState {
 	kept?: Kept[];
 	/** Changes read back from Flow PT of entries this device uses, not seen yet (#110). Kept on the device. */
 	changed: Changed[];
+	/**
+	 * The names the site was set up under (#111): those of the schema kept on the device, the
+	 * default until one is. The sheet names the entities to enable by them.
+	 */
+	naming: Naming;
 	error?: SyncError;
 }
 
@@ -158,7 +164,7 @@ const lastKey = (projectId: string) => `last:${projectId}`;
 export function createSyncEngine(deps: SyncDeps): SyncEngine {
 	const links: LinkStore = linkStore(deps.kv);
 	const listeners = new Set<(state: SyncState) => void>();
-	let state: SyncState = { ready: false, checking: false, creatingFields: false, running: false, online: deps.page.online(), notesOnShots: false, changed: [] };
+	let state: SyncState = { ready: false, checking: false, creatingFields: false, running: false, online: deps.page.online(), notesOnShots: false, changed: [], naming: DEFAULT_NAMING };
 	let disposed = false;
 
 	type Live = { key: string; runner: Runner; foreground: Foreground; drain(asked: boolean): Promise<DrainReport> };
@@ -206,15 +212,22 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		deps.page.listen('offline', () => set({ online: false }))
 	];
 
-	/** The site passed the check, and whether it has Set Shot, Set Reference, the Note fields and the Project fields: from the resolution kept on the device. */
-	async function readSetup(site: string | null): Promise<{ ready: boolean; setShotsMissing: boolean; referencesMissing: boolean; notesMissing: boolean; listsMissing: boolean }> {
+	/**
+	 * The site passed the check, whether it has Set Shot, Set Reference, the Note fields and the
+	 * Project fields, and its names (#111): from the resolution kept on the device. None kept: the
+	 * default names.
+	 */
+	async function readSetup(
+		site: string | null
+	): Promise<{ ready: boolean; setShotsMissing: boolean; referencesMissing: boolean; notesMissing: boolean; listsMissing: boolean; naming: Naming }> {
 		const res = site ? parseResolution(await deps.schemaCache.get(resolutionKey(site)), site) : undefined;
 		return {
 			ready: res !== undefined,
 			setShotsMissing: res !== undefined && !hasScope(res, 'setShot'),
 			referencesMissing: res !== undefined && !hasScope(res, 'reference'),
 			notesMissing: res !== undefined && !hasNotes(res),
-			listsMissing: res !== undefined && !hasLists(res)
+			listsMissing: res !== undefined && !hasLists(res),
+			naming: res ? namingOf(res) : DEFAULT_NAMING
 		};
 	}
 
@@ -505,7 +518,8 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 				// The Action Menu Item is for the linked project, on this deploy (#106).
 				const link = state.link;
 				const actionMenu = link && deps.origin ? { projectId: link.projectId, url: actionUrl(deps.origin) } : undefined;
-				const report = await checkSetup({ ...fptOptions(site), createFields, ...(actionMenu ? { actionMenu } : {}) });
+				// Under the names of the schema kept on the device (#111): a check never changes them.
+				const report = await checkSetup({ ...fptOptions(site), createFields, naming: state.naming, ...(actionMenu ? { actionMenu } : {}) });
 				set({ report, ...(await readSetup(site)) });
 				recount();
 				// A new transport reads the resolution the check kept, and a new runner sees what waited

@@ -80,7 +80,7 @@ function choiceOf(value: unknown): FieldChoice | undefined {
 }
 
 /** The name a choice asks for on its entity. */
-const askedName = (choice: FieldChoice) => ('field' in choice ? choice.field : codeName(choice.display));
+export const askedName = (choice: FieldChoice): string => ('field' in choice ? choice.field : codeName(choice.display));
 
 /** A naming's shape, whatever its problems, or undefined. */
 function shapeOf(value: unknown): Naming | undefined {

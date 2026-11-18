@@ -12,7 +12,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 |---|---|---|
 | `names.ts` | yes | Display name to `sg_` name, as the server derives it. Type to REST slug. |
 | `mapping.ts` | yes | The mapping, derived from the catalogue. Entity types per scope. Every field the app wants (`wantedFields`). |
-| `naming.ts` | yes | The names an admin picks (#111): what each custom entity is called, what each field is. The default is the app's own. |
+| `naming.ts` | yes | The names an admin picks (#111): what each custom entity is called, what each field is. The default is the app's own. As text, problems, changes. |
 | `convert.ts` | yes | One value, both ways, per FPT data type. |
 | `schema.ts` | yes | Entities by display name, the field plan, the `Resolution` kept per site. |
 | `payload.ts` | yes | A record to the `data` of a create or update. A row back to our keys. |
@@ -36,7 +36,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `uploadPlan.ts` | yes | Upload sizes, URL life, the completion body. |
 | `cache.ts` | port | `KeyValue`: where a site's resolution is kept. Memory and `localStorage` forms. |
 | `api.ts` | no | The calls. The only module that calls `fetch`. Uses `sg-widgets-core`'s clients. |
-| `setup.ts` | no | `checkSetup`: the readiness report, and field creation. |
+| `setup.ts` | no | `checkSetup`: the readiness report, and field creation. `setUpNames`, `readNamesReview`: the names on the project (#111). |
 | `transport.ts` | no | `createFptTransport`: the `Transport`, with `linkShots` and `linkReferenceSlates`. |
 | `fakeFpt.ts`, `testkit.ts` | no | A site behind a `fetch`, in the corpus's shapes. For tests. |
 | `golden.test.ts` | | Every request the app sends, on the fake site, against `golden.requests.json`; and the same under other names (#111). |
@@ -63,8 +63,9 @@ if (report.ready) {
 - Do not start the runner before `report.ready`. A site that is not set up throws `failed`, which
   counts attempts.
 - `checkSetup({ createFields: false })` only looks.
-- `naming` (#111, "The names an admin picks"): left out, a check reads under the default names,
-  and the transport uses the schema kept on the device whatever its names.
+- `projectId` (#111, "The names an admin picks"): the names the project keeps apply. `naming`
+  overrides them. With neither, the default names. A transport has a project: it reads the project's
+  names once (decision 84).
 
 ## Entities
 
@@ -436,9 +437,38 @@ of every key of every scope, the uploads, reads, the shared lists (#110), links,
 and deletes is the one `golden.requests.json` recorded before the naming existed; with every field and entity renamed, it
 is the same list under the new names, less the creates of the fields mapped to fields the site has.
 
-Not built yet (the second part of #111): the review in Set Up Fields that makes a naming, where on
-the site it is kept so every iPad of the project reads it, its file export and import, and what
-happens to synced records when an admin changes it. Until then every device uses the default.
+### Where the names live, and how an admin changes them
+
+Kevin decided, 2026-11-17: the names live as JSON in one fixed text field of the Project,
+`sg_onset_naming`, "Onset Naming", never renamed; a site without it uses today's names. Once the
+project has synced, the names in use stay as they are; moving data is done in Flow PT.
+
+```json
+{"app":"sg-onset","naming":1,"entities":{"take":"Shot Take"},"fields":{"take.sg_t_stop":{"display":"Studio T-Stop"}}}
+```
+
+- **Read.** A check with the linked project (`checkSetup({ projectId })`, the engine's check) reads
+  the type list and Project's fields first, then the field's value, named, and plans under those
+  names. The page of #106 does the same for the project Flow PT named. A transport reads them once,
+  at its first call that needs the schema, with one `GET /schema/Project/fields/sg_onset_naming`
+  (404 on a site without it, findings/157), and reads the schema again if they differ from the ones
+  it kept (decision 84). Names of a later version stop it all (decision 82).
+- **Review.** Setup's Names row opens a page (`app/sync/names.ts`, `NamesPage.svelte`). It reads the
+  site once (`readNamesReview`): the fields of every custom entity, what the project keeps, whether
+  the project has synced, whether this account may save (findings/159). Each change is planned on
+  the device under the names on the page: what is there, what Set Up Fields would make, the fields
+  of the site of the right type to pick, and the problems (`namingProblems`). Nothing is sent.
+- **Change.** Per custom entity, the name to look for, typed or picked from the site's. Per field:
+  keep, rename, or a field of the site. A prefix for all at once (`withPrefix`). Once the project has
+  synced, an entity found and a field there under the names the project keeps cannot change.
+- **File.** Export writes the page's names as the JSON above. Import puts a file's names on the
+  page; what is in use keeps the project's names, and the page says how many.
+- **Save.** Review Changes shows the names to save and what Set Up Fields will make, as before. Set
+  Up Fields (`setUpNames`) makes `sg_onset_naming` if the site has none, makes the fields under the
+  names, then writes the names to the project and reads them back, comparing the parsed value
+  (findings/158). An Artist is refused the create (500 code 105) and the write (400 code 104): the
+  page says only an Admin can save. The names are kept only if the site is ready under them, or was
+  not under the names the project kept (decision 83).
 
 ## A slate's setup diagram
 
@@ -1021,9 +1051,38 @@ Made by Claude. Kevin can overrule any of them.
 79. **A naming is refused whole** (`parseNaming`) when two custom entities would be found under one
     name, when two fields of one entity ask for one name, or when a display name has outer spaces
     or a character outside ASCII: the server names such a field `sg_<data_type>` (findings/117).
-80. **The resolution keeps the naming it was made with.** A check on the device reads under the
-    names of the one kept (app/sync README, decision 26); the transport reads a stale one again
-    under its names; a caller that asks for other names reads the site again.
+80. **The resolution keeps the naming it was made with.** The transport reads a stale one again
+    under its names; a caller that asks for other names reads the site again. Since decision 81 a
+    check reads the names the project keeps (app/sync README, decision 26).
+81. **The names live in one fixed text field of the Project, `sg_onset_naming`** (Kevin, #111): JSON,
+    one per project, read by every device of it. Its own name is never in a naming: it is read
+    before any name is known. A site without it uses today's names, and nothing more is asked. A
+    text field keeps JSON byte for byte; a jsonb field cannot be made (findings/158, 160; recipe
+    028). Set Up Fields makes it the first time an admin saves names.
+82. **Names saved by a later version are never guessed at, and never written over.** The check is
+    not ready and plans nothing, the transport sends nothing, Set Up Fields does not save, and each
+    says to update SG OnSet. Guessing would write values to fields another version did not mean.
+83. **Names are kept on the project only when the site is ready under them, or was not ready under
+    the names the project kept.** So a save never takes a device from syncing to stopped. The fields
+    made for names not kept stay, unused, and the schema on the device stays under the kept names.
+84. **A transport reads the project's names once, at its first call that needs the schema.** A
+    device that kept its schema before an admin saved other names would write to the old fields.
+    That matters only before the project's first sync: after it the names in use never change
+    (decision 85), so a device with an older copy writes the same fields. One read a transport, a
+    404 on a site that never saved names.
+85. **Once the project has synced, what is in use stays as it is** (Kevin, #111). Synced: Flow PT
+    holds a row of the project with our client UUID, found with `is_not` null (field_types/text.md),
+    one search a type until one answers. In use: an entity found, or a field there, under the names
+    the project keeps. An entity or a field not found yet may still be named. To move data an admin
+    works in Flow PT.
+86. **The review reads the site once and plans every change on the device,** the fields of every
+    custom entity included, so an entity looked for under another name shows its fields at once.
+    Nothing is written before the review's Set Up Fields.
+87. **Only an Admin saves names.** The field's `editable` for the person (findings/159) makes the
+    page read only; without the field yet, the create says (findings/157). A Manager is not
+    measured: the refusal, if any, is said in plain words.
+88. **A file of names is the field's JSON.** Importing puts its names on the page and changes
+    nothing in Flow PT; names in use keep the project's, and the page counts them.
 
 ## Where FPT did not fit the contract
 
@@ -1133,7 +1192,10 @@ Still open:
     `selection_required` changes. The route reads an empty or missing value as nothing selected.
 22. Whether a Manager or a Vendor may update a Project's field (findings/159 read their rights,
     update allowed for Manager, denied for Vendor, and exercised neither) or create one
-    (findings/157). A refusal is said in plain words and the lists wait; the rest syncs.
+    (findings/157). A refusal is said in plain words and the lists wait; the rest syncs. The same
+    holds for the names (#111): a refused save says only an Admin can.
+23. What a `_search` answers when `fields` names a field the type does not have. Not relied on: the
+    names are read through `GET /schema/Project/fields/sg_onset_naming` first, a 404 when absent.
 
 ## On the probed site, read 2026-11-11
 

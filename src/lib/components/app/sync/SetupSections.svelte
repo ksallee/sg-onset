@@ -9,6 +9,7 @@
 	import { setupView, type FieldLine, type FieldStatus } from '$lib/app/sync/report';
 	import { nextStep, setupReview, type ReviewAction, type ReviewStep } from '$lib/app/sync/review';
 	import { t } from '$lib/i18n/messages';
+	import NamesPage from './NamesPage.svelte';
 	import SetupReview from './SetupReview.svelte';
 
 	const sync = useSync();
@@ -25,6 +26,12 @@
 		if (next.run) void sync.check(true);
 	}
 	let showPresent = $state(false);
+	// The names an admin picks (#111): what the project keeps, and a page to change them.
+	let namesOpen = $state(false);
+	const namesSaved = $derived(sync.state.report?.naming?.saved);
+	const setupFooter = $derived(
+		namesSaved === 'unreadable' ? t('sync.names.unreadable') : view?.permission ? t('sync.setup.permission') : view?.canSetUpFields ? t('sync.setup.fields.footer') : undefined
+	);
 
 	const LISTED: FieldStatus[] = ['needsAdmin', 'missing', 'created', 'blocked', 'failed'];
 	const statusText = $derived(sync.state.checking ? (sync.state.creatingFields ? t('sync.setup.creating') : t('sync.setup.checking')) : sync.state.ready ? t('sync.setup.ready') : view ? t('sync.setup.notReady') : t('sync.setup.unknown'));
@@ -43,9 +50,10 @@
 {#if reviewing && review}
 	<SetupReview {review} onconfirm={() => tap('confirm')} onnotnow={() => tap('notNow')} />
 {:else}
-	<Section header={t('sync.setup.header')} footer={view?.permission ? t('sync.setup.permission') : view?.canSetUpFields ? t('sync.setup.fields.footer') : undefined}>
+	<Section header={t('sync.setup.header')} footer={setupFooter}>
 		<Row title={t('sync.setup.header')} detail={statusText} />
 		<Row title={t('sync.setup.check')} onclick={() => void sync.check(false)} chevron={false} />
+		<Row title={t('sync.names.row')} detail={namesSaved === 'saved' ? t('sync.names.row.saved') : t('sync.names.row.default')} onclick={() => (namesOpen = true)} />
 		{#if view?.canSetUpFields && !sync.state.checking}
 			<Row title={t('sync.setup.fields')} onclick={() => tap('request')} chevron={false} />
 		{/if}
@@ -97,3 +105,5 @@
 		{/if}
 	{/if}
 {/if}
+
+<NamesPage bind:open={namesOpen} />

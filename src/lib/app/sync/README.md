@@ -12,6 +12,7 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `links.ts` | port | `linkStore`: the links over a key-value port. |
 | `report.ts` | yes | `setupView`: `checkSetup`'s report as the sheet shows it. |
 | `review.ts` | yes | `setupReview`, `nextStep`: the review before Set Up Fields; `prototypeNote`. |
+| `names.ts` | yes | `namesView`: the names an admin picks (#111), planned under every change; `importNames`, `draftReport`, `changeLines`. |
 | `queue.ts` | yes | `pendingByKind`, `scopedUpdate`, `parentOf`, `conflictLines`. |
 | `projects.ts` | yes | `PROJECT_FILTER`, `projectChoices`: the FPT projects a person picks from. |
 | `errors.ts` | yes | `syncError`, `syncErrorText`. |
@@ -156,11 +157,15 @@ Made by Claude. Kevin can overrule any of them.
     is put, so the take screen never shows it in between. The take screen's columns and Start use
     only the chosen setups (`take/groups.ts`); a take of the slate on another setup keeps its column.
     Gear shows a check per setup. Wrap, the exports and Flow PT keep every take.
-26. **The names a site was set up under are those of the schema kept on the device** (#111, lib/fpt
-    README, "The names an admin picks"): `state.naming`, the default while none is kept. A check
-    reads under them, so it never changes them, and the sync sheet names the entities to enable by
-    them ("a custom entity named Set Shot"). Until Set Up Fields can pick names, the second part of
-    #111, they are always the default.
+26. **The names are those the linked Flow PT project keeps** (#111, lib/fpt README, "The names an
+    admin picks"): a check reads them there, and `state.naming` holds those of the schema kept on
+    the device, the default while none is kept. The sync sheet names the entities to enable by them
+    ("a custom entity named Set Shot").
+27. **Setup's Names row opens the review of the names** (`NamesPage.svelte`, `names.ts`): read once
+    when it opens (`engine.names()`), changed on the device, saved by the review's Set Up Fields
+    (`engine.saveNames()`), which then makes a new transport and runner, as a check does. The row
+    says Default or Saved. Once the project has synced, what is in use cannot change (Kevin, #111).
+    An account that may not save sees the page read only. A file of names goes out and in from it.
 
 ## Not tested without a real site
 

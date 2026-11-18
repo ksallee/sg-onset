@@ -34,6 +34,7 @@ import { actionUrl } from '$lib/fpt/actionMenu';
 import { createApi, type FptOptions } from '$lib/fpt/api';
 import { resolutionKey } from '$lib/fpt/cache';
 import { DEFAULT_NAMING, type Naming } from '$lib/fpt/naming';
+import { readNamesReview, setUpNames, type NamesOutcome, type NamesReview } from '$lib/fpt/setup';
 import { hasLists, hasNotes, hasScope, namingOf, parseResolution } from '$lib/fpt/schema';
 import { browserEnv, runInForeground, type Foreground, type Page } from '$lib/outbox/foreground';
 import { createRunner, type DrainReport, type Progress, type Runner, type StopReason } from '$lib/outbox/runner';
@@ -142,6 +143,17 @@ export interface SyncEngine {
 	unlink(): Promise<void>;
 	/** `checkSetup`. Fields are created only with `createFields`. */
 	check(createFields?: boolean): Promise<SetupReport | undefined>;
+	/**
+	 * What the review of the names needs (#111): the site read once, what the linked project keeps,
+	 * whether it has synced, whether this account may save. Reads only. Undefined without a link, or
+	 * when Flow PT could not be asked (`state.error` says why).
+	 */
+	names(): Promise<NamesReview | undefined>;
+	/**
+	 * Set Up Fields under names an admin picked (#111): the fields made, the names kept on the linked
+	 * project when the site may take them (lib/fpt/setup.ts, `setUpNames`). Undefined when it could not run.
+	 */
+	saveNames(naming: Naming): Promise<{ outcome: NamesOutcome; reason?: string } | undefined>;
 	/** Drains now. Undefined when the runner may not run. */
 	syncNow(): Promise<DrainReport | undefined>;
 	/**
@@ -527,6 +539,38 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 				stopRunner();
 				align();
 				return report;
+			} catch (error) {
+				set({ error: syncError(error) });
+				return undefined;
+			} finally {
+				set({ checking: false, creatingFields: false });
+			}
+		},
+		async names() {
+			const site = deps.site();
+			const link = state.link;
+			if (!site || !link) return undefined;
+			try {
+				return await readNamesReview({ ...fptOptions(site), projectId: link.projectId });
+			} catch (error) {
+				set({ error: syncError(error) });
+				return undefined;
+			}
+		},
+		async saveNames(naming) {
+			const site = deps.site();
+			const link = state.link;
+			if (!site || !link || state.checking) return undefined;
+			set({ checking: true, creatingFields: true, error: undefined });
+			try {
+				const actionMenu = deps.origin ? { projectId: link.projectId, url: actionUrl(deps.origin) } : undefined;
+				const done = await setUpNames({ ...fptOptions(site), projectId: link.projectId, naming, createFields: true, ...(actionMenu ? { actionMenu } : {}) });
+				set({ report: done.report, ...(await readSetup(site)) });
+				recount();
+				// As after a check: a new transport and runner, under the names the project keeps now.
+				stopRunner();
+				align();
+				return { outcome: done.names, ...(done.reason ? { reason: done.reason } : {}) };
 			} catch (error) {
 				set({ error: syncError(error) });
 				return undefined;

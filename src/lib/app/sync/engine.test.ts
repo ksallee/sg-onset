@@ -846,6 +846,35 @@ describe('the names an admin picked (#111)', () => {
 		expect(take.values.sg_t_stop).toBeUndefined();
 		expect(s.fpt.fields[TAKE].sg_photos).toBeUndefined();
 	});
+
+	it('reads the review once, saves names from it, and the next sync goes under them', async () => {
+		const s = setup({ fields: 'bare' });
+		s.fpt.types.CustomEntity09 = { name: { value: 'Shot Take' } };
+		await s.engine.setProject('p1');
+		await s.engine.link({ id: s.fptProject, name: 'Show' });
+		const review = await s.engine.names();
+		expect(review).toMatchObject({ named: { saved: 'none' }, synced: false });
+		const draft: Naming = { entities: { take: 'Shot Take' }, fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' } } };
+		expect(await s.engine.saveNames(draft)).toEqual({ outcome: 'saved' });
+		expect(s.engine.state.ready).toBe(true);
+		expect(s.engine.state.naming).toEqual(draft);
+		expect(s.engine.state.report?.naming).toEqual({ saved: 'saved', naming: draft });
+		await shoot(s);
+		s.world.visible = true;
+		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
+		expect(s.fpt.byUuid(TAKE, 't1')!.values).toMatchObject({ sg_studio_t_stop: 2.8 });
+		// Synced now: the review says so.
+		expect((await s.engine.names())?.synced).toBe(true);
+	});
+
+	it('says plainly when only an admin may save the names', async () => {
+		const s = setup();
+		await linked(s);
+		s.fpt.canCreateFields = false;
+		expect(await s.engine.saveNames({ fields: { 'take.sg_t_stop': { display: 'Studio T-Stop' } } })).toEqual({ outcome: 'needsAdmin' });
+		expect(s.engine.state.naming).toEqual(DEFAULT_NAMING);
+		expect(s.engine.state.ready).toBe(true);
+	});
 });
 
 // Two devices on one show (#110): the lists a show shares are read back at each sync. Slates and

@@ -190,7 +190,8 @@ describe('restore', () => {
 		expect(await (await s.store.blob('b1'))!.size).toBe(200_000);
 	});
 
-	it('holds the templates, and a restore brings them back with nothing queued for them', async () => {
+	// Templates are shared by every device of the show since #110: a restore queues them as any record.
+	it('holds the templates, and a restore brings them back as they were, to send', async () => {
 		const s = setup();
 		await shoot(s);
 		const template = { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take' as const, values: { tStop: 2.8 } };
@@ -201,7 +202,8 @@ describe('restore', () => {
 		const queued = (await s.store.outbox.entries()).length;
 		await s.store.snapshots.restore(snap!.id);
 		expect(await s.store.get('template', 'tp1')).toEqual(template);
-		expect((await s.store.outbox.entries()).filter((e) => e.op.table === 'template')).toEqual([]);
+		const mine = (await s.store.outbox.entries()).filter((e) => e.op.table === 'template');
+		expect(mine.map((e) => e.op)).toEqual([expect.objectContaining({ kind: 'create', recordId: 'tp1', fields: expect.objectContaining({ values: { tStop: 2.8 } }) })]);
 		expect((await s.store.outbox.entries()).length).toBeLessThanOrEqual(queued);
 	});
 

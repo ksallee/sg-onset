@@ -1,14 +1,20 @@
 <script lang="ts">
 	// The takes of the slate being shot, one row per take number. `at` side: a column of rows with
-	// the slate on top. `at` top: one strip that scrolls sideways. The take on screen is marked; a
-	// running take shows a square and its time. The slate opens the slate picker.
+	// the slate on top, under a take's name its type when it is not Main and the plates at its tail.
+	// `at` top: one strip that scrolls sideways, each take its number and, when it has them, its
+	// type and plates beside it (#92). The take on screen is marked; a running take shows a square
+	// and its time; a no good take's number is struck through. The slate opens the slate picker.
 	import { Ban, ChevronDown, CircleCheck, Images } from '@lucide/svelte';
 	import { formatTime } from '$lib/app/format';
 	import { t } from '$lib/i18n/messages';
+	import { groupTail } from '$lib/model/takeTail';
+	import { groupType } from '$lib/model/takeType';
 	import { groupPhase, groupTimes } from '$lib/take/phase';
 	import { groupMark } from '$lib/take/marks';
 	import { elapsedMs, formatElapsed } from '$lib/take/record';
 	import type { Shoot, TakeGroup } from '$lib/take/shoot.svelte';
+	import { typeWords } from '$lib/take/typeText';
+	import { feedback, PICKED } from './feedback.svelte';
 
 	let { shoot, at, onslate }: { shoot: Shoot; at: 'side' | 'top'; onslate: () => void } = $props();
 
@@ -16,9 +22,12 @@
 	const about = $derived([slate?.sceneNumber ? `${t('take.scene')} ${slate.sceneNumber}` : '', slate?.description].filter(Boolean).join(' · '));
 	const photos = (g: TakeGroup) => {
 		const ids = new Set(g.takes.map((x) => x.id));
-		return shoot.stills.value.filter((s) => ids.has(s.takeId)).length;
+		// Photos and videos: an audio note is a still too, and is not counted here.
+		return shoot.stills.value.filter((s) => ids.has(s.takeId) && shoot.kindOf(s) !== 'audio').length;
 	};
 	const shown = $derived(shoot.group?.number);
+	/** The take's type, when it is not Main, and the plates at its tail. */
+	const typed = (g: TakeGroup) => typeWords(groupType(g.takes), groupTail(g.takes)).join(', ');
 
 	// The take on screen stays in view, moved only when out of it, without a scroll animation.
 	let el = $state<HTMLElement | null>(null);
@@ -59,24 +68,30 @@
 		{#each shoot.groups as g (g.number)}
 			{@const on = g.number === shown}
 			{@const n = photos(g)}
-			<button type="button" class="row" class:on aria-current={on} aria-label={t('take.row.full', { slate: slate?.slateUID ?? '', take: g.number })} onclick={() => shoot.select(g.number)}>
-				<span class="n num">{g.number}</span>
+			{@const type = typed(g)}
+			{@const ng = groupMark(g, 'noGood')}
+			<button type="button" class="row" class:on class:typed={!!type} aria-current={on} aria-label={[t('take.row.full', { slate: slate?.slateUID ?? '', take: g.number }), type].filter(Boolean).join(', ')} onclick={() => shoot.select(g.number)}>
+				<span class="n num" class:ng {@attach feedback(() => (on ? g.number : null), PICKED)}>{g.number}</span>
 				{#if at === 'side'}
 					<span class="meta">
 						<span class="name">{t('take.row', { take: g.number })}</span>
+						{#if type}<span class="type">{type}</span>{/if}
 						{@render status(g)}
 					</span>
 					<span class="icons">
-						{#if n}<span class="photos num"><Images class="size-4" strokeWidth={2} />{n}</span>{/if}
 						<span class="mark">
 							{#if groupMark(g, 'circleTake')}<CircleCheck class="size-5" strokeWidth={2.4} aria-label={t('marks.circle')} />{/if}
 							{#if groupMark(g, 'noGood')}<Ban class="size-5" strokeWidth={2.4} aria-label={t('marks.noGood')} />{/if}
 						</span>
+						{#if n}<span class="photos num"><Images class="size-4" strokeWidth={2} />{n}</span>{/if}
 					</span>
-				{:else if groupPhase(g) === 'rolling'}
-					<span class="sq" aria-hidden="true"></span>
-				{:else if groupMark(g, 'circleTake')}
-					<span class="ring" aria-hidden="true"></span>
+				{:else}
+					{#if type}<span class="type" aria-hidden="true">{type}</span>{/if}
+					{#if groupPhase(g) === 'rolling'}
+						<span class="sq" aria-hidden="true"></span>
+					{:else if groupMark(g, 'circleTake')}
+						<span class="ring" aria-hidden="true"></span>
+					{/if}
 				{/if}
 			</button>
 		{:else}
@@ -186,6 +201,15 @@
 		font-weight: 600;
 		letter-spacing: -0.31px;
 	}
+	/* The take type, when it is not Main, and the plates at its tail: lines of their own, wrapped
+	   so a plate at the tail is never cut. */
+	.type {
+		font-size: 13px;
+		line-height: 18px;
+		font-weight: 600;
+		color: var(--label);
+		overflow-wrap: break-word;
+	}
 	.state {
 		display: flex;
 		align-items: center;
@@ -206,11 +230,13 @@
 		border-radius: 2px;
 		background: var(--record);
 	}
+	/* The mark in a fixed slot at the top, the photo count under it: the type beside keeps its width. */
 	.icons {
 		flex: none;
 		display: flex;
-		align-items: center;
-		gap: 6px;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 4px;
 		color: var(--label-2);
 	}
 	.mark {
@@ -219,6 +245,7 @@
 		justify-content: flex-end;
 		gap: 6px;
 		min-width: 20px;
+		min-height: 20px;
 	}
 	/* Wide enough for a count of two digits: the photo icons line up too. */
 	.photos {
@@ -273,11 +300,46 @@
 		position: relative;
 		flex: none;
 		min-height: 0;
+		gap: 0;
 		padding: 0;
-		border-radius: 12px;
+		border-radius: 11px;
 	}
 	[data-at='top'] .row.on {
 		background: none;
+	}
+	[data-at='top'] .n {
+		min-width: var(--touch, 44px);
+		height: var(--touch, 44px);
+	}
+	/* A take with a type: the number and the words on one chip. */
+	[data-at='top'] .row.typed {
+		background: var(--fill-3);
+	}
+	[data-at='top'] .row.typed.on {
+		background: var(--tint-solid);
+		color: var(--on-tint-solid);
+		box-shadow: inset 0 0 0 var(--state-ring) var(--on-tint-solid);
+	}
+	[data-at='top'] .row.typed .n {
+		background: none;
+		box-shadow: none;
+	}
+	[data-at='top'] .type {
+		max-width: 168px;
+		padding-right: 12px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: inherit;
+	}
+	/* No good: grey and struck through, never red. */
+	.n.ng {
+		color: var(--no-good);
+		text-decoration: line-through;
+		text-decoration-thickness: 2px;
+	}
+	.row.on .n.ng {
+		color: var(--on-tint-solid);
 	}
 	[data-at='top'] .row .sq,
 	[data-at='top'] .row .ring {

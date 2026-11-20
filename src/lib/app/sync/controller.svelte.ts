@@ -3,12 +3,16 @@
 // sheet. The shell renders in the browser only, so nothing here runs on the server.
 import { getContext, setContext } from 'svelte';
 import { auth, bearer } from '$lib/auth/session.svelte';
+import { prepareDiagrams } from '$lib/draw/diagramUploads';
+import { flattenDiagram } from '$lib/draw/flatten';
+import { shooting } from '$lib/gear/shooting.svelte';
 import { storageKeyValue } from '$lib/fpt';
 import { browserPage } from '$lib/outbox/foreground';
 import type { Unsynced } from '$lib/outbox/select';
 import { useApp } from '../app.svelte';
 import { createSyncEngine, type SyncEngine, type SyncState } from './engine';
 import { syncStatus, type SyncStatus } from './status';
+import { elsewhereCount } from './waiting';
 
 export interface SyncController extends Omit<SyncEngine, 'state' | 'subscribe' | 'setProject' | 'refresh' | 'dispose'> {
 	readonly state: SyncState;
@@ -30,7 +34,15 @@ export function provideSync(projectId: () => string | undefined, everything: () 
 		bearer,
 		schemaCache: storageKeyValue(localStorage),
 		kv: storageKeyValue(localStorage, 'sg-onset:sync:'),
-		page: browserPage()
+		page: browserPage(),
+		// The Action Menu Item Set Up Fields adds points at this deploy (#106).
+		origin: location.origin,
+		// A setup diagram's image is drawn here, in the browser, when a sync is about to run (#87).
+		beforeDrain: async () => {
+			await prepareDiagrams(app.store, flattenDiagram);
+		},
+		// The camera setups this device shoots with, on the device (#110).
+		shooting: { get: () => shooting.value, leaveOff: (projectId, ids) => shooting.leaveOff(projectId, ids) }
 	});
 	let state = $state.raw<SyncState>(engine.state);
 	engine.subscribe((next) => (state = next));
@@ -46,8 +58,8 @@ export function provideSync(projectId: () => string | undefined, everything: () 
 	$effect(() => () => engine.dispose());
 
 	const counts = $derived(state.scoped ?? everything());
-	const status = $derived(syncStatus({ auth: auth.status, linked: !!state.link, ready: state.ready, online: state.online, unsynced: counts }));
-	const elsewhere = $derived(Math.max(0, (everything()?.entries ?? 0) - (state.scoped?.entries ?? everything()?.entries ?? 0)));
+	const status = $derived(syncStatus({ auth: auth.status, linked: !!state.link, ready: state.ready, online: state.online, unsynced: counts, waiting: state.waiting?.entries }));
+	const elsewhere = $derived(elsewhereCount(everything(), state.scoped, state.waiting));
 
 	const controller: SyncController = {
 		get state() {
@@ -63,7 +75,12 @@ export function provideSync(projectId: () => string | undefined, everything: () 
 		link: (choice) => engine.link(choice),
 		unlink: () => engine.unlink(),
 		check: (createFields) => engine.check(createFields),
-		syncNow: () => engine.syncNow()
+		names: () => engine.names(),
+		saveNames: (naming) => engine.saveNames(naming),
+		syncNow: () => engine.syncNow(),
+		setNotesOnShots: (on) => engine.setNotesOnShots(on),
+		shotCodes: () => engine.shotCodes(),
+		seenChanged: (table, id) => engine.seenChanged(table, id)
 	};
 	setContext(KEY, controller);
 	return controller;

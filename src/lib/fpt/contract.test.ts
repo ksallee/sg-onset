@@ -101,6 +101,39 @@ describe('the runner over the FPT transport', () => {
 		expect(s.port.verified.get('ph1')).toBe(attachment.id);
 	});
 
+	// Kevin, 2026-11-17 (#94): a video goes up as a Version linked to its take; a photo stays an
+	// Attachment. Live, a Version on a custom entity row awaits its finding in sg-groundtruth.
+	it('sends a video of the take as a Version, in parts when large, and verifies it', async () => {
+		const s = setup({ upload: { singlePutMax: 10, partSize: 6 } });
+		s.fpt.partFloor = 6;
+		await shoot(s);
+		await s.add({ kind: 'blob', table: 'still', recordId: 'v1', blobId: 'v1', size: 16, type: 'video/quicktime' }, ['v1']);
+		await s.add(create('still', 'v1', { takeId: 't1', capturedAt: '2026-11-11T09:05:00Z' }), ['t1']);
+		s.port.blobs.set('v1', new Blob([new Uint8Array(16)], { type: 'video/quicktime' }));
+		expect(await s.runner.drain()).toEqual(DONE);
+		const take = takeRow(s);
+		const [version] = s.fpt.live('Version');
+		expect(version.values).toMatchObject({ entity: { type: TAKE, id: take.id }, sg_onset_uuid: 'v1', code: 'Video 2026-11-11T09:05:00Z' });
+		expect(version.values.sg_uploaded_movie).toMatchObject({ type: 'Attachment' });
+		// The photo is the take's only photo; the video is not in that field.
+		expect(stillsOf(s).length).toBe(1);
+		expect(s.port.verified.get('v1')).toBe(version.id);
+	});
+
+	it('sends a set reference in the batch after its slate, linked to it, with its client UUID', async () => {
+		const s = setup();
+		await s.add(create('reference', 'r1', { slateId: 's1', kind: 'lidarScan', name: 'Scan 01', loggedAt: '2026-11-11T09:30:00Z' }), ['s1']);
+		await s.add(create('slate', 's1', { shootDayId: 'd1', slateUID: '42A' }), ['d1']);
+		await s.add(create('shootDay', 'd1', { projectId: 'p1', shootDate: '2026-11-11' }), ['p1']);
+		await s.add(create('project', 'p1', { name: 'Show' }));
+		expect(await s.runner.drain()).toEqual(DONE);
+		// A batch cannot link rows it creates: the slate goes first, the reference after it.
+		expect(batchesOf(s.fpt)).toEqual([['create ShootDay'], ['create Slate'], ['create CustomEntity21']]);
+		const row = s.fpt.byUuid('CustomEntity21', 'r1')!;
+		expect(row.values).toMatchObject({ code: 'Scan 01', sg_kind: 'lidarScan', sg_slate: { type: 'Slate', id: s.fpt.byUuid('Slate', 's1')!.id }, project: { type: 'Project', id: s.projectId } });
+		expect(s.port.remotes.get('r1')).toBe(row.id);
+	});
+
 	it('offline, then drains everything', async () => {
 		const s = setup();
 		s.fpt.online = false;

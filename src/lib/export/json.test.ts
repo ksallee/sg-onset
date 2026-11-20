@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EXPORT_FORMAT, EXPORT_FORMAT_VERSION, exportJson, readExportJson, toExportData } from './json';
-import { alexa, camA, camB, dusk, input, prime32, s42A, still1, still2, t42A1A, venice, zoom } from './testData';
+import { alexa, camA, camB, dusk, input, prime32, ref42AHdri, s42A, sharedLighting, still1, still2, t42A1A, venice, zoom } from './testData';
 
 const now = '2026-11-11T02:00:00.000Z';
 
@@ -20,12 +20,33 @@ describe('toExportData', () => {
 		expect(data.cameras).toEqual([alexa, venice]);
 		expect(data.lenses).toEqual([prime32, zoom]);
 		expect(data.stills.map((s) => s.id)).toEqual(['st2', 'st1', 'st3']);
+		expect(data.references.map((r) => r.id)).toEqual(['r2', 'r1']);
+	});
+
+	it('holds the set references of the slates it holds, by slate then in the order logged, takes or not', () => {
+		expect(toExportData(input(), { now }).references.map((r) => r.name)).toEqual(['Scan 01', 'HDRI_0412', 'Flight 1']);
+		expect(toExportData(input(), { now, filters: { circledOnly: true } }).references.map((r) => r.name)).toEqual(['Scan 01', 'HDRI_0412', 'Flight 1']);
+		expect(toExportData(input(), { now, filters: { shootDayIds: ['d4'] } }).references.map((r) => r.name)).toEqual(['Flight 1']);
+	});
+
+	it('holds a lighting reference once, with the slates of its lighting setup, logged on one of them or not (#107)', () => {
+		expect(toExportData(sharedLighting(), { now }).references.map((r) => r.name)).toEqual(['HDRI_0412', 'Scan 01', 'Flight 1']);
+		// Logged on 42A, day 3: on day 4 it shows on 50, and keeps its slate.
+		const day4 = toExportData(sharedLighting(), { now, filters: { shootDayIds: ['d4'] } }).references;
+		expect(day4).toEqual([ref42AHdri, expect.objectContaining({ name: 'Flight 1' })]);
 	});
 
 	it('keeps a slate with no takes when it is in range', () => {
 		const data = input();
 		data.slates.push({ id: 's11', shootDayId: 'd3', slateUID: '11' });
 		expect(toExportData(data, { now }).slates.map((s) => s.slateUID)).toEqual(['9', '10', '11', '42A', '50']);
+	});
+
+	// #89: an audio note is a still on the device; the file is lossless with it, in capture order.
+	it('lists audio notes with the photos of their take, in the order taken', () => {
+		const note = { id: 'an1', takeId: t42A1A.id, capturedAt: '2026-11-10T22:16:45.000Z' };
+		const data = toExportData({ ...input(), audioNotes: [note] }, { now });
+		expect(data.stills.map((s) => s.id)).toEqual(['st2', 'an1', 'st1', 'st3']);
 	});
 
 	it('leaves out takes the filters drop, and their photos', () => {
@@ -46,12 +67,14 @@ describe('exportJson', () => {
 		expect(Object.keys(take.focusDistance)).toEqual(['m', 'entered']);
 		expect(Object.keys(take.focusDistance.entered)).toEqual(['text', 'system']);
 		const top = Object.keys(JSON.parse(text));
-		expect(top).toEqual(['format', 'formatVersion', 'exportedAt', 'filters', 'project', 'shootDays', 'lightingSetups', 'cameraSetups', 'cameras', 'lenses', 'slates', 'takes', 'stills']);
+		expect(top).toEqual(['format', 'formatVersion', 'exportedAt', 'filters', 'project', 'shootDays', 'lightingSetups', 'cameraSetups', 'cameras', 'lenses', 'slates', 'takes', 'stills', 'references']);
+		const ref = JSON.parse(text).references[0];
+		expect(Object.keys(ref)).toEqual(['id', 'slateId', 'kind', 'name', 'loggedAt']);
 	});
 
 	it('is the same text whatever order the input comes in', () => {
 		const data = input();
-		const shuffled = { ...data, takes: [...data.takes].reverse(), lenses: [...data.lenses].reverse(), stills: [...data.stills].reverse() };
+		const shuffled = { ...data, takes: [...data.takes].reverse(), lenses: [...data.lenses].reverse(), stills: [...data.stills].reverse(), references: [...data.references].reverse() };
 		expect(exportJson(shuffled, { now })).toBe(exportJson(data, { now }));
 	});
 });
@@ -69,6 +92,14 @@ describe('readExportJson', () => {
 		expect(back.data.takes.find((t) => t.id === t42A1A.id)).toEqual(t42A1A);
 		expect(back.data.stills).toContainEqual(still2);
 		expect(back.data.stills).toContainEqual(still1);
+		expect(back.data.references).toContainEqual(ref42AHdri);
+	});
+
+	it('reads a file written before the set references, as holding none', () => {
+		const old = JSON.parse(exportJson(input(), { now }));
+		delete old.references;
+		const back = readExportJson(JSON.stringify(old));
+		expect(back.ok && back.data.references).toEqual([]);
 	});
 
 	it('refuses what is not ours, or newer, or broken', () => {

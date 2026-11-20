@@ -1,13 +1,16 @@
 <script lang="ts">
-	// The dock at rest, beside the rail: the take's timing (what Start and End stamped), then the
-	// marks and the note under the thumb. In a phone-width window: the timing on one band; the
-	// marks sit with the take there.
+	// The dock at rest, beside the rail: the take's timing (what Start and End stamped) and the
+	// picked camera's take before (TakeBefore) in the room above the thumb, then the marks and the
+	// note under the thumb, the note on its lines. In a phone-width window: the timing on one band
+	// and the marks on one row under it, just over the rail, in the thumb's reach; the take before
+	// is under the take's photos there (TakeDetail).
 	import { formatTime } from '$lib/app/format';
 	import { t } from '$lib/i18n/messages';
 	import type { Form } from '$lib/ios/handedness';
 	import { elapsedMs, formatElapsed } from '$lib/take/record';
 	import type { Shoot } from '$lib/take/shoot.svelte';
 	import MarkBar from './MarkBar.svelte';
+	import TakeBefore from './TakeBefore.svelte';
 
 	let { shoot, form, onnote }: { shoot: Shoot; form: Form; onnote: () => void } = $props();
 
@@ -22,18 +25,19 @@
 </script>
 
 <div class="tray" data-form={form}>
-	<section class="timing" class:rolling={shoot.phase === 'rolling'} aria-label={t('timing.title')}>
-		<h2>{t('timing.title')}</h2>
-		<p class="length num">{length}</p>
-		<dl>
-			<div><dt>{t('timing.start')}</dt><dd class="num">{clock(shoot.times.start)}</dd></div>
-			<div><dt>{t('timing.end')}</dt><dd class="num">{clock(shoot.times.end)}</dd></div>
-		</dl>
-	</section>
+	<div class="above">
+		<section class="timing" class:rolling={shoot.phase === 'rolling'} aria-label={t('timing.title')}>
+			<h2>{t('timing.title')}</h2>
+			<p class="length num">{length}</p>
+			<dl>
+				<div><dt>{t('timing.start')}</dt><dd class="num">{clock(shoot.times.start)}</dd></div>
+				<div><dt>{t('timing.end')}</dt><dd class="num">{clock(shoot.times.end)}</dd></div>
+			</dl>
+		</section>
+		{#if form !== 'compact'}<TakeBefore {shoot} />{/if}
+	</div>
 
-	{#if form !== 'compact'}
-		<div class="marks"><MarkBar {shoot} {onnote} /></div>
-	{/if}
+	<div class="marks"><MarkBar {shoot} {onnote} compact={form === 'compact'} /></div>
 </div>
 
 <style>
@@ -89,17 +93,28 @@
 		line-height: 22px;
 		font-weight: 600;
 	}
-	/* The marks at the thumb's height: their middle at 45 % of the dock, under the timing. */
+	/* Above the thumb: the timing, and the take before under it. At least as tall as puts the
+	   marks' top at 45 % of the dock; taller, it moves them down rather than cover them. */
+	.above {
+		flex: none;
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+		min-height: calc(45cqh - 28px);
+	}
 	.marks {
 		flex: none;
-		margin-top: max(0px, calc(45cqh - 60px - 150px));
 	}
 
-	/* A phone-width window: one band. */
+	/* A phone-width window: the timing on one band, the marks under it. */
 	.tray[data-form='compact'] {
 		flex: none;
+		gap: 8px;
 		padding: 8px 16px;
 		overflow: hidden;
+	}
+	[data-form='compact'] .above {
+		min-height: 0;
 	}
 	[data-form='compact'] .timing {
 		display: flex;
@@ -140,6 +155,13 @@
 		[data-form='compact'] dl div {
 			flex-direction: column;
 			gap: 0;
+		}
+	}
+	/* Last, so it wins. A short phone-width window (200 % zoom on an iPad on its side): the marks
+	   only, the elapsed time by the take (TakeDetail), so the numbers keep some room. */
+	@media (max-height: 560px) {
+		[data-form='compact'] .timing {
+			display: none;
 		}
 	}
 </style>

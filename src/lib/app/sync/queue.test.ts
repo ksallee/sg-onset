@@ -95,6 +95,17 @@ describe('conflictLines', () => {
 			{ key: 'focalLengthEnd', label: tk('field.end', { field: tk('field.take.focalLength') }), mine: '75 mm', theirs: '85 mm' }
 		]);
 	});
+	// Templates sync since #110: two devices may change one template, its name or its values.
+	it('shows a template’s name, and its values field by field', () => {
+		const lines = conflictLines('template', [
+			{ key: 'name', base: 'Day ext', local: 'Day ext A', server: 'Day ext B' },
+			{ key: 'values', base: {}, local: { tStop: 4, sceneNumber: '42' }, server: {} }
+		], 'metric');
+		expect(lines).toEqual([
+			{ key: 'name', label: tk('sync.conflict.template.name'), mine: 'Day ext A', theirs: 'Day ext B' },
+			{ key: 'values', label: tk('sync.conflict.template.values'), mine: `${tk('field.take.tStop')} 4, ${tk('field.slate.sceneNumber')} 42`, theirs: tk('sync.conflict.empty') }
+		]);
+	});
 	it('shows a key the catalogue does not know as it is', () => {
 		expect(conflictLines('take', [{ key: 'mystery', base: 1, local: 2, server: 3 }], 'metric')).toEqual([{ key: 'mystery', label: 'mystery', mine: '2', theirs: '3' }]);
 	});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dayReport } from '$lib/export/dayReport';
-import { input } from '$lib/export/testData';
+import { input, sharedLighting } from '$lib/export/testData';
 import { daySummary, formatDuration, runningTime } from './summary';
 
 describe('runningTime', () => {
@@ -31,7 +31,12 @@ describe('daySummary', () => {
 	const s = daySummary(report);
 
 	it('counts the day', () => {
-		expect(s).toMatchObject({ slates: 3, takes: 7, circled: 2, noGood: 1, photos: 3 });
+		expect(s).toMatchObject({ slates: 3, takes: 7, circled: 2, noGood: 1, media: { photo: 3 } });
+	});
+	// Kevin, 2026-11-17 (#89): each kind counted as itself.
+	it('counts photos, videos and audio notes apart', () => {
+		const data = { ...input(), videos: ['st1'], audioNotes: [{ id: 'an1', takeId: 't42A2A', capturedAt: '2026-11-10T22:30:00.000Z' }] };
+		expect(daySummary(dayReport(data, 'd3')!).media).toEqual({ photo: 2, video: 1, audio: 1 });
 	});
 	it('gives the running time of the takes that ended', () => {
 		// 42A: 22:15:30–22:16:10 (A), 22:20:00–22:21:00 (A, B), 22:40–22:41 (A); 10: 23:00–23:01.
@@ -51,8 +56,25 @@ describe('daySummary', () => {
 		]);
 		expect(s.todo[1]).toMatchObject({ takeId: 't42A1B', slateId: '6f1c0d2e-0000-4000-8000-000000000042' });
 	});
+	it('counts the set references of the day by kind', () => {
+		expect(s.references).toEqual([
+			{ kind: 'hdri360', n: 1 },
+			{ kind: 'lidarScan', n: 1 }
+		]);
+		expect(daySummary(dayReport(input(), 'd4')!).references).toEqual([{ kind: 'Drone survey', n: 1 }]);
+	});
+	it('counts a lighting reference once, however many slates of the day show it (#107)', () => {
+		expect(daySummary(dayReport(sharedLighting(), 'd3')!).references).toEqual([
+			{ kind: 'hdri360', n: 1 },
+			{ kind: 'lidarScan', n: 1 }
+		]);
+		expect(daySummary(dayReport(sharedLighting(), 'd4')!).references).toEqual([
+			{ kind: 'hdri360', n: 1 },
+			{ kind: 'Drone survey', n: 1 }
+		]);
+	});
 	it('says when the day has no takes', () => {
-		const empty = daySummary({ ...report, slates: [], totals: { slates: 0, takes: 0, circled: 0, noGood: 0, photos: 0 }, warnings: [] });
-		expect(empty).toMatchObject({ takes: 0, runningMs: 0, cameras: [], todo: [] });
+		const empty = daySummary({ ...report, slates: [], totals: { slates: 0, takes: 0, circled: 0, noGood: 0, media: {} }, warnings: [] });
+		expect(empty).toMatchObject({ takes: 0, runningMs: 0, cameras: [], todo: [], references: [] });
 	});
 });

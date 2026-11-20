@@ -12,7 +12,7 @@
 
 import { codeName, reverseField, slugOf } from './names';
 import type { RawField, RawFields, SchemaTypes } from './schema';
-import { completeFields, siteTypes, SITE_URL, stockFields, TYPES } from './testkit';
+import { completeFields, noteFields, projectFields, rawField, siteTypes, SITE_URL, stockFields, TYPES, versionFields } from './testkit';
 
 type Ref = { type: string; id: number };
 export type FakeRow = { type: string; id: number; values: Record<string, unknown>; retired?: boolean };
@@ -62,7 +62,41 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 		attachment_links: { name: { value: 'Links' }, data_type: { value: 'multi_entity' }, editable: { value: false } },
 		this_file: { name: { value: 'File' }, data_type: { value: 'url' }, editable: { value: false } }
 	};
-	fields.Project = { name: { name: { value: 'Project Name' }, data_type: { value: 'text' } } };
+	// A bare site lacks our two lists on Project (#110).
+	fields.Project = projectFields(options.fields !== 'bare');
+	// A take's videos go up as Versions (entity_types/Version.md). A bare site lacks our client UUID there.
+	fields.Version = versionFields(options.fields !== 'bare');
+	// Notes on Shots (#97): a Note, its Replies, a Shot's Tasks and who they are assigned to
+	// (entity_types/Note.md, Reply.md, Task.md; findings/147, 150). A bare site lacks our two Note fields.
+	fields.Note = noteFields(options.fields !== 'bare');
+	fields.Reply = { entity: rawField('entity', 'Link', { validTypes: ['Note', 'Version'] }), content: rawField('text', 'Reply Text') };
+	fields.Task = {
+		content: rawField('text', 'Task Name'),
+		project: rawField('entity', 'Project', { validTypes: ['Project'] }),
+		entity: rawField('entity', 'Link', { validTypes: ['Asset', 'Shot', 'Sequence'] }),
+		task_assignees: rawField('multi_entity', 'Assigned To', { validTypes: ['Group', 'HumanUser'] })
+	};
+	fields.HumanUser = { name: rawField('text', 'Name') };
+	fields.Group = { code: rawField('text', 'Group Name'), users: rawField('multi_entity', 'Users', { validTypes: ['HumanUser'] }) };
+	// The Action Menu Item of #106 (findings/156_action_menu_item.md): a site type with no project
+	// field. An Artist may not create one: `forbidden.add('create:ActionMenuItem')`.
+	types.ActionMenuItem = { name: { value: 'Action Menu Item' } };
+	fields.ActionMenuItem = {
+		title: rawField('text', 'Title'),
+		url: rawField('text', 'URL'),
+		entity_type: rawField('entity_type', 'Entity Type'),
+		projects: rawField('multi_entity', 'Projects', { validTypes: ['Project'] }),
+		selection_required: rawField('checkbox', 'Selection Required')
+	};
+	// Shot: `code` is "Shot Code", not unique; `project` is required (findings/entity_types/Shot.md).
+	fields.Shot = {
+		code: { name: { value: 'Shot Code' }, data_type: { value: 'text' } },
+		project: { name: { value: 'Project' }, data_type: { value: 'entity' }, properties: { valid_types: { value: ['Project'] } } }
+	};
+	// The field our Shots link added, on a site where the link is there (findings/142).
+	if (options.fields !== 'bare') {
+		fields.Shot.slate_sg_shots_slates = { name: { value: 'Slates <-> Shots' }, data_type: { value: 'multi_entity' }, editable: { value: true }, properties: { valid_types: { value: ['Slate'] } } };
+	}
 
 	const rows = new Map<string, FakeRow>();
 	/** Stored files, by key: the bytes each part holds. */
@@ -169,10 +203,18 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 		return row;
 	};
 	const isRef = (v: unknown): v is Ref => v !== null && typeof v === 'object' && typeof (v as Ref).type === 'string' && typeof (v as Ref).id === 'number';
-	const legal = (type: string, name: string, ref: Ref) => {
+	/**
+	 * A write naming a deleted row is refused as one naming an id that never existed: 400 code 104,
+	 * nothing applied, the create's words wrapped (findings/161).
+	 */
+	const legal = (type: string, name: string, ref: Ref, verb: 'create' | 'update') => {
 		const target = rows.get(`${ref.type}:${ref.id}`);
-		if (!target || target.retired) throw new Refusal(400, `Invalid field value, update failed [5 - Update failed for [${type}.${name}]: Value is not legal.]`);
+		if (target && !target.retired) return;
+		const said = `Update failed for [${type}.${name}]: Value is not legal.`;
+		throw new Refusal(400, verb === 'create' ? `Invalid field value, update failed [5 - ${said}]` : said, 104);
 	};
+	/** A link reads as its target while the target is live; a deleted one reads as none (findings/161). */
+	const liveRef = (value: unknown): Ref | undefined => (isRef(value) && rows.get(`${value.type}:${value.id}`) && !rows.get(`${value.type}:${value.id}`)!.retired ? value : undefined);
 
 	/** A value as the field stores it, or the refusal the data type answers (findings/field_types). */
 	function stored(type: string, name: string, value: unknown, row: FakeRow | undefined, verb: 'create' | 'update'): unknown {
@@ -209,6 +251,12 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			case 'checkbox':
 				if (typeof value !== 'boolean') throw got('[String, FalseClass, TrueClass]');
 				return value;
+			case 'entity_type':
+				// A bare type name, case-sensitive, from the built-in table: any CustomEntityNN slot passes (field_types/entity_type.md).
+				if (value === null || value === '') return null;
+				if (typeof value !== 'string') throw got('[String, NilClass]');
+				if (!/^(?:Shot|Asset|Sequence|Version|Task|CustomEntity\d{2})$/.test(value)) throw new Refusal(400, `Update failed for [${type}.${name}]: '${value}' is not a valid entity type.`);
+				return value;
 			case 'date':
 				if (value === null) return null;
 				if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Refusal(400, `Invalid date format: ${String(value)}. Correct format is: 2011-01-21`);
@@ -218,14 +266,14 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			case 'entity': {
 				if (value === null) return null;
 				if (!isRef(value)) throw got('[Hash, NilClass]');
-				legal(type, name, value);
+				legal(type, name, value, verb);
 				return { type: value.type, id: value.id };
 			}
 			case 'multi_entity': {
 				const mode = value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as { multi_entity_update_mode?: string }).multi_entity_update_mode : 'set';
 				const list = Array.isArray(value) ? value : (value as { value?: unknown } | null)?.value;
 				if (!Array.isArray(list) || !list.every(isRef)) throw got('[Array]');
-				list.forEach((ref) => legal(type, name, ref));
+				list.forEach((ref) => legal(type, name, ref, verb));
 				// A bare list replaces the whole set; a mode in the body adds or removes in place (recipes/009).
 				const now = mode === 'add' || mode === 'remove' ? ((row?.values[name] as Ref[] | undefined) ?? []) : [];
 				const same = (a: Ref, b: Ref) => a.type === b.type && a.id === b.id;
@@ -280,8 +328,8 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			const [head, via, leaf] = name.split('.');
 			if (leaf) {
 				// A dotted path reads through a single link, typed (field_types/entity.md).
-				const link = row.values[head] as Ref | null | undefined;
-				const target = isRef(link) && link.type === via ? rows.get(`${link.type}:${link.id}`) : undefined;
+				const link = liveRef(row.values[head]);
+				const target = link && link.type === via ? rows.get(`${link.type}:${link.id}`) : undefined;
 				attributes[name] = target?.values[leaf] ?? null;
 				continue;
 			}
@@ -289,13 +337,18 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			if (!field && name !== 'created_at') continue;
 			const value = row.values[name] ?? null;
 			const dataType = field?.data_type.value;
-			if (dataType === 'entity') relationships[name] = { data: isRef(value) ? { ...value, name: 'x' } : null, links: {} };
+			if (dataType === 'entity') relationships[name] = { data: liveRef(value) ? { ...(value as Ref), name: 'x' } : null, links: {} };
 			else if (dataType === 'multi_entity') {
 				const live = ((value as Ref[] | null) ?? []).filter((r) => rows.get(`${r.type}:${r.id}`) && !rows.get(`${r.type}:${r.id}`)!.retired);
-				relationships[name] = { data: live.map((r) => ({ ...r, name: 'x' })), links: {} };
+				// `name` is the target's display name: a Shot's is its code (findings/060, entity_types/Shot.md).
+				relationships[name] = { data: live.map((r) => ({ ...r, name: String(rows.get(`${r.type}:${r.id}`)!.values.code ?? 'x') })), links: {} };
 			} else if (dataType === 'float') attributes[name] = value === null ? null : Number.isInteger(value) ? (value as number).toFixed(1) : String(value);
 			else if (dataType === 'checkbox') attributes[name] = value === true;
-			else if (dataType === 'url') attributes[name] = row.values.__object ? thisFile(row) : null;
+			else if (dataType === 'url') {
+				// An Attachment's own file, or a field that holds one: Version.sg_uploaded_movie (findings/022).
+				const held = isRef(value) ? rows.get(`${value.type}:${value.id}`) : undefined;
+				attributes[name] = row.values.__object ? thisFile(row) : held?.values.__object ? thisFile(held) : null;
+			}
 			else attributes[name] = value;
 		}
 		return { type: row.type, attributes, relationships, id: row.id, links: { self: `/api/v1/entity/${slugOf(row.type)}/${row.id}` } };
@@ -306,10 +359,13 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 			const [path, relation, value] = filter as [string, string, unknown];
 			const have = path === 'id' ? row.id : row.values[path];
 			const text = (v: unknown) => String(v ?? '').toLowerCase();
-			const sameRef = (a: unknown, b: unknown) => isRef(a) && isRef(b) && a.type === b.type && a.id === b.id;
+			// A link to a deleted row matches nothing (findings/161).
+			const sameRef = (a: unknown, b: unknown) => isRef(a) && isRef(b) && a.type === b.type && a.id === b.id && liveRef(a) !== undefined;
 			const hit = (v: unknown) => (Array.isArray(have) ? have.some((h) => sameRef(h, v)) : isRef(have) || isRef(v) ? sameRef(have, v) : typeof have === 'number' ? have === v : text(have) === text(v));
 			// A text filter is case-blind (field_types/text.md).
 			if (relation === 'is') return hit(value);
+			// `is_not` null: the rows that hold a value; `is_not` a value: the others, null ones included (field_types/text.md).
+			if (relation === 'is_not') return value === null || value === '' ? text(have) !== '' : !hit(value);
 			if (relation === 'in') return (Array.isArray(value) ? value : [value]).some(hit);
 			if (relation === 'starts_with') return text(have).startsWith(text(value));
 			throw new Refusal(400, `API read() ${row.type}.${path}'s data type doesn't support '${relation}' 'relation'`);
@@ -386,6 +442,14 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 				if (!types[type]) return refuse(404, 'Not Found', 103, { detail: `Entity type '${type}' does not exist.` });
 				if (parts[2] === 'fields' && parts.length === 3 && r.method === 'GET') return json(200, { data: fields[type] ?? {} });
 				if (parts[2] === 'fields' && parts.length === 3 && r.method === 'POST') return createField(type, r);
+				// One field: 404 code 103 when the site has none (findings/119, 157). With `project_id`,
+				// `editable` is the caller's: false where this account may not update the type (findings/159).
+				if (parts[2] === 'fields' && parts.length === 4 && r.method === 'GET') {
+					const field = fields[type]?.[parts[3]];
+					if (!field) return refuse(404, 'Not Found', 103, { detail: `Field '${type}.${parts[3]}' does not exist.` });
+					const mine = r.query.get('project_id') && fpt.forbidden.has(`update:${type}`) ? { editable: { value: false, editable: false } } : {};
+					return json(200, { data: { ...field, ...mine } });
+				}
 			}
 
 			if (parts[0] === 'entity' && parts[1] === '_batch' && r.method === 'POST') {
@@ -404,13 +468,29 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 				// The vendor type is required; application/json is a 415 (endpoints/post_entity_type_search.md).
 				if (!VENDOR.includes(contentType)) return refuse(415, `Unsupported Content-Type '${contentType}'`);
 				const type = typeOfSlug(parts[1]);
-				const body = r.body as { filters?: unknown; fields?: string | string[]; page?: { size?: number } };
+				const body = r.body as { filters?: unknown; fields?: string | string[]; page?: { size?: number; number?: number } };
 				const asked = typeof body.fields === 'string' ? body.fields.split(',') : (body.fields ?? []);
-				const found = fpt.live(type).filter((row) => matches(row, body.filters ?? []));
-				return json(200, { data: found.slice(0, body.page?.size ?? 500).map((row) => shown(row, asked)), links: {} });
+				// Id ascending, page by page (findings/026_result_order.md, 006_pagination.md).
+				const found = fpt.live(type).filter((row) => matches(row, body.filters ?? [])).sort((a, b) => a.id - b.id);
+				const size = body.page?.size ?? 500;
+				const from = ((body.page?.number ?? 1) - 1) * size;
+				return json(200, { data: found.slice(from, from + size).map((row) => shown(row, asked)), links: {} });
 			}
 
 			if (parts[0] === 'entity' && parts.includes('_upload')) return upload(parts, r, contentType);
+
+			if (parts[0] === 'entity' && parts.length === 2 && r.method === 'POST') {
+				// One create: plain JSON, 201 with the row (entity_types/Note.md, Reply.md). A project-scoped
+				// type refuses a create without `project`, which a batch skips (recipes/002).
+				if (contentType !== 'application/json') return refuse(415, `Unsupported Content-Type '${contentType}'`);
+				const type = typeOfSlug(parts[1]);
+				const data = (r.body ?? {}) as Record<string, unknown>;
+				if (fieldOf(type, 'project') && data.project === undefined) return refuse(400, `API create() missing 'project' attribute: ${JSON.stringify(data)}`);
+				const staged = new Map(rows);
+				const answer = apply({ request_type: 'create', entity: type, data }, staged, []);
+				commit(staged);
+				return json(201, answer);
+			}
 
 			if (parts[0] === 'entity' && parts.length === 3) {
 				const type = typeOfSlug(parts[1]);
@@ -557,7 +637,17 @@ export function fakeFpt(options: { fields?: 'complete' | 'bare' } = {}) {
 				description: null,
 				__object: found.key
 			});
-			if (found.field) {
+			if (found.field && fieldOf(found.type, found.field)?.data_type.value === 'url') {
+				// A url field holds one file: a new upload replaces it (findings/022). On a Version the
+				// server transcodes it and adds two Attachments named after it (findings/123).
+				owner.values[found.field] = { type: 'Attachment', id: attachment };
+				if (found.type === 'Version') {
+					const stem = found.filename.replace(/\.[^.]+$/, '');
+					for (const name of [`a1b2c3_${stem}.mp4`, `a1b2c3_${stem}_2Dlod.jpeg`]) {
+						fpt.seed('Attachment', { filename: name, project: owner.values.project ?? null, attachment_links: [{ type: 'Version', id: found.id }], display_name: name, description: null });
+					}
+				}
+			} else if (found.field) {
 				// A second upload to the field adds (findings/134).
 				const held = (owner.values[found.field] as Ref[] | undefined) ?? [];
 				owner.values[found.field] = [...held, { type: 'Attachment', id: attachment }];

@@ -14,10 +14,10 @@ describe('fill', () => {
 
 describe('t', () => {
 	it('reads the catalogue', () => {
-		expect(t('rail.record')).toBe(en['rail.record']);
+		expect(t('rail.start')).toBe(en['rail.start']);
 	});
 	it('fills values', () => {
-		expect(t('undo.filed', { take: '3' })).toContain('3');
+		expect(t('take.edit.end', { take: '3' })).toContain('3');
 	});
 	it('has no empty message', () => {
 		expect(Object.values(en).every((m) => m.trim().length > 0)).toBe(true);
@@ -37,8 +37,8 @@ describe('tk', () => {
 });
 
 describe('the catalogue by area', () => {
-	it('has the twelve areas', () => {
-		expect(Object.keys(AREAS).sort()).toEqual(['auth', 'common', 'fields', 'gear', 'import', 'settings', 'slates', 'sync', 'take', 'templates', 'validation', 'wrap']);
+	it('has the sixteen areas', () => {
+		expect(Object.keys(AREAS).sort()).toEqual(['auth', 'clips', 'common', 'draw', 'fields', 'gear', 'import', 'references', 'send', 'settings', 'slates', 'sync', 'take', 'templates', 'validation', 'wrap']);
 	});
 	it('holds each key in one area only', () => {
 		const seen = new Map<string, string>();

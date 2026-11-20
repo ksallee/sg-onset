@@ -13,6 +13,9 @@ small issue and PR, not part of a feature.
 | Gear, camera setups, CSV import | `src/routes/(app)/gear/**` | `src/lib/gear/**` | `src/lib/components/gear/**` | `src/lib/i18n/en/gear.ts`, `src/lib/i18n/en/import.ts` |
 | Slates, templates, bulk edit | `src/routes/(app)/slates/**`, `src/routes/(app)/templates/**` | `src/lib/slates/**`, `src/lib/templates/**` | `src/lib/components/slates/**`, `src/lib/components/templates/**` | `src/lib/i18n/en/slates.ts`, `src/lib/i18n/en/templates.ts` |
 | Wrap: day summary, export, hand-over | `src/routes/(app)/wrap/**` | `src/lib/wrap/**` | `src/lib/components/wrap/**` | `src/lib/i18n/en/wrap.ts` |
+| Drawing: on photos (#86), setup diagrams (#87) | | `src/lib/draw/**` | `src/lib/components/draw/**` | `src/lib/i18n/en/draw.ts` |
+| Clip import from the DIT (#109) | `src/routes/(app)/slates/import/**` | `src/lib/clips/**` | `src/lib/components/clips/**` | `src/lib/i18n/en/clips.ts` |
+| Send set data to artists (#106) | `src/routes/send-set-data/**`, `src/routes/action/**` | `src/lib/send/**` | | `src/lib/i18n/en/send.ts` |
 | Shell (shared, no feature edits) | `src/routes/+layout.svelte`, `src/routes/+page.svelte`, `src/routes/(app)/+layout.svelte`, `src/routes/(app)/settings/**`, `src/routes/welcome/**`, `src/routes/(app)/sign-in/**`, `src/routes/auth/**` | `src/lib/app/**`, `src/lib/settings/**`, `src/lib/i18n/*.ts`, `src/lib/ios/**`, `src/lib/pwa/**`, `src/lib/model/**`, `src/lib/store/**`, `src/lib/outbox/**`, `src/lib/auth/**` | `src/lib/components/app/**`, `src/lib/components/ios/**` | `src/lib/i18n/en/common.ts`, `settings.ts`, `auth.ts`, `fields.ts`, `validation.ts`, `index.ts` |
 
 Also shared: `src/app.css`, `src/app.html`, `package.json`, `docs/**`. A directory named above that

@@ -12,7 +12,8 @@ import { TransportError } from '$lib/outbox/transport';
 import type { KeyValue } from './cache';
 import { bearerRefusal, failureOf, isSessionRefusal, networkKind, statusKind, type ApiFailure } from './errors';
 import { renewDue } from './token';
-import type { CreateInput, RawFields, SchemaTypes } from './schema';
+import type { Naming } from './naming';
+import type { CreateInput, RawField, RawFields, SchemaTypes } from './schema';
 
 export type FptOptions = {
 	/** The site's origin, `https://<host>`. */
@@ -30,6 +31,14 @@ export type FptOptions = {
 	schemaCache: KeyValue;
 	/** Is there a network. Default: `navigator.onLine`. Decides what a request with no answer means. */
 	online?: () => boolean;
+	/**
+	 * The names an admin picked (#111, naming.ts): what Set Up Fields looks for and creates. A schema
+	 * kept on the device under other names is read again. Default: the names saved on the project
+	 * (`projectId`), else the names the app always used, or, for one kept, the names it was read with.
+	 */
+	naming?: Naming;
+	/** The Flow PT project whose saved names apply (#111): `Project.sg_onset_naming`. */
+	projectId?: number;
 };
 
 /** The site answered, and the answer is a refusal. */
@@ -170,6 +179,21 @@ export function createApi(options: FptOptions) {
 		},
 
 		/**
+		 * `GET /schema/<Type>/fields/<field>`, or undefined when the site has no such field: 404 code
+		 * 103 (corpus findings/119, 157). With `projectId`, `editable` is the caller's: false for an
+		 * Artist on a Project field (findings/159).
+		 */
+		async field(entityType: string, name: string, projectId?: number, signal?: AbortSignal): Promise<RawField | undefined> {
+			try {
+				const body = (await link('GET', `/api/v1/schema/${entityType}/fields/${name}`, 'read', signal, undefined, projectId !== undefined ? { project_id: String(projectId) } : undefined)) as { data?: RawField };
+				return body?.data;
+			} catch (error) {
+				if (error instanceof ApiRefusal && error.failure.status === 404) return undefined;
+				throw error;
+			}
+		},
+
+		/**
 		 * `POST /schema/<Type>/fields`. Answers the name the server gave the field, which is only in
 		 * `links.self` (corpus endpoints/post_schema_type_fields.md). A 500 is passed on as a refusal,
 		 * to be read: a person who may not create fields gets 500 code 105, and retrying it would
@@ -188,9 +212,34 @@ export function createApi(options: FptOptions) {
 			return found.data;
 		},
 
+		/**
+		 * Every page of a `_search`, 500 rows a page, up to `pages` pages. Rows come id ascending and a
+		 * walk by page misses none and repeats none (corpus findings/026_result_order.md). Paging stops
+		 * on a short page, never on `links.next`, which is sent on every page (findings/006_pagination.md).
+		 */
+		async searchAll(entityType: string, filters: Filter, fields: string[], signal?: AbortSignal, pages = 40): Promise<EntityRow[]> {
+			const group = Array.isArray(filters) ? { logical_operator: 'and' as const, conditions: [filters] } : filters;
+			const out: EntityRow[] = [];
+			for (let number = 1; number <= pages; number++) {
+				const found = await run(() => rest('read', signal).search(entityType, { filters: group as never, fields, page: { size: 500, number } }));
+				out.push(...found.data);
+				if (!found.hasMore) break;
+			}
+			return out;
+		},
+
 		/** `POST /entity/_batch`: all or nothing, results in request order (corpus recipes/002_batch.md). */
 		batch(requests: BatchRequest[], signal?: AbortSignal): Promise<BatchResult[]> {
 			return run(() => rest('write', signal).batch(requests));
+		},
+
+		/**
+		 * `POST /entity/<type>`: one create, plain JSON, the row back. Unlike a create in a `_batch`, it
+		 * is validated: a project-scoped type without `project` is refused (entity_types/Note.md,
+		 * corpus reports/001). A Note and its Reply are made so, as recipes/026 does.
+		 */
+		create(entityType: string, data: Record<string, unknown>, signal?: AbortSignal): Promise<EntityRow> {
+			return run(() => rest('write', signal).create(entityType, data));
 		},
 
 		/** `PUT /entity/<type>/<id>`. */

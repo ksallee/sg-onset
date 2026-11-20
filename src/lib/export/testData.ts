@@ -1,7 +1,8 @@
 // A small shoot, as the store returns it, for the export tests. Two shoot days, three slates, two
-// camera setups (A on a prime, B on a zoom), photos on two takes. Test data only.
+// camera setups (A on a prime, B on a zoom), photos on two takes, set references on two slates.
+// Test data only.
 
-import type { Camera, CameraSetup, Lens, LightingSetup, Project, ShootDay, Slate, Still, Take } from '$lib/model/types';
+import type { Camera, CameraSetup, Lens, LightingSetup, Project, Reference, ShootDay, Slate, Still, Take } from '$lib/model/types';
 import type { ExportInput } from './selection';
 
 export const project: Project = { id: 'p1', name: 'Night Train' };
@@ -90,6 +91,15 @@ export const still1: Still = { id: 'st1', takeId: t42A1A.id, capturedAt: '2026-1
 export const still2: Still = { id: 'st2', takeId: t42A1A.id, capturedAt: '2026-11-10T22:16:30.000Z', caption: 'Ball pass' };
 export const still3: Still = { id: 'st3', takeId: 't42A2A', capturedAt: '2026-11-10T22:22:00.000Z' };
 
+/** What else was captured for 42A, on other devices: an HDRI with every detail, a scan logged first. */
+export const ref42AHdri: Reference = { id: 'r1', slateId: s42A.id, kind: 'hdri360', name: 'HDRI_0412', device: 'Ricoh Theta Z1', cardOrRoll: 'A003', count: 7, notes: 'Noon sun', loggedAt: '2026-11-10T22:30:00.000Z' };
+export const ref42AScan: Reference = { id: 'r2', slateId: s42A.id, kind: 'lidarScan', name: 'Scan 01', loggedAt: '2026-11-10T22:10:00.000Z' };
+/** Day 4, a kind the project added. */
+export const ref50: Reference = { id: 'r3', slateId: 's50', kind: 'Drone survey', name: 'Flight 1', loggedAt: '2026-11-11T10:00:00.000Z' };
+
+/** The kind labels as the app shows them, for the exports that write words. */
+export const kindLabel = (kind: string) => ({ hdri360: 'HDRI 360', lidarScan: 'Lidar scan' })[kind] ?? kind;
+
 export function input(): ExportInput {
 	return {
 		project,
@@ -100,6 +110,16 @@ export function input(): ExportInput {
 		lenses: [zoom, prime32],
 		slates: [s50, s10, s42A, s9],
 		takes: [t50, t10, t9, t42A2B, t42A10A, t42A2A, t42A1B, t42A1A],
-		stills: [still3, still1, still2]
+		stills: [still3, still1, still2],
+		references: [ref50, ref42AHdri, ref42AScan]
 	};
+}
+
+/**
+ * The same shoot with 10 (day 3) and 50 (day 4) on 42A's lighting setup (#107): 42A's HDRI shows
+ * on 42A, 10 and 50; its lidar scan on 42A alone.
+ */
+export function sharedLighting(): ExportInput {
+	const all = input();
+	return { ...all, slates: all.slates.map((s) => (s.id === s10.id || s.id === s50.id ? { ...s, lightingSetupId: dusk.id } : s)) };
 }

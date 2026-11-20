@@ -1,11 +1,13 @@
 <script lang="ts">
-	// The day at a glance: six counts in a card, the cameras used, and when the day was last handed
-	// over. The numbers come from wrap/summary.ts.
+	// The day at a glance: six counts in a card, the cameras used, the references logged by kind,
+	// and when the day was last handed over. Videos and audio notes get a count of their own when
+	// the day has some (#89). The numbers come from wrap/summary.ts.
 	import { Camera } from '@lucide/svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Tile from '$lib/components/ios/Tile.svelte';
 	import { t, tk } from '$lib/i18n/messages';
+	import { kindLabel } from '$lib/references/kinds';
 	import type { DaySummary } from '$lib/wrap/summary';
 	import { formatDuration } from '$lib/wrap/summary';
 	import { plural } from '$lib/wrap/make';
@@ -17,7 +19,9 @@
 		{ id: 'takes', label: t('wrap.summary.takes'), value: String(summary.takes) },
 		{ id: 'circled', label: t('wrap.summary.circled'), value: String(summary.circled) },
 		{ id: 'noGood', label: t('wrap.summary.noGood'), value: String(summary.noGood) },
-		{ id: 'photos', label: t('wrap.summary.photos'), value: String(summary.photos) },
+		{ id: 'photos', label: t('wrap.summary.photos'), value: String(summary.media.photo ?? 0) },
+		...(summary.media.video ? [{ id: 'videos', label: t('wrap.summary.videos'), value: String(summary.media.video) }] : []),
+		...(summary.media.audio ? [{ id: 'audio', label: t('wrap.summary.audio'), value: String(summary.media.audio) }] : []),
 		{ id: 'running', label: t('wrap.summary.running'), value: formatDuration(summary.runningMs) }
 	]);
 </script>
@@ -39,6 +43,14 @@
 			<Row title={t('wrap.summary.camera', { letter: c.letter })} subtitle={c.body} detail={tk(plural('wrap.summary.cameraTakes', c.takes), { n: c.takes })}>
 				{#snippet leading()}<Tile icon={Camera} color="var(--tint)" />{/snippet}
 			</Row>
+		{/each}
+	</Section>
+{/if}
+
+{#if summary.references.length}
+	<Section header={t('wrap.summary.references')}>
+		{#each summary.references as r (r.kind)}
+			<Row title={kindLabel(r.kind, tk)} detail={String(r.n)} />
 		{/each}
 	</Section>
 {/if}

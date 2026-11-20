@@ -1,8 +1,11 @@
-// The day at a glance, for wrap: counts, the time the cameras ran, the cameras used, and what is
-// still missing as a to-do list of takes. From the day report (`$lib/export/dayReport`). Pure.
+// The day at a glance, for wrap: counts, the time the cameras ran, the cameras used, the set
+// references by kind, and what is still missing as a to-do list of takes. From the day report
+// (`$lib/export/dayReport`). Pure.
 
 import type { DayReport, DayReportWarning } from '$lib/export/dayReport';
 import type { Take } from '$lib/model/types';
+import { countByKind } from '$lib/references/log';
+import type { MediaCounts } from './mediaCount';
 
 export type TodoItem = {
 	takeId: string;
@@ -20,10 +23,13 @@ export type DaySummary = {
 	takes: number;
 	circled: number;
 	noGood: number;
-	photos: number;
+	/** Photos, videos and audio notes, each counted as itself. */
+	media: MediaCounts;
 	/** The time any camera ran, overlaps counted once. Takes with no end are left out. */
 	runningMs: number;
 	cameras: CameraUse[];
+	/** The set references the day's slates show, how many of each kind, each once (#107). */
+	references: { kind: string; n: number }[];
 	todo: TodoItem[];
 };
 
@@ -52,7 +58,8 @@ export function formatDuration(ms: number): string {
 	return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')} min`;
 }
 
-export function daySummary(report: DayReport): DaySummary {
+/** `projectKinds`: the project's own kinds, for their order among the built-in ones. */
+export function daySummary(report: DayReport, projectKinds: readonly string[] = []): DaySummary {
 	const rows = report.slates.flatMap((s) => s.takes);
 	const cameras = new Map<string, CameraUse>();
 	for (const row of rows) {
@@ -73,9 +80,10 @@ export function daySummary(report: DayReport): DaySummary {
 		takes: report.totals.takes,
 		circled: report.totals.circled,
 		noGood: report.totals.noGood,
-		photos: report.totals.photos,
+		media: report.totals.media,
 		runningMs: runningTime(rows.map((r) => r.take)),
 		cameras: [...cameras.values()].sort((a, b) => a.letter.localeCompare(b.letter, 'en', { numeric: true })),
+		references: countByKind([...new Set(report.slates.flatMap((s) => s.references))], projectKinds),
 		todo
 	};
 }

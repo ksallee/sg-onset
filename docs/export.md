@@ -1,6 +1,7 @@
 # Export
 
-What a data wrangler hands over at wrap. Four files and the photos, from the records on the
+What a data wrangler hands over at wrap. Four files, and a folder per slate with its photos, its
+manifest and an empty folder for each reference shot on another device, from the records on the
 device. The code is `src/lib/export/`. Every module is pure: records and options in, text out. The
 caller passes the time, the time zone and the labels.
 
@@ -8,7 +9,7 @@ caller passes the time, the time zone and the labels.
 
 | module | what it does |
 |---|---|
-| `selection.ts` | `flatten`: one row per take (one camera's take) with the slate, day, lighting setup, camera setup, camera and lens on it. Filters, order. |
+| `selection.ts` | `flatten`: one row per take (one camera's take) with the slate, day, lighting setup, camera setup, camera, lens and the set references the slate shows on it. Filters, order. |
 | `format.ts` | Numbers, signed angles, feet and inches, metres, CRIF dates and times. |
 | `timecode.ts` | Timecode to frames and back. Drop frame at 29.97 and 59.94. |
 | `uuid.ts` | SHA-1 and name-based UUIDs (version 5), for CRIF's per-camera slate id. |
@@ -18,8 +19,9 @@ caller passes the time, the time zone and the labels.
 | `ale.ts` | Avid Log Exchange for editorial. |
 | `json.ts` | Versioned lossless JSON, and its reader. |
 | `dayReport.ts` | The data of a printed camera report for one day. No rendering. |
-| `naming.ts` | Safe file names. |
-| `wrapPackage.ts` | What a wrap package holds and where, as data. No zipping. |
+| `naming.ts` | Safe file and folder names, and the steps that keep two from clashing. |
+| `wrapPackage.ts` | What a wrap package holds and where, as data: the exports, a folder per slate. No zipping. |
+| `slateManifest.ts` | The manifest of a slate folder: its takes, files and references, as CSV. |
 
 ## Selection
 
@@ -34,6 +36,28 @@ caller passes the time, the time zone and the labels.
   as a person counts: 9 before 10, 42A before 42B.
 - Filters: shoot days, a slate range (inclusive, same order), circled only, leave out no good.
 - A take whose slate or day is not in the input is left out.
+- Each row carries the set references its slate shows, in the order logged (`row.references`):
+  its own, and the lighting references of its lighting setup (below).
+
+## Set references
+
+A slate's reference log (`src/lib/references/`) goes in every file but the ALE:
+
+- Camera report: our column **Set References**, one reference per value split by vertical tabs, on
+  every row of the slate.
+- All fields: one column, **References**, after the slate's fields, one reference per line.
+- JSON: the list `references`, the records as stored.
+- Day report: a line per slate block, after the cameras.
+
+A slate shows its own references and, since #107, every HDRI 360, 360 video and HDR reference
+logged on another slate of its lighting setup, that day or another
+(`src/lib/references/lighting.ts`, `shownBySlate`). Logged on 42A, an HDRI is on the rows of every
+slate on 42A's lighting setup. The day report and Wrap's count show it the same way; Wrap counts it
+once a day.
+
+One reference as text: `<kind>: <name>`, then what else is known in brackets.
+`HDRI 360: HDRI_0412 (Ricoh Theta Z1, A003, ×7, Noon sun)`. The kind as the app shows it; a
+project's own kind as typed. Line breaks become spaces.
 
 ## CRIF: VES camera report
 
@@ -118,9 +142,16 @@ How it is written:
 | Tk Creation Date, Tk Modification Date | | none |
 
 Our columns, after the spec's: Shoot Date (`shootDay.shootDate`), Setup (`slate.setup`), Lighting
-Setup (`lightingSetup.label`), Camera Model, Camera Serial Num, Tk End Time Of Take
-(`take.endedAt`), Tk Circled, Tk No Good (`Yes` or empty), Tk Timecode End, Tk Lens Make, Tk
-Anamorphic Squeeze, Tk Subject Distance and End, Tk Photos (the count).
+Setup (`lightingSetup.label`), Set References (the slate's, see above), Camera Model, Camera Serial Num, Tk End Time Of Take
+(`take.endedAt`), Tk Circled, Tk No Good (`Yes` or empty), Tk Type (the take type: Main, Clean
+Plate, Balls and Chart, Shadow Plate, Light Pass, Atmosphere, Element, Other; Main for none), Tk
+Tail (the plates at the take's tail, Clean Plate and Balls and Chart, split by vertical tabs as a
+multi-select is; empty for none), Tk Timecode End, Tk Lens Make, Tk
+Anamorphic Squeeze, Tk Subject Distance and End, Tk Photos (the count of photos only).
+
+Photos only (Kevin, 2026-11-17, #89): Tk Photos and the Set Media flag Photos count the take's
+photos, never its videos (`CrifOptions.videos`, from `ExportInput.videos`) nor its audio notes.
+CRIF has no column for either, and none is added.
 
 `crifMissing(record)` lists the required columns a row leaves empty. `CRIF_NEVER_FILLED` names the
 four we have no field for: VFX Work, Script Location, Camera Head, Film Stock. `exportCrif` leaves
@@ -134,7 +165,8 @@ Lost in CRIF:
   carries its own take's value. A reader that keeps the first row of a slate keeps the first take's.
 - Seconds are the finest time. Times are local, with no zone in the file.
 - Sensor size and resolution, colour chart and lidar outside Set Media, template links, gear ids.
-- Photos only as the Photos flag and a count.
+- Photos only as the Photos flag and a count. Videos and audio notes not at all.
+- Set references of a slate with no take in the file: CRIF has no row for them.
 
 ## Plain CSV: every field
 
@@ -149,14 +181,18 @@ Lost in CRIF:
 - Units: inline (`35 mm`, `12°`, `23.976 fps`, lengths as the app shows them, typed text kept), or
   bare numbers with a unit column after each field that has a unit. Lengths there are metres to
   the millimetre, or decimal feet to four places.
-- Enums show their label, booleans yes or no, lists joined with ", ", refs as the UUID.
+- Enums show their label, booleans yes or no, lists joined with ", ", refs as the UUID. A take
+  with no type shows Main. The plates at a take's tail, a list of options, show their labels.
 - RFC 4180 quoting, CRLF. Option `bom` for Excel. Formula guard on by default: a cell starting with
   `=`, `+`, `-`, `@`, tab or CR gets a `'` in front, unless it is a number with at most a short
   unit (`-5`, `-5°`).
 
+- The slate's set references share one column, **References**, after the slate's fields: one per
+  line. The reference fields have no column of their own: a slate has many.
+
 Lost: the take's focal length column shows the focal length shot at, so a value left on a take
 that ran a prime does not show. Record ids other than refs. Photos. Labels are in the app's
-language.
+language. A reference's logged time, and the references of a slate with no take in the file.
 
 ## ALE: editorial
 
@@ -202,6 +238,8 @@ A001C003	V	14:39:39:09	14:39:59:11	…
 | Shoot Date | `shootDay.shootDate` as YYYYMMDD |
 | FPS | the heading rate |
 | Circled Take | `Yes` or empty |
+| Take Type | the take type as CRIF's Tk Type writes it (ours) |
+| Take Tail | the plates at the tail as CRIF's Tk Tail names them, joined with ", " (ours) |
 | Slate, Description, VFX Shots | `slate.slateUID`, `description`, `vfxShots` (ours) |
 | Comments | `take.notes` |
 | Lens, Lens_sn | `lens.lensModel`, `lensSerialNumber` |
@@ -216,7 +254,7 @@ A001C003	V	14:39:39:09	14:39:59:11	…
 | Filter | `take.filter` (ours) |
 
 Lost: takes without timecode by default; lighting, flags, location, wrangler, gear make and serial
-of the body, sensor; typed lengths; one FPS for the whole file.
+of the body, sensor; typed lengths; one FPS for the whole file; set references.
 
 ## JSON: lossless
 
@@ -231,7 +269,7 @@ of the body, sensor; typed lengths; one FPS for the whole file.
 	"filters": {},
 	"project": {},
 	"shootDays": [], "lightingSetups": [], "cameraSetups": [], "cameras": [], "lenses": [],
-	"slates": [], "takes": [], "stills": []
+	"slates": [], "takes": [], "stills": [], "references": []
 }
 ```
 
@@ -242,9 +280,12 @@ of the body, sensor; typed lengths; one FPS for the whole file.
   the same text.
 - Slates: every slate of the picked days in the slate range, with or without takes. Takes: those
   the filters keep. Gear and lighting setups: those the kept records point at. Photos: their
-  records, not their files.
+  records, not their files. Set references: those the slates in it show, by slate, in the order
+  logged, each once, whatever the take filters. A lighting reference logged on a slate outside the
+  file is in it too, with that slate's id (#107).
 - `readExportJson` refuses text that is not JSON, not ours, newer than the reader, or missing a
-  list or an id. It does not check each value: run the model's `validateRecord` for that.
+  list or an id. A file written before the set references has no `references`: it reads as none.
+  `formatVersion` stays 1: an older reader skips the list and misreads nothing. It does not check each value: run the model's `validateRecord` for that.
 - `formatVersion` goes up when an old reader would misread the new file.
 
 Not in it: gear no kept record points at, templates, the sync queue, Flow PT ids, file bytes.
@@ -256,8 +297,11 @@ render:
 
 - `header`: project, date, day number, unit, location, wrangler.
 - `slates`: one block per slate in order, with its lighting setup, the camera setups its takes
-  used (letter, body, lenses run), the takes and the block's totals.
+  used (letter, body, lenses run), the takes, its set references and the block's totals.
 - `totals`: slates, takes, circled, no good, photos.
+- The printed page (`src/lib/wrap/report.ts`) has a Type column on a day with a take that is not
+  Main or has a plate at its tail: the type, then each plate at the tail ("Light pass, Clean plate
+  tail"). A Main take with nothing at the tail leaves it empty.
 - `warnings`, per take: `noEndTime`, `noFocalLength` (no prime and none typed),
   `zoomNoFocalLength` (a zoom and none typed).
 
@@ -268,24 +312,163 @@ render:
 - Day part: `2026-11-10-day03`; several days `2026-11-10-to-2026-11-11`; none `all-days`.
 - `slug`: accents dropped, case kept; anything but ASCII letters, digits, dot and hyphen becomes
   one hyphen, underscore included; no hyphen or dot at either end; 60 characters at most; CON,
-  NUL, COM1 and the like get `-x`; nothing left gives a fallback.
+  NUL, COM1 and the like get `-x`, before an extension too (`nul-x.tar`); nothing left gives a
+  fallback.
+- `folderName`: a slug that keeps underscores, for a name typed as it is on a device.
 - Photos follow CRIF: `<slate>-<camera>-reference-<n>.<ext>`, whitespace removed, numbered per
   slate and camera in take order, then the order taken. The extension comes from the file type.
+  A video is named and numbered with the photos, and is a video in the manifest and the counts
+  (Kevin, 2026-11-17).
+- Audio notes (#89) take the same form, as CRIF names none: `<slate>-<camera>-audio-note-<n>.<ext>`,
+  numbered the same way on their own. The extension is the one the browser wrote: `m4a` from
+  Safari, `webm` from a browser with no AAC.
 
-`wrapPlan(rows, { project, shootDays, blobs })` lists every file of the package with its path:
+### Layout
+
+`wrapPlan(rows, { project, shootDays, blobs, slates, references, allSlates, projectKinds })` lists
+every file and empty folder of the package with its path. One folder per slate (#95); it replaced
+the layout with a `photos/` tree, and there is no option for that one.
 
 ```
-<project>_<day>/
-  <project>_<day>_camera-report.csv
-  <project>_<day>_all-fields.csv
-  <project>_<day>_editorial.ale
-  <project>_<day>_data.json
-  photos/<slate>/take-<take>/<slate>-<camera>-reference-<n>.<ext>
+Night-Train_2026-11-10-day03/
+  Night-Train_2026-11-10-day03_camera-report.csv
+  Night-Train_2026-11-10-day03_all-fields.csv
+  Night-Train_2026-11-10-day03_editorial.ale
+  Night-Train_2026-11-10-day03_data.json
+  Night-Train_2026-11-10-day03_day-report.html
+  42A/
+    42A_manifest.csv
+    42A-A-reference-1.heic
+    42A-A-reference-2.jpg
+    42A-A-audio-note-1.m4a
+    lidar-scan/Scan-01/
+    hdri-360/HDRI_0412/
+  50/
+    50_manifest.csv
+    drone-survey/Flight-1/
 ```
 
-A photo entry holds the blob id to read with `store.blob(id)`. A photo whose bytes were freed after
-Flow PT verified them is marked `pruned`. A photo with no file is listed in `missingPhotos`. The UI
-zips with the backup's writer (`client-zip`).
+- The day's exports and the day report sit at the root.
+- A folder per slate that has a take in the package or a set reference, in slate order. A slate
+  with references and no take left by the filters still gets its folder, so its references land.
+- The slate folder: the slate as its photo names start, whitespace removed. `42A`.
+- In it, its manifest, `<slate folder>_manifest.csv` (below), and the photos of its takes, named as
+  CRIF, each take's audio notes after its photos, with no folder per take: the manifest says which
+  take each is from. With the **Photos and videos** switch off the photos and videos are left out;
+  the audio notes, slate folders, manifests and reference folders stay. Audio notes always go
+  (Kevin, 2026-11-17, #89).
+- Each kind is counted as itself (`wrap/mediaCount.ts`): the switch's row says "2 photos, 1 video
+  · 12 MB", the list of what is in Flow PT only says it per take with the audio notes, and the
+  note on files with none on the device names them photos or videos: a still's kind is read from
+  its file. The day report's totals and the day summary count them the same way: "3 slates · 7
+  takes · 2 circled · 1 no good · 2 photos, 1 video, 1 audio note".
+- A still's kind is its first file's. `withMediaKinds` (`wrap/input.ts`) holds the audio notes
+  apart in `ExportInput.audioNotes` and names the videos in `ExportInput.videos`. The camera
+  report counts photos only; the JSON lists the audio notes with the photos of their take.
+- For each set reference logged on the slate, an empty folder inside a folder for its kind, in the
+  order logged: `hdri-360/HDRI_0412/`. The files shot on the other device go in it on a laptop.
+- A lighting reference (#107) has its folder in the slate it was logged on, and no other. The
+  manifest of every other slate of its lighting setup lists it with that folder's path:
+  `42A/hdri-360/HDRI_0412/` in `42B_manifest.csv`.
+- When the slate it was logged on is outside the package (another day, or left out by the slate
+  range), that slate gets a folder too, holding its manifest and the folders of the lighting
+  references shown in the package, and nothing else. So every path in a manifest is in the
+  package. These folders come after the others, in slate order. `allSlates` (every slate of the
+  project) is what finds that slate and its lighting setup.
+- Kind folders: a built-in kind by its English label, fixed, so a folder does not change with the
+  app's language: `hdri-360`, `360-video`, `hdr-reference`, `witness-camera`, `lidar-scan`,
+  `textured-model`, `photogrammetry`, `splat`, `other`. A project's own kind as a slug in lower
+  case: `Drone survey` is `drone-survey`. No kind is `other`.
+- Reference folders: the name as logged, through `folderName`. `HDRI_0412` and `PG_car_01` stay as
+  typed; `Scan 01` is `Scan-01`. Nothing left: `reference`.
+- Clashes. macOS and Windows ignore case, so `12a` and `12A` would be one folder there. A name
+  taken in its folder, case ignored, is stepped `-2`, `-3`: slates `12a` and `12A` give `12a` and
+  `12A-2`; two references both named `HDRI_0412` give `HDRI_0412` and `HDRI_0412-2`. A slate
+  logged on two days under one name is two folders the same way. Kind folders are stepped across
+  the whole package, built-in kinds first, then the project's in the order added, then kinds it no
+  longer lists: a project kind `HDRI-360` is `hdri-360-2` in every slate.
+
+A file entry holds the blob id to read with `store.blob(id)`. A photo whose bytes were freed after
+Flow PT verified them is marked `pruned`. A photo with no file is listed in `missingPhotos`. A
+manifest entry carries its text. The plan's `slates` hold, per slate folder, its takes with their
+files and its references with their folders. The UI zips with the backup's writer (`client-zip`).
+
+### Slate manifest
+
+`slateManifest(folder, kindLabel)`. A CSV in each slate folder, `42A_manifest.csv`, for a person on
+a laptop (Quick Look on a Mac shows it as a table; Excel and Numbers open it) and for a script.
+Decided by Kevin, 2026-11-17 (#95).
+
+```
+What,Take,Camera,Clip,Roll,Timecode in,Timecode out,Kind,Name,Path,Device,Card or roll,Count,Notes
+Take,1,A,A001C003,A001,14:39:39:09,14:39:59:10,,,,,,,
+Photo,1,A,A001C003,A001,14:39:39:09,14:39:59:10,,42A-A-reference-1.heic,42A/42A-A-reference-1.heic,,,,Ball pass
+Take,1,B,,B001,,,,,,,,,
+Reference,,,,,,,Lidar scan,Scan 01,42A/lidar-scan/Scan-01/,,,,
+Reference,,,,,,,HDRI 360,HDRI_0412,42A/hdri-360/HDRI_0412/,Ricoh Theta Z1,A003,7,Noon sun
+```
+
+- One row per take, per file and per set reference the slate shows. Each take in order, then its
+  files; the slate's own files; then its references in the order logged, the lighting references
+  of its lighting setup among them (#107).
+- A file's row repeats its take's clip, roll and timecode, so each file is linked to its clip on
+  its own line. Its name, its path, and a photo's caption in Notes.
+- A reference's row: its kind as the app shows it, its name as logged, the empty folder that
+  waits for it, its device, card or roll, count and notes.
+- Path is from the package root, so a row can point into another slate's folder (#107: a lighting
+  reference listed on every slate of its lighting setup, its folder in the slate it was logged
+  on). A folder's path ends in a slash.
+- Headers in English, fixed, as CRIF's, so a script does not break with the app's language. What
+  is `Take`, `Photo`, `Video`, `Annotated photo`, `Audio note`, `Setup diagram` or `Reference`.
+- A file whose bytes are not in the package (freed after Flow PT kept them) has no row.
+- Byte order mark, so Excel reads accents; CRLF; a line break in a value becomes a space; a cell a
+  spreadsheet would run as a formula gets a `'` in front, as in the all fields file.
+
+### Empty folders in the zip
+
+client-zip 2.5 writes an entry with a name and no input as a folder: no data, the name ending in a
+slash, made on Unix with mode `040775`. The MS-DOS directory bit is not set. `src/lib/wrap/zip.ts`
+writes the plan's folder entries that way, and its test reads the entry back.
+
+- Checked on macOS 26 with a zip from client-zip: Archive Utility (a double-click in Finder),
+  `ditto -x -k`, `unzip`, `bsdtar` and Python's `zipfile` all make the empty folders.
+- Not checked: Windows' built-in unzip (Extract All in File Explorer). Reasoned from the format:
+  the zip spec marks a folder by the trailing slash, and .NET's `ZipFile` (behind PowerShell's
+  `Expand-Archive`) makes a folder for such an entry. Explorer is expected to do the same. It
+  needs a try on a Windows machine.
+- Windows' Extract All fails on a path past 260 characters. Each name part is 60 at most; a long
+  project name, slate, kind and reference name together, unzipped deep in a folder, can pass it.
+
+### Adding a kind of file (#94, #89, #86, #87)
+
+A slate folder holds the files of its takes and its own files. Videos (#94), audio notes (#89)
+and annotated copies (#86) are a take's; the setup diagram (#87) is the slate's own. Annotated
+copies are in: media `annotated`, after their photo in `takeFiles`, manifest word "Annotated
+photo". The setup diagram is in: media `diagram` in `slateFiles`, drawn as the package is
+written (`diagramId` on the file, a branch in `read`), manifest word "Setup diagram". Audio notes
+are in: media `audio`, after the take's photos in `takeFiles`, read from `FlatTake.audioNotes`,
+named by `audioFileName`, manifest word "Audio note". To add one:
+
+1. Name it in `naming.ts`, next to `photoFileName`. The name must be unique in the slate folder:
+   number it per slate and camera as photos are, or build it from the photo it copies
+   (`42A-A-reference-1-annotated.jpg`). A clash is still stepped `-2`, but a name that never
+   clashes is better.
+2. Add its media to `Media` in `wrapPackage.ts`, and the word its manifest row starts with to
+   `WHAT` in `slateManifest.ts` (`Video`, `Audio note`).
+3. A take's file: add it in `takeFiles(row, ctx)`. Read it from the row (add a list to `FlatTake`
+   in `selection.ts`, as `stills`) or from `WrapOptions` (filled in `wrap/wrap.svelte.ts`). The
+   slate's own file: add it in `slateFiles(slate, ctx)`.
+4. Each is a `SlateFile`: media, name, mime, size, the blob id, the record id, pruned, and a
+   caption for the manifest's Notes. From there the layout puts it in the slate folder, the
+   manifest lists it under its take (a take's) or after the takes (the slate's own), the zip reads
+   it with `store.blob`, the size counts it, and a pruned one is left out and named per take
+   (`PrunedTake`).
+5. A file made at build time, not stored (a diagram drawn from its data), needs another source on
+   `SlateFile` (its text, say) and a branch in `read` in `wrap/wrap.svelte.ts`. A slate's own
+   file has no take: a pruned one needs its own line in Wrap.
+6. Photos and videos follow the Photos and videos switch (`ctx.photos`); audio notes and the
+   setup diagram always go. A new kind does one or the other, or adds a `FileKind` in
+   `wrap/choice.ts` with its row in Wrap. Count it in `wrap/mediaCount.ts` if a person counts it.
 
 ## Proposed catalogue changes
 
@@ -317,5 +500,4 @@ The export holds these mappings itself, since the catalogue is shared:
 7. What does Silverstack write in Circled Take for a circled take?
 8. Is an ALE without timecode of any use, for a merge by name?
 9. Which time zone: the iPad's, or the production's?
-10. Photos: one folder per slate and take, or flat with the CRIF names?
-11. Plain CSV: units in the cells or in columns by default? A byte order mark by default?
+10. Plain CSV: units in the cells or in columns by default? A byte order mark by default?

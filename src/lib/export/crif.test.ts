@@ -2,9 +2,9 @@
 // the table's order, strings in quotes and bare numbers, timestamps as YYYY/MM/DD 24HH:MM:SS in
 // local time, focus and height in feet and inches, multi-selects split by vertical tabs.
 import { describe, expect, it } from 'vitest';
-import { CRIF_NEVER_FILLED, crifCsv, crifMissing, crifRecords, exportCrif } from './crif';
+import { CRIF_EXTRA_COLUMNS, CRIF_NEVER_FILLED, crifCsv, crifMissing, crifRecords, exportCrif } from './crif';
 import { flatten } from './selection';
-import { input, s42A, t42A1A, t42A1B } from './testData';
+import { input, kindLabel, s42A, t42A1A, t42A1B } from './testData';
 import { uuidV5 } from './uuid';
 
 const SPEC_HEADER = [
@@ -102,13 +102,61 @@ describe('crifCsv', () => {
 		const header = crifCsv(records).split('\r\n')[0].split(',').map((c) => c.slice(1, -1));
 		expect(header.slice(0, SPEC_HEADER.length)).toEqual(SPEC_HEADER);
 		const extra = header.slice(SPEC_HEADER.length);
-		for (const c of extra.filter((c) => !['Shoot Date', 'Setup', 'Lighting Setup', 'Camera Model', 'Camera Serial Num'].includes(c))) expect(c.startsWith('Tk ')).toBe(true);
+		for (const c of extra.filter((c) => !['Shoot Date', 'Setup', 'Lighting Setup', 'Set References', 'Camera Model', 'Camera Serial Num'].includes(c))) expect(c.startsWith('Tk ')).toBe(true);
 		const a1 = records[0].values;
 		expect(a1['Tk End Time Of Take']).toBe('14:16:10');
 		expect(a1['Tk Circled']).toBe('Yes');
 		expect(a1['Tk Timecode End']).toBe('14:39:59:10');
 		expect(a1['Shoot Date']).toBe('2026/11/10');
 		expect(a1['Tk Photos']).toBe('2');
+	});
+
+	// Kevin, 2026-11-17 (#89): photos only. CRIF has no column for a video or an audio note.
+	it('counts photos only in Tk Photos and Set Media, never a video or an audio note', () => {
+		const data = { ...input(), audioNotes: [{ id: 'an1', takeId: t42A1A.id, capturedAt: '2026-11-10T22:30:00.000Z' }] };
+		const records = crifRecords(flatten(data, { shootDayIds: ['d3'] }), { ...options, extras: true, videos: ['st1'] });
+		const a1 = records.find((r) => r.takeId === t42A1A.id)!.values;
+		expect(a1['Tk Photos']).toBe('1');
+		expect(a1['Set Media'].split(VT)).toContain('Photos');
+		const onlyVideos = crifRecords(flatten(data, { shootDayIds: ['d3'] }), { ...options, extras: true, videos: ['st1', 'st2', 'st3'] });
+		const v1 = onlyVideos.find((r) => r.takeId === t42A1A.id)!.values;
+		expect(v1['Tk Photos']).toBe('');
+		expect(v1['Set Media'].split(VT)).not.toContain('Photos');
+	});
+
+	it('lists the set references of the slate in our own column, one per vertical tab, in the order logged', () => {
+		const [a1, b1] = crifRecords(rows(), { ...options, extras: true, kindLabel });
+		const want = `Lidar scan: Scan 01${VT}HDRI 360: HDRI_0412 (Ricoh Theta Z1, A003, ×7, Noon sun)`;
+		expect(a1.values['Set References']).toBe(want);
+		expect(b1.values['Set References']).toBe(want);
+		// Without labels, the kind is written as stored.
+		expect(crifRecords(rows(), { ...options, extras: true })[0].values['Set References']).toBe(`lidarScan: Scan 01${VT}hdri360: HDRI_0412 (Ricoh Theta Z1, A003, ×7, Noon sun)`);
+		const none = crifRecords(flatten(input(), { slateFrom: '9', slateTo: '9' }), { ...options, extras: true, kindLabel });
+		expect(none[0].values['Set References']).toBe('');
+	});
+
+	it('writes the take type in our column, Main for a take with none', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, takeType: 'cleanPlate' } : t.id === t42A1B.id ? { ...t, takeType: 'ballsAndChart' } : t));
+		const records = crifRecords(flatten(shoot), { ...options, extras: true });
+		const type = (id: string) => records.find((r) => r.takeId === id)!.values['Tk Type'];
+		expect(type(t42A1A.id)).toBe('Clean Plate');
+		expect(type(t42A1B.id)).toBe('Balls and Chart');
+		expect(records.filter((r) => r.takeId !== t42A1A.id && r.takeId !== t42A1B.id).map((r) => r.values['Tk Type'])).toEqual(expect.arrayContaining(['Main']));
+		expect(crifRecords(flatten(shoot), { ...options, extras: false })[0].values['Tk Type']).toBeUndefined();
+	});
+
+	it('writes the plates at the tail in our column after the type, split by vertical tabs, empty for none', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, takeTail: ['cleanPlate', 'ballsAndChart'] } : t.id === t42A1B.id ? { ...t, takeTail: ['cleanPlate'] } : t));
+		const records = crifRecords(flatten(shoot), { ...options, extras: true });
+		const tail = (id: string) => records.find((r) => r.takeId === id)!.values['Tk Tail'];
+		expect(tail(t42A1A.id)).toBe(`Clean Plate${VT}Balls and Chart`);
+		expect(tail(t42A1B.id)).toBe('Clean Plate');
+		expect(records.filter((r) => r.takeId !== t42A1A.id && r.takeId !== t42A1B.id).every((r) => r.values['Tk Tail'] === '')).toBe(true);
+		const names = CRIF_EXTRA_COLUMNS.map((c) => c.name);
+		expect(names.indexOf('Tk Tail')).toBe(names.indexOf('Tk Type') + 1);
+		expect(crifRecords(flatten(shoot), { ...options, extras: false })[0].values['Tk Tail']).toBeUndefined();
 	});
 });
 

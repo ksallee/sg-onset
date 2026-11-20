@@ -11,6 +11,7 @@
 	import Menu from '$lib/components/ios/Menu.svelte';
 	import NavBar from '$lib/components/ios/NavBar.svelte';
 	import Page from '$lib/components/ios/Page.svelte';
+	import { clientSize } from '$lib/components/ios/size';
 	import ContextBar from '$lib/components/app/ContextBar.svelte';
 	import { useApp } from '$lib/app/app.svelte';
 	import { useCurrent } from '$lib/app/current.svelte';
@@ -24,6 +25,8 @@
 	import { cameraTitle, gearTitle, lensTitle, type GearScope } from '$lib/gear/names';
 	import { duplicateGear, formSelection, parseSelection, type Selection } from '$lib/gear/records';
 	import { moveSetup, setupsUsing, sortSetups } from '$lib/gear/setups';
+	import { shootsWith } from '$lib/gear/shooting';
+	import { shooting } from '$lib/gear/shooting.svelte';
 	import GearDetail from './GearDetail.svelte';
 	import GearLibrary from './GearLibrary.svelte';
 	import GearList from './GearList.svelte';
@@ -187,7 +190,7 @@
 			{/snippet}
 		</EmptyState>
 	{:else}
-		<div class="split" class:wide class:alone bind:clientWidth={width}>
+		<div class="split" class:wide class:alone {@attach clientSize((w) => (width = w))}>
 			{#if !alone}
 				<div class="list">
 					<GearList
@@ -203,6 +206,8 @@
 						onimport={importFrom}
 						onlibrary={library}
 						onmove={move}
+						shootsWith={(setup) => shootsWith(shooting.value, projectId, setup.id)}
+						onshoot={(setup, on) => shooting.set(projectId, setup.id, on)}
 					/>
 				</div>
 			{/if}

@@ -37,6 +37,9 @@ network beyond localhost: every test fails if a request leaves 127.0.0.1.
 - To take the network away, `startPreview()` (`server.ts`) and stop it: `context.setOffline`
   breaks service-worker pages in WebKit.
 - A test that finds an app bug: `test.fixme` with the reason above it. The report lists it.
+- To run the app against Flow PT, answer the site from this process with the fake site of
+  `src/lib/fpt/fakeFpt.ts` through a route, block the service worker (it takes requests before a
+  route sees them), and abort anything else off localhost. `names.spec.ts` does it (#111).
 
 ## Screenshots
 

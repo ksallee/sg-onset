@@ -1,6 +1,8 @@
 <script lang="ts">
-	// The sync detail: the state and Sync Now, what waits by kind, what needs attention, the Flow
-	// PT project, the site's setup, the account, the backup. The work is in app/sync; this lays it out.
+	// The sync detail: the state and Sync Now, what waits by kind, what needs attention, the VFX
+	// shots to check, the references waiting for Set Reference, the shared lists kept here or waiting,
+	// the Flow PT project, Notes on Shots, the site's setup, the account, the backup. The work is in
+	// app/sync; this lays it out.
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Sheet from '$lib/components/ios/Sheet.svelte';
@@ -9,14 +11,18 @@
 	import { ago } from '$lib/app/format';
 	import { useSync } from '$lib/app/sync/controller.svelte';
 	import { syncErrorText } from '$lib/app/sync/errors';
+	import { entityName } from '$lib/fpt/naming';
 	import { t } from '$lib/i18n/messages';
 	import type { Safety } from '$lib/app/safety';
 	import BackupRows from './BackupRows.svelte';
 	import SafetyLine from './SafetyLine.svelte';
 	import LinkSection from './sync/LinkSection.svelte';
+	import NotesSection from './sync/NotesSection.svelte';
 	import PrototypeNote from './sync/PrototypeNote.svelte';
 	import QueueSections from './sync/QueueSections.svelte';
 	import SetupSections from './sync/SetupSections.svelte';
+	import SharedSection from './sync/SharedSection.svelte';
+	import ShotSection from './sync/ShotSection.svelte';
 
 	let { open = $bindable(false), safety }: { open?: boolean; safety?: Safety } = $props();
 
@@ -52,7 +58,20 @@
 
 	<QueueSections elsewhere={sync.elsewhere} />
 
+	<ShotSection onnavigate={() => (open = false)} />
+
+	{#if sync.state.referencesMissing}
+		<!-- Kevin, #117: a site without Set Reference syncs the rest; the references wait on the device. -->
+		<Section header={t('sync.references.header')} footer={t('sync.references.footer', { name: entityName(sync.state.naming, 'reference') })}>
+			<Row title={t('sync.references.waiting')} detail={String(sync.state.waiting?.records ?? 0)} />
+		</Section>
+	{/if}
+
+	<SharedSection onnavigate={() => (open = false)} />
+
 	<LinkSection />
+
+	{#if sync.state.link}<NotesSection />{/if}
 
 	{#if sync.state.link}<SetupSections />{/if}
 

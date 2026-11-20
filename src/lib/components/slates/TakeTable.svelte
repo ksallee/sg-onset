@@ -9,10 +9,13 @@
 	import { formatTime } from '$lib/app/format';
 	import { settings } from '$lib/app/settings.svelte';
 	import { t, tk } from '$lib/i18n/messages';
+	import { takeTailOf } from '$lib/model/takeTail';
+	import { takeTypeOf } from '$lib/model/takeType';
 	import type { Take } from '$lib/model/types';
 	import { fieldRef } from '$lib/slates/fields';
 	import { dragSpan, extendTo, toggle, type Selection } from '$lib/slates/selection';
 	import type { DayTakeLine, TakeLine } from '$lib/slates/takes';
+	import { typeWords } from '$lib/take/typeText';
 	import { valueText } from './values';
 
 	let {
@@ -154,6 +157,7 @@
 					<td class="num">{formatTime(take.startedAt)}</td>
 					<td class="num opt-end">{formatTime(take.endedAt)}</td>
 					<td class="marks">
+						{#each typeWords(takeTypeOf(take), takeTailOf(take)) as word (word)}<span class="mark type">{word}</span>{/each}
 						{#if take.circleTake}<span class="mark circled" title={t('slates.table.circled')}>{tk('field.take.circleTake.short')}</span>{/if}
 						{#if take.noGood}<span class="mark ng" title={t('slates.table.noGood')}>{tk('field.take.noGood.short')}</span>{/if}
 					</td>
@@ -263,13 +267,18 @@
 		box-shadow: none;
 		transform: scale(1.08);
 	}
+	/* The type and the plates at the tail can run long: the marks wrap, so the table keeps its
+	   width and the selection column stays in view. */
 	.marks {
-		width: 1%;
 		text-align: right;
 		padding-right: 12px;
 	}
+	td.marks {
+		white-space: normal;
+	}
 	.mark {
 		display: inline-block;
+		margin-block: 2px;
 		margin-left: 4px;
 		padding: 1px 7px;
 		border-radius: 6px;
@@ -285,6 +294,10 @@
 	.mark.ng {
 		background: color-mix(in srgb, var(--destructive) 16%, transparent);
 		color: var(--destructive);
+	}
+	.mark.type {
+		background: var(--fill-2);
+		color: var(--label);
 	}
 	@container take-table (max-width: 620px) {
 		.opt-focusDistance,

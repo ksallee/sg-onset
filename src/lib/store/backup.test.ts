@@ -106,6 +106,17 @@ describe('importBackup', () => {
 		expect(await snapshot(target)).toEqual(await snapshot(store));
 	});
 
+	it('restores what each import of the DIT’s clips wrote (schema version 7)', async () => {
+		const { store } = await filled();
+		const entry = { id: 'i1', shootDayId: 'd1', importedAt: '2026-11-17T19:00:00Z', fileName: 'A001.ale', filled: { t1: { clipName: 'A001C001', isoSpeed: 800, captureFrameRate: { num: 24000, denom: 1001 } } } };
+		await store.create('clipImport', entry);
+		const target = open('b').store;
+		const report = await importBackup(target, await zipOf(store));
+		expect(report.tables.clipImport).toBe(1);
+		expect(await target.list('clipImport', 'd1')).toEqual([entry]);
+		expect(await snapshot(target)).toEqual(await snapshot(store));
+	});
+
 	it('the restored store carries on: same unsynced count, undo and restore still work, new entries queue behind', async () => {
 		const { store } = await filled();
 		const target = open('b').store;
@@ -144,6 +155,39 @@ describe('importBackup', () => {
 		await target.create('project', { id: 'mine', name: 'Local' });
 		await expect(importBackup(target, new Blob([data]), { replace: true })).rejects.toMatchObject({ reason: 'corrupt' });
 		expect(await target.get('project', 'mine')).toBeDefined();
+	});
+
+	it('refuses a cut backup, or one with a byte bent outside the files, before it asks to replace (#123)', async () => {
+		const { store } = await filled();
+		const zip = await zipOf(store);
+		const data = new Uint8Array(await zip.arrayBuffer());
+		const entries = await readZip(zip);
+		const at = (name: string) => {
+			const entry = entries.find((e) => e.name === name)!;
+			const data = entry.offset + 30 + new TextEncoder().encode(name).length;
+			return { header: entry.offset, name: entry.offset + 34, data, descriptor: data + entry.compressedSize };
+		};
+		const manifest = await (await entryBlob(zip, entries.at(-1)!)).text();
+		const bend = (i: number) => {
+			const bent = data.slice();
+			bent[i] ^= 0xff;
+			return new Blob([bent]);
+		};
+		const target = open('b').store;
+		await target.create('project', { id: 'mine', name: 'Local' });
+		const refused = async (file: Blob, reason: string) => {
+			await expect(importBackup(target, file)).rejects.toMatchObject({ reason });
+			expect(await target.get('project', 'mine')).toBeDefined();
+		};
+
+		await refused(zip.slice(0, Math.floor(zip.size / 2)), 'notBackup');
+		// Where the flip landed in #123: a table's name in its header, the start of its descriptor.
+		await refused(bend(at('tables/lens.ndjson').descriptor), 'corrupt');
+		await refused(bend(at('tables/reference.ndjson').name), 'corrupt');
+		await refused(bend(at('tables/take.ndjson').descriptor + 4), 'corrupt');
+		await refused(bend(at('tables/take.ndjson').header + 10), 'corrupt');
+		// The manifest is checked too: here a bent digit of its date still reads as JSON.
+		await refused(bend(at(MANIFEST_PATH).data + manifest.indexOf('.000Z') - 1), 'corrupt');
 	});
 
 	it('refuses a file that is not a backup', async () => {

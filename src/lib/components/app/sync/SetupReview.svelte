@@ -10,7 +10,18 @@
 	import type { SetupReview } from '$lib/app/sync/review';
 	import { t } from '$lib/i18n/messages';
 
-	let { review, onconfirm, onnotnow }: { review: SetupReview; onconfirm: () => void; onnotnow: () => void } = $props();
+	let {
+		review,
+		names = [],
+		onconfirm,
+		onnotnow
+	}: {
+		review: SetupReview;
+		/** The names to save on the project, from the names page (#111): each entity or field and its new name. */
+		names?: { title: string; detail: string }[];
+		onconfirm: () => void;
+		onnotnow: () => void;
+	} = $props();
 
 	let open = $state<Record<string, boolean>>({});
 	let top: HTMLElement | undefined = $state();
@@ -24,6 +35,14 @@
 		<Row title={t('sync.review.site')} detail={review.site} />
 		<Row title={t('sync.review.project')} detail={review.project} />
 	</Section>
+
+	{#if names.length}
+		<Section header={t('sync.review.names')} footer={t('sync.review.names.footer')}>
+			{#each names as n (n.title)}
+				<Row title={n.title} detail={n.detail} />
+			{/each}
+		</Section>
+	{/if}
 
 	<Section footer={t('sync.review.fields.footer')}>
 		<Row title={t('sync.review.fields')} detail={String(review.total)} />
@@ -41,6 +60,14 @@
 		<Section header={t('sync.review.reverse')} footer={t('sync.review.reverse.footer')}>
 			{#each review.reverse as r (r.entity + r.name)}
 				<Row title={t('sync.setup.field.line', { entity: r.entity, field: r.displayName })} subtitle={r.name} />
+			{/each}
+		</Section>
+	{/if}
+
+	{#if review.actions.length}
+		<Section header={t('sync.review.action')} footer={t('sync.review.action.footer')}>
+			{#each review.actions as a (a.entityType)}
+				<Row title={t('sync.action.title')} subtitle={a.entity} />
 			{/each}
 		</Section>
 	{/if}

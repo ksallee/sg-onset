@@ -1,6 +1,8 @@
 // The take screen (Shoot) on stored data: the sample project, slate 42A of today. Role and label
 // selectors only: the markup moves. Every test starts on an empty device.
+import { truncateSync, writeFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
+import { movie } from '../src/lib/media/testFiles';
 import { expect, openApp, test } from './fixtures';
 
 const rail = (page: Page) => page.getByRole('toolbar', { name: 'Capture' });
@@ -119,16 +121,78 @@ test.describe('take screen', () => {
 		await key(page, '7').tap();
 		await page.getByRole('button', { name: 'Done', exact: true }).tap();
 		await expect(keypad(page)).toBeHidden();
-		await expect(cell).toHaveAccessibleName(/^Cam A, Focus, 37 m$/);
+		// Take 2 was at 4.2: the cell says its changed mark too.
+		await expect(cell).toHaveAccessibleName(/^Cam A, Focus, 37 m, changed since the take before$/);
 
 		await page.reload();
-		await expect(cell).toHaveAccessibleName(/^Cam A, Focus, 37 m$/);
+		await expect(cell).toHaveAccessibleName(/^Cam A, Focus, 37 m, changed since the take before$/);
 
 		await cell.tap();
 		const chip = page.getByRole('group', { name: 'Recent' }).getByRole('button', { name: '4.2', exact: true });
 		await chip.tap();
 		await page.getByRole('button', { name: 'Done', exact: true }).tap();
 		await expect(cell).toHaveAccessibleName(/^Cam A, Focus, 4\.2 m$/);
+	});
+
+	test('on a phone the notice shows with the keypad up, over the take strip, clear of the field', async ({ page }, testInfo) => {
+		test.skip(testInfo.project.name !== 'phone', 'a phone-width window');
+		await openShoot(page);
+		await page.getByRole('button', { name: /^Cam A, Focus,/ }).tap();
+		await key(page, '9').tap();
+		await page.getByRole('button', { name: 'Next', exact: true }).tap();
+		await expect(keypad(page)).toBeVisible();
+		const notice = page.getByRole('status').filter({ hasText: 'Focus distance set to 9' });
+		await expect(notice.getByRole('button', { name: 'Undo' })).toBeVisible();
+		const box = (await notice.boundingBox())!;
+		const field = (await page.getByRole('button', { name: /^Cam A, T-stop,/ }).boundingBox())!;
+		expect(box.y + box.height <= field.y || field.y + field.height <= box.y).toBe(true);
+	});
+
+	test('motion is feedback: a stored value answers, the next field is there at once, Reduced stills it', async ({ page }) => {
+		/** Animations that move something, running now. A 0.01 ms one (the reduced rule) is none. */
+		const moving = () =>
+			page.evaluate(
+				() =>
+					document.getAnimations().filter((a) => {
+						const effect = a.effect as KeyframeEffect | null;
+						return Number(effect?.getTiming().duration ?? 0) > 1 && JSON.stringify(effect?.getKeyframes() ?? []).includes('transform');
+					}).length
+			);
+		await openShoot(page);
+		for (const motion of ['full', 'reduced'] as const) {
+			await setting(page, { motion });
+			await page.getByRole('button', { name: /^Cam A, T-stop,/ }).tap();
+			await key(page, motion === 'full' ? '4' : '5').tap();
+			await page.getByRole('button', { name: 'Next', exact: true }).tap();
+			const n = await moving();
+			// Nothing waits on it: the next field is in the keypad on the first frame.
+			await expect(page.getByRole('region', { name: 'Lens height' })).toBeVisible();
+			if (motion === 'full') expect(n).toBeGreaterThan(0);
+			else expect(n).toBe(0);
+			await page.getByRole('button', { name: 'Done', exact: true }).tap();
+		}
+	});
+
+	test('the take before shows the picked camera’s values on the take before, and nothing on take 1', async ({ page }) => {
+		await openShoot(page);
+		const before = page.getByRole('region', { name: 'Take before' });
+		await expect(before).toContainText('Take 2 · Cam A');
+		await expect(before.getByRole('definition')).toHaveText(['32 mm', '4.2 m', '2.8', '1.45 m', /^-3°.*changed since the take before$/]);
+		await page.getByRole('navigation', { name: 'Takes' }).getByRole('button', { name: 'Slate 42A, take 1' }).tap();
+		await expect(before).toHaveCount(0);
+	});
+
+	test('the note keeps its lines', async ({ page }) => {
+		await openShoot(page);
+		await page.getByRole('button', { name: /^(Add Note|Note:)/ }).first().tap();
+		const sheet = page.getByRole('dialog', { name: 'Take 3' });
+		await sheet.getByRole('textbox', { name: 'Note' }).fill('Car late on the mark.\nBoom in frame at the end.');
+		await sheet.getByRole('button', { name: 'Done' }).tap();
+		await expect(sheet).toBeHidden();
+		await expect(page.getByRole('button', { name: /^Note: Car late on the mark\.\s+Boom in frame at the end\.$/ })).toBeVisible();
+		await page.reload();
+		await page.getByRole('button', { name: /^Note:/ }).first().tap();
+		await expect(sheet.getByRole('textbox', { name: 'Note' })).toHaveValue('Car late on the mark.\nBoom in frame at the end.');
 	});
 
 	test('a prime focal length is locked; Next walks the numbers that are typed', async ({ page }) => {
@@ -161,6 +225,64 @@ test.describe('take screen', () => {
 		await expect(photo).toHaveCount(0);
 		await rail(page).getByRole('button', { name: 'Undo' }).tap();
 		await expect(photo).toBeVisible();
+	});
+
+	test('the take sheet adds several photos and videos from the library, at the time each was taken', async ({ page, browserName }) => {
+		await openShoot(page);
+		const strip = page.getByRole('region', { name: 'Photos and videos' });
+		const pick = async (files: { name: string; mimeType: string; buffer: Buffer }[]) => {
+			await page.getByRole('button', { name: /^(Add Note|Note:)/ }).first().tap();
+			const sheet = page.getByRole('dialog', { name: 'Take 3' });
+			const [chooser] = await Promise.all([page.waitForEvent('filechooser'), sheet.getByRole('button', { name: 'Add Photos or Videos' }).tap()]);
+			// Several at once, from the library or Files: not the camera.
+			expect(chooser.isMultiple()).toBe(true);
+			await chooser.setFiles(files);
+			return sheet;
+		};
+		// The clip says it was shot on 13 November, before the photos, which say nothing: it comes first.
+		const clip = { name: 'witness.mov', mimeType: 'video/quicktime', buffer: Buffer.from(movie('2026-11-13T14:05:22-0600')) };
+		const sheet = await pick([{ name: 'a.png', mimeType: 'image/png', buffer: PNG }, clip, { name: 'b.png', mimeType: 'image/png', buffer: PNG }]);
+		if (browserName === 'webkit') {
+			// Playwright's WebKit session refuses stored Blobs (see the Photo test above).
+			await expect(page.getByRole('status').filter({ hasText: '3 photos and videos did not save.' })).toBeVisible();
+			await expect(strip.getByRole('img')).toHaveCount(0);
+			return;
+		}
+		await expect(sheet.getByRole('button', { name: /^Add Photos or Videos/ })).toContainText('3');
+		await sheet.getByRole('button', { name: 'Done' }).tap();
+		await expect(strip.getByRole('img')).toHaveCount(3);
+		await expect(strip.getByRole('img', { name: 'Video 1 of take 3' })).toBeVisible();
+		await expect(strip.getByRole('img', { name: 'Photo 2 of take 3' })).toBeVisible();
+		await expect(page.getByRole('status').filter({ hasText: '3 photos and videos added to take 3' })).toBeVisible();
+
+		// One Undo takes the lot off.
+		await rail(page).getByRole('button', { name: 'Undo' }).tap();
+		await expect(strip.getByRole('img')).toHaveCount(0);
+
+		// Kept on the device as a photo is.
+		await pick([clip]);
+		await page.getByRole('dialog', { name: 'Take 3' }).getByRole('button', { name: 'Done' }).tap();
+		await page.reload();
+		await expect(strip.getByRole('img', { name: 'Video 1 of take 3' })).toBeVisible();
+		await page.getByRole('button', { name: 'Remove video 1' }).tap();
+		await expect(strip.getByRole('img')).toHaveCount(0);
+	});
+
+	test('a video over 100 MB is taken, and the notice says its size', async ({ page, browserName }, testInfo) => {
+		// Playwright's WebKit session refuses stored Blobs (see the Photo test above).
+		test.skip(browserName === 'webkit', 'stored files: Chromium only');
+		// A clip that says when it was shot, made 101 MB long without writing the bytes.
+		const path = testInfo.outputPath('long.mov');
+		writeFileSync(path, movie('2026-11-13T14:05:22-0600'));
+		truncateSync(path, 101_000_000);
+		await openShoot(page);
+		await page.getByRole('button', { name: /^(Add Note|Note:)/ }).first().tap();
+		const sheet = page.getByRole('dialog', { name: 'Take 3' });
+		const [chooser] = await Promise.all([page.waitForEvent('filechooser'), sheet.getByRole('button', { name: 'Add Photos or Videos' }).tap()]);
+		await chooser.setFiles(path);
+		await sheet.getByRole('button', { name: 'Done' }).tap();
+		await expect(page.getByRole('status').filter({ hasText: 'This video is 101 MB. It takes room on this iPad and a long time to sync.' })).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Photos and videos' }).getByRole('img', { name: 'Video 1 of take 3' })).toBeVisible();
 	});
 
 	test('Circled marks the take, again unmarks it', async ({ page }) => {

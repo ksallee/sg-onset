@@ -7,7 +7,7 @@ ids and times in. Each module has its test beside it.
 
 | module | what it does |
 |---|---|
-| `catalogue.ts` | `FIELDS`: every field as data. Scope, key, value type, stored unit, label message key, start/end flag, range, and what CRIF, OMC, OpenTrackIO, ALE, USD and VES call it. |
+| `catalogue.ts` | `FIELDS`: every field as data. Scope, key, value type, stored unit, label message key, start/end flag, range, and what CRIF, OMC, OpenTrackIO, ALE, USD and VES call it. The scopes: project, shoot day, lighting setup, camera setup, slate, take, camera, lens, set reference. |
 | `types.ts` | Record types per scope, derived from the catalogue. |
 | `rational.ts` | `{ num, denom }` for frame rates and squeeze. Parse and format. |
 | `length.ts` | Metres stored, feet and inches typed and shown. Keeps what was typed. |
@@ -18,6 +18,9 @@ ids and times in. Each module has its test beside it.
 | `template.ts` | Create from a template, preview a template edit, apply it. |
 | `bulkEdit.ts` | Set one field on many records, with the undo patch. |
 | `take.ts` | Next take number, new take as a copy of the last, focal length of a take. |
+| `takeType.ts` | The take type, and the slate and lighting setup switches a type or a plate at the tail turns on or leaves on. |
+| `takeTail.ts` | The plates at the tail of a take: clean plate, balls and chart, either or both. |
+| `takeElements.ts` | The takes shot for an element, by type, with the takes that have that plate at the tail. |
 | `csv.ts` | CSV text to rows. |
 | `gearImport.ts` | Cameras and lenses from CSV, with a report per row. |
 
@@ -159,3 +162,71 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
 40. **A camera setup has an `order`, set by hand.** Setups with an order come first, by it; the
     rest follow by the old rule: single letters, then names, each alphabetical. A move numbers
     every setup from 1, so a new setup lands at the end.
+
+### Take type (Kevin, 2026-11-17, issue #92)
+
+41. **`takeType` is an enum on the take:** `main`, `cleanPlate`, `ballsAndChart`, `shadowPlate`,
+    `lightPass`, `atmosphere`, `element`, `other`. No standard names it; the key is ours. Not
+    carried to the next take.
+42. **No value is Main.** The app writes no value for Main, so every Main take reads the same and a
+    take shot before the field existed is Main. A stored `main` (typed in Flow PT) reads as Main.
+43. **A clean plate take turns on the slate's `cleanPlate`; a balls and chart take turns on the
+    lighting setup's `referenceBalls` and `colourChart`.** In the same undo entry. A slate with no
+    lighting setup gets nothing for balls and chart. The switches stay editable by hand.
+44. **The app never turns a switch off.** When a take leaves the type and no take still holds it
+    (for balls and chart, no take of any slate on that lighting setup), and the switch is on, the
+    notice offers Turn Off. Ignored, nothing changes. A bulk edit gives one list, so one notice.
+
+### Set references (Claude, 2026-11-17, from Kevin's decisions on #93)
+
+45. **A set reference is a scope of its own, under the slate** (`reference`, `slateId`). A slate has
+    many, each with its own kind, device, file or folder name, card or roll, count and notes.
+    Reason: a list per slate, synced one row each to the "Set Reference" entity.
+46. **The kind is text, not an enum:** a built-in key (`hdri360`, `lidarScan`) or a kind the project
+    added, as typed (`lib/references/kinds.ts`). Reason: a project adds its own kinds, and an enum
+    would refuse them.
+47. **Only the name is required** (decision 36). The add flow always sets a kind; none shows as Other.
+48. **`loggedAt` orders the list.** Set when the reference is added, never a form field. Records have
+    no order of their own in the store.
+49. **The count is a whole number from 1.** What it counts (files, frames, brackets) is the crew's.
+50. **The lighting setup's HDRI fields and the slate's Witness camera, Lidar scan and Clean plate
+    switches stay as they are,** with their CRIF and VES names. The log is added beside them.
+51. **A reference of kind HDRI 360, Witness camera or Lidar scan follows the rule of the take type**
+    (Kevin, 2026-11-17; decisions 43 and 44): logging one turns on the lighting setup's `hdri`, or
+    the slate's `witnessCamera` or `lidar`, in the same undo entry. Deleting the last one, or giving
+    it another kind, offers Turn Off; the HDRI counts every slate on the lighting setup. A reference
+    and a take both hold a switch their kind or type turns on (`takeType.ts`, `KIND_SWITCHES`,
+    `planReferenceEdit`). No kind and no take type share a switch today.
+
+### Take tail (Kevin, 2026-11-17, issue #108)
+
+52. **`takeTail` is a list on the take: `cleanPlate`, `ballsAndChart`, either or both.** A
+    `stringList` with `options`, so each item is one of them. The take keeps its one type
+    (decision 41); the tail is what the camera caught after the action. No standard names it; the
+    key is ours. Not carried to the next take.
+53. **No value is no tail.** An empty list is stored as no value. The plates are stored once each,
+    in the catalogue's order. A plate this version does not know stays as it was and reads as none.
+54. **A plate at the tail counts as a take of that type for the switches** (decisions 43 and 44): a
+    clean plate at the tail turns on the slate's `cleanPlate`, balls and chart turn on the lighting
+    setup's `referenceBalls` and `colourChart`, in the same undo entry. The plate an edit adds turns
+    its switches on, as a new type does. Turn Off is offered only when no take holds the switch as
+    its type or at its tail (`takeSwitches`).
+55. **`takeElements` lists the takes shot for an element, by type, each take with that plate at its
+    tail among them.** A take typed so is listed once. For the Note on a Shot (#97).
+56. **In bulk edit each plate at the tail is a yes or no of its own** (Kevin, 2026-11-17): Clean
+    plate at the tail, Balls and chart at the tail. Yes puts the plate on every chosen take, No or
+    Clear takes it off, and the other plate stays as it is, as on the take sheet. The switch rule
+    and its one notice apply (`slates/bulk.ts`).
+
+### Lighting references (Kevin, 2026-11-17, issue #107)
+
+57. **A reference of kind HDRI 360, 360 video or HDR reference belongs to the lighting setup of its
+    slate,** and shows on every slate of that lighting setup, now or later. It keeps its `slateId`,
+    the slate it was logged on; nothing else is stored. The slates it shows on follow from the
+    lighting setups as they are now (`lib/references/lighting.ts`), so it moves with its slate to
+    another lighting setup, as the switches of decision 51 do. The other kinds stay per slate.
+58. **Deleting the slate a lighting reference was logged on first moves it to another slate of the
+    lighting setup** (Kevin, 2026-11-17): the first left in slate order, shoot day then slate as a
+    person counts, in the same undo entry as the delete. The other kinds go with the slate. With no
+    other slate on the setup, it goes with the slate too (`lib/references/lighting.ts`,
+    `deleteMoves`; `lib/references/edit.ts`, `removeSlate`).

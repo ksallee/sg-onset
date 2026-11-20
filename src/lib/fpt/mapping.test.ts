@@ -1,7 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { endKey, FIELDS } from '$lib/model/catalogue';
-import { linkKeys } from '$lib/store/tables';
-import { ENTITY_SCOPES, ENTITY_TYPES, fieldMap, fieldMaps, mappingTable, STILLS, UUID, wantedColumns, type EntityScope } from './mapping';
+import { isTable, linkKeys } from '$lib/store/tables';
+import {
+	CREATED_AT,
+	DIAGRAMS,
+	ENTITY_SCOPES,
+	ENTITY_TYPES,
+	fieldMap,
+	fieldMaps,
+	mappingTable,
+	REFERENCE_SLATES,
+	isOptionalColumn,
+	isRecordScope,
+	OPTIONAL_SCOPES,
+	SET_SHOT_KEY,
+	SET_SHOT_MATCHED,
+	SET_SHOT_SHOTS,
+	SET_SHOTS,
+	SHOTS,
+	STILLS,
+	UUID,
+	NOTE_COLUMNS,
+	PROJECT_COLUMNS,
+	VERSION_COLUMNS,
+	wantedColumns,
+	wantedFields,
+	type EntityScope
+} from './mapping';
 import { codeName } from './names';
 
 const names = (scope: EntityScope) => wantedColumns(scope).map((c) => c.name);
@@ -17,6 +42,8 @@ describe('fieldMaps', () => {
 
 	it('maps every key the store links records by', () => {
 		for (const scope of ENTITY_SCOPES) {
+			// A Set Shot is no record on the device: the transport makes it from the slate's codes.
+			if (!isTable(scope)) continue;
 			for (const link of linkKeys(scope)) expect(fieldMap(scope, link.key), `${scope}.${link.key}`).toMatchObject({ kind: 'ref' });
 		}
 	});
@@ -36,6 +63,14 @@ describe('fieldMaps', () => {
 		expect(fieldMap('take', 'timecodeStart')!.columns[0]).toMatchObject({ dataType: 'text' });
 		expect(fieldMap('slate', 'scriptTime')!.columns[0]).toMatchObject({ dataType: 'text' });
 		expect(fieldMap('slate', 'vfxShots')!.columns[0]).toMatchObject({ name: 'sg_vfx_shots', dataType: 'text' });
+	});
+
+	it('keeps the take type as text, by its key', () => {
+		expect(fieldMap('take', 'takeType')).toMatchObject({ kind: 'text', columns: [{ name: 'sg_take_type', display: 'Take Type', dataType: 'text' }] });
+	});
+
+	it('keeps the plates at the tail of a take as one text, by their keys', () => {
+		expect(fieldMap('take', 'takeTail')).toMatchObject({ kind: 'stringList', columns: [{ name: 'sg_take_tail', display: 'Take Tail', dataType: 'text' }] });
 	});
 
 	it('stores a length as a number of metres, named with its unit', () => {
@@ -75,6 +110,7 @@ describe('fieldMaps', () => {
 		expect(fieldMap('cameraSetup', 'cameraLabel')!.columns[0]).toMatchObject(code);
 		expect(fieldMap('lightingSetup', 'label')!.columns[0]).toMatchObject(code);
 		expect(fieldMap('slate', 'description')!.columns[0]).toMatchObject({ name: 'description', stock: true });
+		expect(fieldMap('reference', 'name')!.columns[0]).toMatchObject(code);
 	});
 
 	it('names a shoot day by its date as well', () => {
@@ -82,7 +118,7 @@ describe('fieldMaps', () => {
 	});
 
 	it('keeps notes off the stock notes field, which links Note records', () => {
-		for (const scope of ['lightingSetup', 'slate', 'take'] as const) {
+		for (const scope of ['lightingSetup', 'slate', 'take', 'reference'] as const) {
 			expect(fieldMap(scope, 'notes')!.columns[0]).toMatchObject({ name: 'sg_set_notes', dataType: 'text' });
 		}
 	});
@@ -94,6 +130,7 @@ describe('fieldMaps', () => {
 		expect(fieldMap('take', 'cameraSetupId')!.columns[0]).toMatchObject({ name: 'sg_camera_setup', target: 'cameraSetup' });
 		expect(fieldMap('cameraSetup', 'lensId')!.columns[0]).toMatchObject({ name: 'sg_lens', target: 'lens' });
 		expect(fieldMap('slate', 'lightingSetupId')!.columns[0]).toMatchObject({ name: 'sg_lighting_setup', target: 'lightingSetup' });
+		expect(fieldMap('reference', 'slateId')!.columns[0]).toMatchObject({ name: 'sg_slate', dataType: 'entity', target: 'slate' });
 	});
 
 	it('keeps the template link, as text', () => {
@@ -120,8 +157,8 @@ describe('fieldMaps', () => {
 });
 
 describe('wantedColumns', () => {
-	it('asks for the client UUID on every entity, unique', () => {
-		for (const scope of ENTITY_SCOPES) expect(wantedColumns(scope)).toContainEqual(UUID);
+	it('asks for the client UUID on every entity the device holds, unique', () => {
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'setShot')) expect(wantedColumns(scope)).toContainEqual(UUID);
 		expect(UUID).toMatchObject({ name: 'sg_onset_uuid', dataType: 'text', unique: true });
 	});
 
@@ -129,6 +166,76 @@ describe('wantedColumns', () => {
 		expect(STILLS).toMatchObject({ name: 'sg_photos', dataType: 'multi_entity', target: 'attachment' });
 		expect(names('take')).toContain('sg_photos');
 		expect(names('slate')).not.toContain('sg_photos');
+	});
+
+	it('asks for the setup diagram field on the slate only, Attachments as the photos of a take are', () => {
+		expect(DIAGRAMS).toMatchObject({ name: 'sg_setup_diagram', display: 'Setup Diagram', dataType: 'multi_entity', target: 'attachment' });
+		expect(names('slate')).toContain('sg_setup_diagram');
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'slate')) expect(names(scope)).not.toContain('sg_setup_diagram');
+	});
+
+	// A multi_entity to Shot is created by API, valid_types of one type (corpus findings/116).
+	it('asks for the Shots field on the slate and the Set Shot only, a link the codes fill at sync', () => {
+		expect(SHOTS).toMatchObject({ name: 'sg_shots', display: 'Shots', dataType: 'multi_entity', target: 'shot' });
+		expect(names('slate')).toContain('sg_shots');
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'slate' && s !== 'setShot')) expect(names(scope)).not.toContain('sg_shots');
+		// The typed codes keep their own text field: a code with no Shot stays there.
+		expect(fieldMap('slate', 'vfxShots')!.columns[0]).toMatchObject({ name: 'sg_vfx_shots', dataType: 'text' });
+	});
+
+	// A link field's type cannot change once made (corpus endpoints/put_schema_type_fields_field):
+	// the slates a reference shows on get a multi_entity beside `sg_slate` (#107).
+	it('asks for the Slates field on the set reference, beside the slate it was logged on', () => {
+		expect(REFERENCE_SLATES).toMatchObject({ name: 'sg_slates', display: 'Slates', dataType: 'multi_entity', target: 'slate' });
+		expect(names('reference')).toContain('sg_slates');
+		expect(fieldMap('reference', 'slateId')!.columns[0]).toMatchObject({ name: 'sg_slate', dataType: 'entity', target: 'slate' });
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'reference')) expect(names(scope)).not.toContain('sg_slates');
+	});
+
+	// Kevin, #102: one Set Shot per code typed on set, linked from the slate, linking the real
+	// Shots. A multi_entity to a custom slot is created by API (findings/116, 142).
+	it('asks for the Set Shots field on the slate, a link to the Set Shot entity', () => {
+		expect(SET_SHOTS).toMatchObject({ name: 'sg_set_shots', display: 'Set Shots', dataType: 'multi_entity', target: 'setShot' });
+		expect(names('slate')).toContain('sg_set_shots');
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'slate')) expect(names(scope)).not.toContain('sg_set_shots');
+	});
+
+	// The key guards the create: a text field made unique refuses a second row (findings/127).
+	it('asks of a Set Shot a unique key, its Shots and whether the app matched it, and nothing of the device', () => {
+		expect(wantedColumns('setShot')).toEqual([SET_SHOT_KEY, SET_SHOT_SHOTS, SET_SHOT_MATCHED]);
+		expect(SET_SHOT_KEY).toMatchObject({ name: 'sg_onset_key', display: 'Onset Key', dataType: 'text', unique: true });
+		expect(SET_SHOT_SHOTS).toMatchObject({ name: 'sg_shots', display: 'Shots', dataType: 'multi_entity', target: 'shot' });
+		// Kevin, #102: the app matches a Set Shot once, and a flag on it in Flow PT records it.
+		expect(SET_SHOT_MATCHED).toMatchObject({ name: 'sg_onset_matched', display: 'Onset Matched', dataType: 'checkbox' });
+		expect(fieldMaps('setShot').map((m) => m.key)).toEqual(['projectId']);
+	});
+
+	// Kevin, #117: a site without Set Shot syncs the rest; the Set Shot and the links to it wait.
+	it('makes the Set Shot optional, with its fields and the slate field that links it', () => {
+		expect(OPTIONAL_SCOPES).toContain('setShot');
+		for (const column of wantedColumns('setShot')) expect(isOptionalColumn('setShot', column)).toBe(true);
+		expect(isOptionalColumn('slate', SET_SHOTS)).toBe(true);
+		expect(isOptionalColumn('slate', SHOTS)).toBe(false);
+		expect(isOptionalColumn('take', UUID)).toBe(false);
+	});
+
+	// Kevin, #117: Set Reference is optional too. Its records wait on the device; no other record
+	// links one, so nothing else waits with them.
+	it('makes the Set Reference optional, with every field of it, its links to slates included', () => {
+		expect(OPTIONAL_SCOPES).toEqual(['setShot', 'reference']);
+		for (const column of wantedColumns('reference')) expect(isOptionalColumn('reference', column)).toBe(true);
+		expect(isOptionalColumn('reference', REFERENCE_SLATES)).toBe(true);
+		for (const scope of ENTITY_SCOPES.filter((s) => s !== 'reference')) {
+			expect(wantedColumns(scope).filter((c) => c.target === 'reference')).toEqual([]);
+		}
+		expect(isOptionalColumn('slate', SHOTS)).toBe(false);
+	});
+
+	it('tells the scopes of records on the device from the Set Shot', () => {
+		expect(isRecordScope('slate')).toBe(true);
+		expect(isRecordScope('reference')).toBe(true);
+		expect(isRecordScope('setShot')).toBe(false);
+		expect(isRecordScope('still')).toBe(false);
 	});
 
 	it('leaves out the stock fields', () => {
@@ -143,10 +250,22 @@ describe('wantedColumns', () => {
 		expect(names('cameraSetup').sort()).toEqual(['sg_camera', 'sg_lens', 'sg_onset_uuid', 'sg_sort_order']);
 		expect(fieldMap('cameraSetup', 'order')).toMatchObject({ kind: 'integer', columns: [{ name: 'sg_sort_order', display: 'Sort Order', dataType: 'number' }] });
 	});
+
+	it('lists what a set reference needs: its slate, the slates it shows on, its kind as text, and the rest of the log', () => {
+		expect(names('reference').sort()).toEqual(['sg_card_or_roll', 'sg_count', 'sg_device', 'sg_kind', 'sg_logged_at', 'sg_onset_uuid', 'sg_set_notes', 'sg_slate', 'sg_slates']);
+		expect(fieldMap('reference', 'kind')).toMatchObject({ kind: 'text', columns: [{ name: 'sg_kind', display: 'Kind', dataType: 'text' }] });
+		expect(fieldMap('reference', 'cardOrRoll')!.columns[0]).toMatchObject({ name: 'sg_card_or_roll', display: 'Card or Roll' });
+		expect(fieldMap('reference', 'count')!.columns[0]).toMatchObject({ name: 'sg_count', dataType: 'number' });
+		expect(fieldMap('reference', 'templateId')).toBeUndefined();
+	});
+
+	it('dates a set reference by when it was logged, as a take by its start', () => {
+		expect(CREATED_AT).toEqual({ take: 'startedAt', reference: 'loggedAt' });
+	});
 });
 
 describe('ENTITY_TYPES', () => {
-	it('names the three built-in types and the four display names to find', () => {
+	it('names the three built-in types and the six display names to find', () => {
 		expect(ENTITY_TYPES).toEqual({
 			shootDay: { kind: 'builtin', entityType: 'ShootDay', displayName: 'Shoot Day' },
 			slate: { kind: 'builtin', entityType: 'Slate', displayName: 'Slate' },
@@ -154,7 +273,9 @@ describe('ENTITY_TYPES', () => {
 			take: { kind: 'custom', displayName: 'Take' },
 			lens: { kind: 'custom', displayName: 'Lens', aliases: ['Lenses'] },
 			cameraSetup: { kind: 'custom', displayName: 'Camera Setup' },
-			lightingSetup: { kind: 'custom', displayName: 'Lighting Setup' }
+			lightingSetup: { kind: 'custom', displayName: 'Lighting Setup' },
+			reference: { kind: 'custom', displayName: 'Set Reference' },
+			setShot: { kind: 'custom', displayName: 'Set Shot' }
 		});
 	});
 });
@@ -164,5 +285,23 @@ describe('mappingTable', () => {
 		const rows = mappingTable();
 		expect(rows).toContainEqual({ scope: 'take', key: 'tilt', field: 'sg_tilt', dataType: 'float', note: 'deg' });
 		expect(rows.length).toBe(ENTITY_SCOPES.reduce((n, s) => n + fieldMaps(s).length, 0));
+	});
+});
+
+// #111: what an admin may name.
+describe('wantedFields', () => {
+	it('lists every field the app wants, by where it is, stock ones aside', () => {
+		const fields = wantedFields();
+		expect(fields.length).toBe(ENTITY_SCOPES.reduce((n, s) => n + wantedColumns(s).length, 0) + VERSION_COLUMNS.length + NOTE_COLUMNS.length + PROJECT_COLUMNS.length);
+		expect(fields).toContainEqual({ place: 'project', column: expect.objectContaining({ name: 'sg_onset_templates' }) });
+		expect(fields).toContainEqual({ place: 'take', column: expect.objectContaining({ name: 'sg_focal_length' }) });
+		expect(fields).toContainEqual({ place: 'version', column: expect.objectContaining({ name: 'sg_onset_uuid' }) });
+		expect(fields).toContainEqual({ place: 'note', column: expect.objectContaining({ name: 'sg_onset_captured' }) });
+		expect(fields.some((f) => f.column.stock)).toBe(false);
+		// One name per place: the key of a naming (naming.ts).
+		const keys = fields.map((f) => `${f.place}.${f.column.name}`);
+		expect(new Set(keys).size).toBe(keys.length);
+		// The default name is the one the default display name makes: renaming is choosing a display name.
+		expect(fields.filter((f) => codeName(f.column.display) !== f.column.name)).toEqual([]);
 	});
 });

@@ -4,7 +4,7 @@ import { fieldRef, fieldRefs } from './fields';
 describe('fieldRefs', () => {
 	it('lists the fields of a scope in catalogue order, each end right after its start', () => {
 		const keys = fieldRefs('take').map((r) => r.key);
-		expect(keys.slice(0, 3)).toEqual(['take', 'startedAt', 'endedAt']);
+		expect(keys.slice(0, 5)).toEqual(['take', 'takeType', 'takeTail', 'startedAt', 'endedAt']);
 		expect(keys.indexOf('tiltEnd')).toBe(keys.indexOf('tilt') + 1);
 		expect(fieldRefs('take').find((r) => r.key === 'tiltEnd')).toMatchObject({ end: true, def: { key: 'tilt' } });
 	});

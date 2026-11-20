@@ -1,10 +1,13 @@
 // What an export reads: the records of one project as the store returns them, picked by shoot
 // day, slate range and take flags, and flattened to one row per take (one camera's take) with the
-// slate, shoot day, lighting setup, camera setup, camera and lens resolved onto it. Pure.
+// slate, shoot day, lighting setup, camera setup, camera, lens and the set references the slate
+// shows resolved onto it: its own, and the lighting references of its lighting setup (#107). Pure.
 
 import type { Scope } from '$lib/model/catalogue';
 import { effectiveFocalLength } from '$lib/model/take';
-import type { Camera, CameraSetup, Lens, LightingSetup, Project, ShootDay, Slate, Still, Take } from '$lib/model/types';
+import type { Camera, CameraSetup, Lens, LightingSetup, Project, Reference, ShootDay, Slate, Still, Take } from '$lib/model/types';
+import { shownBySlate } from '$lib/references/lighting';
+import { sortReferences } from '$lib/references/log';
 
 /** The records of one project, as `Store.list` returns them. Any order. */
 export type ExportInput = {
@@ -16,7 +19,13 @@ export type ExportInput = {
 	lenses: Lens[];
 	slates: Slate[];
 	takes: Take[];
+	/** The photos and videos. */
 	stills: Still[];
+	/** The audio notes (#89): stills whose file is audio, held apart by `withMediaKinds` (wrap/input.ts). */
+	audioNotes?: Still[];
+	/** The ids of the stills whose file is a video (#94), by `withMediaKinds`: counted as videos. */
+	videos?: string[];
+	references: Reference[];
 };
 
 export type ExportFilters = {
@@ -48,8 +57,15 @@ export type FlatTake = {
 	cameraLetter: string;
 	/** In mm. A prime's own focal length wins over the take's (model decision 30). */
 	focalLength?: { start: number; end: number; source: 'lens' | 'take' };
-	/** The take's photos, oldest first. */
+	/** The take's photos and videos, oldest first. */
 	stills: Still[];
+	/** The take's audio notes, oldest first (#89). */
+	audioNotes: Still[];
+	/**
+	 * The set references the slate shows, in the order logged: its own, and the lighting references
+	 * logged on another slate of its lighting setup (lib/references/lighting.ts).
+	 */
+	references: Reference[];
 };
 
 const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
@@ -90,6 +106,13 @@ export function selectSlates(input: ExportInput, filters: ExportFilters = {}): S
 		.sort((a, b) => dayIndex.get(a.shootDayId)! - dayIndex.get(b.shootDayId)! || naturalCompare(a.slateUID ?? '', b.slateUID ?? '') || a.id.localeCompare(b.id));
 }
 
+/** The set references logged on each slate, in the order logged. What a slate shows is `shownBySlate`. */
+export function referencesBySlate(refs: readonly Reference[]): Map<string, Reference[]> {
+	const out = new Map<string, Reference[]>();
+	for (const r of sortReferences(refs)) out.set(r.slateId, [...(out.get(r.slateId) ?? []), r]);
+	return out;
+}
+
 /**
  * One row per take the filters keep. Order: shoot day, slate, take number, camera letter, all in
  * natural order. A take whose slate or shoot day is not in the input is left out.
@@ -103,8 +126,15 @@ export function flatten(input: ExportInput, filters: ExportFilters = {}): FlatTa
 	const cameras = byId(input.cameras);
 	const lenses = byId(input.lenses);
 	const slateById = byId(slates);
-	const stills = new Map<string, Still[]>();
-	for (const still of input.stills) stills.set(still.takeId, [...(stills.get(still.takeId) ?? []), still]);
+	const byTake = (list: readonly Still[]) => {
+		const out = new Map<string, Still[]>();
+		for (const still of list) out.set(still.takeId, [...(out.get(still.takeId) ?? []), still]);
+		return out;
+	};
+	const stills = byTake(input.stills);
+	const audioNotes = byTake(input.audioNotes ?? []);
+	const oldestFirst = (list: readonly Still[] = []) => list.slice().sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || a.id.localeCompare(b.id));
+	const references = shownBySlate(input.slates, input.references);
 
 	const rows: FlatTake[] = [];
 	for (const take of input.takes) {
@@ -125,7 +155,9 @@ export function flatten(input: ExportInput, filters: ExportFilters = {}): FlatTa
 			lens,
 			cameraLetter: cameraSetup?.cameraLabel ?? '',
 			focalLength: effectiveFocalLength(take, lens),
-			stills: (stills.get(take.id) ?? []).slice().sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || a.id.localeCompare(b.id))
+			stills: oldestFirst(stills.get(take.id)),
+			audioNotes: oldestFirst(audioNotes.get(take.id)),
+			references: references.get(slate.id) ?? []
 		});
 	}
 	return rows.sort(
@@ -137,8 +169,9 @@ export function flatten(input: ExportInput, filters: ExportFilters = {}): FlatTa
 	);
 }
 
-/** The record of `scope` on a row. */
+/** The record of `scope` on a row. A row holds its slate's set references as a list, none as its own. */
 export function rowRecord(row: FlatTake, scope: Scope): Record<string, unknown> | undefined {
+	if (scope === 'reference') return undefined;
 	return row[scope] as Record<string, unknown> | undefined;
 }
 

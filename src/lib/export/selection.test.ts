@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import type { Still } from '$lib/model/types';
 import { flatten, naturalCompare, rowValue } from './selection';
-import { input, t42A1A, t42A1B, t42A2A, t42A2B, t42A10A, t9, t10, t50 } from './testData';
+import { input, sharedLighting, t42A1A, t42A1B, t42A2A, t42A2B, t42A10A, t9, t10, t50 } from './testData';
 
 const ids = (rows: { take: { id: string } }[]) => rows.map((r) => r.take.id);
+/** An audio note on take 42A 1 A. */
+const an = (id: string, capturedAt: string): Still => ({ id, takeId: t42A1A.id, capturedAt });
 
 describe('naturalCompare', () => {
 	it('counts as a person does', () => {
@@ -58,6 +61,30 @@ describe('flatten', () => {
 		expect(row.stills.map((s) => s.id)).toEqual(['st2', 'st1']);
 	});
 
+	// #89: an audio note is a still whose file is audio; the input holds them apart (wrap/input.ts).
+	it('attaches the audio notes of a take apart from its photos, oldest first', () => {
+		const data = { ...input(), audioNotes: [an('an2', '2026-11-10T22:18:00.000Z'), an('an1', '2026-11-10T22:15:00.000Z')] };
+		const row = flatten(data).find((r) => r.take.id === t42A1A.id)!;
+		expect(row.audioNotes.map((s) => s.id)).toEqual(['an1', 'an2']);
+		expect(row.stills.map((s) => s.id)).toEqual(['st2', 'st1']);
+		expect(flatten(input()).every((r) => r.audioNotes.length === 0)).toBe(true);
+	});
+
+	it('gives each row the set references of its slate, in the order logged', () => {
+		const rows = flatten(input());
+		expect(rows.find((r) => r.take.id === t42A1A.id)!.references.map((r) => r.name)).toEqual(['Scan 01', 'HDRI_0412']);
+		expect(rows.find((r) => r.take.id === 't9')!.references).toEqual([]);
+	});
+
+	it('gives a row the lighting references logged on another slate of its lighting setup, that day or another (#107)', () => {
+		const rows = flatten(sharedLighting());
+		const names = (id: string) => rows.find((r) => r.take.id === id)!.references.map((r) => r.name);
+		expect(names(t10.id)).toEqual(['HDRI_0412']);
+		expect(names(t50.id)).toEqual(['HDRI_0412', 'Flight 1']);
+		expect(names(t42A1A.id)).toEqual(['Scan 01', 'HDRI_0412']);
+		expect(names(t9.id)).toEqual([]);
+	});
+
 	it('gives an empty camera letter to a take with no setup', () => {
 		const row = flatten(input()).find((r) => r.take.id === t9.id)!;
 		expect(row.cameraLetter).toBe('');
@@ -107,6 +134,11 @@ describe('rowValue', () => {
 		expect(rowValue(row, 'take', 'tiltEnd')).toBe(-5);
 		expect(rowValue(row, 'camera', 'cameraMake')).toBe('ARRI');
 		expect(rowValue(row, 'lens', 'lensSerialNumber')).toBe('CK32-001');
+	});
+
+	it('gives undefined for a set reference: a row holds a list of them, none as its own', () => {
+		const row = flatten(input()).find((r) => r.take.id === t42A1A.id)!;
+		expect(rowValue(row, 'reference', 'name')).toBeUndefined();
 	});
 
 	it('gives undefined where the row has no record of that scope', () => {

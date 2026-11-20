@@ -7,7 +7,7 @@
 // with no change of index still needs a new version, for its `upgrade`.
 
 import type { Transaction } from 'dexie';
-import { PARENTS, TABLES, type TableName } from './tables';
+import { PARENTS, type TableName } from './tables';
 
 export type SchemaVersion = {
 	version: number;
@@ -44,7 +44,7 @@ function recordStores(tables: readonly TableName[]): Record<string, string> {
 }
 
 /** The record tables of version 1, fixed: a table added later comes in its own version. */
-const V1_TABLES = TABLES.filter((t) => t !== 'template');
+const V1_TABLES: readonly TableName[] = ['project', 'shootDay', 'lightingSetup', 'cameraSetup', 'slate', 'take', 'camera', 'lens', 'still'];
 
 export const VERSIONS: readonly SchemaVersion[] = [
 	{
@@ -64,7 +64,15 @@ export const VERSIONS: readonly SchemaVersion[] = [
 		stores: { snapshots: 'id, at, *blobIds', snapshotData: 'id' }
 	},
 	// Templates, kept on the device (tables.ts LOCAL_TABLES).
-	{ version: 3, stores: recordStores(['template']) }
+	{ version: 3, stores: recordStores(['template']) },
+	// Set references under their slate, and the kinds a project adds, kept on the device.
+	{ version: 4, stores: recordStores(['reference', 'referenceKind']) },
+	// The drawings on photos, kept on the device beside their still (tables.ts LOCAL_TABLES).
+	{ version: 5, stores: recordStores(['markup']) },
+	// The setup diagrams, one per slate, kept on the device (tables.ts LOCAL_TABLES).
+	{ version: 6, stores: recordStores(['diagram']) },
+	// What each import of the DIT's clips wrote, under its shoot day, kept on the device (#109).
+	{ version: 7, stores: recordStores(['clipImport']) }
 ];
 
 export const SCHEMA_VERSION = VERSIONS[VERSIONS.length - 1].version;

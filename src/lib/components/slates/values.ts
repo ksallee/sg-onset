@@ -5,6 +5,7 @@
 import type { Scope } from '$lib/model/catalogue';
 import { formatField } from '$lib/model/fieldText';
 import type { UnitSystem } from '$lib/model/length';
+import { takeTypeOf } from '$lib/model/takeType';
 import { t } from '$lib/i18n/messages';
 import { fieldLabel, optionLabel, unitLabel } from '$lib/i18n/modelText';
 import type { FieldRef } from '$lib/slates/fields';
@@ -14,13 +15,19 @@ import { fieldRef } from '$lib/slates/fields';
 export type Names = ReadonlyMap<string, string>;
 
 export function valueText(ref: FieldRef, value: unknown, units: UnitSystem, names?: Names): string {
-	if (value === undefined || value === null || value === '') return '';
 	const { def } = ref;
+	// A take with no type is Main.
+	if (def.scope === 'take' && def.key === 'takeType') value = takeTypeOf({ takeType: value as string | undefined });
+	if (value === undefined || value === null || value === '') return '';
 	switch (def.type) {
 		case 'boolean':
 			return value ? t('slates.field.yes') : t('slates.field.no');
 		case 'enum':
 			return optionLabel(def, String(value));
+		case 'stringList':
+			// A list of options, the plates at a take's tail: by their labels.
+			if (def.options && Array.isArray(value)) return value.map((v) => optionLabel(def, String(v))).join(', ');
+			return formatField(def, value, units);
 		case 'ref':
 			return names?.get(String(value)) ?? '';
 		case 'length':

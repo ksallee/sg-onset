@@ -6,13 +6,21 @@
 // The snapshotter starts with the store: it only listens until a change, and writes in an idle
 // callback, so neither the first paint nor the take screen waits on it. The browser is asked to
 // protect the data on each open, where that shows no dialog: nothing waits on its answer.
+//
+// The flattener starts with it too: it makes the annotated copy of a photo after its drawing
+// changes (#86, `$lib/draw/flattener`), in the background, never on the capture path.
 import { getContext, setContext } from 'svelte';
+import { createFlattener, type Flattener } from '$lib/draw/flattener';
+import { flattenPhoto } from '$lib/draw/flatten';
 import { persistQuietly } from '$lib/pwa/persist';
 import { openStore, type DexieStore } from '$lib/store/dexieStore';
 import { createSnapshotter, type Snapshotter } from '$lib/store/snapshots';
 import { createEditor, type EditEvent, type Editor } from './editor';
 import { toSecond } from './sync/clock';
 import { EMPTY_UNDO, type UndoState } from './undo';
+
+/** A question an edit raises, asked in its notice in place of Undo: the take type's Turn Off. */
+export type Offer = { text: string; action: string; run: () => unknown };
 
 export interface App {
 	/** On-device storage. Read with the `live` helpers; write through `edit`. */
@@ -21,11 +29,15 @@ export interface App {
 	readonly edit: Editor;
 	/** Automatic snapshots of the store (store/README.md, Snapshots). The editor calls it before risky edits. */
 	readonly snapshotter: Snapshotter;
+	/** Keeps each photo's annotated copy in step with its drawing. A drawing open holds its photo. */
+	readonly flattener: Flattener;
 	readonly canUndo: boolean;
 	readonly canRedo: boolean;
 	/** The last thing the editor did, until dismissed: what a notice shows. */
-	readonly lastEdit: (EditEvent & { at: number }) | null;
+	readonly lastEdit: (EditEvent & { at: number; offer?: Offer }) | null;
 	dismissEdit(): void;
+	/** Puts an offer on the notice of the last edit, which shows it in place of Undo, for its full time. */
+	offer(offer: Offer): void;
 	/** A client UUID for a new record. */
 	newId(): string;
 	/** The clock, ms, to the second: FPT keeps times to the second (sync/clock.ts). */
@@ -39,6 +51,7 @@ let opened: App | undefined;
 // the snapshotter takes its last one as the page hides.
 import.meta.hot?.dispose(() => {
 	opened?.snapshotter.stop();
+	opened?.flattener.stop();
 	opened = undefined;
 });
 
@@ -48,6 +61,7 @@ function open(): App {
 	let last = $state.raw<App['lastEdit']>(null);
 	void persistQuietly();
 	const snapshotter = createSnapshotter({ snapshots: store.snapshots, subscribe: store.subscribe });
+	const flattener = createFlattener({ store, flatten: flattenPhoto });
 	const edit = createEditor(
 		store,
 		(state, event) => {
@@ -66,6 +80,7 @@ function open(): App {
 		store,
 		edit,
 		snapshotter,
+		flattener,
 		get canUndo() {
 			return undo.past.length > 0;
 		},
@@ -77,6 +92,9 @@ function open(): App {
 		},
 		dismissEdit() {
 			last = null;
+		},
+		offer(offer) {
+			if (last) last = { ...last, offer, at: Date.now() };
 		},
 		newId: () => crypto.randomUUID(),
 		now: () => toSecond(Date.now())

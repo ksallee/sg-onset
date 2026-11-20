@@ -10,20 +10,32 @@ import { live, liveList } from '$lib/app/live.svelte';
 import { settings } from '$lib/app/settings.svelte';
 import type { Label } from '$lib/app/undo';
 import { fieldLabel, issueText } from '$lib/i18n/modelText';
-import { t } from '$lib/i18n/messages';
+import { t, tk } from '$lib/i18n/messages';
 import type { FieldDef } from '$lib/model/catalogue';
+import { groupTail, tailPatch, type TakeTail } from '$lib/model/takeTail';
+import { groupType, typePatch, type TakeType } from '$lib/model/takeType';
 import type { FieldValue, Lens, Still, Take } from '$lib/model/types';
+import { audioType } from '$lib/media/audioFormat';
+import { readCaptureTime } from '$lib/media/readCaptureTime';
 import { sameValue } from '$lib/model/value';
+import { chosenSetups } from '$lib/gear/shooting';
+import { shooting } from '$lib/gear/shooting.svelte';
 import { sortTemplates } from '$lib/templates/list';
 import { canStepEntry, commitEntry, pressEntry, startEntry, stepEntry, type EntryKey, type FieldEntry } from './entry';
 import { entrySpec, isLocked, numberFields, shownValue, slotKey, visibleFields, type EntrySpec } from './fields';
+import { changedSince, takeBefore } from './before';
 import { activeSetupIds, cameraColumns, groupTakes, NO_SETUP, type TakeGroup } from './groups';
 import { groupMark, groupNote, markPatch, newStill, notePatch, photoTake, type Mark } from './marks';
+import { addedLabel, failedLabel, mediaKind, pickedAt, pickedType, removedLabel, type MediaKind } from './library';
+import { audioNoteFileName } from './audioNote';
+import { sizeNotice } from './videoSize';
 import { groupPhase, groupTimes, runningGroup } from './phase';
 import { nextSecondIn } from './record';
 import { recentValues } from './recent';
 import { addCameraTake, nextTakes, pressTarget, shownGroup, startEndPlan } from './startEnd';
 import { groupChanged, groupLink, groupLinkPatch, groupResetPatch, groupUnlinkPatch, type GroupLink } from './template';
+import { applyTakeEdit } from './typeEdit';
+import { tailLabel } from './typeText';
 
 /** The field in the keypad: whose, which, start or end value. */
 export interface OpenField {
@@ -42,6 +54,8 @@ export class Shoot {
 	readonly lenses;
 	/** The stills of every take of the slate. */
 	readonly stills;
+	/** The type of each still's stored file, by still id: a photo, a video or an audio note. */
+	readonly stillTypes;
 	/** The project's templates. */
 	readonly templates;
 
@@ -55,27 +69,34 @@ export class Shoot {
 	entry = $state.raw<FieldEntry>(startEntry(''));
 	/** What is wrong with what was typed. */
 	issue = $state<string | null>(null);
-	/** A photo that did not save. */
+	/** About photos, videos and audio notes just added: some did not save, or a video is large. */
 	photoIssue = $state<string | null>(null);
 	/** The clock, moved each whole second of the running take. */
 	now = $state(Date.now());
 	/** Photos taken this visit, shown from the file while the store writes it. */
 	pending = $state.raw<Record<string, string>>({});
+	/** The type of each of those files. */
+	pendingTypes = $state.raw<Record<string, string>>({});
 	/** When the page opened: its notice says only what was done since. */
 	readonly openedAt = Date.now();
 	/** Photos the store is still writing. */
 	unsaved = $state.raw<Still[]>([]);
+	/** The value last stored from the dock: its camera, its slot and a count that moves on each. The table answers it. */
+	saved = $state.raw<{ setupId: string; key: string; n: number } | null>(null);
 
 	readonly groups = $derived.by(() => groupTakes(this.takes.value));
-	readonly columns = $derived.by(() => cameraColumns(this.setups.value, this.groups));
+	/** The camera setups this device shoots with (#110, lib/gear/shooting.ts): the columns and Start use only these. */
+	readonly chosen = $derived.by(() => chosenSetups(this.setups.value, shooting.value, this.#current.project?.id ?? ''));
+	readonly columns = $derived.by(() => cameraColumns(this.setups.value, this.groups, this.chosen));
 	readonly group = $derived.by(() => shownGroup(this.groups, this.selected));
-	readonly previous = $derived.by(() => (this.group ? this.groups[this.groups.indexOf(this.group) - 1] : undefined));
+	/** The picked camera's take before the one on screen, for the dock's card; none for the first. */
+	readonly before = $derived.by(() => takeBefore(this.groups, this.group, this.setupId));
 	readonly phase = $derived(this.group ? groupPhase(this.group) : 'idle');
 	readonly times = $derived.by(() => (this.group ? groupTimes(this.group) : { start: null, end: null }));
 	readonly running = $derived.by(() => runningGroup(this.groups));
 	readonly runningStart = $derived.by(() => (this.running ? groupTimes(this.running).start : null));
 	readonly target = $derived.by(() => pressTarget(this.groups, this.selected));
-	readonly active = $derived.by(() => activeSetupIds(this.groups, this.setups.value));
+	readonly active = $derived.by(() => activeSetupIds(this.groups, this.setups.value, this.chosen));
 	readonly setupId = $derived.by(() => {
 		const ids = this.columns.map((c) => c.id);
 		if (this.picked !== undefined && ids.includes(this.picked)) return this.picked;
@@ -83,15 +104,24 @@ export class Shoot {
 		return onTake ?? ids[0] ?? NO_SETUP;
 	});
 	readonly fields = $derived(visibleFields(this.showAll));
-	readonly groupStills = $derived.by(() => {
+	/** Every still of the take on screen, stored or being written, oldest first. */
+	readonly #groupAll = $derived.by(() => {
 		const ids = new Set(this.group?.takes.map((t) => t.id) ?? []);
 		const stored = this.stills.value;
 		const writing = this.unsaved.filter((u) => !stored.some((s) => s.id === u.id));
 		return [...stored, ...writing].filter((s) => ids.has(s.takeId)).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
 	});
+	/** The photos and videos of the take on screen. Its audio notes are stills too: `groupAudio`. */
+	readonly groupStills = $derived(this.#groupAll.filter((s) => this.kindOf(s) !== 'audio'));
+	/** The audio notes of the take on screen, oldest first (#89). */
+	readonly groupAudio = $derived(this.#groupAll.filter((s) => this.kindOf(s) === 'audio'));
 	readonly circled = $derived(this.group ? groupMark(this.group, 'circleTake') : false);
 	readonly noGood = $derived(this.group ? groupMark(this.group, 'noGood') : false);
 	readonly note = $derived(this.group ? groupNote(this.group) : '');
+	/** The type every camera of the take on screen has; undefined when they differ. */
+	readonly type = $derived(this.group ? groupType(this.group.takes) : undefined);
+	/** The plates every camera of the take on screen has at its tail. */
+	readonly tail = $derived(this.group ? groupTail(this.group.takes) : []);
 	/** The take templates to pick from, by name. */
 	readonly takeTemplates = $derived.by(() => sortTemplates(this.templates.value.filter((tp) => tp.scope === 'take')));
 	/** The template the take on screen follows. */
@@ -121,6 +151,15 @@ export class Shoot {
 				return (await Promise.all(ids.map((id) => store.list('still', id)))).flat();
 			},
 			[]
+		);
+		this.stillTypes = live<Record<string, string>>(
+			['still', 'take', 'blobs'],
+			async (store) => {
+				const ids = this.stills.value.map((s) => s.id);
+				const metas = await Promise.all(ids.map((id) => store.blobsOf(id)));
+				return Object.fromEntries(ids.flatMap((id, i) => (metas[i][0] ? [[id, metas[i][0].type]] : [])));
+			},
+			{}
 		);
 
 		// The clock runs while a take does, on its whole seconds.
@@ -170,13 +209,10 @@ export class Shoot {
 		return take ? shownValue(def, take, this.lensOf(take), settings.value.units, end) : '';
 	}
 
-	/** The value differs from the same camera's take before. */
+	/** The value differs from the same camera's take before (before.ts). */
 	changed(setupId: string, def: FieldDef): boolean {
 		const take = this.takeOf(setupId);
-		const before = this.previous?.bySetup[setupId];
-		if (!take || !before || isLocked(def, this.lensOf(take))) return false;
-		const rec = (r: Take, key: string) => (r as Record<string, unknown>)[key];
-		return !sameValue(rec(take, def.key), rec(before, def.key)) || !sameValue(rec(take, slotKey(def.key, true)), rec(before, slotKey(def.key, true)));
+		return changedSince(def, take, takeBefore(this.groups, this.group, setupId)?.take, this.lensOf(take));
 	}
 
 	locked(setupId: string, def: FieldDef): boolean {
@@ -198,7 +234,7 @@ export class Shoot {
 		const plan = startEndPlan({ groups: this.groups, selected: this.selected, active: this.active, setups: this.setups.value, slateId: slate.id, at, newId: () => this.#app.newId() });
 		const take = plan.number;
 		if (plan.kind === 'end') {
-			await this.#app.edit.apply('take', plan.patch, this.#label('undo.filed', { take }));
+			await this.#app.edit.apply('take', plan.patch, this.#label('take.edit.end', { take }));
 		} else if (plan.kind === 'start') {
 			this.selected = take;
 			await this.#app.edit.apply('take', plan.patch, this.#label('take.edit.start', { take }));
@@ -224,44 +260,105 @@ export class Shoot {
 		});
 	}
 
-	/**
-	 * A photo from the camera: on the picked camera's take. It shows at once, from the file; the
-	 * store writes it behind and nothing waits for that. If the write fails, the photo goes and
-	 * the notice says so.
-	 */
+	/** A photo, a video or an audio note, by its file's type. */
+	kindOf(still: Still): MediaKind {
+		return mediaKind(this.pendingTypes[still.id] ?? this.stillTypes.value[still.id] ?? '');
+	}
+
+	/** A photo from the camera, taken now. */
 	addPhoto(file: File) {
+		this.#addFiles([{ file, at: this.#app.now() }]);
+	}
+
+	/**
+	 * An audio note from the microphone (#89), begun at `at`. It lands as a photo does, the file
+	 * as the browser wrote it.
+	 */
+	addAudioNote(file: Blob, at: number) {
+		const type = audioType(file.type);
+		this.#addFiles([{ file: new File([file], audioNoteFileName(type, at), { type }), at }]);
+	}
+
+	/**
+	 * Photos and videos picked from the library or Files, from the take sheet. Each lands as a
+	 * photo from the camera does, at the time its file says it was taken, else now. A file that is
+	 * neither is left out. One Undo for the lot.
+	 */
+	async addFiles(files: readonly File[]) {
+		const picked = files.flatMap((file) => {
+			const type = pickedType(file.name, file.type);
+			if (!type) return [];
+			// A file from Files can come with no type: it gets the one its name says.
+			return [type === file.type ? file : new File([file], file.name, { type, lastModified: file.lastModified })];
+		});
+		if (!picked.length) return;
+		const now = this.#app.now();
+		const times = await Promise.all(picked.map((file) => readCaptureTime(file)));
+		this.#addFiles(picked.map((file, i) => ({ file, at: pickedAt(times[i], now) })));
+	}
+
+	/**
+	 * Files on the picked camera's take. They show at once, from the files; the store writes them
+	 * behind and nothing waits for that. A file whose write fails goes, and the notice says so.
+	 */
+	#addFiles(items: readonly { file: File; at: number }[]) {
 		const slate = this.slate;
-		if (!slate) return;
-		const at = this.#app.now();
-		const id = this.#app.newId();
+		if (!slate || !items.length) return;
 		const existing = photoTake(this.group, this.setupId);
 		// No take yet on this slate: the photo makes the next one, not started.
 		const [made] = existing ? [] : nextTakes({ groups: this.groups, active: [this.setupId], setups: this.setups.value, slateId: slate.id, newId: () => this.#app.newId() });
 		const take = existing ?? made;
-		const still = newStill(take.id, id, at);
-		const url = URL.createObjectURL(file);
-		this.pending = { ...this.pending, [id]: url };
-		this.unsaved = [...this.unsaved, still];
+		const added = items.map((item) => ({ file: item.file, kind: mediaKind(item.file.type), still: newStill(take.id, this.#app.newId(), item.at) }));
+		this.pending = { ...this.pending, ...Object.fromEntries(added.map((a) => [a.still.id, URL.createObjectURL(a.file)])) };
+		this.pendingTypes = { ...this.pendingTypes, ...Object.fromEntries(added.map((a) => [a.still.id, a.file.type])) };
+		this.unsaved = [...this.unsaved, ...added.map((a) => a.still)];
 		if (made) this.selected = made.take;
-		const label = this.#label('take.edit.photo', { take: take.take ?? '' });
+		const label = addedLabel(
+			added.map((a) => a.kind),
+			take.take ?? ''
+		);
+		const failed: typeof added = [];
 		const run = async () => {
 			if (made) await this.#app.edit.create('take', made);
-			await this.#app.edit.create('still', still, { attach: { blob: file, name: file.name }, label });
+			for (const a of added) {
+				try {
+					await this.#app.edit.create('still', a.still, { attach: { blob: a.file, name: a.file.name }, label });
+				} catch {
+					failed.push(a);
+				}
+			}
 		};
-		void (made ? this.#app.edit.group(label, run) : run())
-			.catch(() => {
-				this.photoIssue = t('take.photo.failed');
-				setTimeout(() => (this.photoIssue = null), 6000);
-				const { [id]: gone, ...rest } = this.pending;
-				URL.revokeObjectURL(gone);
-				this.pending = rest;
-			})
-			.finally(() => (this.unsaved = this.unsaved.filter((s) => s.id !== id)));
+		void (made || added.length > 1 ? this.#app.edit.group(label, run) : run())
+			// The take did not save: none of them did.
+			.catch(() => failed.splice(0, failed.length, ...added))
+			.finally(() => {
+				const ids = new Set(added.map((a) => a.still.id));
+				this.unsaved = this.unsaved.filter((s) => !ids.has(s.id));
+				// What did not save is said first; else the size of a large video (videoSize.ts). Neither blocks anything.
+				const saved = added.filter((a) => !failed.includes(a));
+				const notice = failed.length ? failedLabel(failed.map((a) => a.kind)) : sizeNotice(saved.map((a) => ({ type: a.file.type, size: a.file.size })));
+				if (notice) this.#notice(t(notice.key, notice.params));
+				if (!failed.length) return;
+				const gone = new Set(failed.map((a) => a.still.id));
+				const urls = [...gone].map((id) => this.pending[id]);
+				this.pending = Object.fromEntries(Object.entries(this.pending).filter(([id]) => !gone.has(id)));
+				this.pendingTypes = Object.fromEntries(Object.entries(this.pendingTypes).filter(([id]) => !gone.has(id)));
+				// The files are let go once their thumbnails are off the screen, not while one still loads.
+				setTimeout(() => urls.forEach((url) => URL.revokeObjectURL(url)), 1000);
+			});
+	}
+
+	/** A notice about photos, videos and audio notes just added, for six seconds. A newer one is not cut short. */
+	#notice(text: string) {
+		this.photoIssue = text;
+		setTimeout(() => {
+			if (this.photoIssue === text) this.photoIssue = null;
+		}, 6000);
 	}
 
 	removeStill(still: Still) {
 		const take = this.takes.value.find((t) => t.id === still.takeId);
-		void this.#app.edit.remove('still', still.id, this.#label('take.edit.photoRemoved', { take: take?.take ?? '' }));
+		void this.#app.edit.removeTree('still', still.id, removedLabel(this.kindOf(still), take?.take ?? ''));
 	}
 
 	toggleMark(mark: Mark) {
@@ -276,6 +373,28 @@ export class Shoot {
 		const group = this.group;
 		if (!group) return;
 		void this.#app.edit.apply('take', notePatch(group, text), this.#label('take.edit.note', { take: group.number }));
+	}
+
+	/** Types every camera of the take on screen. A clean plate or balls and chart turns its switches on (typeEdit.ts). */
+	setType(type: TakeType) {
+		const group = this.group;
+		if (!group) return;
+		const patch = typePatch(group.takes, type);
+		if (!patch.length) return;
+		void applyTakeEdit(this.#app, patch, this.#label('take.edit.type', { take: group.number, type: tk(`field.take.takeType.${type}`) }));
+	}
+
+	/**
+	 * Puts a plate at the tail of every camera of the take on screen, or takes it off when every
+	 * camera has it, as a mark is. A clean plate or balls and chart turns its switches on (typeEdit.ts).
+	 */
+	toggleTail(tail: TakeTail) {
+		const group = this.group;
+		if (!group) return;
+		const on = !this.tail.includes(tail);
+		const patch = tailPatch(group.takes, tail, on);
+		if (!patch.length) return;
+		void applyTakeEdit(this.#app, patch, tailLabel(group.number, tail, on));
 	}
 
 	/** Links every camera of the take on screen to a take template and fills its values. */
@@ -374,6 +493,7 @@ export class Shoot {
 		const field = fieldLabel(f.def, f.end);
 		const label = value === undefined ? this.#label('take.edit.cleared', { field }) : this.#label('take.edit.value', { field, value: text });
 		void this.#app.edit.set('take', take, key, value, label);
+		this.saved = { setupId: f.setupId, key, n: (this.saved?.n ?? 0) + 1 };
 	}
 
 	/** Saves what was typed. False when it does not read: the issue shows, the keypad stays. */

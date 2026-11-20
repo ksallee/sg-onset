@@ -59,3 +59,39 @@ describe('activeSetupIds', () => {
 		expect(activeSetupIds([], [])).toEqual([NO_SETUP]);
 	});
 });
+
+// #110: every device sees every camera setup; each shoots with the ones it chose (lib/gear/shooting.ts).
+describe('the setups this device shoots with', () => {
+	const setups = [setup('A', 'A'), setup('B', 'B'), setup('C', 'C')];
+	const shooting = new Set(['A', 'C']);
+
+	it('gives a column to each setup chosen here, and none to the others', () => {
+		expect(cameraColumns(setups, [], shooting).map((c) => c.id)).toEqual(['A', 'C']);
+	});
+
+	it('keeps the column of a setup not chosen when a take of the slate is on it, with its letter', () => {
+		const groups = groupTakes([take('b1', '1', 'B', { startedAt: at(0) })]);
+		const cols = cameraColumns(setups, groups, shooting);
+		expect(cols.map((c) => [c.id, c.label])).toEqual([
+			['A', 'A'],
+			['B', 'B'],
+			['C', 'C']
+		]);
+		expect(cols[1].setup?.id).toBe('B');
+	});
+
+	it('starts a take on the chosen setups only', () => {
+		expect(activeSetupIds([], setups, shooting)).toEqual(['A', 'C']);
+		const groups = groupTakes([take('a1', '1', 'A', { startedAt: at(0) }), take('b1', '1', 'B', { startedAt: at(0) })]);
+		expect(activeSetupIds(groups, setups, shooting)).toEqual(['A']);
+	});
+
+	it('starts on every chosen setup when none on the last take is chosen any more', () => {
+		const groups = groupTakes([take('b1', '1', 'B', { startedAt: at(0) })]);
+		expect(activeSetupIds(groups, setups, shooting)).toEqual(['A', 'C']);
+	});
+
+	it('starts a take with no setup when this device shoots with none', () => {
+		expect(activeSetupIds([], setups, new Set())).toEqual([NO_SETUP]);
+	});
+});

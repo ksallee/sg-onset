@@ -19,6 +19,12 @@
 //   429 and 5xx stay `failed`, and the runner's backoff is the answer.
 // - A refusal for want of rights is 400 code 104 naming the type (findings/143_nonadmin_rows.md):
 //   said once in plain words, and that kind of change waits for the session.
+// - A text field on Project keeps 1,000,000 characters byte for byte, less outer whitespace
+//   (findings/158): the shared lists' JSON (#110, lists.ts). Every read of the Project names its
+//   fields. No write is conditional, `If-Match` is ignored (recipes/005): a list is read again
+//   after it is written and compared parsed.
+// - A write naming a deleted row is 400 code 104 "Value is not legal.", and a link to one reads as
+//   none (findings/161): a record sent back is a new row, and its links are written again.
 
 import type { BatchRequest, EntityRow } from 'sg-widgets-core';
 import {
@@ -38,14 +44,34 @@ import type { RecordRef, RemoteId } from '$lib/outbox/types';
 import { ApiRefusal, createApi, type Filter, type FptOptions } from './api';
 import { resolutionKey } from './cache';
 import { hasMessage, t as message, type MessageKey } from '$lib/i18n/messages';
-import { blamedField, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
-import { ENTITY_SCOPES, isEntityScope, STILLS, type EntityScope } from './mapping';
+import { blamedField, isPermissionRefusal, isUniqueRefusal, missingRecord, rowRefusal, type ApiFailure } from './errors';
+import { DIAGRAM_SHOWN, diagramFilename, diagramPrefix } from './diagrams';
+import { DIAGRAMS, ENTITY_SCOPES, fieldMaps, isRecordScope, STILLS, REFERENCE_SLATES, type RecordScope } from './mapping';
+import { applyListOps, isListTable, landed, listFields, LIST_KEYS, LIST_TABLES, readList, writeList, type ListEntry, type ListOp, type ListRead, type ListTable } from './lists';
+import { entityName, sameNaming, type Naming } from './naming';
+import { referenceSlatesWrite, type ReferenceSlates } from './referenceSlates';
 import { slugOf } from './names';
 import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
-import { fieldName, type Resolution } from './schema';
-import { loadResolution } from './setup';
-import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, type StillRemote } from './stills';
+import { fieldName, namingOf, PROJECT as PROJECT_TYPE, type Resolution } from './schema';
+import { currentNaming, loadResolution } from './setup';
+import { derivedShots, linkIdsOf, missingCodes, setShotData, setShotKey, severalCodes, slateSetShots, type SetShotRow } from './setShots';
+import { matchSetShots, readSetShots, setShotFields, slateLinks, writeSlateLinks, type SetShotFields, type SlateLinks } from './setShotLinks';
+import { codesOf, linkValue, SHOT, shotChange, shotCodes } from './shots';
+import { writeShotNotes, type NoteResult } from './shotNotes';
+import { capturedAtOf, decodeStillRemote, encodeStillRemote, stillDisplayName, stillFilename, stillPrefix, variantOf, type StillRemote } from './stills';
+import { takeVersions, type UploadTarget } from './takeVersions';
 import { completionInfo, isMultipart, partLink, UPLOAD_SIZES, URL_LIFE_MS, type UploadSizes } from './uploadPlan';
+import { capturedAtOfCode, retimedCode, VERSION, versionKind, type TakeMedia } from './versions';
+
+/** One slate Flow PT holds, and the VFX shot codes it holds now. */
+export type SlateCodes = { slate: string; remoteId: number; codes: readonly string[] };
+
+/**
+ * What a sync of links read of one slate: its codes whose Set Shot holds more than one Shot of
+ * that code, for someone to clean up (Kevin, #96), and the Shots it reaches through its Set Shots,
+ * whose Notes follow (#97). Read at each sync, never kept.
+ */
+export type ShotResult = { slate: string; several: string[]; shots: number[] };
 
 export type FptTransportOptions = FptOptions & {
 	/**
@@ -56,7 +82,69 @@ export type FptTransportOptions = FptOptions & {
 	now?: () => number;
 	/** The upload sizes. For tests: the storage floor is 5 MiB a part. */
 	upload?: Partial<UploadSizes>;
+	/** Told, once a push has linked the slates whose codes it touched, what it read of them. */
+	onShots?: (results: ShotResult[]) => unknown;
 };
+
+/**
+ * One table of the lists a show shares, as Flow PT holds it (#110): every record of the project,
+ * by client UUID, in our field form. `keys`: the keys Flow PT holds of a record. `complete`: the
+ * read reached the end of the list.
+ */
+export type SharedRead = {
+	table: 'camera' | 'lens' | 'cameraSetup' | 'lightingSetup' | ListTable;
+	keys: readonly string[];
+	records: { id: string; remoteId: RemoteId; fields: Record<string, unknown> }[];
+	complete: boolean;
+};
+
+/**
+ * The entity tables read back, beside the lists of lists.ts. Camera setups first: a setup follows Flow
+ * PT (Kevin, #110), so a lens another device took off it and deleted is no longer used by it here
+ * when the lenses merge, and goes unless a take uses it.
+ */
+const SHARED_SCOPES = ['cameraSetup', 'camera', 'lens', 'lightingSetup'] as const;
+
+/** Pages of 500 read of each shared table: 20,000 records. A list that reaches it is not judged whole. */
+const SHARED_PAGES = 40;
+
+/** The transport, and the links of records the server already holds. */
+export interface FptTransport extends Transport {
+	/**
+	 * Brings these slates' Set Shots and Shots in line with their codes. Never throws. Undefined when
+	 * the site could not be asked or has no Set Shot: the links wait.
+	 */
+	linkShots(slates: SlateCodes[], signal?: AbortSignal): Promise<ShotResult[] | undefined>;
+	/**
+	 * Sets the Slates field of these set references to the slates each shows on, where it differs
+	 * (#107, referenceSlates.ts). Never throws. Answers the references whose write did not land;
+	 * undefined when the site could not be asked.
+	 */
+	linkReferenceSlates(items: readonly ReferenceSlates[], signal?: AbortSignal): Promise<string[] | undefined>;
+	/**
+	 * Writes the Note of each Shot given that needs one, from what Flow PT holds (#97, shotNotes.ts).
+	 * Never throws. Undefined when the site could not be asked, or lacks the Note fields or Set Shot:
+	 * the Notes wait.
+	 */
+	writeNotes(shotIds: number[], signal?: AbortSignal): Promise<NoteResult[] | undefined>;
+	/**
+	 * The lists a show shares, as Flow PT holds them (#110): the cameras, lenses, camera setups and lighting setups
+	 * of the project, and its templates and kinds of set reference when the site has the Project
+	 * fields. A list whose field holds text this version cannot read is left out. Reads only. Never
+	 * throws. Undefined when the site could not be asked.
+	 */
+	readShared(signal?: AbortSignal): Promise<SharedRead[] | undefined>;
+}
+
+/**
+ * The codes of the Shots of an FPT project, each once, in order: what the slate's VFX shots field
+ * suggests. Every page is read. Throws a `TransportError` when the site cannot be asked.
+ */
+export async function readShotCodes(options: FptOptions, projectId: number, signal?: AbortSignal): Promise<string[]> {
+	const api = createApi(options);
+	// Shot reads are not scoped by the endpoint: the project filter is ours (entity_types/Shot.md).
+	return codesOf(await api.searchAll(SHOT, ['project', 'is', { type: 'Project', id: projectId }], ['code'], signal));
+}
 
 const PROJECT = 'project';
 const STILL = 'still';
@@ -65,10 +153,12 @@ const STILL_KEYS = ['takeId', 'capturedAt', 'caption'];
 
 type Token = {
 	ref: BlobRef;
-	meta: StillRemote;
-	takeType: string;
-	field: string;
-	filename: string;
+	/** A still's: what its Attachment needs. None for a slate's setup diagram. */
+	meta?: StillRemote;
+	/** Where the file goes: the take's photos field, or a Version's movie field. */
+	target: UploadTarget;
+	/** The Version the file goes on, for a video (versions.ts). */
+	version?: number;
 	/** The init reply's `data`, whole: it is the `upload_info` of the completion. */
 	info: Record<string, unknown>;
 	completeUpload: string;
@@ -85,6 +175,9 @@ type PartReply = { links: { upload: string; get_next_part?: string } };
 
 type Denied = 'create' | 'update' | 'delete';
 
+/** The key in `forbidden` of a Project write refused for want of rights: the shared lists wait. */
+const LISTS = 'project:lists';
+
 const groupBy =<T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> => {
 	const out = new Map<string, T[]>();
 	for (const item of items) out.set(key(item), [...(out.get(key(item)) ?? []), item]);
@@ -92,17 +185,43 @@ const groupBy =<T>(items: readonly T[], key: (item: T) => string): Map<string, T
 };
 const text = (value: unknown): string | undefined => (typeof value === 'string' && value !== '' ? value : undefined);
 
-export function createFptTransport(options: FptTransportOptions): Transport {
+export function createFptTransport(options: FptTransportOptions): FptTransport {
 	const api = createApi(options);
 	const now = options.now ?? Date.now;
 	const sizes: UploadSizes = { ...UPLOAD_SIZES, ...options.upload };
 	const { projectId } = options;
+	const versions = takeVersions(api, projectId);
 	let resolution: Resolution | undefined;
+	/** The names to read the schema under (#111): those given, or after a stale one, the names it had. */
+	let naming: Naming | undefined = options.naming;
 
-	/** The site's schema: from memory, the device, or the site. Throws `failed` while the site is not set up. */
-	async function resolved(signal?: AbortSignal): Promise<Resolution> {
-		resolution ??= await loadResolution(api, options, signal);
+	/** The site's schema: from memory, the device, or the site, under the names it has. */
+	async function load(signal?: AbortSignal): Promise<Resolution> {
+		resolution ??= await loadResolution(api, { ...options, ...(naming ? { naming } : {}) }, signal);
 		return resolution;
+	}
+
+	/** The project's names were read in this transport's life, or given (#111). */
+	let namesRead = options.naming !== undefined;
+
+	/**
+	 * The site's schema under the names the project keeps now. Throws `failed` while the site is not
+	 * set up. The names are read at the first call of a transport that needs the schema (#111): another
+	 * device may have saved names after this one kept its schema, and names that differ make it read
+	 * the schema again under them. Once a project has synced its names in use never change (Kevin,
+	 * #111), so once a transport is enough (decision 84). A site without the field answers 404 to the
+	 * read, and the default names hold.
+	 */
+	async function resolved(signal?: AbortSignal): Promise<Resolution> {
+		if (namesRead) return load(signal);
+		const named = await currentNaming(api, projectId, signal);
+		if (named.saved === 'unreadable') throw new TransportError('failed', message('sync.names.unreadable'));
+		const res = await load(signal);
+		namesRead = true;
+		if (sameNaming(namingOf(res), named.naming)) return res;
+		await forget();
+		naming = named.naming;
+		return load(signal);
 	}
 
 	/**
@@ -113,7 +232,8 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 
 	/** Our table of an entity type the site named. */
 	function tableOf(entityType: string): string | undefined {
-		if (entityType === ATTACHMENT) return STILL;
+		// A photo is an Attachment, a video a Version (versions.ts): both are stills on the device.
+		if (entityType === ATTACHMENT || entityType === VERSION) return STILL;
 		return resolution ? ENTITY_SCOPES.find((scope) => resolution!.entities[scope] === entityType) : undefined;
 	}
 
@@ -123,8 +243,14 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 		return message(`sync.refused.${action}`, { things });
 	}
 
-	/** A field the site no longer has: the schema on the device is stale. The next call reads it again. */
+	/** Why a record of an optional entity the site lacks is not sent: an admin enables it (Kevin, #117), under the name chosen (#111). */
+	function missingText(res: Resolution, scope: RecordScope): string {
+		return message('sync.refused.missing', { entity: entityName(namingOf(res), scope) });
+	}
+
+	/** A field the site no longer has: the schema on the device is stale. The next call reads it again, under the same names. */
 	async function forget(): Promise<void> {
+		if (resolution) naming = namingOf(resolution);
 		resolution = undefined;
 		await options.schemaCache.delete(resolutionKey(options.site.replace(/\/+$/, '')));
 	}
@@ -170,20 +296,288 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 		await api.update(res.entities.take, take, { [stillsField(res)]: { multi_entity_update_mode: 'add', value } }, signal);
 	}
 
+	/**
+	 * A photo drawn on again has several annotated copies on Flow PT: one per drawing sent. The take
+	 * shows only the newest, the one uploaded last; the older ones leave its photos field and stay
+	 * as Attachments (an Artist may not delete one, findings/143). Add and remove go in one batch,
+	 * in order, the mode in the body (recipes/009, findings/154): the field never shows none or two.
+	 */
+	async function keepNewestCopy(res: Resolution, take: number, stillId: string, signal?: AbortSignal): Promise<void> {
+		const copies = ((await attachmentsOf([stillId], signal)).get(stillId) ?? []).filter((row) => variantOf(row.attributes.filename) === 'annotated');
+		await keepNewest(res.entities.take, take, stillsField(res), copies, signal);
+	}
+
+	/**
+	 * Of `rows` (Attachments of one family, newest first), only the newest in `field` of the record:
+	 * the older ones leave it, and the newest goes in if it is missing. One batch, in order.
+	 */
+	async function keepNewest(entity: string, id: number, field: string, rows: readonly EntityRow[], signal?: AbortSignal): Promise<void> {
+		const [newest, ...older] = rows;
+		if (!newest) return;
+		const [row] = await api.search(entity, ['id', 'is', id], [field], 1, signal);
+		const links = (row?.relationships[field]?.data ?? []) as { id: number }[];
+		const held = Array.isArray(links) ? links.map((link) => link.id) : [];
+		const edit = (mode: 'add' | 'remove', ids: number[]): BatchRequest => ({
+			request_type: 'update',
+			entity,
+			record_id: id,
+			data: { [field]: { multi_entity_update_mode: mode, value: ids.map((x) => ({ type: ATTACHMENT, id: x })) } }
+		});
+		const stale = older.filter((r) => held.includes(r.id)).map((r) => r.id);
+		const requests = [...(held.includes(newest.id) ? [] : [edit('add', [newest.id])]), ...(stale.length ? [edit('remove', stale)] : [])];
+		if (requests.length) await api.batch(requests, signal);
+	}
+
+	/** The Attachments whose file name starts with `prefix`, newest first. */
+	async function family(prefix: string, signal?: AbortSignal): Promise<EntityRow[]> {
+		const rows = await api.search(ATTACHMENT, ['filename', 'starts_with', prefix], ['filename'], 500, signal);
+		return rows.filter((r) => String(r.attributes.filename ?? '').toLowerCase().startsWith(prefix)).sort((a, b) => b.id - a.id);
+	}
+
+	const diagramsField = (res: Resolution) => fieldName(res, 'slate', DIAGRAMS);
+
+	/** A still's file the app made: its annotated copy. */
+	const stillVariant = (ref: Pick<BlobRef, 'variant'>) => (ref.variant === 'annotated' ? ref.variant : undefined);
+
+	/** The slate's server id, for a slate's setup diagram image (#87). */
+	const diagramSlate = (ref: BlobRef): number | undefined => (ref.table === 'slate' && ref.variant === 'diagram' && typeof ref.recordRemoteId === 'number' ? ref.recordRemoteId : undefined);
+
+	// ------------------------------------------------------------------ shots
+
+	/** Tells the app what the links of the slates of a push read. */
+	async function tell(results: ShotResult[]): Promise<void> {
+		if (!results.length || !options.onShots) return;
+		try {
+			await options.onShots(results);
+		} catch {
+			// The links are on the server; a word the app could not keep changes nothing there.
+		}
+	}
+
+	/**
+	 * Files each code as a new Set Shot, in one `_batch`, with the project and the key. The key is
+	 * unique: if another device filed one of the codes since the lookup, the batch is refused whole
+	 * (findings/127, recipes/002); a batch with no answer may have landed (findings/127). Either way
+	 * the codes are looked up again, never sent blind. What is still missing is filed at a later
+	 * sync. Never throws.
+	 */
+	async function fileSetShots(f: SetShotFields, codes: readonly string[], signal?: AbortSignal): Promise<SetShotRow[]> {
+		if (!codes.length) return [];
+		const requests: BatchRequest[] = codes.map((code) => ({ request_type: 'create', entity: f.type, data: setShotData(projectId, code, f.key) }));
+		try {
+			const rows = await api.batch(requests, signal);
+			// One row per request, in request order (recipes/002).
+			return rows.flatMap((row, i) => (row.request_type === 'create' ? [{ id: row.data.id, key: setShotKey(projectId, codes[i]), code: codes[i].trim(), shots: [], matched: false }] : []));
+		} catch {
+			return readSetShots(api, projectId, f, codes, signal).catch(() => []);
+		}
+	}
+
+	/**
+	 * Brings each slate's Set Shots and Shots in line with its codes (setShots.ts):
+	 * 1. Reads what the slates link now, and the Set Shots of their codes, by key.
+	 * 2. Files every code that has no Set Shot, in one batch. Never two for a code.
+	 * 3. Matches the Set Shots never matched that hold no Shot (`matchSetShots`).
+	 * 4. Per slate, sets each field that differs: its Set Shots are those of its codes, its Shots
+	 *    those of its Set Shots. One `PUT` a field, the mode in the body (recipes/009). The mode
+	 *    works in a `_batch` update too (findings/154); kept apart, a refused field does not hold
+	 *    back the other. Two fields with the mode in one `PUT` are not measured.
+	 * Nothing is kept on the device: what did not land is worked out again at the next sync. Never
+	 * throws. Undefined when the site could not be asked, or has no Set Shot: then the links wait,
+	 * and the codes on the slates say what they will be (Kevin, #117). A Shot is never created or
+	 * changed; a Set Shot is never deleted.
+	 */
+	async function writeShots(slates: readonly SlateCodes[], signal?: AbortSignal): Promise<ShotResult[] | undefined> {
+		if (!slates.length) return [];
+		let res: Resolution;
+		try {
+			res = await resolved(signal);
+		} catch {
+			return undefined;
+		}
+		// An optional entity is in the resolution only with all its fields and the slate's link to it (schema.ts).
+		const f = setShotFields(res);
+		if (!f) return undefined;
+		const codes = shotCodes(slates.flatMap((s) => s.codes));
+		let current: Map<number, SlateLinks>;
+		let setShots: SetShotRow[];
+		try {
+			current = await slateLinks(api, res, slates.map((s) => s.remoteId), signal);
+			setShots = await readSetShots(api, projectId, f, codes, signal);
+		} catch {
+			return undefined;
+		}
+		setShots = [...setShots, ...(await fileSetShots(f, missingCodes(projectId, codes, setShots), signal))];
+		setShots = await matchSetShots(api, projectId, f, setShots, signal);
+
+		const held = slates.flatMap((slate) => {
+			const now = current.get(slate.remoteId);
+			return now ? [{ slate, now }] : [];
+		});
+		await writeSlateLinks(api, res, projectId, held.map(({ slate, now }) => ({ id: slate.remoteId, codes: slate.codes, now })), setShots, signal);
+		return held.map(({ slate }) => ({ slate: slate.slate, several: severalCodes(projectId, slate.codes, setShots), shots: derivedShots(slateSetShots(projectId, slate.codes, setShots), setShots) }));
+	}
+
+	// ------------------------------------------------------------------ the slates of a set reference
+
+	/**
+	 * Sets each set reference's Slates field to the slates it shows on (#107, referenceSlates.ts):
+	 * reads what the rows hold now, then one `PUT` in `set` mode, the mode in the body
+	 * (recipes/009), for each that differs. A slate linked by hand in Flow PT is overwritten, as on
+	 * a slate's Shots (Kevin, #102). Nothing is kept on the device: what did not land is worked out
+	 * again at the next sync. A refusal is that reference's alone; no answer stops the rest.
+	 * Undefined on a site without Set Reference: the references wait on the device (Kevin, #117).
+	 */
+	async function writeReferenceSlates(items: readonly ReferenceSlates[], signal?: AbortSignal): Promise<string[] | undefined> {
+		if (!items.length) return [];
+		let res: Resolution;
+		let type: string | undefined;
+		const current = new Map<number, number[]>();
+		try {
+			res = await resolved(signal);
+			type = res.entities.reference;
+			if (!type) return undefined;
+			const field = fieldName(res, 'reference', REFERENCE_SLATES);
+			const ids = items.map((i) => i.remoteId);
+			for (let i = 0; i < ids.length; i += 500) {
+				const rows = await api.searchAll(type, ['id', 'in', ids.slice(i, i + 500)], [field], signal);
+				for (const row of rows) current.set(row.id, linkIdsOf(row, field));
+			}
+		} catch {
+			return undefined;
+		}
+		const field = fieldName(res, 'reference', REFERENCE_SLATES);
+		const failed: string[] = [];
+		let reachable = true;
+		for (const item of items) {
+			const now = current.get(item.remoteId);
+			// A row Flow PT no longer has: its delete is the outbox's business.
+			if (!now) continue;
+			const slates = referenceSlatesWrite(item.slates, now);
+			if (!slates) continue;
+			if (!reachable) {
+				failed.push(item.reference);
+				continue;
+			}
+			try {
+				await api.update(type, item.remoteId, { [field]: linkValue('set', slates, res.entities.slate) }, signal);
+			} catch (error) {
+				// No answer, or no session: the rest would fare the same.
+				if (error instanceof TransportError && error.kind !== 'failed') reachable = false;
+				failed.push(item.reference);
+			}
+		}
+		return failed;
+	}
+
+	// ------------------------------------------------------------------ the shared lists
+
+	/** The Project field of a list on this site. Undefined: the site lacks the shared lists (#110). */
+	const listField = (res: Resolution, table: ListTable): string | undefined => (table === 'template' ? res.project?.templates : res.project?.referenceKinds);
+
+	/** The lists the Project holds now, by table, in one read. */
+	async function readLists(res: Resolution, tables: readonly ListTable[], signal?: AbortSignal): Promise<Map<ListTable, ListRead>> {
+		const out = new Map<ListTable, ListRead>();
+		const fields = tables.flatMap((t) => listField(res, t) ?? []);
+		if (!fields.length) return out;
+		const [row] = await api.search(PROJECT_TYPE, ['id', 'is', projectId], fields, 1, signal);
+		if (!row) throw new TransportError('failed', 'The Flow PT project is not there.');
+		for (const table of tables) {
+			const field = listField(res, table);
+			if (field) out.set(table, readList(table, row.attributes[field]));
+		}
+		return out;
+	}
+
+	/** One list's write: the operations of a push and the list after them. */
+	type ListWrite = { table: ListTable; field: string; ops: ListOp[]; after: ListEntry[] };
+
+	/**
+	 * Writes the lists of a push: one `PUT` of the Project, then a read to see that it holds them. The
+	 * server has no conditional write (corpus recipes/005), so another device may write the field
+	 * between our read and our write: then what we wrote may be lost, and `timeout` sends every entry
+	 * of the push to the check, which finds what landed (lookup, read) and sends the rest again.
+	 */
+	async function writeLists(res: Resolution, lists: readonly ListWrite[], signal?: AbortSignal): Promise<Refusal[]> {
+		const data = Object.fromEntries(lists.map((l) => [l.field, writeList(l.table, l.after)]));
+		try {
+			await api.update(PROJECT_TYPE, projectId, data, signal);
+		} catch (error) {
+			if (!(error instanceof ApiRefusal)) throw error;
+			// An Artist in the project: "The field is not editable for this user"; outside it: "Entity can not be
+			// accessed by this user". Both 400 code 104 (findings/159). Said once in plain words; the lists wait.
+			const denied = rowRefusal(error.failure) !== undefined || (error.failure.code === 104 && isPermissionRefusal(error.failure));
+			if (denied) forbidden.add(LISTS);
+			const text = denied ? message('sync.refused.lists') : error.failure.title;
+			return lists.flatMap((l) => l.ops.map((o) => ({ entryId: o.entryId, reason: 'invalid' as const, message: text })));
+		}
+		const read = await readLists(res, lists.map((l) => l.table), signal);
+		const held = lists.every((l) => {
+			const now = read.get(l.table);
+			return now?.ok === true && landed(l.table, now.entries, l.ops);
+		});
+		if (!held) throw new TransportError('timeout', 'Another device wrote the same list of the Flow PT project at the same time.');
+		return [];
+	}
+
 	// ------------------------------------------------------------------ push
 
-	type Planned = { refusals: Refusal[]; remoteIds: Record<string, RemoteId>; requests: BatchRequest[]; owners: PushOp[] };
+	type Planned = { refusals: Refusal[]; remoteIds: Record<string, RemoteId>; requests: BatchRequest[]; owners: PushOp[]; lists: ListWrite[]; res?: Resolution };
+
+	/**
+	 * The list operations of a push: each list read once, the operations applied in order, every one
+	 * checked before anything is sent. A create's server id is the entry's own id: the list holds it.
+	 */
+	async function planLists(res: Resolution, ops: readonly PushOp[], out: Planned, signal?: AbortSignal): Promise<void> {
+		if (forbidden.has(LISTS)) {
+			for (const o of ops) out.refusals.push({ entryId: o.entryId, reason: 'invalid', message: message('sync.refused.lists') });
+			return;
+		}
+		const tables = [...new Set(ops.map((o) => o.op.table as ListTable))];
+		// The app holds them back while the site lacks the fields (app/sync README). A guard.
+		if (tables.some((t) => !listField(res, t))) throw new TransportError('failed', message('sync.lists.missing'));
+		const read = await readLists(res, tables, signal);
+		for (const table of tables) {
+			const field = listField(res, table)!;
+			const mine: ListOp[] = ops.filter((o) => o.op.table === table).map((o) => ({ entryId: o.entryId, op: o.op }));
+			const now = read.get(table);
+			if (!now?.ok) {
+				// Text a person typed, or a later version wrote: never written over.
+				for (const o of mine) out.refusals.push({ entryId: o.entryId, reason: 'invalid', message: message('sync.lists.unreadable', { field }) });
+				continue;
+			}
+			const applied = applyListOps(table, now.entries, mine);
+			out.refusals.push(...applied.refusals);
+			out.lists.push({ table, field, ops: mine, after: applied.entries });
+			for (const o of mine) if (o.op.kind === 'create') out.remoteIds[o.entryId] = o.op.recordId;
+		}
+	}
+
+	/** A list as the check reads it. Throws `failed` when its field holds text this version cannot read. */
+	async function checkedList(table: ListTable, signal?: AbortSignal): Promise<ListEntry[]> {
+		const res = await resolved(signal);
+		const field = listField(res, table);
+		if (!field) return [];
+		const read = (await readLists(res, [table], signal)).get(table);
+		if (!read?.ok) throw new TransportError('failed', message('sync.lists.unreadable', { field }));
+		return read.entries;
+	}
 
 	async function plan(ops: readonly PushOp[], signal?: AbortSignal): Promise<Planned> {
-		const out: Planned = { refusals: [], remoteIds: {}, requests: [], owners: [] };
+		const out: Planned = { refusals: [], remoteIds: {}, requests: [], owners: [], lists: [] };
 		const refuse = (o: PushOp, reason: Refusal['reason'], message?: string) => out.refusals.push({ entryId: o.entryId, reason, ...(message ? { message } : {}) });
 		const request = (o: PushOp, r: BatchRequest) => {
 			out.requests.push(r);
 			out.owners.push(o);
 		};
-		const res = ops.some((o) => isEntityScope(o.op.table)) ? await resolved(signal) : undefined;
 		const stills = ops.filter((o) => o.op.table === STILL && o.op.kind !== 'create').map((o) => o.op.recordId);
+		const lists = ops.filter((o) => isListTable(o.op.table));
+		const res = ops.some((o) => isRecordScope(o.op.table)) || stills.length || lists.length ? await resolved(signal) : undefined;
+		out.res = res;
+		if (lists.length && res) await planLists(res, lists, out, signal);
 		const attachments = await attachmentsOf(stills, signal);
+		// A still with no Attachment may be a video: its Version, by client UUID (versions.ts).
+		const videos = res ? await versions.find(res, stills.filter((id) => !attachments.has(id)), signal) : new Map<string, EntityRow>();
 
 		for (const o of ops) {
 			const op = o.op;
@@ -211,20 +605,40 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 					continue;
 				}
 				const found = attachments.get(op.recordId);
-				if (!found) refuse(o, 'gone');
+				const video = videos.get(op.recordId);
+				if (!found && video) {
+					// A video: its Version. The movie and the server's transcodes are the Version's own.
+					if (op.kind === 'delete') request(o, { request_type: 'delete', entity: VERSION, record_id: video.id });
+					else {
+						const data: Record<string, unknown> = {};
+						for (const [key, edit] of Object.entries(op.changes)) {
+							if (key === 'caption') data.description = text(edit.value) ?? null;
+							else if (key === 'capturedAt') data.code = retimedCode(video.attributes.code, text(edit.value));
+							else return { ...out, refusals: [...out.refusals, { entryId: o.entryId, reason: 'invalid', message: `still.${key} cannot change on the server` }] };
+						}
+						request(o, { request_type: 'update', entity: VERSION, record_id: video.id, data });
+					}
+				} else if (!found) refuse(o, 'gone');
 				else if (op.kind === 'delete') for (const row of found) request(o, { request_type: 'delete', entity: ATTACHMENT, record_id: row.id });
 				else {
-					const data: Record<string, unknown> = {};
-					for (const [key, edit] of Object.entries(op.changes)) {
-						if (key === 'caption') data.description = text(edit.value) ?? null;
-						else if (key === 'capturedAt') data.display_name = stillDisplayName(text(edit.value));
-						else return { ...out, refusals: [...out.refusals, { entryId: o.entryId, reason: 'invalid', message: `still.${key} cannot change on the server` }] };
+					const stray = Object.keys(op.changes).find((key) => key !== 'caption' && key !== 'capturedAt');
+					if (stray) return { ...out, refusals: [...out.refusals, { entryId: o.entryId, reason: 'invalid', message: `still.${stray} cannot change on the server` }] };
+					// Every file of the still: the photo and its annotated copy, each keeping its own name.
+					for (const row of found) {
+						const data: Record<string, unknown> = {};
+						for (const [key, edit] of Object.entries(op.changes)) {
+							if (key === 'caption') data.description = text(edit.value) ?? null;
+							else data.display_name = stillDisplayName(text(edit.value), variantOf(row.attributes.filename));
+						}
+						request(o, { request_type: 'update', entity: ATTACHMENT, record_id: row.id, data });
 					}
-					request(o, { request_type: 'update', entity: ATTACHMENT, record_id: found[0].id, data });
 				}
-			} else if (isEntityScope(op.table) && res) {
+			} else if (isRecordScope(op.table) && res) {
 				const entity = res.entities[op.table];
-				if (op.kind === 'create') {
+				// An optional entity the site lacks: the engine keeps its records waiting on the device
+				// (app/sync/waiting.ts). Should one get here all the same, it is never sent blind.
+				if (!entity) refuse(o, 'invalid', missingText(res, op.table));
+				else if (op.kind === 'create') {
 					const built = createData(res, op.table, op.recordId, op.fields, o.links, projectId);
 					if (built.ok) request(o, { request_type: 'create', entity, data: built.data });
 					else refuse(o, 'invalid', built.message);
@@ -235,7 +649,7 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 					if (!built.ok) refuse(o, 'invalid', built.message);
 					else if (Object.keys(built.data).length) request(o, { request_type: 'update', entity, record_id: o.remoteId, data: built.data });
 				}
-			} else refuse(o, 'invalid', `${op.table} is not a table Flow Production Tracking holds`);
+			} else if (!isListTable(op.table)) refuse(o, 'invalid', `${op.table} is not a table Flow Production Tracking holds`);
 		}
 		return out;
 	}
@@ -251,7 +665,7 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 		if (isUniqueRefusal(failure)) {
 			// The title names the field, not the request: look every create up, and the ones the
 			// server has are the duplicates (corpus recipes/025_retry_safe_create.md).
-			const creates = owners.filter((o, i) => requests[i].request_type === 'create' && isEntityScope(o.op.table));
+			const creates = owners.filter((o, i) => requests[i].request_type === 'create' && isRecordScope(o.op.table));
 			const found = new Set((await transport.lookup(creates.map((o) => ({ table: o.op.table, id: o.op.recordId })), signal)).map((f) => f.id));
 			const duplicates = creates.filter((o) => found.has(o.op.recordId));
 			if (duplicates.length) return duplicates.map((o) => ({ entryId: o.entryId, reason: 'duplicate' as const }));
@@ -293,20 +707,43 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 	// ------------------------------------------------------------------ uploads
 
 	const tokenOf = (session: UploadSession) => session.token as Token;
-	const uploadPath = (t: Token) => `/api/v1/entity/${slugOf(t.takeType)}/${t.meta.take}/${t.field}/_upload`;
+	const uploadPath = (t: Token) => `/api/v1/entity/${slugOf(t.target.entityType)}/${t.target.id}/${t.target.field}/_upload`;
 
-	/** Step one: the ticket (corpus endpoints/get_entity_type_id_field_upload.md, findings/044 for multipart). */
+	/** A still's file as a take's media: what its Version needs (versions.ts). */
+	const mediaOf = (ref: Pick<BlobRef, 'recordId' | 'blobId' | 'type'>, meta: StillRemote): TakeMedia => ({
+		recordId: ref.recordId,
+		blobId: ref.blobId,
+		type: ref.type,
+		take: meta.take,
+		...(meta.capturedAt ? { capturedAt: meta.capturedAt } : {}),
+		...(meta.caption ? { caption: meta.caption } : {})
+	});
+
+	/**
+	 * Step one: the ticket (corpus endpoints/get_entity_type_id_field_upload.md, findings/044 for
+	 * multipart). A photo goes to the take's photos field. A video goes to its Version's movie
+	 * field: the Version is found by client UUID or made first (takeVersions.ts).
+	 */
 	async function begin(ref: BlobRef, signal?: AbortSignal): Promise<UploadSession> {
+		const diagram = diagramSlate(ref);
 		const meta = ref.table === STILL ? decodeStillRemote(ref.recordRemoteId) : undefined;
-		if (!meta) throw new TransportError('failed', `the file ${ref.blobId} has no still on a take the server holds`);
+		if (!meta && diagram === undefined) throw new TransportError('failed', `the file ${ref.blobId} has no still on a take, nor a slate, the server holds`);
 		const res = await resolved(signal);
 		const multipart = isMultipart(ref.size, sizes);
+		let target: UploadTarget = meta
+			? { entityType: res.entities.take, id: meta.take, field: stillsField(res), filename: stillFilename(ref.recordId, ref.blobId, ref.type, stillVariant(ref)) }
+			: { entityType: res.entities.slate, id: diagram!, field: diagramsField(res), filename: diagramFilename(ref.recordId, ref.blobId) };
+		let version: number | undefined;
+		if (meta && versionKind(ref.type)) {
+			const media = mediaOf(ref, meta);
+			version = await versions.ensure(res, media, signal);
+			target = versions.target(version, media);
+		}
 		const t: Token = {
 			ref,
 			meta,
-			takeType: res.entities.take,
-			field: stillsField(res),
-			filename: stillFilename(ref.recordId, ref.blobId, ref.type),
+			target,
+			...(version !== undefined ? { version } : {}),
 			info: {},
 			completeUpload: '',
 			multipart,
@@ -317,7 +754,7 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 		let reply: InitReply;
 		try {
 			// `filename` is required. `multipart_upload=true` opens the multipart upload at once.
-			reply = (await api.get(uploadPath(t), { filename: t.filename, ...(multipart ? { multipart_upload: 'true' } : {}) }, signal)) as InitReply;
+			reply = (await api.get(uploadPath(t), { filename: t.target.filename, ...(multipart ? { multipart_upload: 'true' } : {}) }, signal)) as InitReply;
 		} catch (error) {
 			if (error instanceof ApiRefusal) throw new TransportError('failed', error.failure.title);
 			throw error;
@@ -358,11 +795,68 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 
 	// ------------------------------------------------------------------ the transport
 
-	const transport: Transport = {
+	const transport: FptTransport = {
+		linkShots: (items, signal) => writeShots(items, signal),
+		linkReferenceSlates: (items, signal) => writeReferenceSlates(items, signal),
+
+		async readShared(signal) {
+			try {
+				const res = await resolved(signal);
+				const out: SharedRead[] = [];
+				for (const scope of SHARED_SCOPES) {
+					// Every key but the project, which is this one: the record is put under the device's.
+					const keys = fieldMaps(scope)
+						.map((m) => m.key)
+						.filter((k) => k !== 'projectId');
+					const uuid = uuidField(res, scope);
+					const rows = await api.searchAll(res.entities[scope], ['project', 'is', { type: PROJECT_TYPE, id: projectId }], [...new Set([uuid, ...readFields(res, scope, keys)])], signal, SHARED_PAGES);
+					// A row with no client UUID was made in Flow PT, not by a device: not ours to take.
+					const records = rows.flatMap((row) => {
+						const id = text(row.attributes[uuid])?.trim();
+						return id ? [{ id, remoteId: row.id, fields: fromRow(res, scope, row as Row, keys) }] : [];
+					});
+					out.push({ table: scope, keys, records, complete: rows.length < SHARED_PAGES * 500 });
+				}
+				if (res.project) {
+					const read = await readLists(res, LIST_TABLES, signal);
+					for (const table of LIST_TABLES) {
+						const now = read.get(table);
+						if (!now?.ok) continue;
+						out.push({ table, keys: LIST_KEYS[table], records: now.entries.map((e) => ({ id: e.id, remoteId: e.id, fields: listFields(e, LIST_KEYS[table]) })), complete: true });
+					}
+				}
+				return out;
+			} catch {
+				// The next sync reads them again.
+				return undefined;
+			}
+		},
+
+		async writeNotes(shotIds, signal) {
+			let res: Resolution;
+			try {
+				res = await resolved(signal);
+			} catch {
+				return undefined;
+			}
+			return writeShotNotes(api, res, projectId, shotIds, signal);
+		},
+
 		async push(ops: PushOp[], signal?: AbortSignal): Promise<PushResult> {
 			const planned = await plan(ops, signal);
 			if (planned.refusals.length) return { outcome: 'refused', refusals: planned.refusals };
+			// The lists first, then the batch: a list written twice is the same list (lists.ts), and a
+			// batch refused after it sends the list's entries again, found then by the check.
+			if (planned.lists.length) {
+				const refusals = await writeLists(planned.res!, planned.lists, signal);
+				if (refusals.length) return { outcome: 'refused', refusals };
+			}
 			if (!planned.requests.length) return { outcome: 'applied', remoteIds: planned.remoteIds };
+			// The slates whose codes change: their links follow once the batch has landed.
+			const touched = [...new Set(planned.owners)].flatMap((o) => {
+				const codes = shotChange(o.op);
+				return codes ? [{ owner: o, codes }] : [];
+			});
 			let rows;
 			try {
 				rows = await api.batch(planned.requests, signal);
@@ -375,6 +869,14 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 				const owner = planned.owners[i];
 				if (owner?.op.kind === 'create' && row.request_type === 'create') planned.remoteIds[owner.entryId] = row.data.id;
 			});
+			const slates = touched.flatMap(({ owner, codes }) => {
+				const remoteId = owner.op.kind === 'create' ? planned.remoteIds[owner.entryId] : owner.remoteId;
+				return typeof remoteId === 'number' ? [{ slate: owner.op.recordId, remoteId, codes }] : [];
+			});
+			if (slates.length) {
+				const results = await writeShots(slates, signal);
+				if (results) await tell(results);
+			}
 			return { outcome: 'applied', remoteIds: planned.remoteIds };
 		},
 
@@ -397,11 +899,27 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 						const remoteId = encodeStillRemote({ take: take.id, ...(capturedAt ? { capturedAt } : {}), ...(description ? { caption: description } : {}) });
 						found.push({ table, id, remoteId });
 					}
-				} else if (isEntityScope(table)) {
+					// The rest may be videos: each a Version, linked to its take by `entity` (versions.ts).
+					const rest = group.map((r) => r.id).filter((id) => !attachments.has(id));
+					for (const [id, row] of await versions.find(res, rest, signal)) {
+						const take = row.relationships.entity?.data as { type?: string; id: number } | null | undefined;
+						if (!take || take.type !== res.entities.take) continue;
+						const capturedAt = capturedAtOfCode(row.attributes.code);
+						const description = text(row.attributes.description);
+						found.push({ table, id, remoteId: encodeStillRemote({ take: take.id, ...(capturedAt ? { capturedAt } : {}), ...(description ? { caption: description } : {}) }) });
+					}
+				} else if (isListTable(table)) {
+					// An entry of a list: in the list, by its id (lists.ts).
+					const entries = await checkedList(table, signal);
+					for (const r of group) if (entries.some((e) => e.id === r.id)) found.push({ ...r, remoteId: r.id });
+				} else if (isRecordScope(table)) {
 					const res = await resolved(signal);
+					const entity = res.entities[table];
+					// A site without the entity holds none of its records (Kevin, #117).
+					if (!entity) continue;
 					const field = uuidField(res, table);
 					// `is` and `in` on text ignore case, as the unique check does (findings/127, field_types/text.md).
-					const rows = await api.search(res.entities[table], [field, 'in', group.map((r) => r.id)], [field], group.length + 5, signal);
+					const rows = await api.search(entity, [field, 'in', group.map((r) => r.id)], [field], group.length + 5, signal);
 					for (const r of group) {
 						const row = rows.find((x) => String(x.attributes[field] ?? '').trim().toLowerCase() === r.id.toLowerCase());
 						if (row) found.push({ ...r, remoteId: row.id });
@@ -420,19 +938,32 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 					if (row) records.push(...group.map((r) => ({ table, id: r.id, remoteId: projectId, fields: name && r.keys.includes('name') ? { name } : {} })));
 				} else if (table === STILL) {
 					const attachments = await attachmentsOf(group.map((r) => r.id), signal);
+					// A still with no Attachment may be a video: its Version (versions.ts).
+					const rest = group.map((r) => r.id).filter((id) => !attachments.has(id));
+					const videos = rest.length ? await versions.find(await resolved(signal), rest, signal) : new Map<string, EntityRow>();
 					for (const r of group) {
 						const row = attachments.get(r.id)?.[0];
-						if (!row) continue;
+						const video = videos.get(r.id);
+						if (!row && !video) continue;
 						const fields: Record<string, unknown> = {};
-						const description = text(row.attributes.description);
-						const capturedAt = capturedAtOf(row.attributes.display_name);
+						const description = text((row ?? video)!.attributes.description);
+						const capturedAt = row ? capturedAtOf(row.attributes.display_name) : capturedAtOfCode(video!.attributes.code);
 						if (r.keys.includes('caption') && description) fields.caption = description;
 						if (r.keys.includes('capturedAt') && capturedAt) fields.capturedAt = capturedAt;
-						records.push({ table, id: r.id, remoteId: r.remoteId ?? row.id, fields });
+						records.push({ table, id: r.id, remoteId: r.remoteId ?? (row ?? video)!.id, fields });
 					}
-				} else if (isEntityScope(table)) {
+				} else if (isListTable(table)) {
+					const entries = await checkedList(table, signal);
+					for (const r of group) {
+						const entry = entries.find((e) => e.id === r.id);
+						if (entry) records.push({ table, id: r.id, remoteId: r.id, fields: listFields(entry, r.keys) });
+					}
+				} else if (isRecordScope(table)) {
 					const res = await resolved(signal);
-					const scope: EntityScope = table;
+					const scope: RecordScope = table;
+					const entity = res.entities[scope];
+					// A site without the entity holds none of its records (Kevin, #117).
+					if (!entity) continue;
 					const uuid = uuidField(res, scope);
 					const byId = group.filter((r) => typeof r.remoteId === 'number');
 					const byUuid = group.filter((r) => typeof r.remoteId !== 'number');
@@ -441,7 +972,7 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 					if (byUuid.length) conditions.push([uuid, 'in', byUuid.map((r) => r.id)]);
 					const fields = [uuid, ...readFields(res, scope, [...new Set(group.flatMap((r) => r.keys))])];
 					// A retired row is not returned by a search: a record the server no longer has is left out.
-					const rows = await api.search(res.entities[scope], { logical_operator: 'or', conditions }, [...new Set(fields)], group.length + 5, signal);
+					const rows = await api.search(entity, { logical_operator: 'or', conditions }, [...new Set(fields)], group.length + 5, signal);
 					for (const r of group) {
 						const row = rows.find((x) =>
 							typeof r.remoteId === 'number' ? x.id === r.remoteId : String(x.attributes[uuid] ?? '').trim().toLowerCase() === r.id.toLowerCase()
@@ -505,22 +1036,26 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 			} catch (error) {
 				throw new TransportError('failed', error instanceof Error ? error.message : 'bad parts');
 			}
+			// `upload_info` is the init reply verbatim; `upload_data` is required. For a photo it sets the
+			// display name; a Version's movie takes it empty, as measured (findings/013, 022).
+			const data = t.version !== undefined ? {} : { display_name: t.meta ? stillDisplayName(t.meta.capturedAt, stillVariant(t.ref)) : DIAGRAM_SHOWN };
 			try {
-				// `upload_info` is the init reply verbatim; `upload_data` is required, and sets the display name.
-				await api.post(t.completeUpload, { upload_info: info, upload_data: { display_name: stillDisplayName(t.meta.capturedAt) } }, signal);
+				await api.post(t.completeUpload, { upload_info: info, upload_data: data }, signal);
 			} catch (error) {
 				if (!(error instanceof ApiRefusal)) throw error;
 				await abort(t, signal);
 				throw new TransportError('failed', error.failure.title);
 			}
+			// A video: the file is in its Version's movie field, and the Version is the id kept.
+			if (t.version !== undefined) return { remoteId: t.version };
 			// The completion landed. Its answer is one space and names no row (findings/039), so the row
 			// is found by its file name. The upload to the field added the photo to it, beside the
 			// earlier ones, and gave it the take's project (findings/134): nothing to put back. What
 			// follows is best effort: `verifyUpload` does it again.
 			try {
-				const [row] = await uploaded(t.filename, signal);
+				const [row] = await uploaded(t.target.filename, signal);
 				if (!row) return {};
-				await caption(row, t.meta, signal);
+				if (t.meta) await caption(row, t.meta, signal);
 				return { remoteId: row.id };
 			} catch {
 				return {};
@@ -528,10 +1063,13 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 		},
 
 		async verifyUpload(blob: BlobRef, _remoteId?: RemoteId, signal?: AbortSignal): Promise<{ verified: boolean; remoteId?: RemoteId }> {
+			const diagram = diagramSlate(blob);
 			const meta = blob.table === STILL ? decodeStillRemote(blob.recordRemoteId) : undefined;
-			if (!meta) return { verified: false };
+			if (!meta && diagram === undefined) return { verified: false };
 			const res = await resolved(signal);
-			for (const row of await uploaded(stillFilename(blob.recordId, blob.blobId, blob.type), signal)) {
+			if (meta && versionKind(blob.type)) return versions.verify(res, mediaOf(blob, meta), blob.size, signal);
+			const filename = meta ? stillFilename(blob.recordId, blob.blobId, blob.type, stillVariant(blob)) : diagramFilename(blob.recordId, blob.blobId);
+			for (const row of await uploaded(filename, signal)) {
 				// The url is presigned and re-minted on every read: used once, never kept (field_types/url.md).
 				const url = (row.attributes.this_file as { url?: unknown } | null)?.url;
 				if (typeof url !== 'string') continue;
@@ -543,8 +1081,12 @@ export function createFptTransport(options: FptTransportOptions): Transport {
 					continue;
 				}
 				if (size !== blob.size) continue;
-				await link(res, meta.take, [row.id], signal);
-				await caption(row, meta, signal);
+				// A slate's diagram, an annotated copy: the record shows the newest one only. A photo: on the
+				// take, whatever else is.
+				if (!meta) await keepNewest(res.entities.slate, diagram!, diagramsField(res), await family(diagramPrefix(blob.recordId), signal), signal);
+				else if (blob.variant === 'annotated') await keepNewestCopy(res, meta.take, blob.recordId, signal);
+				else await link(res, meta.take, [row.id], signal);
+				if (meta) await caption(row, meta, signal);
 				return { verified: true, remoteId: row.id };
 			}
 			return { verified: false };

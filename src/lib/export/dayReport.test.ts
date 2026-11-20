@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dayReport } from './dayReport';
-import { input, s42A, t42A1A, t42A1B, t42A2B, t9 } from './testData';
+import { input, s42A, sharedLighting, t42A1A, t42A1B, t42A2B, t9 } from './testData';
 
 describe('dayReport', () => {
 	const report = () => dayReport(input(), 'd3');
@@ -29,9 +29,31 @@ describe('dayReport', () => {
 		expect(report()!.slates[0].setups).toEqual([]);
 	});
 
+	it('gives each slate block its set references, in the order logged', () => {
+		const blocks = report()!.slates;
+		expect(blocks[2].references.map((r) => r.name)).toEqual(['Scan 01', 'HDRI_0412']);
+		expect(blocks[0].references).toEqual([]);
+	});
+
+	it('lists in a slate block the lighting references logged on another slate of its lighting setup (#107)', () => {
+		const names = (day: string, slate: string) => dayReport(sharedLighting(), day)!.slates.find((b) => b.slate.slateUID === slate)!.references.map((r) => r.name);
+		expect(names('d3', '10')).toEqual(['HDRI_0412']);
+		expect(names('d4', '50')).toEqual(['HDRI_0412', 'Flight 1']);
+		expect(names('d3', '9')).toEqual([]);
+	});
+
 	it('counts slates, takes, circled, no good and photos', () => {
-		expect(report()!.totals).toEqual({ slates: 3, takes: 7, circled: 2, noGood: 1, photos: 3 });
-		expect(report()!.slates[2].totals).toEqual({ takes: 5, circled: 1, noGood: 1, photos: 3 });
+		expect(report()!.totals).toEqual({ slates: 3, takes: 7, circled: 2, noGood: 1, media: { photo: 3 } });
+		expect(report()!.slates[2].totals).toEqual({ takes: 5, circled: 1, noGood: 1, media: { photo: 3 } });
+		expect(report()!.slates[0].totals.media).toEqual({});
+	});
+
+	// Kevin, 2026-11-17 (#89): each kind counted as itself, a video never as a photo.
+	it('counts videos and audio notes each as itself', () => {
+		const data = { ...input(), videos: ['st1'], audioNotes: [{ id: 'an1', takeId: t42A1A.id, capturedAt: '2026-11-10T22:30:00.000Z' }] };
+		const r = dayReport(data, 'd3')!;
+		expect(r.totals.media).toEqual({ photo: 2, video: 1, audio: 1 });
+		expect(r.slates[2].totals.media).toEqual({ photo: 2, video: 1, audio: 1 });
 	});
 
 	it('warns of takes without an end time, a focal length, or a typed focal length on a zoom', () => {

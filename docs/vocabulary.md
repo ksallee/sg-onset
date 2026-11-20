@@ -36,22 +36,34 @@ enforces the parts a test can check.
 | Project | | One show. | `project` | CRIF Job; OMC CreativeWork | Project |
 | Shoot day | Day {n} | One day of shooting for one unit, numbered. | `shootDay` | CRIF Shoot Day; VES 3.3 | Shoot Day |
 | Lighting setup | | One lighting state, with its HDRI, balls and chart. | `lightingSetup` | VES scope Lighting setup | Lighting Setup |
-| Camera setup | Cam | A camera with a lens, known by its letter: A, B, C. A take is one camera setup's take. | `cameraSetup` | CRIF Camera Letter; OMC cameraLabel | Camera Setup |
+| Camera setup | Cam | A camera with a lens, known by its letter: A, B, C. A take is one camera setup's take. Every device of the show sees every setup and ticks the ones it shoots with. | `cameraSetup` | CRIF Camera Letter; OMC cameraLabel | Camera Setup |
 | Camera | | The camera body. | `camera` | CRIF Camera Body; OMC cameraMake/Model | Camera |
 | Lens | | One lens, by serial number. | `lens` | CRIF Tk Lens ID | Lens |
 | Slate | | The number on the clapperboard and the takes shot under it. | `slate` | CRIF Slate; OMC Slate.slateUID | Slate |
 | Take | | One camera setup's run of one slate, from Start to End. | `take` | CRIF Tk Take; VES scope Take | Take |
-| Photo | | A reference photo taken from the take screen, kept on the take. | `still` | VES 1.1 reference | Photos |
+| Photo | | A reference photo taken from the take screen or picked from the photo library or Files, kept on the take. | `still` | VES 1.1 reference | Photos |
+| Video | | A reference video picked from the photo library or Files, kept on the take. "Photos and videos" names both. | `still`, a video file | | Version, linked to the take |
+| Audio note | | A note spoken into the microphone from the take sheet, kept on the take as the browser wrote it. | `still`, an audio file | | Version, linked to the take |
+| Reference | | One thing captured for the slate on another device, logged by name: an HDRI, a scan, a witness clip. The file stays on that device. An HDRI 360, a 360 video or an HDR reference shows on every slate of the slate's lighting setup. | `reference` | VES 2.1, 4.2, 5.1 | Set Reference, linked to its slate (Slate) and to the slates it shows on (Slates) |
+| Reference kind | | What a reference is: HDRI 360, 360 video, HDR reference, Witness camera, Lidar scan, Textured model, Photogrammetry, Splat, Other, or a kind the project adds. | `reference.kind` | | Kind; the project's own kinds in Onset Reference Kinds on the Project |
+| Drawing | | What is drawn over a photo: lines, text and measurements. Kept beside the photo, which stays as taken. | `markup` | | |
+| Annotated copy | | The photo with its drawing on it, one image. Sent to Flow PT and put in the wrap package beside the photo, its name ending "-annotated". | `variant: 'annotated'` | | Photos |
+| Measurement | | A dimension line on a drawing with the length typed for it. | `dimension` | | |
+| Setup diagram | | A slate's sketch from above: where the cameras, the subject, the lights and the markers stand, with measurements. One per slate. | `diagram` | | |
+| Subject, Light, Marker | | The symbols of a setup diagram beside the cameras: who is filmed, a light, a tracking marker. | `symbol` | | |
 | Entry | | One stored slate, take, camera, lens, camera setup, lighting setup or shoot day. | | | |
 | Change | | One edit waiting to sync. | outbox entry | | |
-| Template | | Values that fill a new slate or take. Entries made from it follow its later edits. | `template` | | Onset Template |
+| Template | | Values that fill a new slate or take. Entries made from it follow its later edits. Shared by every device of the project. | `template` | | Onset Template on a slate or take; the list in Onset Templates on the Project |
 | Gear | | The cameras, lenses and camera setups of a project. | | | |
 | Wrap | | The destination for the end of the day: the day's summary, what is left to fix, the export and the hand-over. | | | |
-| Wrap package | | One zip of a day's (or several days') files and photos, made on Wrap, for the people after set. | | | |
+| Wrap package | | One zip of a day's (or several days') files, and a folder per slate with its photos and audio notes, a list of its takes and references, and an empty folder for each reference, made on Wrap, for the people after set. | | | |
 | Camera report | | The VES camera report CSV (CRIF), one row per take. | | VES CRIF | |
 | Day report | | The printable page of one shoot day, for the VFX supervisor. | | | |
 | Backup | | One zip of everything on the device, every entry and photo, made in Settings, to restore from. Kept off the device. | | | |
 | Snapshot | | An automatic copy of every entry, kept on this device, to take back a mistake. It does not leave the device. | `snapshot` | | |
+| Notes on Shots | | The setting that has SG OnSet write one Note on each Shot with what was shot for it, at sync, and a reply when a sync adds to it. "Note" is the Flow PT Note, a capital N; "Notes" alone is a field of free text. | | | Note, Reply |
+| Send set data to artists | Send Set Data | The Flow PT action Set Up Fields adds on Shot and Set Shot (#106). Run from Flow PT on selected rows after wrap, it opens SG OnSet's page, where **Send** links their Set Shots and slates and writes the Notes on Shots. The setup check calls it "Flow PT action": "item" is rejected. | | | Action Menu Item |
+| Names | | What SG OnSet calls its custom entities and fields in Flow PT (#111): each kept, renamed, or a field the site has, picked by an admin in Setup. Kept on the Flow PT project; every device of it uses them. "Default" is SG OnSet's own names. | | | Onset Naming on the Project |
 
 Note for code: the outbox calls a change an "entry" (`counts.entries`). The UI word for a queued
 edit is **Change**; **Entry** is a stored record.
@@ -100,7 +112,7 @@ gives.
 | Setup | The setup letter or number within the scene. | `setup` | OMC SlateUID.hasSlateSetup; VES scope Setup | Setup |
 | Lighting setup | The lighting setup in use. | `lightingSetupId` | | Lighting Setup |
 | Description | What the shot is. | `description` | CRIF Shot Description | Description |
-| VFX shots | The VFX shot codes this slate feeds. | `vfxShots` | CRIF VFX Shot | VFX Shots |
+| VFX shots | The VFX shot codes this slate feeds. | `vfxShots` | CRIF VFX Shot | VFX Shots; a Set Shot per code in Set Shots; their Shots in Shots |
 | Element type | Plate, clean plate, bluescreen, element. | `elementType` | CRIF Element Type | Element Type |
 | Interior or exterior | Interior or Exterior. | `interiorExterior` | CRIF Interior Exterior (Int, Ext) | Interior Exterior |
 | Script time | Day, Night, Dusk, Dawn, Magic hour. | `scriptTime` | CRIF Script Time | Script Time |
@@ -109,11 +121,25 @@ gives.
 | Clean plate | A clean plate was shot. | `cleanPlate` | CRIF Set Media "Clean Plate" | Clean Plate |
 | Notes | Free text. | `notes` | CRIF Notes | Set Notes |
 
+### Reference
+
+| Label | Definition | Key | Standards | FPT |
+|---|---|---|---|---|
+| Kind | HDRI 360, Lidar scan, or a kind the project adds. | `kind` | | Kind |
+| File or folder | The name of the file or folder on the device. | `name` | | Name (code) |
+| Device | What captured it: Ricoh Theta Z1, iPhone 15 Pro. | `device` | | Device |
+| Card or roll | The card or roll it is on. | `cardOrRoll` | | Card or Roll |
+| Count | How many files, frames or brackets. | `count` | | Count |
+| Notes | Free text. | `notes` | | Set Notes |
+| Logged at | When it was added. Orders the list. Not a form field. | `loggedAt` | | Logged At |
+
 ### Take
 
 | Label | Short | Definition | Key | Standards | FPT |
 |---|---|---|---|---|---|
 | Take | Take | The take as called: 1, 2, 3, PU. | `take` | CRIF Tk Take; OMC SlateUID.hasTake; ALE Take | Name (code) |
+| Type | Type | What the take is for: Main, Clean plate, Balls and chart, Shadow plate, Light pass, Atmosphere (smoke, fog), Element, Other. No value is Main. | `takeType` | ours | Take Type |
+| At the tail | Tail | What the camera caught after the action as it kept running: Clean plate, Balls and chart, either or both. Shown beside the type as "Clean plate tail". | `takeTail` | ours | Take Tail |
 | Start time | Start | When Start was pressed. | `startedAt` | CRIF Tk Start Time Of Take | Start Time |
 | End time | End | When End was pressed. | `endedAt` | | End Time |
 | Circled | Circled | The take is circled: a keeper. | `circleTake` | OMC circleTake; ALE Circled Take | Circled |
@@ -164,10 +190,16 @@ gives.
 
 | Term | Definition | Rejected |
 |---|---|---|
-| Start, End | The take button pair. Stamps the take's start and end time. | Record, Rec, Roll, Cut, Stop: the app records nothing |
+| Start, End | The take button pair. Stamps the take's start and end time. | Record, Rec, Roll, Cut, Stop: the take stamps times, it records nothing |
 | Ready, Running, Ended | The take's state. | Rolling, Filed, Idle |
 | New Take | Starts the next take as a copy of the last. | |
 | Photo | Takes a reference photo for the take. | Still, Ref |
+| Add Photos or Videos | In the take sheet: picks photos and videos from the photo library or Files for the take. | Import, Upload: Upload is a sync word |
+| Record Audio Note, Save Audio Note | In the take sheet: one row that records from the microphone, then keeps what it heard. Closing the sheet keeps it too. | Start, End: the take's; Stop: does not say the note is kept; Voice memo: Apple's app |
+| Photos and videos | The Wrap switch for the photos and videos of the takes. Audio notes always go. | Photos: a video is not a photo |
+| Import Clips | On Slates: reads the DIT's ALE or CSV and fills clip name, camera roll, timecode, lens and the camera's values on the day's takes. "Clip import" is one such import. | Ingest, Sync: sync is Flow PT's word |
+| Fill | Writes what an import found on the takes. Fills empty fields, updates what an earlier import filled, keeps what a person typed. | Apply, Merge |
+| Move, Draw, Text, Measure | The drawing's tools: pick and move, draw a line, write, draw a dimension line and type its length. | Pen, Annotate, Dimension |
 | Undo, Redo | Reverse the last edit. | |
 | Sync | Send changes to Flow PT and read back. | Upload, Push |
 | All synced | Nothing waits, signed in. | |
@@ -210,11 +242,31 @@ gives.
 - **Scene** is the script scene. **Take** is the take as called, a string: 1, 2, PU.
 - **Circled** and **No good** (short NG). Circled is the crew word and OMC `circleTake`. Print and
   Good are rejected: print is a film-lab word, good reads as a judgement on the shot.
+- **Type** of a take, not element type: Element type is the slate's CRIF field. A take typed
+  **Clean plate** turns on the slate's Clean plate; **Balls and chart** turns on the lighting
+  setup's Grey and chrome balls and Colour chart. The notice says a switch left on "stays on"
+  ("still" is a banned word), with **Turn Off**.
+- **At the tail**: a plate shot as the camera keeps running after the action. The take keeps its
+  one Type; the tail holds **Clean plate**, **Balls and chart**, or both, and turns on the same
+  switches a take of that type does. Beside the type it reads "Clean plate tail".
 - **MOS** and **wild track** have no field yet. When they come: "MOS" (flag), "Wild track"
   (flag), both sentence case.
 - **Unit** is the shooting unit. **Shoot day** is one unit's day, named "Day {n}".
 - **Entry** for a stored thing. "Item" is vague; "record" means to shoot.
+- **Reference** is a set reference: one thing captured on another device, logged by name. A
+  **Photo** is taken in the app and kept on the take. "Set Reference" is the Flow PT entity.
+- **Set Shot** is the Flow PT entity that holds one VFX shot code typed on set, and links
+  editorial's Shots once they exist. Links to Shots are fixed there, not on the slate. The app
+  makes it and never shows it; only the sync sheet and the setup check name it.
+- **Lidar scan** for the kind of reference, as for the slate's switch. Flow PT shows "LiDAR".
 - **Photo**, not still. On set, "stills" means the unit stills photographer.
+- **Audio note**, not voice memo or voice note. Its row says **Record Audio Note**, then **Save
+  Audio Note** (Kevin, 2026-11-17): an audio note is recorded, so the word is right there. Record
+  and Stop stay banned for the take button and its states only, which stamp times and record
+  nothing; the vocabulary test checks those keys. Typing a note by voice is the keyboard's own
+  microphone key; the app adds nothing for it.
+- **Photo**, **Video** and **Audio note** are each named and counted as themselves: in the slate
+  manifest, the Wrap counts and the list of what is in Flow PT only. A video is never a photo.
 - **Wrap** names the destination, the crew word for the end of the shooting day. Rejected: Export
   (a verb, and the Backup uses it), Handover, Deliver. Three zips, three words: a **Wrap package**
   is for the people after set; a **Backup** is the whole device, to restore; a **Snapshot** is the

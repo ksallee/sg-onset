@@ -9,16 +9,41 @@
 import { endKey, FIELDS, type FieldDef, type Unit } from '$lib/model/catalogue';
 import { codeName, displayOf } from './names';
 
-/** The scopes that are records on the server. The project is not ours to write. */
-export const ENTITY_SCOPES = ['shootDay', 'lightingSetup', 'cameraSetup', 'slate', 'take', 'camera', 'lens'] as const;
+/**
+ * The scopes that are records on the server. The project is not ours to write. A Set Shot is no
+ * record on the device: the transport makes one per VFX shot code typed on a slate (setShots.ts).
+ */
+export const ENTITY_SCOPES = ['shootDay', 'lightingSetup', 'cameraSetup', 'slate', 'take', 'camera', 'lens', 'reference', 'setShot'] as const;
 export type EntityScope = (typeof ENTITY_SCOPES)[number];
 
 export function isEntityScope(name: string): name is EntityScope {
 	return (ENTITY_SCOPES as readonly string[]).includes(name);
 }
 
-/** What an entity field points at. */
-export type Target = EntityScope | 'project' | 'attachment';
+/**
+ * The scopes a site may lack: the rest syncs, and what needs them waits until an admin enables the
+ * entity and runs Set Up Fields (Kevin, #117). A Set Shot's links wait in the codes on the slates;
+ * a set reference waits in the queue, on the device (app/sync/waiting.ts). No other record links
+ * either, so nothing else waits with them.
+ */
+export const OPTIONAL_SCOPES = ['setShot', 'reference'] as const satisfies readonly EntityScope[];
+export type OptionalScope = (typeof OPTIONAL_SCOPES)[number];
+/** The scopes every site must have before anything syncs. */
+export type RequiredScope = Exclude<EntityScope, OptionalScope>;
+
+export function isOptionalScope(name: string): name is OptionalScope {
+	return (OPTIONAL_SCOPES as readonly string[]).includes(name);
+}
+
+/** The scopes of records on the device. A Set Shot is none: the transport makes it from a slate's codes. */
+export type RecordScope = Exclude<EntityScope, 'setShot'>;
+
+export function isRecordScope(name: string): name is RecordScope {
+	return isEntityScope(name) && name !== 'setShot';
+}
+
+/** What an entity field points at. `shot`: Flow PT's own Shot, which the app never writes. */
+export type Target = EntityScope | 'project' | 'attachment' | 'shot';
 
 /** The FPT data types we use. Each is creatable with a name (corpus endpoints/post_schema_type_fields.md). */
 export type FptDataType = 'text' | 'float' | 'number' | 'checkbox' | 'date' | 'date_time' | 'entity' | 'multi_entity';
@@ -70,7 +95,12 @@ export const ENTITY_TYPES: Record<
 	take: { kind: 'custom', displayName: 'Take' },
 	lens: { kind: 'custom', displayName: 'Lens', aliases: ['Lenses'] },
 	cameraSetup: { kind: 'custom', displayName: 'Camera Setup' },
-	lightingSetup: { kind: 'custom', displayName: 'Lighting Setup' }
+	lightingSetup: { kind: 'custom', displayName: 'Lighting Setup' },
+	// One row per set reference, linked to its slate. Each studio enables the slot, as for Take.
+	// Optional (Kevin, #117).
+	reference: { kind: 'custom', displayName: 'Set Reference' },
+	// One row per on-set shot code in the project, linked from its slates (Kevin, #102).
+	setShot: { kind: 'custom', displayName: 'Set Shot' }
 };
 
 /** The client UUID, on every entity we write. A create sent twice is refused on it. */
@@ -79,8 +109,125 @@ export const UUID: Column = { name: 'sg_onset_uuid', display: 'Onset UUID', data
 /** The photos of a take: Attachments at full resolution (corpus findings/123_photos_per_record.md). */
 export const STILLS: Column = { name: 'sg_photos', display: 'Photos', dataType: 'multi_entity', target: 'attachment', note: 'Reference photos, as shot.' };
 
+/**
+ * The setup diagram of a slate (#87): its image, an Attachment, as a take's photos are. The slate
+ * shows the newest one: an older image leaves the field when a newer one is verified.
+ */
+export const DIAGRAMS: Column = { name: 'sg_setup_diagram', display: 'Setup Diagram', dataType: 'multi_entity', target: 'attachment', note: 'The setup diagram, from above, as an image.' };
+
+/**
+ * Ours on Version, a stock type: a take's videos go up as Versions linked to the take (Kevin,
+ * 2026-11-17; versions.ts). The client UUID only, so a create sent twice is refused.
+ */
+export const VERSION_COLUMNS: readonly Column[] = [UUID];
+
+/**
+ * The Shots of a slate: the Shots of the project whose code is one of the slate's VFX shots, linked
+ * at sync. The codes stay in `sg_vfx_shots` as typed; a code no Shot has stays there only. A
+ * multi_entity of one type is created by API (corpus findings/116), and makes a field on Shot that
+ * lists the slates (findings/142). See shots.ts.
+ */
+export const SHOTS: Column = { name: 'sg_shots', display: 'Shots', dataType: 'multi_entity', target: 'shot', note: 'The Shots of the VFX shot codes typed on the slate. Linked at sync.' };
+
+/**
+ * The slates a set reference shows on (#107): every slate of its lighting setup for an HDRI 360, a
+ * 360 video or an HDR reference, its own slate for the rest (lib/references/lighting.ts). Linked at
+ * sync. Beside `sg_slate`, the slate it was logged on, because a field's type cannot change once
+ * made (corpus endpoints/put_schema_type_fields_field). Makes a field on Slate that lists the
+ * references each slate shows (findings/142). See app/sync/referenceSlates.ts.
+ */
+export const REFERENCE_SLATES: Column = { name: 'sg_slates', display: 'Slates', dataType: 'multi_entity', target: 'slate', note: 'The slates it shows on: every slate of its lighting setup for a lighting reference. Linked at sync.' };
+
+/**
+ * The Set Shots of a slate: one per VFX shot code typed on it, made at sync (setShots.ts). Makes a
+ * field on Set Shot that lists its slates (findings/142).
+ */
+export const SET_SHOTS: Column = { name: 'sg_set_shots', display: 'Set Shots', dataType: 'multi_entity', target: 'setShot', note: 'One per VFX shot code typed on the slate. Linked at sync.' };
+
+/**
+ * The key of a Set Shot: the project and the code, as Flow PT matches a code. A text field made
+ * unique refuses a second row with the value, case and outer spaces ignored, inside a `_batch` too
+ * (corpus findings/127): a Set Shot is never made twice for one code. The project is in it because
+ * whether `unique` spans projects is unmeasured (findings/136).
+ */
+export const SET_SHOT_KEY: Column = { name: 'sg_onset_key', display: 'Onset Key', dataType: 'text', unique: true, note: 'The project and the shot code typed on set. Unique: one Set Shot per code.' };
+
+/** The real Shots of a Set Shot. Several for a shot editorial splits. Makes a field on Shot that lists its Set Shots. */
+export const SET_SHOT_SHOTS: Column = { ...SHOTS, note: 'The Shots of this shot code. Set by SG OnSet when a Shot has the code, or by hand.' };
+
+/**
+ * Whether the app matched the Set Shot: linked it to the Shots of its code. It matches one once,
+ * on any device, so a Set Shot a person emptied after a match stays empty (Kevin, #102).
+ */
+export const SET_SHOT_MATCHED: Column = {
+	name: 'sg_onset_matched',
+	display: 'Onset Matched',
+	dataType: 'checkbox',
+	note: 'Ticked when SG OnSet linked the Shots of the code. It never matches a ticked Set Shot again.'
+};
+
+/**
+ * The key of a Note on a Shot (#97): the project and the Shot. A text field made unique refuses a
+ * second Note with the value, on create and on PUT, under a person's session too (corpus
+ * findings/146): one Note per Shot. `Note.meta` was weighed: it needs no admin, but refuses no
+ * duplicate and is written on create only (findings/146, field_types/jsonb.md).
+ */
+export const NOTE_KEY: Column = { name: 'sg_onset_key', display: 'Onset Key', dataType: 'text', unique: true, note: 'The project and the Shot of a Note SG OnSet writes. Unique: one Note per Shot.' };
+
+/**
+ * What the Note on a Shot lists, as ids: its takes, element takes, references and photos (#97).
+ * The next sync compares with it to tell nothing new from something added, with nothing kept on
+ * the device.
+ */
+export const NOTE_CAPTURED: Column = {
+	name: 'sg_onset_captured',
+	display: 'Onset Captured',
+	dataType: 'text',
+	note: 'What the Note lists, as ids. SG OnSet compares with it at the next sync.'
+};
+
+/** Ours on Note, a stock type: Notes on Shots (#97). Optional: a site without them syncs the rest. */
+export const NOTE_COLUMNS: readonly Column[] = [NOTE_KEY, NOTE_CAPTURED];
+
+/**
+ * The live templates of the project, shared by every device of the show (#110): JSON in a text
+ * field of the Project (lists.ts). A text field on Project is created by API (corpus findings/157)
+ * and keeps 1,000,000 characters byte for byte (findings/158); jsonb cannot be created
+ * (findings/160). Flow PT has no entity for a template, and Kevin wants no new required custom entity.
+ */
+export const PROJECT_TEMPLATES: Column = {
+	name: 'sg_onset_templates',
+	display: 'Onset Templates',
+	dataType: 'text',
+	note: 'The templates of SG OnSet for this project, as JSON. Edit them in SG OnSet'
+};
+
+/** The kinds of set reference the project adds (#93), shared the same way (#110). */
+export const PROJECT_KINDS: Column = {
+	name: 'sg_onset_reference_kinds',
+	display: 'Onset Reference Kinds',
+	dataType: 'text',
+	note: 'The kinds of set reference this project adds in SG OnSet, as JSON. Edit them in SG OnSet'
+};
+
+/** Ours on Project, a stock type: the shared lists (#110). Optional: a site without them syncs the rest. */
+export const PROJECT_COLUMNS: readonly Column[] = [PROJECT_TEMPLATES, PROJECT_KINDS];
+
+/**
+ * The names an admin picked for the project (#111, naming.ts): JSON in a text field of the Project,
+ * read by every device of the project, written by an Admin (corpus findings/157, 158, 159; recipes/028).
+ * Its name is fixed and never in a naming: it is read before any name is known. A site without it
+ * uses the default names. Made by Set Up Fields when an admin first saves names.
+ */
+export const PROJECT_NAMING: Column = {
+	name: 'sg_onset_naming',
+	display: 'Onset Naming',
+	dataType: 'text',
+	note: 'The names SG OnSet uses on this site for this project, as JSON. Change them in SG OnSet'
+};
+
 /** The key whose value a new record takes as `created_at` (corpus findings/070_authored_timestamps.md). */
-export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt' };
+export const CREATED_AT: Partial<Record<EntityScope, string>> = { take: 'startedAt', reference: 'loggedAt' };
 
 const STOCK: Record<'code' | 'description' | 'project', Column> = {
 	code: { name: 'code', display: 'Name', dataType: 'text', stock: true },
@@ -110,6 +257,7 @@ const OVERRIDES: Record<string, Override> = {
 	'take.take': { stock: 'code' },
 	'camera.cameraModel': { stock: 'code' },
 	'lens.lensModel': { stock: 'code' },
+	'reference.name': { stock: 'code' },
 	'slate.description': { stock: 'description' },
 	// A shoot day is named by its date, and keeps the date as a date too.
 	'shootDay.shootDate': { alsoCode: true },
@@ -135,6 +283,7 @@ const OVERRIDES: Record<string, Override> = {
 	'lightingSetup.referenceBalls': { display: 'Grey and Chrome Balls' },
 	'lens.focalLengthMax': { display: 'Focal Length Long End' },
 	'cameraSetup.order': { display: 'Sort Order' },
+	'reference.cardOrRoll': { display: 'Card or Roll' },
 	'camera.activeSensorPhysicalDimensions': { displays: ['Sensor Width mm', 'Sensor Height mm'] },
 	'camera.activeSensorResolution': { displays: ['Sensor Resolution Width', 'Sensor Resolution Height'] }
 };
@@ -236,7 +385,9 @@ const RECORD_KEYS: Record<EntityScope, FieldMap[]> = (() => {
 		camera: [project('camera')],
 		lens: [project('lens')],
 		slate: [parent('slate', 'shootDayId', 'shootDay'), template('slate')],
-		take: [parent('take', 'slateId', 'slate'), template('take')]
+		take: [parent('take', 'slateId', 'slate'), template('take')],
+		reference: [parent('reference', 'slateId', 'slate')],
+		setShot: [project('setShot')]
 	};
 })();
 
@@ -257,10 +408,40 @@ export function fieldMap(scope: EntityScope, key: string): FieldMap | undefined 
 	return MAPS[scope].find((m) => m.key === key);
 }
 
-/** The fields a scope's entity must have that are not stock: ours to find or create. */
+/** The fields of a scope that are no catalogue field: the links filled at upload and at sync. */
+const EXTRA: Partial<Record<EntityScope, readonly Column[]>> = { take: [STILLS], slate: [SHOTS, DIAGRAMS, SET_SHOTS], reference: [REFERENCE_SLATES], setShot: [SET_SHOT_SHOTS, SET_SHOT_MATCHED] };
+
+/**
+ * The fields a scope's entity must have that are not stock: ours to find or create. A record of
+ * the device has its client UUID; a Set Shot has its key instead.
+ */
 export function wantedColumns(scope: EntityScope): Column[] {
 	const own = MAPS[scope].flatMap((m) => m.columns).filter((c) => !c.stock);
-	return [UUID, ...own, ...(scope === 'take' ? [STILLS] : [])];
+	return [scope === 'setShot' ? SET_SHOT_KEY : UUID, ...own, ...(EXTRA[scope] ?? [])];
+}
+
+/**
+ * Where a field the app wants is: one of our scopes' entities, Version, where a take's videos go,
+ * Note, where the Note on a Shot is kept (#97), or Project, where the shared lists are (#110).
+ */
+export type FieldPlace = EntityScope | 'version' | 'note' | 'project';
+
+/** Every field the app wants, stock ones aside, by where it is: what an admin may name (#111). */
+export function wantedFields(): { place: FieldPlace; column: Column }[] {
+	return [
+		...ENTITY_SCOPES.flatMap((scope) => wantedColumns(scope).map((column) => ({ place: scope as FieldPlace, column }))),
+		...VERSION_COLUMNS.map((column) => ({ place: 'version' as const, column })),
+		...NOTE_COLUMNS.map((column) => ({ place: 'note' as const, column })),
+		...PROJECT_COLUMNS.map((column) => ({ place: 'project' as const, column }))
+	];
+}
+
+/**
+ * A field a site may lack and still sync: one of an optional scope, or one that links it. It is
+ * made once the entity is there.
+ */
+export function isOptionalColumn(scope: EntityScope, column: Column): boolean {
+	return isOptionalScope(scope) || (column.target !== undefined && isOptionalScope(column.target));
 }
 
 /** The mapping as rows, for the README and for a person checking it. */

@@ -2,8 +2,9 @@
 	// A camera setup in the list: its letter, the camera and the lens it holds. The row opens the
 	// setup; the lens button beside it opens the lens picker at once, so a swap is two taps. With
 	// `handle`, a grip at the leading edge moves the setup: drag it, or focus it and press the up
-	// and down arrow keys. The list does the moving; the row only shows where it is (`offset`).
-	import { ChevronRight, Menu as Grip } from '@lucide/svelte';
+	// and down arrow keys. The list does the moving; the row only shows where it is (`offset`). With
+	// `shoot`, a check at the trailing edge says whether this device shoots with the setup (#110).
+	import { Check, ChevronRight, Menu as Grip } from '@lucide/svelte';
 	import { t } from '$lib/i18n/messages';
 
 	let {
@@ -17,6 +18,7 @@
 		handle,
 		offset = 0,
 		dragging = false,
+		shoot,
 		onopen,
 		onlens
 	}: {
@@ -34,6 +36,8 @@
 		/** How far the row is shifted while a setup is dragged, in px. */
 		offset?: number;
 		dragging?: boolean;
+		/** Whether this device shoots with the setup, and the change of it (lib/gear/shooting.ts). */
+		shoot?: { on: boolean; onchange: (on: boolean) => void };
 		onopen: () => void;
 		onlens: () => void;
 	} = $props();
@@ -79,6 +83,11 @@
 		<button type="button" class="lens" onclick={onlens} aria-label={t('gear.setup.swap', { setup: label })}>
 			<span>{lens || t('gear.setup.lens')}</span>
 		</button>
+		{#if shoot}
+			<button type="button" class="shoot" class:on={shoot.on} aria-pressed={shoot.on} aria-label={t('gear.shoot', { setup: label })} data-setup-shoot={id} onclick={() => shoot.onchange(!shoot.on)}>
+				<span class="mark" aria-hidden="true">{#if shoot.on}<Check class="size-[16px]" strokeWidth={3} />{/if}</span>
+			</button>
+		{/if}
 		{#if chevron}<ChevronRight class="chev size-[18px]" strokeWidth={2.4} aria-hidden="true" />{/if}
 	</div>
 </div>
@@ -175,6 +184,7 @@
 	}
 	.open:focus-visible,
 	.lens:focus-visible,
+	.shoot:focus-visible,
 	.grip:focus-visible {
 		outline: 2px solid var(--focus);
 		outline-offset: -2px;
@@ -255,6 +265,33 @@
 	}
 	.lens:active span {
 		transform: scale(0.94);
+		transition: none;
+	}
+	.shoot {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--touch, 44px);
+		min-height: var(--touch, 44px);
+	}
+	.shoot .mark {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 26px;
+		height: 26px;
+		border-radius: 999px;
+		box-shadow: inset 0 0 0 2px var(--label-3);
+		color: var(--on-tint-solid);
+		transition: transform var(--dur-press) var(--ease-ios);
+	}
+	.shoot.on .mark {
+		background: var(--tint-solid);
+		box-shadow: inset 0 0 0 var(--status-ring) var(--tint);
+	}
+	.shoot:active .mark {
+		transform: scale(0.9);
 		transition: none;
 	}
 	.setup-row :global(.chev) {

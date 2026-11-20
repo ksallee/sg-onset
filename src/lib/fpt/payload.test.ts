@@ -67,6 +67,25 @@ describe('createData', () => {
 		expect(data).toEqual({ project: { type: 'Project', id: 70 }, sg_onset_uuid: 't1', sg_slate: { type: 'Slate', id: 21 }, code: '1' });
 	});
 
+	it('builds a set reference: a row linked to its slate, its kind as text, dated when it was logged', () => {
+		const fields = { slateId: 's1', kind: 'hdri360', name: 'HDRI_0412', device: 'Ricoh Theta Z1', cardOrRoll: 'A003', count: 7, notes: 'Noon sun', loggedAt: '2026-11-17T10:22:33.000Z' };
+		expect(ok(createData(RESOLUTION, 'reference', 'r1', fields, links, PROJECT))).toEqual({
+			project: { type: 'Project', id: 70 },
+			sg_onset_uuid: 'r1',
+			created_at: '2026-11-17T10:22:33Z',
+			sg_slate: { type: 'Slate', id: 21 },
+			sg_kind: 'hdri360',
+			code: 'HDRI_0412',
+			sg_device: 'Ricoh Theta Z1',
+			sg_card_or_roll: 'A003',
+			sg_count: 7,
+			sg_set_notes: 'Noon sun',
+			sg_logged_at: '2026-11-17T10:22:33Z'
+		});
+		// A project's own kind is sent as typed.
+		expect(ok(createData(RESOLUTION, 'reference', 'r2', { slateId: 's1', kind: 'Drone survey', name: 'Flight 1' }, links, PROJECT))).toMatchObject({ sg_kind: 'Drone survey', code: 'Flight 1' });
+	});
+
 	it('builds each of the other scopes', () => {
 		expect(ok(createData(RESOLUTION, 'shootDay', 'd1', { projectId: 'p1', shootDate: '2026-11-11', shootDay: 12, cameraUnit: 'Main' }, links, PROJECT))).toEqual({
 			project: { type: 'Project', id: 70 },
@@ -180,6 +199,16 @@ describe('updateData', () => {
 		expect(ok(updateData(RESOLUTION, 'take', { tStop: edit(4, 2.8), circleTake: edit(true) }, {}, PROJECT))).toEqual({ sg_t_stop: '4.0', sg_circled: true });
 	});
 
+	it('sends the take type as its key; Main, no value, clears it', () => {
+		expect(ok(updateData(RESOLUTION, 'take', { takeType: edit('cleanPlate') }, {}, PROJECT))).toEqual({ sg_take_type: 'cleanPlate' });
+		expect(ok(updateData(RESOLUTION, 'take', { takeType: edit(undefined, 'cleanPlate') }, {}, PROJECT))).toEqual({ sg_take_type: null });
+	});
+
+	it('sends the plates at the tail as their keys in one text; none clears it', () => {
+		expect(ok(updateData(RESOLUTION, 'take', { takeTail: edit(['cleanPlate', 'ballsAndChart']) }, {}, PROJECT))).toEqual({ sg_take_tail: 'cleanPlate, ballsAndChart' });
+		expect(ok(updateData(RESOLUTION, 'take', { takeTail: edit(undefined, ['cleanPlate']) }, {}, PROJECT))).toEqual({ sg_take_tail: null });
+	});
+
 	// corpus findings/field_types: null clears text, float, number, date_time and entity; a checkbox takes false.
 	it('clears a field with null, and a checkbox with false', () => {
 		expect(
@@ -262,6 +291,11 @@ describe('fromRow', () => {
 			take: '3',
 			lensId: 'l1'
 		});
+	});
+
+	it('reads the plates at the tail back from their text', () => {
+		const tailed = { ...row, attributes: { sg_take_tail: 'cleanPlate, ballsAndChart' } };
+		expect(fromRow(RESOLUTION, 'take', tailed, ['takeTail'])).toEqual({ takeTail: ['cleanPlate', 'ballsAndChart'] });
 	});
 
 	it('names a link to a record that is not ours, so it never passes for one of ours', () => {

@@ -12,6 +12,7 @@ export function siteTypes(): SchemaTypes {
 	return {
 		Attachment: type('File'),
 		Project: type('Project'),
+		Shot: type('Shot'),
 		ShootDay: type('Shoot Day'),
 		Slate: type('Slate'),
 		Camera: type('Camera'),
@@ -19,8 +20,16 @@ export function siteTypes(): SchemaTypes {
 		CustomEntity10: type('Camera Setup'),
 		CustomEntity11: type('Lighting Setup'),
 		CustomEntity19: type('Lens'),
+		CustomEntity21: type('Set Reference'),
+		CustomEntity22: type('Set Shot'),
 		CustomEntity29: type('Location'),
-		CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection')
+		CustomEntity29_sg_scene_Connection: type('Custom Entity29 Sg Scene Connection'),
+		Version: type('Version'),
+		Note: type('Note'),
+		Reply: type('Reply'),
+		Task: type('Task'),
+		HumanUser: type('Person'),
+		Group: type('Group')
 	};
 }
 
@@ -31,7 +40,9 @@ export const TYPES: Record<EntityScope, string> = {
 	take: 'CustomEntity09',
 	cameraSetup: 'CustomEntity10',
 	lightingSetup: 'CustomEntity11',
-	lens: 'CustomEntity19'
+	lens: 'CustomEntity19',
+	reference: 'CustomEntity21',
+	setShot: 'CustomEntity22'
 };
 
 export function rawField(dataType: string, display: string, extra: { unique?: boolean; validTypes?: string[]; editable?: boolean } = {}): RawField {
@@ -67,11 +78,54 @@ export function completeFields(): Record<EntityScope, RawFields> {
 	const out = bareFields();
 	for (const scope of ENTITY_SCOPES) {
 		for (const c of wantedColumns(scope)) {
-			const target = c.target === 'attachment' ? 'Attachment' : c.target && c.target !== 'project' ? TYPES[c.target] : undefined;
+			const target = c.target === 'attachment' ? 'Attachment' : c.target === 'shot' ? 'Shot' : c.target && c.target !== 'project' ? TYPES[c.target] : undefined;
 			out[scope][c.name] = rawField(c.dataType, c.display, { unique: c.unique, validTypes: target ? [target] : undefined });
 		}
 	}
 	return out;
+}
+
+/**
+ * Version's fields (corpus entity_types/Version.md): the stock ones a video needs, and with
+ * `ours` the client UUID Set Up Fields makes. `entity` lists the site's enabled custom entities.
+ */
+export function versionFields(ours = true): RawFields {
+	return {
+		...stockFields(),
+		entity: rawField('entity', 'Link', { validTypes: ['Asset', 'Shot', 'Sequence', 'ShootDay', 'Camera', 'Slate', ...Object.values(TYPES).filter((t) => t.startsWith('CustomEntity'))] }),
+		sg_uploaded_movie: rawField('url', 'Uploaded Movie'),
+		...(ours ? { sg_onset_uuid: rawField('text', 'Onset UUID', { unique: true }) } : {})
+	};
+}
+
+/**
+ * Note's fields (corpus entity_types/Note.md): the stock ones a Note on a Shot writes, and with
+ * `ours` the key and the list Set Up Fields makes (#97).
+ */
+export function noteFields(ours = true): RawFields {
+	return {
+		project: rawField('entity', 'Project', { validTypes: ['Project'] }),
+		subject: rawField('text', 'Subject'),
+		content: rawField('text', 'Body'),
+		note_links: rawField('multi_entity', 'Links', { validTypes: ['Shot', 'Slate', 'Version'] }),
+		tasks: rawField('multi_entity', 'Tasks', { validTypes: ['Task'] }),
+		addressings_to: rawField('multi_entity', 'To', { validTypes: ['Group', 'HumanUser'] }),
+		addressings_cc: rawField('multi_entity', 'Cc', { validTypes: ['Group', 'HumanUser'] }),
+		replies: rawField('multi_entity', 'Replies', { validTypes: ['Reply'] }),
+		...(ours ? { sg_onset_key: rawField('text', 'Onset Key', { unique: true }), sg_onset_captured: rawField('text', 'Onset Captured') } : {})
+	};
+}
+
+/**
+ * Project's fields (corpus entity_types/Project.md): its name and code, and with `ours` the two
+ * lists Set Up Fields makes for the templates and the kinds of set reference (#110).
+ */
+export function projectFields(ours = true): RawFields {
+	return {
+		name: rawField('text', 'Project Name'),
+		code: rawField('text', 'Project Code'),
+		...(ours ? { sg_onset_templates: rawField('text', 'Onset Templates'), sg_onset_reference_kinds: rawField('text', 'Onset Reference Kinds') } : {})
+	};
 }
 
 /** The probed site's habit: Lens.sg_focal_length is a text field of the site's own. */
@@ -88,7 +142,8 @@ export function jwtWith(claims: Record<string, unknown>): string {
 	return `${b64({ alg: 'HS256' })}.${b64(claims)}.c2lnbmF0dXJl`;
 }
 
-const resolve = (fields: Record<EntityScope, RawFields>): Resolution => toResolution(SITE_URL, resolveEntities(siteTypes()), planFields(TYPES, fields))!;
+const resolve = (fields: Record<EntityScope, RawFields>): Resolution =>
+	toResolution(SITE_URL, resolveEntities(siteTypes()), planFields(TYPES, fields, { version: versionFields(), note: noteFields(), project: projectFields() }))!;
 
 export const RESOLUTION: Resolution = resolve(completeFields());
 export const STEPPED_ASIDE: Resolution = resolve(steppedAsideFields());

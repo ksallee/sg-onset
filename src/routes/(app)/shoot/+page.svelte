@@ -42,13 +42,15 @@
 
 {#if current.slate}
 	<Workspace hand={settings.value.hand} target={target.size} gap={target.gap}>
-		{#snippet list(at)}
+		{#snippet list(at, form)}
 			<TakeList {shoot} {at} onslate={() => current.select({ slateId: undefined })} />
+			<!-- A phone: the notice over the take strip, so it covers neither the numbers nor the field being typed, keypad up or not. -->
+			{#if form === 'compact'}<UndoNotice issue={shoot.photoIssue} since={shoot.openedAt} at="top" />{/if}
 		{/snippet}
 		{#snippet main(form)}
-			<TakeDetail {shoot} {form} onnote={() => (sheet = true)} />
-			<!-- A phone with the keypad up has room for the number only. -->
-			{#if !(form === 'compact' && shoot.field)}<UndoNotice issue={shoot.photoIssue} since={shoot.openedAt} />{/if}
+			<!-- The elapsed time shows by the take while the dock's timing is off screen. -->
+			<TakeDetail {shoot} {form} time={!!shoot.field} />
+			{#if form !== 'compact'}<UndoNotice issue={shoot.photoIssue} since={shoot.openedAt} />{/if}
 		{/snippet}
 		{#snippet dock(form)}
 			{#if shoot.field}

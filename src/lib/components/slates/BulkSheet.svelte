@@ -1,6 +1,6 @@
 <script lang="ts">
-	// Bulk edit of the selected takes. Pick a field (the marks first), then set a value or clear
-	// it; the page says how many takes change and how many already hold it before anything is
+	// Bulk edit of the selected takes. Pick a field (the marks first; each plate at the tail is a
+	// yes or no of its own), then set a value or clear it; the page says how many takes change and how many already hold it before anything is
 	// applied. Or link the takes to a take template. Each apply is the model's patch through the
 	// editor: one undo. The sheet closes after; the selection stays for the next edit.
 	import { ChevronRight } from '@lucide/svelte';
@@ -15,12 +15,12 @@
 	import { settings } from '$lib/app/settings.svelte';
 	import { t, tk } from '$lib/i18n/messages';
 	import { fieldLabel } from '$lib/i18n/modelText';
-	import { bulkEdit } from '$lib/model/bulkEdit';
 	import type { TemplateRecord } from '$lib/model/template';
 	import type { Take } from '$lib/model/types';
 	import { sameValue } from '$lib/model/value';
-	import { bulkFields, bulkPreview, linkPreview, MARKS } from '$lib/slates/bulk';
+	import { bulkFields, bulkPatch, bulkPreview, bulkValue, linkPreview, MARKS } from '$lib/slates/bulk';
 	import type { FieldRef } from '$lib/slates/fields';
+	import { applyTakeEdit } from '$lib/take/typeEdit';
 	import FieldRow from './FieldRow.svelte';
 	import { useRefs } from './refs.svelte';
 	import { valueText } from './values';
@@ -41,7 +41,7 @@
 
 	/** What the chosen takes hold in a field: the value when they agree, "Mixed" when not. */
 	function holds(f: FieldRef): string {
-		const values = chosen.map((tk) => (tk as Record<string, unknown>)[f.key]);
+		const values = chosen.map((tk) => bulkValue(tk, f.key));
 		if (values.length === 0) return '';
 		if (values.every((v) => sameValue(v, values[0]))) return valueText(f, values[0], units, refs.names);
 		return t('slates.bulk.mixed');
@@ -51,12 +51,20 @@
 	let field = $state<FieldRef | null>(null);
 	let fieldOpen = $state(false);
 	let mode = $state<'set' | 'clear'>('set');
+	// What would be set follows every keystroke. What the row shows changes on a save only: given
+	// each keystroke back, the row would rewrite the text as it is typed ("5." does not read).
 	let pending = $state<{ ok: true; value: unknown } | { ok: false }>({ ok: false });
+	let saved = $state<unknown>(undefined);
 	function pick(f: FieldRef) {
 		field = f;
 		mode = 'set';
-		pending = f.def.type === 'boolean' ? { ok: true, value: true } : { ok: false };
+		saved = f.def.type === 'boolean' ? true : undefined;
+		pending = saved === undefined ? { ok: false } : { ok: true, value: saved };
 		fieldOpen = true;
+	}
+	function save(v: unknown) {
+		saved = v;
+		pending = { ok: true, value: v };
 	}
 	const target = $derived(mode === 'clear' ? { ok: true as const, value: undefined } : pending.ok && pending.value !== undefined ? pending : null);
 	const preview = $derived(field && target ? bulkPreview(chosen, ids, field.key, target.value) : null);
@@ -78,9 +86,10 @@
 
 	async function apply() {
 		if (!field || !target || !preview?.change.length) return;
-		const { patch } = bulkEdit(chosen, ids, field.key as keyof Take & string, target.value as never);
+		const patch = bulkPatch(chosen, ids, field.key, target.value);
 		const label = { key: mode === 'clear' ? 'slates.bulk.done.clear' : 'slates.bulk.done.set', params: { field: fieldLabel(field.def, field.end), n: patch.length } };
-		await app.edit.apply('take', patch, label);
+		// A change of take type turns its switches on and offers to turn off what it leaves on: one notice.
+		await applyTakeEdit(app, patch, label);
 		fieldOpen = false;
 		open = false;
 	}
@@ -144,12 +153,12 @@
 						<FieldRow
 							scope="take"
 							{field}
-							value={pending.ok ? pending.value : undefined}
+							value={saved}
 							{units}
 							tri
 							options={refs.options(field.def.key)}
 							onlive={(read) => (pending = read)}
-							onsave={(v) => (pending = { ok: true, value: v })}
+							onsave={save}
 						/>
 					{/key}
 				</Section>

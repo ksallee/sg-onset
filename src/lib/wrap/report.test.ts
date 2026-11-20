@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dayReport } from '$lib/export/dayReport';
-import { input } from '$lib/export/testData';
+import { input, t42A1A, t42A1B } from '$lib/export/testData';
 import { defaultPaper, escapeHtml, reportBody, reportCss, reportDocument } from './report';
 
 const opts = { units: 'metric' as const, printedAt: new Date(2026, 10, 11, 21, 5) };
@@ -34,6 +34,15 @@ describe('reportBody', () => {
 		expect(html).toContain('Ana Ruiz');
 	});
 
+	// Kevin, 2026-11-17 (#89): each kind counted as itself.
+	it('totals the day, photos, videos and audio notes each as itself', () => {
+		expect(html).toContain('3 slates · 7 takes · 2 circled · 1 no good · 3 photos');
+		const data = { ...input(), videos: ['st1'], audioNotes: [{ id: 'an1', takeId: t42A1A.id, capturedAt: '2026-11-10T22:30:00.000Z' }] };
+		expect(reportBody([dayReport(data, 'd3')!], opts)).toContain('3 slates · 7 takes · 2 circled · 1 no good · 2 photos, 1 video, 1 audio note');
+		const none = dayReport({ ...input(), stills: [] }, 'd3')!;
+		expect(reportBody([none], opts)).toContain('1 no good · 0 photos');
+	});
+
 	it('has a block per slate in order', () => {
 		const at = (s: string) => html.indexOf(`data-slate="${s}"`);
 		expect(at('9')).toBeGreaterThan(0);
@@ -50,6 +59,16 @@ describe('reportBody', () => {
 	it('escapes what was typed', () => {
 		const typed = dayReport({ ...input(), project: { id: 'p1', name: '<script>x</script>' } }, 'd3')!;
 		expect(reportBody([typed], opts)).not.toContain('<script>');
+	});
+
+	it('lists the set references of a slate under it, in the order logged', () => {
+		const block = html.slice(html.indexOf('data-slate="42A"'));
+		expect(block).toContain('References');
+		expect(block).toContain('Lidar scan: Scan 01');
+		expect(block).toContain('HDRI 360: HDRI_0412 (Ricoh Theta Z1, A003, ×7, Noon sun)');
+		expect(block.indexOf('Scan 01')).toBeLessThan(block.indexOf('HDRI_0412'));
+		const nine = html.slice(html.indexOf('data-slate="9"'), html.indexOf('data-slate="10"'));
+		expect(nine).not.toContain('References');
 	});
 
 	it('lists what is missing at the end', () => {
@@ -77,6 +96,26 @@ describe('reportBody', () => {
 		expect(d4).toContain('>Cam<');
 		expect(d4).toContain('>Focal<');
 		expect(html).toContain('>Start<');
+	});
+
+	it('shows the take type where a take of the day is not Main', () => {
+		expect(html).not.toContain('>Type<');
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, takeType: 'cleanPlate' } : t));
+		const typed = reportBody([dayReport(shoot, 'd3')!], opts);
+		expect(typed).toContain('>Type<');
+		// One take is a clean plate; the Main takes leave the cell empty.
+		expect(typed.match(/>Clean plate</g)).toHaveLength(1);
+		expect(typed.match(/>Main</g)).toHaveLength(html.match(/>Main</g)!.length);
+	});
+
+	it('shows the plates at the tail in the type column, after the type', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, takeType: 'lightPass', takeTail: ['cleanPlate'] } : t.id === t42A1B.id ? { ...t, takeTail: ['cleanPlate', 'ballsAndChart'] } : t));
+		const tailed = reportBody([dayReport(shoot, 'd3')!], opts);
+		expect(tailed).toContain('>Type<');
+		expect(tailed).toContain('>Light pass, Clean plate tail<');
+		expect(tailed).toContain('>Clean plate tail, Balls and chart tail<');
 	});
 
 	it('says when a day has no takes', () => {

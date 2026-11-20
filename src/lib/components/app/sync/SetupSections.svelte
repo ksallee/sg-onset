@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The setup check's report in words: entities found or what an admin must do, with the exact
 	// name to give them; fields there, created, to create or waiting for an admin; permission
-	// trouble; the fields Flow PT adds for our links. Fields are made only on Set Up Fields, a tap
+	// trouble; the Action Menu Item of the linked project (#106); the fields Flow PT adds for our links. Fields are made only on Set Up Fields, a tap
 	// of the person, after the review that says what it will change (SetupReview).
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
@@ -9,6 +9,7 @@
 	import { setupView, type FieldLine, type FieldStatus } from '$lib/app/sync/report';
 	import { nextStep, setupReview, type ReviewAction, type ReviewStep } from '$lib/app/sync/review';
 	import { t } from '$lib/i18n/messages';
+	import NamesPage from './NamesPage.svelte';
 	import SetupReview from './SetupReview.svelte';
 
 	const sync = useSync();
@@ -25,12 +26,20 @@
 		if (next.run) void sync.check(true);
 	}
 	let showPresent = $state(false);
+	// The names an admin picks (#111): what the project keeps, and a page to change them.
+	let namesOpen = $state(false);
+	const namesSaved = $derived(sync.state.report?.naming?.saved);
+	const setupFooter = $derived(
+		namesSaved === 'unreadable' ? t('sync.names.unreadable') : view?.permission ? t('sync.setup.permission') : view?.canSetUpFields ? t('sync.setup.fields.footer') : undefined
+	);
 
 	const LISTED: FieldStatus[] = ['needsAdmin', 'missing', 'created', 'blocked', 'failed'];
 	const statusText = $derived(sync.state.checking ? (sync.state.creatingFields ? t('sync.setup.creating') : t('sync.setup.checking')) : sync.state.ready ? t('sync.setup.ready') : view ? t('sync.setup.notReady') : t('sync.setup.unknown'));
 
 	function entityText(line: NonNullable<typeof view>['entities'][number]): string {
 		if (line.action === 'found') return t('sync.setup.entity.found');
+		// Kevin, #117: an optional entity the site lacks is a note; the rest syncs.
+		if (line.action === 'enable' && line.optional) return t('sync.setup.entity.optional', { name: line.displayName });
 		if (line.action === 'enable') return t('sync.setup.entity.enable', { name: line.displayName });
 		if (line.action === 'switchOn') return t('sync.setup.entity.switchOn', { name: line.displayName });
 		return t('sync.setup.entity.keepOne', { name: line.displayName, types: (line.candidates ?? []).join(', ') });
@@ -41,16 +50,17 @@
 {#if reviewing && review}
 	<SetupReview {review} onconfirm={() => tap('confirm')} onnotnow={() => tap('notNow')} />
 {:else}
-	<Section header={t('sync.setup.header')} footer={view?.permission ? t('sync.setup.permission') : view?.canSetUpFields ? t('sync.setup.fields.footer') : undefined}>
+	<Section header={t('sync.setup.header')} footer={setupFooter}>
 		<Row title={t('sync.setup.header')} detail={statusText} />
 		<Row title={t('sync.setup.check')} onclick={() => void sync.check(false)} chevron={false} />
+		<Row title={t('sync.names.row')} detail={namesSaved === 'saved' ? t('sync.names.row.saved') : t('sync.names.row.default')} onclick={() => (namesOpen = true)} />
 		{#if view?.canSetUpFields && !sync.state.checking}
 			<Row title={t('sync.setup.fields')} onclick={() => tap('request')} chevron={false} />
 		{/if}
 	</Section>
 
 	{#if view}
-		<Section header={t('sync.setup.entities')} footer={view.entitiesToFix > 0 ? t('sync.setup.entities.footer') : undefined}>
+		<Section header={t('sync.setup.entities')} footer={view.entitiesToFix > 0 || view.notes > 0 ? t('sync.setup.entities.footer') : undefined}>
 			{#each view.entities as line (line.scope)}
 				<Row title={line.displayName} subtitle={line.entityType} detail={entityText(line)} />
 			{/each}
@@ -76,6 +86,15 @@
 			{/each}
 		</Section>
 
+		{#if view.action}
+			<!-- #106: "Send set data to artists" on Shot and Set Shot, pointing at this deploy (lib/fpt/actionMenu.ts). -->
+			<Section header={t('sync.setup.action')} footer={t('sync.setup.action.footer', { title: view.action.title, url: view.action.url })}>
+				{#each view.action.lines as line (line.entityType)}
+					<Row title={line.entity} subtitle={line.reason} detail={t(`sync.setup.action.${line.status}`)} />
+				{/each}
+			</Section>
+		{/if}
+
 		{#if view.reverse.length}
 			<!-- corpus findings/142: each link field adds one on the entity it links; deleting it deletes the link. -->
 			<Section header={t('sync.setup.reverse')} footer={t('sync.setup.reverse.footer')}>
@@ -86,3 +105,5 @@
 		{/if}
 	{/if}
 {/if}
+
+<NamesPage bind:open={namesOpen} />

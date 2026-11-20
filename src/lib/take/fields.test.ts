@@ -54,6 +54,13 @@ describe('shownValue', () => {
 		expect(shownValue(def('lensHeight'), take, prime, 'imperial')).toBe('5\' 6"');
 		expect(shownValue(def('lensHeight'), take, prime, 'metric')).toBe('1.676');
 	});
+	it('shows a focus at infinity as ∞, however it was typed (#52)', () => {
+		for (const typed of ['inf', '∞', 'infinity']) {
+			const far: Take = { ...take, focusDistance: parseLength(typed, 'metric')! };
+			expect(shownValue(def('focusDistance'), far, prime, 'metric')).toBe('∞');
+			expect(shownValue(def('focusDistance'), far, prime, 'imperial')).toBe('∞');
+		}
+	});
 	it('shows other numbers short, and nothing for no value', () => {
 		expect(shownValue(def('tStop'), take, prime, 'metric')).toBe('2.8');
 		expect(shownValue(def('captureFrameRate'), take, prime, 'metric')).toBe('23.976');

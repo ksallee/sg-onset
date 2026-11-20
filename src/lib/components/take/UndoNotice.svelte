@@ -1,11 +1,15 @@
 <script lang="ts">
 	// Shoot's own edit notice (the shell shows none on a focus page): the last labelled edit with
-	// Undo, an undo with Redo, for a few seconds. It sits at the foot of the main column, clear of
-	// the rail and the dock under the thumb. It shows at once; it goes by itself.
+	// Undo, an undo with Redo, for a few seconds. An offer the edit raised (app.offer) shows instead.
+	// `at="foot"`: at the foot of the main column, clear of the rail and the dock under the thumb.
+	// `at="top"`: over the take strip, two lines at most, for a phone, so the numbers and the field being
+	// typed stay clear, keypad up or not. It is there on the first frame; it comes up a little as it does, and
+	// new words settle in place. It goes by itself.
 	import { useApp } from '$lib/app/app.svelte';
 	import { t, tk } from '$lib/i18n/messages';
+	import { feedback, SETTLE } from './feedback.svelte';
 
-	let { issue = null, since = 0 }: { issue?: string | null; since?: number } = $props();
+	let { issue = null, since = 0, at = 'foot' }: { issue?: string | null; since?: number; at?: 'foot' | 'top' } = $props();
 
 	const app = useApp();
 	const NOTICE_MS = 6000;
@@ -16,6 +20,7 @@
 		if (issue) return { text: issue };
 		if (!edit) return null;
 		if (edit.kind === 'tooLate') return { text: t('notice.tooLate') };
+		if (edit.offer) return { text: edit.offer.text, action: edit.offer.action, run: edit.offer.run };
 		if (!what) return null;
 		if (edit.kind === 'undone') return { text: t('notice.undone', { what }), action: t('notice.redo'), run: () => app.edit.redo() };
 		if (edit.kind === 'redone') return { text: t('notice.redone', { what }), action: t('notice.undo'), run: () => app.edit.undo() };
@@ -29,8 +34,8 @@
 </script>
 
 {#if notice}
-	<div class="undo-notice" role="status">
-		<span class="text">{notice.text}</span>
+	<div class="undo-notice" data-at={at} role="status">
+		<span class="text" {@attach feedback(() => notice?.text, SETTLE, 'smooth')}>{notice.text}</span>
 		{#if notice.action && notice.run}<button type="button" onclick={() => void notice.run?.()}>{notice.action}</button>{/if}
 	</div>
 {/if}
@@ -78,15 +83,43 @@
 		box-shadow: inset 0 0 0 2px var(--label);
 		color: var(--label);
 	}
-	@media (prefers-reduced-motion: no-preference) {
-		:global([data-motion='full']) .undo-notice {
-			animation: rise 180ms cubic-bezier(0.23, 1, 0.32, 1);
-		}
+	/* Over the take strip: two lines at most, the strip's height. */
+	.undo-notice[data-at='top'] {
+		position: absolute;
+		inset: 6px 6px auto;
+		margin: 0;
+		min-height: 52px;
+		font-size: 15px;
+	}
+	[data-at='top'] .text {
+		padding: 4px 0;
+		line-height: 20px;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+	/* Reduced motion stills it (theme/motion.css). */
+	.undo-notice {
+		animation: rise var(--dur-smooth) var(--spring-smooth);
+	}
+	.text {
+		display: block;
+	}
+	[data-at='top'].undo-notice {
+		animation-name: drop;
 	}
 	@keyframes rise {
 		from {
 			opacity: 0.4;
-			transform: translateY(8px);
+			transform: translateY(10px);
+		}
+	}
+	@keyframes drop {
+		from {
+			opacity: 0.4;
+			transform: translateY(-10px);
 		}
 	}
 </style>

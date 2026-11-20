@@ -72,3 +72,14 @@ export function enqueue(queue: Queue, op: Op, dependsOn: readonly string[], fres
 	if (!edits.length) return [...queue];
 	return [...queue, make({ ...op, changes: Object.fromEntries(edits) }, dependsOn, fresh)];
 }
+
+/**
+ * The queue without the upload of file `blobId`, while it has not left: a file replaced before it
+ * was sent (a photo's annotated copy, drawn on again). Undefined once an upload of it is in
+ * flight, may have landed or waits for a person: Flow PT may hold the file, so it stays.
+ */
+export function dropUpload(queue: Queue, blobId: string): Entry[] | undefined {
+	const mine = queue.filter((e) => isActive(e) && e.op.kind === 'blob' && e.op.blobId === blobId);
+	if (mine.some((e) => !isOpen(e))) return undefined;
+	return queue.filter((e) => !mine.includes(e));
+}

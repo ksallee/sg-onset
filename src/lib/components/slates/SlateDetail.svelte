@@ -1,8 +1,9 @@
 <script lang="ts">
-	// One slate: Shoot This Slate, its takes as a table (selectable for bulk edit), every slate
-	// field typed and checked, where it stands against its template, and Duplicate, New Template
+	// One slate: Shoot This Slate, its takes as a table (selectable for bulk edit), its reference
+	// log, every slate field typed and checked, where it stands against its template, and Duplicate, New Template
 	// from Slate and Delete. Everything is read live from the store, so what shows is what is
 	// stored, an undo included. A Page of its own: beside the list on an iPad, alone on a phone.
+	// With a network and a linked Flow PT project, VFX shots offers the project's Shot codes.
 	import { Clapperboard, Ellipsis } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import Button from '$lib/components/ios/Button.svelte';
@@ -12,12 +13,17 @@
 	import Page from '$lib/components/ios/Page.svelte';
 	import Row from '$lib/components/ios/Row.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
+	import ReferenceList from '$lib/components/references/ReferenceList.svelte';
+	import { removeSlate } from '$lib/references/edit';
+	import DiagramRow from '$lib/components/draw/DiagramRow.svelte';
 	import { useApp } from '$lib/app/app.svelte';
 	import { useCurrent } from '$lib/app/current.svelte';
 	import { dayName } from '$lib/app/context';
 	import { formatDate, formatTime } from '$lib/app/format';
 	import { liveList, liveRecord } from '$lib/app/live.svelte';
 	import { settings } from '$lib/app/settings.svelte';
+	import { useSync } from '$lib/app/sync/controller.svelte';
+	import { SHOT_CODES_KEY } from '$lib/fpt/shots';
 	import { t } from '$lib/i18n/messages';
 	import { fieldLabel } from '$lib/i18n/modelText';
 	import type { Take } from '$lib/model/types';
@@ -59,6 +65,22 @@
 	const units = $derived(settings.value.units);
 	const FIELDS = fieldRefs('slate');
 
+	// The Shot codes of the linked Flow PT project, read when the page opens or the network or the
+	// link changes. None offline: the field is free text then.
+	const sync = useSync();
+	const codesFrom = $derived(sync.state.online && sync.state.link ? `${sync.state.link.site}|${sync.state.link.projectId}` : '');
+	let shotCodes = $state.raw<string[]>([]);
+	$effect(() => {
+		if (!codesFrom) return void (shotCodes = []);
+		let gone = false;
+		void sync.shotCodes().then((codes) => {
+			if (!gone) shotCodes = codes;
+		});
+		return () => {
+			gone = true;
+		};
+	});
+
 	const line = $derived.by(() => {
 		if (!summary || !day) return '';
 		const n = dayName(day);
@@ -99,7 +121,7 @@
 	async function remove() {
 		const s = slate;
 		if (!s) return;
-		await app.edit.removeTree('slate', s.id, { key: 'edit.removed', params: { what: t('slates.slate', { slate: s.slateUID ?? '' }) } });
+		await removeSlate(app, s, { key: 'edit.removed', params: { what: t('slates.slate', { slate: s.slateUID ?? '' }) } });
 		await goto('/slates');
 	}
 	const menu = $derived([
@@ -135,6 +157,10 @@
 			</Section>
 		{/if}
 
+		<ReferenceList {slate} />
+
+		<DiagramRow {slate} />
+
 		<TemplateLink table="slate" record={slate} what={name} />
 
 		<Section header={t('slates.detail.header')}>
@@ -145,6 +171,7 @@
 					value={(slate as Record<string, unknown>)[f.key]}
 					{units}
 					options={refs.options(f.key)}
+					suggestions={f.key === SHOT_CODES_KEY && codesFrom ? { label: t('slates.field.shots'), values: shotCodes } : undefined}
 					marker={changed.has(f.key)}
 					check={f.key === 'slateUID' ? taken : undefined}
 					onsave={(v) => save(f.key, v)}

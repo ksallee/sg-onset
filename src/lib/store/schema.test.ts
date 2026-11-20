@@ -22,11 +22,28 @@ describe('VERSIONS', () => {
 			expect(stores[name]).toBeTypeOf('string');
 			expect((TABLES as readonly string[]).includes(name)).toBe(false);
 		}
-		expect(Object.keys(stores).sort()).toEqual([...TABLES.filter((t) => t !== 'template'), ...INTERNAL_TABLES].sort());
+		const later = ['template', 'reference', 'referenceKind', 'markup', 'diagram', 'clipImport'];
+		expect(Object.keys(stores).sort()).toEqual([...TABLES.filter((t) => !later.includes(t)), ...INTERNAL_TABLES].sort());
 	});
 
 	it('adds the template table in version 3, and nothing else', () => {
 		expect(VERSIONS[2]).toEqual({ version: 3, stores: { template: 'id, projectId' } });
+	});
+
+	it('adds the set references and the project kinds in version 4, and nothing else', () => {
+		expect(VERSIONS[3]).toEqual({ version: 4, stores: { reference: 'id, slateId', referenceKind: 'id, projectId' } });
+	});
+
+	it('adds the markup table, the drawings on photos, in version 5, and nothing else', () => {
+		expect(VERSIONS[4]).toEqual({ version: 5, stores: { markup: 'id, stillId' } });
+	});
+
+	it('adds the diagram table, the setup diagrams, in version 6, and nothing else', () => {
+		expect(VERSIONS[5]).toEqual({ version: 6, stores: { diagram: 'id, slateId' } });
+	});
+
+	it('adds the clip imports in version 7, and nothing else', () => {
+		expect(VERSIONS[6]).toEqual({ version: 7, stores: { clipImport: 'id, shootDayId' } });
 	});
 
 	it('adds the snapshot tables in their own version, and nothing else', () => {

@@ -2,9 +2,13 @@
 	// One field of an entry or a template, as a row of a Section, typed as the catalogue says:
 	// text with the system keyboard (numbers get the decimal one) and its unit after it; a switch
 	// for yes or no (or a picker with "Not set" in a template, `tri`); a picker for an option or a
-	// linked entry. The text follows the stored value, so an undo shows at once. A typed value is
+	// linked entry; a chip per option for a list of options (the plates at a take's tail), each
+	// on or off with a tap. The text follows the stored value, so an undo shows at once. A typed value is
 	// read and checked (`readField`) when the field is left or Return is pressed: saved when it is
 	// good, the issue said under the row when not. `marker`: the value differs from the template.
+	// `suggestions`: for a list, the values to offer as chips while one is typed (the Shot codes of
+	// the Flow PT project for a slate's VFX shots); a pick saves at once and keeps the keyboard up.
+	import Chip from '$lib/components/ios/Chip.svelte';
 	import type { Scope } from '$lib/model/catalogue';
 	import { formatField } from '$lib/model/fieldText';
 	import type { UnitSystem } from '$lib/model/length';
@@ -13,6 +17,7 @@
 	import { t } from '$lib/i18n/messages';
 	import { fieldLabel, issueText, optionLabel, unitLabel } from '$lib/i18n/modelText';
 	import type { FieldRef } from '$lib/slates/fields';
+	import { pickCode, suggestCodes } from '$lib/slates/shotSuggest';
 
 	let {
 		scope,
@@ -23,6 +28,7 @@
 		tri = false,
 		marker = false,
 		placeholder,
+		suggestions,
 		check,
 		onlive,
 		onsave
@@ -37,6 +43,8 @@
 		tri?: boolean;
 		marker?: boolean;
 		placeholder?: string;
+		/** For a list: the values to offer while one is typed, and what they are. None: free text. */
+		suggestions?: { label: string; values: readonly string[] };
 		/** A check of the value beyond the catalogue's: the message, or nothing. */
 		check?: (value: unknown) => string | undefined;
 		/** Told on every keystroke whether the text reads, and as what: a form that saves on a button. */
@@ -47,7 +55,7 @@
 	const id = $props.id();
 	const def = $derived(field.def);
 	const label = $derived(fieldLabel(def, field.end));
-	const kind = $derived(def.type === 'boolean' ? (tri ? 'pick' : 'switch') : def.type === 'enum' || def.type === 'ref' ? 'pick' : 'text');
+	const kind = $derived(def.type === 'boolean' ? (tri ? 'pick' : 'switch') : def.type === 'enum' || def.type === 'ref' ? 'pick' : def.type === 'stringList' && def.options ? 'chips' : 'text');
 	const numeric = $derived(['integer', 'number', 'length', 'rational'].includes(def.type));
 	const unit = $derived(def.unit && def.type !== 'length' ? unitLabel(def.unit) : '');
 
@@ -56,6 +64,8 @@
 	let text = $state('');
 	let shown = '';
 	let error = $state<string | undefined>();
+	let focused = $state(false);
+	const offered = $derived(focused && suggestions?.values.length && def.type === 'stringList' ? suggestCodes(text, suggestions.values) : []);
 	$effect(() => {
 		const f = format(value);
 		if (f !== shown) {
@@ -76,6 +86,20 @@
 		await onsave(read.value);
 	}
 
+	// A press on a chip keeps the focus in the field: the keyboard stays up, and the half-typed
+	// code is not saved on the way. On `mousedown`, which a tap sends too: cancelling
+	// `pointerdown` would cost the tap its click in WebKit, and a drag of the row its scroll.
+	function keepFocus(node: HTMLElement) {
+		const stay = (e: Event) => e.preventDefault();
+		node.addEventListener('mousedown', stay);
+		return () => node.removeEventListener('mousedown', stay);
+	}
+
+	async function pick(code: string) {
+		text = pickCode(text, code);
+		await commit();
+	}
+
 	function live(e: Event) {
 		if (!onlive) return;
 		// The event's own text: the binding may not have run yet.
@@ -92,22 +116,33 @@
 		if (def.type === 'enum') return (def.options ?? []).map((o) => ({ value: o, label: optionLabel(def, o) }));
 		return options;
 	});
+	// A list of options: each chip puts its option in or takes it out; none left is no value.
+	const held = $derived(Array.isArray(value) ? (value as unknown[]) : []);
+	function flip(option: string) {
+		const next = (def.options ?? []).filter((o) => (o === option ? !held.includes(o) : held.includes(o)));
+		void onsave(next.length ? next : undefined);
+	}
+
 	const picked = $derived(value === undefined ? '' : String(value));
-	function pick(raw: string) {
+	function choose(raw: string) {
 		if (raw === '') return void onsave(undefined);
 		void onsave(def.type === 'boolean' ? raw === 'true' : raw);
 	}
 </script>
 
 <div class="field-row" class:invalid={!!error} role="listitem">
-	<svelte:element this={kind === 'switch' ? 'div' : 'label'} class="cell" for={kind === 'switch' ? undefined : id}>
+	<svelte:element this={kind === 'switch' || kind === 'chips' ? 'div' : 'label'} class="cell" for={kind === 'switch' || kind === 'chips' ? undefined : id}>
 		<span class="label">
 			{#if marker}<span class="marker" aria-hidden="true"></span><span class="sr-only">{t('slates.link.marker')}: </span>{/if}{label}
 		</span>
 		{#if kind === 'switch'}
 			<span class="end"><Toggle checked={value === true} label={label} onchange={(v) => onsave(v ? true : undefined)} /></span>
+		{:else if kind === 'chips'}
+			<span class="chips" role="group" aria-label={label}>
+				{#each def.options ?? [] as o (o)}<Chip on={held.includes(o)} onclick={() => flip(o)}>{optionLabel(def, o)}</Chip>{/each}
+			</span>
 		{:else if kind === 'pick'}
-			<select {id} class="pick" class:empty={picked === ''} value={picked} onchange={(e) => pick(e.currentTarget.value)}>
+			<select {id} class="pick" class:empty={picked === ''} value={picked} onchange={(e) => choose(e.currentTarget.value)}>
 				<option value="">{tri && def.type === 'boolean' ? t('slates.field.unset') : t('slates.field.none')}</option>
 				{#each choices as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
 				{#if picked !== '' && !choices.some((c) => c.value === picked)}<option value={picked}>{picked}</option>{/if}
@@ -126,12 +161,21 @@
 				{placeholder}
 				bind:value={text}
 				oninput={live}
-				onblur={commit}
+				onfocus={() => (focused = true)}
+				onblur={() => {
+					focused = false;
+					void commit();
+				}}
 				onkeydown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
 			/>
 			{#if unit && text !== ''}<span class="unit" aria-hidden="true">{unit}</span>{/if}
 		{/if}
 	</svelte:element>
+	{#if offered.length}
+		<div class="suggest" role="group" aria-label={suggestions?.label} {@attach keepFocus}>
+			{#each offered as code (code)}<Chip onclick={() => void pick(code)}>{code}</Chip>{/each}
+		</div>
+	{/if}
 	{#if error}<p class="error" id="{id}-error" role="alert">{error}</p>{/if}
 </div>
 
@@ -205,6 +249,14 @@
 		margin-left: auto;
 		margin-block: -6px;
 	}
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 8px;
+		margin-left: auto;
+		padding-block: 6px;
+	}
 	.unit {
 		flex: none;
 		color: var(--label-2);
@@ -215,6 +267,16 @@
 	}
 	.invalid .label {
 		color: var(--destructive);
+	}
+	.suggest {
+		display: flex;
+		gap: 8px;
+		padding: 0 16px 10px;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+	.suggest::-webkit-scrollbar {
+		display: none;
 	}
 	.error {
 		padding: 0 16px 10px;

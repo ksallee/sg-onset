@@ -13,6 +13,7 @@ describe('nameKey', () => {
 			take: 'take',
 			camera: 'cameraModel',
 			lens: 'lensModel',
+			reference: 'name',
 			still: undefined
 		});
 	});
@@ -26,6 +27,10 @@ describe('recordTitle', () => {
 		expect(recordTitle('slate', { id: 's', slateUID: ' 42A ' })).toBe('42A');
 		expect(recordTitle('take', { id: 't', take: '3' })).toBe('3');
 		expect(recordTitle('still', { id: 'p', caption: 'Slate' })).toBe('Slate');
+		expect(recordTitle('reference', { id: 'r', slateId: 's', name: 'HDRI_0412' })).toBe('HDRI_0412');
+		// A template and a reference kind are named by `name` (#110: they sync, and a change of one can need a person).
+		expect(recordTitle('template', { id: 'tp', name: ' Day ext ' })).toBe('Day ext');
+		expect(recordTitle('referenceKind', { id: 'k', name: 'Drone scan' })).toBe('Drone scan');
 	});
 	it('is empty when there is none', () => {
 		expect(recordTitle('slate', { id: 's' })).toBe('');

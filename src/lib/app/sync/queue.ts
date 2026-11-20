@@ -62,8 +62,27 @@ function shown(scope: Scope, key: string, value: unknown, system: UnitSystem): s
 }
 
 /** The fields of a conflict: label, ours and theirs, as the device shows values. */
+/** A template's values in words: each field by its label, a take's or a slate's (#110). */
+function templateValues(values: unknown, system: UnitSystem): string {
+	const pairs = values !== null && typeof values === 'object' ? Object.entries(values as Record<string, unknown>) : [];
+	const words = pairs.flatMap(([key, value]) => {
+		const scope = (['take', 'slate'] as const).find((s) => findField(s, key));
+		if (!scope) return [`${key} ${String(value)}`];
+		const found = findField(scope, key)!;
+		return [`${fieldLabel(found.def, found.end)} ${shown(scope, key, value, system)}`];
+	});
+	return words.length ? words.join(', ') : t('sync.conflict.empty');
+}
+
 export function conflictLines(table: string, conflicts: readonly FieldConflict[], system: UnitSystem): { key: string; label: string; mine: string; theirs: string }[] {
 	const scope = (SCOPES as readonly string[]).includes(table) ? (table as Scope) : undefined;
+	if (table === 'template') {
+		return conflicts.map((c) =>
+			c.key === 'values'
+				? { key: c.key, label: t('sync.conflict.template.values'), mine: templateValues(c.local, system), theirs: templateValues(c.server, system) }
+				: { key: c.key, label: c.key === 'name' ? t('sync.conflict.template.name') : c.key, mine: String(c.local ?? t('sync.conflict.empty')), theirs: String(c.server ?? t('sync.conflict.empty')) }
+		);
+	}
 	return conflicts.map((c) => {
 		const found = scope ? findField(scope, c.key) : undefined;
 		return {

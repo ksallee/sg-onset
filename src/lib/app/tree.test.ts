@@ -4,11 +4,12 @@ import { childTables, collectTree } from './tree';
 
 describe('childTables', () => {
 	it('follows the parent keys of the store', () => {
-		expect(childTables('project').sort()).toEqual(['camera', 'cameraSetup', 'lens', 'lightingSetup', 'shootDay', 'template']);
-		expect(childTables('shootDay')).toEqual(['slate']);
-		expect(childTables('slate')).toEqual(['take']);
+		expect(childTables('project').sort()).toEqual(['camera', 'cameraSetup', 'lens', 'lightingSetup', 'referenceKind', 'shootDay', 'template']);
+		expect(childTables('shootDay')).toEqual(['slate', 'clipImport']);
+		expect(childTables('slate')).toEqual(['take', 'reference', 'diagram']);
 		expect(childTables('take')).toEqual(['still']);
-		expect(childTables('still')).toEqual([]);
+		expect(childTables('still')).toEqual(['markup']);
+		expect(childTables('markup')).toEqual([]);
 	});
 });
 

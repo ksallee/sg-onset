@@ -13,7 +13,8 @@
 
 import { formatRational } from '$lib/model/rational';
 import type { Length } from '$lib/model/length';
-import { crifDate, crifTime, crifTimestamp, feetInches, metresText, signed, trimNumber } from './format';
+import { referenceLine } from '$lib/references/log';
+import { crifDate, crifTime, crifTimestamp, feetInches, metresText, signed, takeTailNames, takeTypeName, trimNumber } from './format';
 import { naturalCompare, type FlatTake } from './selection';
 import { uuidV5 } from './uuid';
 
@@ -96,11 +97,14 @@ export const CRIF_EXTRA_COLUMNS: readonly Column[] = [
 	{ name: 'Shoot Date' },
 	{ name: 'Setup' },
 	{ name: 'Lighting Setup' },
+	{ name: 'Set References' },
 	{ name: 'Camera Model' },
 	{ name: 'Camera Serial Num' },
 	{ name: 'Tk End Time Of Take' },
 	{ name: 'Tk Circled' },
 	{ name: 'Tk No Good' },
+	{ name: 'Tk Type' },
+	{ name: 'Tk Tail' },
 	{ name: 'Tk Timecode End' },
 	{ name: 'Tk Lens Make' },
 	{ name: 'Tk Anamorphic Squeeze' },
@@ -131,6 +135,14 @@ export type CrifOptions = {
 	extras?: boolean;
 	/** Unique Slate ID per `${slate.id}:${cameraSetupId}`. Default: 1, 2, 3 in file order. */
 	slateNumbers?: Record<string, number>;
+	/** A kind of set reference as the app shows it. Default: as stored. */
+	kindLabel?: (kind: string) => string;
+	/**
+	 * The ids of the stills whose file is a video (`ExportInput.videos`). CRIF counts photos only
+	 * (Kevin, 2026-11-17, #89): a video is left out of Tk Photos and Set Media. An audio note is
+	 * not a still of the row at all.
+	 */
+	videos?: readonly string[];
 };
 
 /** One CRIF row: its columns in order, and the value of each as text. */
@@ -172,14 +184,17 @@ function pair<T>(start: T | undefined, end: T | undefined, show: (v: T) => strin
 	return [show(start), show(end ?? start)];
 }
 
+/** The photos of a take: its stills that are not videos. */
+const photosOf = (row: FlatTake, videos: ReadonlySet<string>) => row.stills.filter((s) => !videos.has(s.id));
+
 /** What a slate on one camera shot besides the plates: CRIF Set Media. */
-function setMedia(group: readonly FlatTake[]): string {
+function setMedia(group: readonly FlatTake[], videos: ReadonlySet<string>): string {
 	const { slate, lightingSetup } = group[0];
 	const media = new Set<string>();
 	if (lightingSetup?.referenceBalls) media.add('Balls');
 	if (slate.cleanPlate) media.add('Clean Plate');
 	if (lightingSetup?.hdri) media.add('HDRI');
-	if (group.some((r) => r.stills.length > 0)) media.add('Photos');
+	if (group.some((r) => photosOf(r, videos).length > 0)) media.add('Photos');
 	if (slate.witnessCamera) media.add('Witness Cam');
 	if (slate.lidar) media.add('Lidar');
 	if (lightingSetup?.colourChart) media.add('Colour Chart');
@@ -195,6 +210,8 @@ export function crifRecords(rows: readonly FlatTake[], options: CrifOptions): Cr
 	const numbers = new Map([...groups.keys()].map((key, i) => [key, options.slateNumbers?.[key] ?? i + 1]));
 	const length = (l: Length) => (options.lengths === 'metric' ? metresText(l.m) : feetInches(l.m));
 	const tz = options.timeZone;
+	const kindLabel = options.kindLabel ?? ((kind: string) => kind);
+	const videos = new Set(options.videos ?? []);
 
 	return ordered.map((row) => {
 		const { project, shootDay, slate, take, lightingSetup, camera, lens } = row;
@@ -222,7 +239,7 @@ export function crifRecords(rows: readonly FlatTake[], options: CrifOptions): Cr
 			Unit: text(shootDay.cameraUnit),
 			'Element Type': text(slate.elementType),
 			Notes: text(slate.notes),
-			'Set Media': setMedia(group),
+			'Set Media': setMedia(group, videos),
 			'Set Location': text(shootDay.location),
 			'Script Time': SCRIPT_TIME[slate.scriptTime ?? ''] ?? '',
 			'Interior Exterior': INT_EXT[slate.interiorExterior ?? ''] ?? '',
@@ -259,17 +276,22 @@ export function crifRecords(rows: readonly FlatTake[], options: CrifOptions): Cr
 			'Shoot Date': crifDate(shootDay.shootDate ?? ''),
 			Setup: text(slate.setup),
 			'Lighting Setup': text(lightingSetup?.label),
+			// One reference per value, split by vertical tabs as a multi-select is.
+			'Set References': row.references.map((r) => referenceLine(r, kindLabel)).join(VT),
 			'Camera Model': text(camera?.cameraModel),
 			'Camera Serial Num': text(camera?.cameraSerialNumber),
 			'Tk End Time Of Take': take.endedAt ? crifTime(take.endedAt, tz) : '',
 			'Tk Circled': take.circleTake ? 'Yes' : '',
 			'Tk No Good': take.noGood ? 'Yes' : '',
+			'Tk Type': takeTypeName(take),
+			// The plates at the tail, split by vertical tabs as a multi-select is.
+			'Tk Tail': takeTailNames(take).join(VT),
 			'Tk Timecode End': text(take.timecodeEnd),
 			'Tk Lens Make': text(lens?.lensMake),
 			'Tk Anamorphic Squeeze': lens?.anamorphicSqueeze ? formatRational(lens.anamorphicSqueeze) : '',
 			'Tk Subject Distance': subject,
 			'Tk Subject Distance End': subjectEnd,
-			'Tk Photos': row.stills.length ? String(row.stills.length) : ''
+			'Tk Photos': photosOf(row, videos).length ? String(photosOf(row, videos).length) : ''
 		};
 		const picked: Record<string, string> = {};
 		for (const c of columns) picked[c.name] = values[c.name] ?? '';

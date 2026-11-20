@@ -50,7 +50,7 @@ export const auth = {
 	'auth.problem.punycode': 'Type the site in plain letters.',
 	'auth.problem.not-ascii': 'Type the site in plain letters, with no accents.',
 	'auth.problem.invalid': 'That is not a site address.',
-	'auth.problem.not-allowed': 'This app signs in to Autodesk-hosted Flow PT sites only. A self-hosted deploy can allow others.',
+	'auth.problem.not-allowed': 'This copy of SG OnSet does not sign in to that site. Whoever runs it chooses the sites. By default, Autodesk-hosted sites only.',
 
 	'auth.failure.gone': 'The request expired or was refused on your site. Start again.',
 	'auth.failure.timeout': 'The request expired: nobody approved it within 5 minutes. Start again.',

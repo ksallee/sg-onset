@@ -4,7 +4,7 @@
 // Pure.
 
 import type { AuthStatus } from '$lib/auth/state';
-import type { FieldLine, ReverseLine, SetupView } from './report';
+import type { ActionLine, FieldLine, ReverseLine, SetupView } from './report';
 
 export interface ReviewGroup {
 	/** The entity's name as the site shows it. */
@@ -25,6 +25,11 @@ export interface SetupReview {
 	groups: ReviewGroup[];
 	/** The fields Flow PT will add for the links. */
 	reverse: ReverseLine[];
+	/**
+	 * The Action Menu Item to add, by entity (#106). Listed when the review shows; alone it needs
+	 * none: it changes no schema, and an admin removes it in Flow PT.
+	 */
+	actions: ActionLine[];
 }
 
 const hostOf = (site: string): string => {
@@ -49,7 +54,8 @@ export function setupReview(view: SetupView, where: { site: string; project: str
 		project: where.project,
 		total,
 		groups,
-		reverse: view.reverse.filter((r) => r.status === 'willAppear')
+		reverse: view.reverse.filter((r) => r.status === 'willAppear'),
+		actions: view.action?.lines.filter((l) => l.status === 'missing') ?? []
 	};
 }
 

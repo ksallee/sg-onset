@@ -148,7 +148,9 @@ Made by Claude. Kevin can overrule any of them.
 12. **A transport call with no answer after 120 s counts as timed out.**
 13. **`applied` with no server id for a create is looked up,** not trusted.
 14. **One tab.** Two tabs of the app would both drain. A lock (`navigator.locks`) is not built.
-15. **No pull.** The outbox pushes. Reading other people's changes from the server is not here.
+15. **No pull here.** The outbox pushes. The lists a show shares are read back by the app after a
+    drain (#110, app/sync README), and merged by the store's `reconcile`, past the queue: no entry
+    is made for what came from Flow PT. No drain runs during that merge.
 
 ## What a real iPad must still prove
 

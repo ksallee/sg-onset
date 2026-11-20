@@ -1,5 +1,9 @@
 // Values as export formats write them: numbers without float noise, signed angles, lengths in feet
-// and inches or metres, and CRIF's local dates and times. Pure: the time zone is passed in.
+// and inches or metres, CRIF's local dates and times, the take type and the plates at its tail.
+// Pure: the time zone is passed in.
+
+import { takeTailOf } from '$lib/model/takeTail';
+import { takeTypeOf, type TakeType } from '$lib/model/takeType';
 
 const M_PER_INCH = 0.0254;
 const M_PER_FOOT = 0.3048;
@@ -69,4 +73,26 @@ export function crifTime(iso: string, timeZone: string): string {
 export function crifDate(date: string): string {
 	const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
 	return m ? `${m[1]}/${m[2]}/${m[3]}` : '';
+}
+
+/** The take type as the CRIF and ALE files write it: in English, Title Case, as CRIF writes Set Media. */
+const TAKE_TYPE_NAMES: Record<TakeType, string> = {
+	main: 'Main',
+	cleanPlate: 'Clean Plate',
+	ballsAndChart: 'Balls and Chart',
+	shadowPlate: 'Shadow Plate',
+	lightPass: 'Light Pass',
+	atmosphere: 'Atmosphere',
+	element: 'Element',
+	other: 'Other'
+};
+
+/** A take's type by its file name: Main for a take with none. */
+export function takeTypeName(take: { takeType?: string }): string {
+	return TAKE_TYPE_NAMES[takeTypeOf(take)];
+}
+
+/** The plates at the tail of a take by their file names, as the type names them; none for none. */
+export function takeTailNames(take: { takeTail?: readonly string[] }): string[] {
+	return takeTailOf(take).map((tail) => TAKE_TYPE_NAMES[tail]);
 }

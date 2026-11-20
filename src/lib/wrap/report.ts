@@ -12,6 +12,12 @@ import { fieldShortLabel, optionLabel } from '$lib/i18n/modelText';
 import { findField } from '$lib/model/catalogue';
 import { formatLength, type Length, type UnitSystem } from '$lib/model/length';
 import { formatRational } from '$lib/model/rational';
+import { takeTailOf } from '$lib/model/takeTail';
+import { takeTypeOf } from '$lib/model/takeType';
+import { kindLabel } from '$lib/references/kinds';
+import { referenceLine } from '$lib/references/log';
+import { countLine } from './mediaCount';
+import { typeWords } from '$lib/take/typeText';
 
 export type Paper = 'a4' | 'letter';
 
@@ -51,6 +57,9 @@ const length = (l: Length | undefined, units: UnitSystem) => (l ? formatLength(l
 function columns(units: UnitSystem): { head: string; cls?: string; cell: (r: FlatTake) => string }[] {
 	return [
 		{ head: short('cameraSetupId'), cls: 'c', cell: (r) => r.cameraLetter },
+		// Main says nothing: the column shows only on a day with another type or a plate at a tail,
+		// which follows the type as on the take row.
+		{ head: short('takeType'), cell: (r) => typeWords(takeTypeOf(r.take), takeTailOf(r.take)).join(', ') },
 		{ head: short('startedAt'), cls: 'n', cell: (r) => formatTime(r.take.startedAt) },
 		{ head: short('endedAt'), cls: 'n', cell: (r) => formatTime(r.take.endedAt) },
 		{ head: short('focalLength'), cls: 'n', cell: (r) => (r.focalLength ? range(`${r.focalLength.start}`, `${r.focalLength.end}`) : '') },
@@ -100,6 +109,10 @@ function slateBlock(block: DayReportSlate, cols: readonly Column[]): string {
 			return `<span><b>${e(c.cameraLetter)}</b> ${e([body, lenses].filter(Boolean).join(' · '))}</span>`;
 		})
 		.join('');
+	const label = (kind: string) => kindLabel(kind, tk);
+	const refs = block.references.length
+		? `<p class="refs"><b>${e(t('wrap.report.references'))}</b>${block.references.map((r) => `<span>${e(referenceLine(r, label))}</span>`).join('')}</p>`
+		: '';
 	const head = `<tr><th class="t">${e(t('wrap.report.take'))}</th>${cols.map((c) => `<th${c.cls ? ` class="${c.cls}"` : ''}>${e(c.head)}</th>`).join('')}<th class="m">${e(t('wrap.report.mark'))}</th><th class="notes">${e(t('wrap.report.notes'))}</th></tr>`;
 	const rows = block.takes
 		.map((r) => {
@@ -111,7 +124,7 @@ function slateBlock(block: DayReportSlate, cols: readonly Column[]): string {
 		})
 		.join('');
 	const table = block.takes.length ? `<table><thead>${head}</thead><tbody>${rows}</tbody></table>` : `<p class="empty">${e(t('wrap.report.noTakes'))}</p>`;
-	return `<section class="slate${block.takes.length <= KEEP_TOGETHER ? ' keep' : ''}" data-slate="${e(s.slateUID)}"><div class="slate-head"><h2>${e(t('wrap.report.slate', { slate: s.slateUID ?? '' }))}</h2><span class="about">${e(about.join(' · '))}</span></div>${s.description ? `<p class="desc">${e(s.description)}</p>` : ''}${facts ? `<p class="facts">${facts}</p>` : ''}${cams ? `<p class="cams">${cams}</p>` : ''}${s.notes ? `<p class="snotes">${e(s.notes)}</p>` : ''}${table}</section>`;
+	return `<section class="slate${block.takes.length <= KEEP_TOGETHER ? ' keep' : ''}" data-slate="${e(s.slateUID)}"><div class="slate-head"><h2>${e(t('wrap.report.slate', { slate: s.slateUID ?? '' }))}</h2><span class="about">${e(about.join(' · '))}</span></div>${s.description ? `<p class="desc">${e(s.description)}</p>` : ''}${facts ? `<p class="facts">${facts}</p>` : ''}${cams ? `<p class="cams">${cams}</p>` : ''}${refs}${s.notes ? `<p class="snotes">${e(s.notes)}</p>` : ''}${table}</section>`;
 }
 
 function todoBlock(report: DayReport): string {
@@ -135,7 +148,8 @@ function dayBlock(report: DayReport, options: ReportOptions, next: boolean): str
 		[t('wrap.report.location'), h.location],
 		[t('wrap.report.wrangler'), h.wrangler]
 	];
-	const totals = t('wrap.report.totals', { ...report.totals });
+	const { media, ...counts } = report.totals;
+	const totals = t('wrap.report.totals', { ...counts, media: countLine(media) });
 	// A column no take of the day fills is left out: the table stays legible.
 	const rows = report.slates.flatMap((s) => s.takes);
 	const cols = columns(options.units).filter((c) => rows.some((r) => c.cell(r) !== ''));
@@ -171,10 +185,10 @@ export function reportCss(paper: Paper): string {
 .wrap-report .slate-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2pt 8pt; border-bottom: 0.75pt solid #000; padding-bottom: 1.5pt; break-after: avoid; }
 .wrap-report h2 { font-size: 11pt; margin: 0; font-weight: 700; }
 .wrap-report .about { color: #333; }
-.wrap-report .desc, .wrap-report .facts, .wrap-report .cams, .wrap-report .snotes { margin: 2.5pt 0 0; break-after: avoid; }
+.wrap-report .desc, .wrap-report .facts, .wrap-report .cams, .wrap-report .refs, .wrap-report .snotes { margin: 2.5pt 0 0; break-after: avoid; }
 .wrap-report .desc { font-style: italic; }
-.wrap-report .facts, .wrap-report .cams { display: flex; flex-wrap: wrap; gap: 1pt 12pt; color: #222; }
-.wrap-report .facts b, .wrap-report .cams b { font-weight: 700; margin-right: 2pt; }
+.wrap-report .facts, .wrap-report .cams, .wrap-report .refs { display: flex; flex-wrap: wrap; gap: 1pt 12pt; color: #222; }
+.wrap-report .facts b, .wrap-report .cams b, .wrap-report .refs b { font-weight: 700; margin-right: 2pt; }
 .wrap-report table { width: 100%; border-collapse: collapse; margin-top: 4pt; }
 .wrap-report thead { display: table-header-group; }
 .wrap-report tr { break-inside: avoid; }

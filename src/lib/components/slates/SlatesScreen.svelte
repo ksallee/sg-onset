@@ -4,7 +4,7 @@
 	// the address in step, without a push. With less, the list and the slate are two pages, the
 	// slate pushed over the list. The selection of takes, its bar and bulk edit live here so the
 	// bar can sit on the holding hand's edge of the whole screen.
-	import { CircleAlert, Clapperboard, ListFilter, Plus, Rows3 } from '@lucide/svelte';
+	import { CircleAlert, Clapperboard, FileUp, ListFilter, Plus, Rows3 } from '@lucide/svelte';
 	import { replaceState } from '$app/navigation';
 	import Button from '$lib/components/ios/Button.svelte';
 	import EmptyState from '$lib/components/ios/EmptyState.svelte';
@@ -15,6 +15,7 @@
 	import Section from '$lib/components/ios/Section.svelte';
 	import Segmented from '$lib/components/ios/Segmented.svelte';
 	import Tile from '$lib/components/ios/Tile.svelte';
+	import { clientSize } from '$lib/components/ios/size';
 	import ContextBar from '$lib/components/app/ContextBar.svelte';
 	import { useApp } from '$lib/app/app.svelte';
 	import { useCurrent } from '$lib/app/current.svelte';
@@ -22,6 +23,7 @@
 	import { live, liveList, liveQueue } from '$lib/app/live.svelte';
 	import { t, tk } from '$lib/i18n/messages';
 	import type { Slate, Take } from '$lib/model/types';
+	import { removeSlate } from '$lib/references/edit';
 	import { filterSlates, sceneOptions, SLATE_SORTS, sortSlateRows, summarise, takeCount, unsyncedSlateIds, type SlateFilter, type SlateSort, type SlateSummary } from '$lib/slates/list';
 	import { clearSelection, EMPTY_SELECTION, isAllSelected, pruneSelection, selectAll, selectedIn } from '$lib/slates/selection';
 	import BulkSheet from './BulkSheet.svelte';
@@ -124,6 +126,9 @@
 				<Row title={t('slates.allTakes')} detail={count(dayTakes.value.length)} href="/slates/takes">
 					{#snippet leading()}<Tile icon={Rows3} color="var(--tint)" />{/snippet}
 				</Row>
+				<Row title={t('clips.open')} subtitle={t('clips.open.sub')} href="/slates/import">
+					{#snippet leading()}<Tile icon={FileUp} color="var(--tint)" />{/snippet}
+				</Row>
 			</Section>
 			<div class="tools">
 				<Segmented small label={t('slates.sort')} options={SLATE_SORTS.map((s) => ({ value: s, label: tk(`slates.sort.${s}`) }))} value={sort} onchange={(v) => (sort = v as SlateSort)} />
@@ -144,7 +149,7 @@
 						href="/slates/{r.slate.id}"
 						class={wide && r.slate.id === shown ? 'picked' : ''}
 						onclick={(e) => open(e, r.slate)}
-						swipe={[{ label: t('common.delete'), destructive: true, run: () => app.edit.removeTree('slate', r.slate.id, { key: 'edit.removed', params: { what: t('slates.slate', { slate: r.slate.slateUID ?? '' }) } }) }]}
+						swipe={[{ label: t('common.delete'), destructive: true, run: () => removeSlate(app, r.slate, { key: 'edit.removed', params: { what: t('slates.slate', { slate: r.slate.slateUID ?? '' }) } }) }]}
 					>
 						{#snippet trailing()}
 							<span class="marks" aria-hidden={r.circled + r.noGood === 0 && !r.unsynced}>
@@ -184,7 +189,7 @@
 	{/if}
 {/snippet}
 
-<div class="screen" class:wide class:selecting={ids.length > 0} bind:clientWidth={width}>
+<div class="screen" class:wide class:selecting={ids.length > 0} {@attach clientSize((w) => (width = w))}>
 	{#if wide}
 		<div class="list-pane" data-page-pin>{@render list()}</div>
 		<div class="detail-pane">{@render detail(false)}</div>

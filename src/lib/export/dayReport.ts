@@ -3,7 +3,9 @@
 // PDF. Pure.
 
 import { isZoom } from '$lib/model/take';
-import type { Camera, Lens, LightingSetup, Slate } from '$lib/model/types';
+import type { MediaCounts } from '$lib/wrap/mediaCount';
+import type { Camera, Lens, LightingSetup, Reference, Slate } from '$lib/model/types';
+import { shownBySlate } from '$lib/references/lighting';
 import { flatten, selectSlates, type ExportFilters, type ExportInput, type FlatTake } from './selection';
 
 export type DayReportHeader = {
@@ -18,7 +20,8 @@ export type DayReportHeader = {
 /** A camera setup as a slate used it: the body and the lenses its takes ran, in take order. */
 export type DayReportSetup = { cameraSetupId: string; cameraLetter: string; camera?: Camera; lenses: Lens[] };
 
-export type DayReportTotals = { takes: number; circled: number; noGood: number; photos: number };
+/** `media`: the photos, videos and audio notes, each counted as itself (Kevin, 2026-11-17, #89). */
+export type DayReportTotals = { takes: number; circled: number; noGood: number; media: MediaCounts };
 
 export type DayReportSlate = {
 	slate: Slate;
@@ -26,6 +29,8 @@ export type DayReportSlate = {
 	setups: DayReportSetup[];
 	/** The takes, in the flat order: take number, then camera letter. */
 	takes: FlatTake[];
+	/** The set references the slate shows, in the order logged: the lighting setup's too (#107). */
+	references: Reference[];
 	totals: DayReportTotals;
 };
 
@@ -51,12 +56,25 @@ export type DayReport = {
 	warnings: DayReportWarning[];
 };
 
-function totals(takes: readonly FlatTake[]): DayReportTotals {
+/** Photos, videos and audio notes, each counted as itself. A kind none has is left out. */
+function mediaOf(takes: readonly FlatTake[], videos: ReadonlySet<string>): MediaCounts {
+	const media: MediaCounts = {};
+	const add = (kind: keyof MediaCounts, n = 1) => {
+		if (n > 0) media[kind] = (media[kind] ?? 0) + n;
+	};
+	for (const t of takes) {
+		for (const s of t.stills) add(videos.has(s.id) ? 'video' : 'photo');
+		add('audio', t.audioNotes.length);
+	}
+	return media;
+}
+
+function totals(takes: readonly FlatTake[], videos: ReadonlySet<string>): DayReportTotals {
 	return {
 		takes: takes.length,
 		circled: takes.filter((t) => t.take.circleTake).length,
 		noGood: takes.filter((t) => t.take.noGood).length,
-		photos: takes.reduce((n, t) => n + t.stills.length, 0)
+		media: mediaOf(takes, videos)
 	};
 }
 
@@ -91,17 +109,26 @@ export function dayReport(input: ExportInput, shootDayId: string, filters: Omit<
 	const picked = { ...filters, shootDayIds: [shootDayId] };
 	const rows = flatten(input, picked);
 	const lighting = new Map(input.lightingSetups.map((l) => [l.id, l]));
+	const references = shownBySlate(input.slates, input.references);
 	const takeFilters = !!(filters.circledOnly || filters.excludeNoGood);
+	const videos = new Set(input.videos ?? []);
 	const slates = selectSlates(input, picked)
 		.map((slate) => {
 			const takes = rows.filter((r) => r.slate.id === slate.id);
-			return { slate, lightingSetup: slate.lightingSetupId ? lighting.get(slate.lightingSetupId) : undefined, setups: setupsOf(takes), takes, totals: totals(takes) };
+			return {
+				slate,
+				lightingSetup: slate.lightingSetupId ? lighting.get(slate.lightingSetupId) : undefined,
+				setups: setupsOf(takes),
+				takes,
+				references: references.get(slate.id) ?? [],
+				totals: totals(takes, videos)
+			};
 		})
 		.filter((block) => !takeFilters || block.takes.length > 0);
 	return {
 		header: { project: input.project.name, shootDate: day.shootDate, shootDay: day.shootDay, unit: day.cameraUnit, location: day.location, wrangler: day.wrangler },
 		slates,
-		totals: { slates: slates.length, ...totals(rows) },
+		totals: { slates: slates.length, ...totals(rows, videos) },
 		warnings: rows.flatMap(warningsOf)
 	};
 }

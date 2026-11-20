@@ -355,29 +355,155 @@ describe('remove and restore', () => {
 });
 
 describe('a table kept on the device', () => {
-	const template = { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take' as const, values: { tStop: 2.8 } };
+	const markup = { id: 'mk1', stillId: 'ph1', shapes: [] };
 
-	it('stores, edits, removes and restores a template, and queues nothing for it', async () => {
+	it('stores, removes and restores a drawing, and queues nothing for it', async () => {
 		const s = setup();
-		await s.store.create('project', { id: 'p1', name: 'Show' });
+		await shoot(s);
+		await s.store.create('still', { id: 'ph1', takeId: 't1', capturedAt: 'x' });
 		const before = await s.store.outbox.entries();
 		const events: StoreEvent[] = [];
 		s.store.subscribe((e) => events.push(e));
 
-		await s.store.create('template', template);
-		expect(await s.store.list('template', 'p1')).toEqual([template]);
-		const applied = await s.store.apply('template', [{ id: 'tp1', key: 'values', from: template.values, to: { tStop: 4 } }]);
-		expect(applied).toEqual([{ id: 'tp1', key: 'values', from: { tStop: 2.8 }, to: { tStop: 4 } }]);
-		await s.store.apply('template', invertPatch(applied));
-		expect((await s.store.get('template', 'tp1'))!.values).toEqual({ tStop: 2.8 });
-		await s.store.remove('template', 'tp1');
-		expect(await s.store.get('template', 'tp1')).toBeUndefined();
-		expect(await s.store.restore('template', 'tp1')).toBe(true);
-		expect(await s.store.get('template', 'tp1')).toEqual(template);
+		await s.store.create('markup', markup as never);
+		expect(await s.store.list('markup', 'ph1')).toEqual([markup]);
+		await s.store.remove('markup', 'mk1');
+		expect(await s.store.get('markup', 'mk1')).toBeUndefined();
+		expect(await s.store.restore('markup', 'mk1')).toBe(true);
 
 		expect(await s.store.outbox.entries()).toEqual(before);
 		expect(events.flatMap((e) => e.tables)).not.toContain('outbox');
-		expect(events.every((e) => e.tables.includes('template'))).toBe(true);
+	});
+});
+
+// Templates and the kinds a project adds are shared by every device of the show now (#110): they
+// sync as any record does.
+describe('templates', () => {
+	const template = { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take' as const, values: { tStop: 2.8 } };
+
+	it('queues a template’s create, edits and delete, and undo of an unsent edit sends nothing', async () => {
+		const s = setup();
+		await s.store.create('project', { id: 'p1', name: 'Show' });
+		await confirmAll(s);
+		await s.store.create('template', template);
+		const applied = await s.store.apply('template', [{ id: 'tp1', key: 'values', from: template.values, to: { tStop: 4 } }]);
+		expect(kinds(await s.store.outbox.entries())).toEqual(['create tp1']);
+		expect((await s.store.outbox.entries())[0].op).toMatchObject({ kind: 'create', fields: { name: 'Day ext', values: { tStop: 4 } } });
+		await s.store.apply('template', invertPatch(applied));
+		await confirmAll(s);
+		await s.store.remove('template', 'tp1');
+		expect(kinds(await s.store.outbox.entries())).toEqual(['delete tp1']);
+		expect(await s.store.restore('template', 'tp1')).toBe(true);
+		expect(await s.store.outbox.entries()).toEqual([]);
+	});
+});
+
+describe('reconcile', () => {
+	const lens = { id: 'l1', projectId: 'p1', lensModel: 'S4/i 32mm', focalLength: 32 };
+	const nothing = { add: [], change: [], remove: [], resend: [], push: [], remoteIds: {} };
+
+	async function synced(s: S) {
+		await s.store.create('project', { id: 'p1', name: 'Show' });
+		await s.store.create('lens', lens);
+		await confirmAll(s);
+	}
+
+	it('gives the plan the table, its users, the queue, the server ids and the trash', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.create('cameraSetup', { id: 'cs1', projectId: 'p1', cameraLabel: 'A', lensId: 'l1' });
+		await s.store.create('lens', { id: 'l2', projectId: 'p1', lensModel: 'Gone' });
+		await s.store.remove('lens', 'l2');
+		let seen: unknown;
+		await s.store.reconcile('lens', ['cameraSetup'], (state) => {
+			seen = state;
+			return nothing;
+		});
+		expect(seen).toMatchObject({
+			rows: [lens],
+			users: { cameraSetup: [{ id: 'cs1', lensId: 'l1' }] },
+			remotes: { p1: expect.any(Number), l1: expect.any(Number) },
+			trashed: new Set(['l2'])
+		});
+		expect(kinds((seen as { entries: Entry[] }).entries)).toEqual(['create cs1']);
+	});
+
+	it('puts, changes and removes records, keeps server ids, and queues nothing for them', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.create('lens', { id: 'l3', projectId: 'p1', lensModel: 'Leaving' });
+		await confirmAll(s);
+		const before = await s.store.outbox.entries();
+		const events: StoreEvent[] = [];
+		s.store.subscribe((e) => events.push(e));
+		await s.store.reconcile('lens', [], () => ({
+			...nothing,
+			add: [{ id: 'l2', projectId: 'p1', lensModel: 'Supreme 50mm' }],
+			change: [{ id: 'l1', set: { lensModel: 'S4/i 32 mm', focalLength: undefined } }],
+			remove: ['l3'],
+			remoteIds: { l2: 777 }
+		}));
+		expect(await s.store.get('lens', 'l1')).toEqual({ id: 'l1', projectId: 'p1', lensModel: 'S4/i 32 mm' });
+		expect(await s.store.get('lens', 'l2')).toEqual({ id: 'l2', projectId: 'p1', lensModel: 'Supreme 50mm' });
+		expect(await s.store.get('lens', 'l3')).toBeUndefined();
+		expect(await s.store.remoteId('l2')).toBe(777);
+		expect(await s.store.remoteId('l3')).toBeUndefined();
+		expect(await s.store.outbox.entries()).toEqual(before);
+		expect(events.flatMap((e) => e.tables)).toContain('lens');
+		expect(events.flatMap((e) => e.tables)).not.toContain('outbox');
+	});
+
+	it('sends back a record whose server copy is gone: its server id and unsent edits go, a create of it as it is comes', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.apply('lens', [{ id: 'l1', key: 'focalLength', from: 32, to: 35 }]);
+		await s.store.reconcile('lens', [], () => ({ ...nothing, resend: ['l1'] }));
+		expect(await s.store.remoteId('l1')).toBeUndefined();
+		const queue = await s.store.outbox.entries();
+		expect(kinds(queue)).toEqual(['create l1']);
+		expect(queue[0].op).toMatchObject({ fields: { projectId: 'p1', lensModel: 'S4/i 32mm', focalLength: 35 } });
+		expect(queue[0].dependsOn).toEqual(['p1']);
+	});
+
+	// findings/161: a link to a deleted row reads as none; the record sent back is a new row.
+	it('writes again the links the plan names, from no link to the record, after its create', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.create('cameraSetup', { id: 'cs1', projectId: 'p1', cameraLabel: 'A', lensId: 'l1' });
+		await confirmAll(s);
+		await s.store.reconcile('lens', ['cameraSetup'], () => ({ ...nothing, resend: ['l1'], relink: [{ table: 'cameraSetup', id: 'cs1', key: 'lensId', value: 'l1' }] }));
+		const queue = await s.store.outbox.entries();
+		expect(kinds(queue)).toEqual(['create l1', 'update cs1']);
+		expect(queue[1].op).toEqual({ kind: 'update', table: 'cameraSetup', recordId: 'cs1', changes: { lensId: { base: undefined, value: 'l1' } } });
+		expect(queue[1].dependsOn).toEqual(['l1']);
+		// The setup itself is as it was: only its link goes again.
+		expect((await s.store.get('cameraSetup', 'cs1'))!.lensId).toBe('l1');
+	});
+
+	it('writes no link again on a record that no longer holds it', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.create('cameraSetup', { id: 'cs1', projectId: 'p1', cameraLabel: 'A' });
+		await confirmAll(s);
+		await s.store.reconcile('lens', ['cameraSetup'], () => ({ ...nothing, resend: ['l1'], relink: [{ table: 'cameraSetup', id: 'cs1', key: 'lensId', value: 'l1' }] }));
+		expect(kinds(await s.store.outbox.entries())).toEqual(['create l1']);
+	});
+
+	it('queues a create for a record the server never had', async () => {
+		const s = setup();
+		await s.store.create('project', { id: 'p1', name: 'Show' });
+		await confirmAll(s);
+		await s.store.putRows('template', [{ id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take', values: {} }]);
+		await s.store.reconcile('template', [], () => ({ ...nothing, push: ['tp1'] }));
+		expect(kinds(await s.store.outbox.entries())).toEqual(['create tp1']);
+	});
+
+	it('changes nothing for a record no longer there, and never puts over one that is', async () => {
+		const s = setup();
+		await synced(s);
+		await s.store.reconcile('lens', [], () => ({ ...nothing, add: [{ id: 'l1', projectId: 'p1', lensModel: 'Other' }], change: [{ id: 'l9', set: { lensModel: 'x' } }] }));
+		expect(await s.store.get('lens', 'l1')).toEqual(lens);
+		expect(await s.store.get('lens', 'l9')).toBeUndefined();
 	});
 });
 
@@ -423,6 +549,52 @@ describe('files', () => {
 		expect(metas.find((m) => m.id === meta.id)).toMatchObject({ prunedAt: s.clock.t, size: 10 });
 		expect(metas.find((m) => m.id === other.id)).not.toHaveProperty('prunedAt');
 		expect(await s.store.pruneBlobs()).toBe(0);
+	});
+
+	it('keeps what a copy is and what it was made from, and queues its upload as that copy', async () => {
+		const s = setup();
+		await withPhoto(s);
+		const copy = await s.store.putBlob('still', 'ph1', { blob: photo('flat'), variant: 'annotated', source: 'k1' });
+		expect((await s.store.blobsOf('ph1')).at(-1)).toMatchObject({ id: copy.id, variant: 'annotated', source: 'k1' });
+		expect((await s.store.outbox.entries()).at(-1)!.op).toMatchObject({ kind: 'blob', blobId: copy.id, variant: 'annotated' });
+	});
+
+	it('dropBlob takes back a file whose upload has not left: description, bytes and upload', async () => {
+		const s = setup();
+		const meta = await withPhoto(s);
+		const copy = await s.store.putBlob('still', 'ph1', { blob: photo('flat'), variant: 'annotated', source: 'k1' });
+		const events: StoreEvent[] = [];
+		s.store.subscribe((e) => events.push(e));
+		expect(await s.store.dropBlob(copy.id)).toBe(true);
+		expect((await s.store.blobsOf('ph1')).map((m) => m.id)).toEqual([meta.id]);
+		expect(await s.store.blob(copy.id)).toBeUndefined();
+		expect((await s.store.outbox.entries()).some((e) => e.op.kind === 'blob' && e.op.blobId === copy.id)).toBe(false);
+		expect(events.flatMap((e) => e.tables)).toEqual(expect.arrayContaining(['blobs', 'outbox']));
+		expect(await s.store.dropBlob('nope')).toBe(true);
+	});
+
+	it('dropBlob keeps a file whose upload has left or landed: Flow PT may hold it', async () => {
+		const s = setup();
+		await withPhoto(s);
+		const copy = await s.store.putBlob('still', 'ph1', { blob: photo('flat'), variant: 'annotated', source: 'k1' });
+		await s.store.outbox.update((q) => markInFlight(q, q.filter((e) => e.op.kind === 'blob' && e.op.blobId === copy.id).map((e) => e.id)));
+		expect(await s.store.dropBlob(copy.id)).toBe(false);
+		expect((await s.store.blobsOf('ph1')).some((m) => m.id === copy.id)).toBe(true);
+		await s.store.outbox.update((q) => markApplied(q, q.filter((e) => e.state === 'inFlight').map((e) => ({ id: e.id, remoteId: 3 }))));
+		expect(await s.store.dropBlob(copy.id)).toBe(false);
+	});
+});
+
+describe('the drawings on photos', () => {
+	it('stores a drawing beside its photo and queues nothing for it', async () => {
+		const s = setup();
+		await shoot(s);
+		await s.store.create('still', { id: 'ph1', takeId: 't1', capturedAt: 'x' });
+		const before = await s.store.outbox.entries();
+		const markup = { id: 'm1', stillId: 'ph1', width: 400, height: 300, shapes: [] };
+		await s.store.create('markup', markup);
+		expect(await s.store.list('markup', 'ph1')).toEqual([markup]);
+		expect(await s.store.outbox.entries()).toEqual(before);
 	});
 });
 

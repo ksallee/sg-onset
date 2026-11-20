@@ -7,9 +7,28 @@ no network and syncs to the studio's Flow PT site when a connection returns. Bui
 
 ## Status
 
-The app shell. Five destinations (Shoot, Slates, Gear, Templates, Settings) on real data kept on
-the device: a first run, slates by shoot day, settings, backup. The take screen is Shoot.
-Nothing is sent to Flow PT yet. `docs/areas.md` says who builds what next.
+Alpha. Live at [sg-onset.vercel.app](https://sg-onset.vercel.app). Before you connect a real site,
+try it on a sandbox Flow PT site. On an iPad, open it in Safari and Add to Home Screen.
+
+What it does today:
+
+- Shoot: log a take in one press. Record and photo sit under the thumb, for the left or right hand.
+- Slates by shoot day, live templates, bulk edit across takes.
+- Gear: built-in cameras with their sensor modes and lenses, CSV import, camera setups. A prime
+  gives each take its focal length.
+- Photos and videos on a take, with drawings, notes and dimension lines. Audio notes. A setup
+  diagram and a reference log per slate.
+- Take types: clean plate, balls and chart, shadow plate, element.
+- The DIT's ALE or CSV fills clip name, roll and timecode.
+- Wrap: a day summary, the camera report (VES CSV), CSV, ALE, JSON, a printable day report, and a
+  wrap package with one folder per slate.
+- Backup to a zip, and automatic snapshots on the device.
+- Flow PT: an admin sets up the fields. Slates sync as Set Shots, linked to the real Shots later.
+  Each Shot gets a Note listing what was captured. Two iPads on one show share their lists. An
+  Action Menu Item sends the set data to artists.
+
+Everything works with no network. Sync waits for a connection and a session. Bugs and requests go
+to [GitHub issues](https://github.com/ksallee/sg-onset/issues).
 
 ## Run it
 
@@ -25,6 +44,9 @@ Open the URL Vite prints. The rest:
 
 The service worker caches nothing under `pnpm dev`. Try offline and Add to Home Screen on
 `pnpm build && pnpm preview`.
+
+`pnpm demo -- --out <folder>` records the feature video for posts. See
+[`tools/demo/README.md`](tools/demo/README.md).
 
 ## Sign in
 

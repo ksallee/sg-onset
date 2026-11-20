@@ -18,7 +18,8 @@
 		"e2e": "playwright test",
 		"e2e:install": "playwright install webkit chromium",
 		"qa": "node tools/qa.mjs",
-		"shots": "node tools/shots.mjs"
+		"shots": "node tools/shots.mjs",
+		"demo": "node tools/demo/demo.mjs"
 	},
 	"devDependencies": {
 		"@internationalized/date": "^3.12.4",

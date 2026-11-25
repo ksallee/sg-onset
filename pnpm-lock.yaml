@@ -57,6 +57,9 @@ importers:
       fake-indexeddb:
         specifier: ^6.2.8
         version: 6.2.8
+      fast-check:
+        specifier: ^4.11.0
+        version: 4.11.0
       shadcn-svelte:
         specifier: ^1.7.0
         version: 1.7.0(svelte@5.57.1)
@@ -736,6 +739,10 @@ packages:
     resolution: {integrity: sha512-mpVW/HLUqwKXJ6F/s0hMgdK1eQfM4ncTHDioNGHWL0WKV3VcZCoZq1NKgboBbAge07aRCO7L48yziKssL59XEQ==}
     engines: {node: '>=18'}
 
+  fast-check@4.11.0:
+    resolution: {integrity: sha512-V4Uc238rhQOdQlc+Gz7JG6SGBtrWnWL8d/6RyiBeCMcNKMhF6DZ0KkAVHJSyNV5r4lA0PmIpZ6iRpTVoz4qjoA==}
+    engines: {node: '>=12.17.0'}
+
   fdir@6.5.0:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
     engines: {node: '>=12.0.0'}
@@ -1023,6 +1030,9 @@ packages:
   postcss@8.5.28:
     resolution: {integrity: sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A==}
     engines: {node: ^10 || ^12 || >=14}
+
+  pure-rand@8.4.2:
+    resolution: {integrity: sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng==}
 
   readdirp@4.1.2:
     resolution: {integrity: sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg==}
@@ -1793,6 +1803,10 @@ snapshots:
 
   fake-indexeddb@6.2.8: {}
 
+  fast-check@4.11.0:
+    dependencies:
+      pure-rand: 8.4.2
+
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:
       picomatch: 4.0.7
@@ -1993,6 +2007,8 @@ snapshots:
       nanoid: 3.3.19
       picocolors: 1.1.1
       source-map-js: 1.2.1
+
+  pure-rand@8.4.2: {}
 
   readdirp@4.1.2: {}
 

@@ -1,9 +1,11 @@
 // What the slates and templates pages read about the project besides slates and takes: its gear
-// and lighting setups (to name a linked entry and to pick one), and its templates. Live. Provided
-// once by a page, read by its parts.
+// and lighting setups (to name a linked entry and to pick one), its rigs (to pick one, #138), and
+// its templates. Live. Provided once by a page, read by its parts.
 import { getContext, setContext } from 'svelte';
 import { liveList } from '$lib/app/live.svelte';
 import { useCurrent } from '$lib/app/current.svelte';
+import { rigChoices, rigLabel } from '$lib/gear/rigs';
+import { tk } from '$lib/i18n/messages';
 import type { TemplateRecord } from '$lib/model/template';
 import type { CameraSetup, Lens } from '$lib/model/types';
 import { sortTemplates } from '$lib/templates/list';
@@ -16,7 +18,7 @@ export interface Refs {
 	readonly templates: TemplateRecord[];
 	/** The name of any linked entry, by id. */
 	readonly names: ReadonlyMap<string, string>;
-	/** What a ref field can point at, by field key. */
+	/** What a ref field can point at, or the rigs to pick from, by field key. */
 	options(key: string): Option[];
 	template(id: string | undefined): TemplateRecord | undefined;
 }
@@ -33,6 +35,7 @@ export function provideRefs(): Refs {
 	const lensRows = liveList('lens', project);
 	const lightRows = liveList('lightingSetup', project);
 	const templateRows = liveList('template', project);
+	const rigRows = liveList('rig', project);
 
 	const options = $derived<Record<string, Option[]>>({
 		cameraSetupId: sorted(setupRows.value.map((s) => ({ value: s.id, label: s.cameraLabel ?? '' }))),
@@ -41,6 +44,8 @@ export function provideRefs(): Refs {
 		lightingSetupId: sorted(lightRows.value.map((l) => ({ value: l.id, label: l.label ?? '' })))
 	});
 	const names = $derived(new Map(Object.values(options).flatMap((list) => list.map((o) => [o.value, o.label] as const))));
+	// The rigs, built-in first then the project's, in that order: text, not a linked entry, so not in `names`.
+	const rigs = $derived<Option[]>(rigChoices(rigRows.value.map((r) => r.name)).map((r) => ({ value: r, label: rigLabel(r, tk) })));
 	const setups = $derived(setupRows.value);
 	const templates = $derived(sortTemplates(templateRows.value));
 
@@ -57,7 +62,7 @@ export function provideRefs(): Refs {
 		get names() {
 			return names;
 		},
-		options: (key) => options[key] ?? [],
+		options: (key) => (key === 'cameraMount' ? rigs : (options[key] ?? [])),
 		template: (id) => (id === undefined ? undefined : templates.find((t) => t.id === id))
 	};
 	setContext(KEY, refs);

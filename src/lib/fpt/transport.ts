@@ -178,6 +178,9 @@ type Denied = 'create' | 'update' | 'delete';
 /** The key in `forbidden` of a Project write refused for want of rights: the shared lists wait. */
 const LISTS = 'project:lists';
 
+/** The key of the resolution's Project fields that holds each list (#110, #138). */
+const LIST_FIELD: Record<ListTable, keyof NonNullable<Resolution['project']>> = { template: 'templates', referenceKind: 'referenceKinds', rig: 'rigs' };
+
 const groupBy =<T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> => {
 	const out = new Map<string, T[]>();
 	for (const item of items) out.set(key(item), [...(out.get(key(item)) ?? []), item]);
@@ -473,7 +476,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	// ------------------------------------------------------------------ the shared lists
 
 	/** The Project field of a list on this site. Undefined: the site lacks the shared lists (#110). */
-	const listField = (res: Resolution, table: ListTable): string | undefined => (table === 'template' ? res.project?.templates : res.project?.referenceKinds);
+	const listField = (res: Resolution, table: ListTable): string | undefined => res.project?.[LIST_FIELD[table]];
 
 	/** The lists the Project holds now, by table, in one read. */
 	async function readLists(res: Resolution, tables: readonly ListTable[], signal?: AbortSignal): Promise<Map<ListTable, ListRead>> {

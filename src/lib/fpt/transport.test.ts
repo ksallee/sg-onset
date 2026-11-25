@@ -1752,6 +1752,14 @@ describe('the shared lists', () => {
 		expect(listOf(w, 'sg_onset_reference_kinds')).toEqual([{ id: 'k1', name: 'Drone LiDAR' }]);
 	});
 
+	it('writes the rigs a project adds to their own field of the Project (#138)', async () => {
+		const w = world();
+		const make = create('rig', 'g1', { projectId: 'p1', name: 'Russian arm' });
+		expect(await applied(w, [make])).toEqual({ [make.entryId]: 'g1' });
+		expect(listOf(w, 'sg_onset_rigs')).toEqual([{ id: 'g1', name: 'Russian arm' }]);
+		expect(project(w).sg_onset_reference_kinds).toBeUndefined();
+	});
+
 	it('sends the list and the records of one push: the list first, then the batch', async () => {
 		const w = world();
 		const ops = [create('template', 'tp1', tp, { p1: w.projectId }), create('camera', 'c1', { projectId: 'p1', cameraModel: 'Alexa 35' }, { p1: w.projectId })];
@@ -1857,7 +1865,8 @@ describe('the shared lists', () => {
 			create('lens', 'l1', { projectId: 'p1', lensModel: 'S4/i 32mm', focalLength: 32 }, { p1: w.projectId }),
 			create('lightingSetup', 'ls1', { projectId: 'p1', label: 'Day ext', hdri: true }, { p1: w.projectId }),
 			create('template', 'tp1', tp),
-			create('referenceKind', 'k1', { name: 'Drone scan' })
+			create('referenceKind', 'k1', { name: 'Drone scan' }),
+			create('rig', 'g1', { name: 'Russian arm' })
 		]);
 		const r = await applied(w, [create('lens', 'l2', { projectId: 'p1', lensModel: 'Supreme 50mm' }, { p1: w.projectId })]);
 		const ids = { p1: w.projectId, c1: w.fpt.byUuid('Camera', 'c1')!.id, l2: Object.values(r)[0] };
@@ -1875,7 +1884,8 @@ describe('the shared lists', () => {
 			['lens', ['l1', 'l2'], true],
 			['lightingSetup', ['ls1'], true],
 			['template', ['tp1'], true],
-			['referenceKind', ['k1'], true]
+			['referenceKind', ['k1'], true],
+			['rig', ['g1'], true]
 		]);
 		// A camera setup's camera and lens come back as their client UUIDs, read through the link (findings/138).
 		expect(read!.find((t) => t.table === 'cameraSetup')!.records[0].fields).toEqual({ cameraLabel: 'A', cameraId: 'c1', lensId: 'l2' });
@@ -1893,11 +1903,12 @@ describe('the shared lists', () => {
 		const bare = world();
 		delete bare.fpt.fields.Project.sg_onset_templates;
 		delete bare.fpt.fields.Project.sg_onset_reference_kinds;
+		delete bare.fpt.fields.Project.sg_onset_rigs;
 		expect((await bare.transport.readShared())?.map((t) => t.table)).toEqual(['cameraSetup', 'camera', 'lens', 'lightingSetup']);
 
 		const w = world();
 		project(w).sg_onset_templates = 'typed by hand';
-		expect((await w.transport.readShared())?.map((t) => t.table)).toEqual(['cameraSetup', 'camera', 'lens', 'lightingSetup', 'referenceKind']);
+		expect((await w.transport.readShared())?.map((t) => t.table)).toEqual(['cameraSetup', 'camera', 'lens', 'lightingSetup', 'referenceKind', 'rig']);
 	});
 
 	it('answers nothing, and never throws, when the site cannot be asked', async () => {

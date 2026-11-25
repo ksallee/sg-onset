@@ -41,7 +41,7 @@ export function makeTexts(input: ExportInput, choice: WrapChoice, dayIds: readon
 	let ale: AleResult | undefined;
 	for (const kind of wantsText(choice)) {
 		if (kind === 'crif') {
-			const crif = exportCrif(rows, { timeZone: ctx.timeZone, now: ctx.now, lengths: choice.lengths, kindLabel: ctx.labels.kind, videos: input.videos });
+			const crif = exportCrif(rows, { timeZone: ctx.timeZone, now: ctx.now, lengths: choice.lengths, kindLabel: ctx.labels.kind, rigLabel: ctx.labels.rig, videos: input.videos });
 			texts.crif = crif.text;
 			notes.crif.push({ key: 'wrap.note.crif.never', params: { columns: CRIF_NEVER_FILLED.join(', ') } });
 			const lacking = crif.missing.filter((m) => m.columns.length > 0);
@@ -50,7 +50,7 @@ export function makeTexts(input: ExportInput, choice: WrapChoice, dayIds: readon
 		} else if (kind === 'plainCsv') {
 			texts.plainCsv = plainCsv(rows, { labels: ctx.labels, header: 'labels', units: choice.plainUnits, lengths: choice.lengths, bom: true });
 		} else if (kind === 'ale') {
-			ale = exportAle(rows, {});
+			ale = exportAle(rows, { rigLabel: ctx.labels.rig });
 			texts.ale = ale.text;
 			for (const w of ale.warnings) {
 				if (w.kind === 'noTimecode') notes.ale.push({ key: plural('wrap.note.ale.noTimecode', w.takeIds.length), params: { n: w.takeIds.length } });

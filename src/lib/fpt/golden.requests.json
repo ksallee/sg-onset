@@ -385,6 +385,24 @@
   "host": "site",
   "path": "/api/v1/schema/CustomEntity10/fields",
   "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Rig"
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity10/fields",
+  "body": {
    "data_type": "number",
    "properties": [
     {
@@ -1012,6 +1030,24 @@
      "value": [
       "CustomEntity19"
      ]
+    },
+    {
+     "property_name": "description",
+     "value": "Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
+  "path": "/api/v1/schema/CustomEntity09/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Rig"
     },
     {
      "property_name": "description",
@@ -2029,6 +2065,24 @@
  {
   "method": "POST",
   "host": "site",
+  "path": "/api/v1/schema/Project/fields",
+  "body": {
+   "data_type": "text",
+   "properties": [
+    {
+     "property_name": "name",
+     "value": "Onset Rigs"
+    },
+    {
+     "property_name": "description",
+     "value": "The rigs this project adds in SG OnSet, as JSON. Edit them in SG OnSet. Written by SG OnSet."
+    }
+   ]
+  }
+ },
+ {
+  "method": "POST",
+  "host": "site",
   "path": "/api/v1/entity/action_menu_items/_search",
   "body": {
    "filters": {
@@ -2187,6 +2241,7 @@
        "type": "CustomEntity19",
        "id": 1008
       },
+      "sg_rig": "cameraSetup cameraMount",
       "sg_sort_order": 3
      }
     },
@@ -2458,6 +2513,7 @@
        "type": "CustomEntity19",
        "id": 1008
       },
+      "sg_rig": "take cameraMount",
       "sg_focal_length": "2.8",
       "sg_focal_length_end": "2.8",
       "sg_t_stop": "2.8",
@@ -3192,7 +3248,7 @@
     "size": 6,
     "number": 1
    },
-   "fields": "sg_onset_uuid,project,code,sg_camera,sg_camera.Camera.sg_onset_uuid,sg_lens,sg_lens.CustomEntity19.sg_onset_uuid,sg_sort_order"
+   "fields": "sg_onset_uuid,project,code,sg_camera,sg_camera.Camera.sg_onset_uuid,sg_lens,sg_lens.CustomEntity19.sg_onset_uuid,sg_rig,sg_sort_order"
   }
  },
  {
@@ -3240,7 +3296,7 @@
     "size": 6,
     "number": 1
    },
-   "fields": "sg_onset_uuid,sg_slate,sg_slate.Slate.sg_onset_uuid,sg_onset_template,code,sg_take_type,sg_take_tail,sg_start_time,sg_end_time,sg_circled,sg_no_good,sg_set_notes,sg_camera_setup,sg_camera_setup.CustomEntity10.sg_onset_uuid,sg_camera,sg_camera.Camera.sg_onset_uuid,sg_lens,sg_lens.CustomEntity19.sg_onset_uuid,sg_focal_length,sg_focal_length_end,sg_t_stop,sg_focus_distance_m,sg_focus_distance_end_m,sg_lens_height_m,sg_lens_height_end_m,sg_tilt,sg_tilt_end,sg_dutch_angle,sg_dutch_angle_end,sg_subject_distance_m,sg_subject_distance_end_m,sg_frame_rate,sg_shutter_angle,sg_iso,sg_white_balance,sg_filter,sg_camera_roll,sg_clip_name,sg_timecode_in,sg_timecode_out"
+   "fields": "sg_onset_uuid,sg_slate,sg_slate.Slate.sg_onset_uuid,sg_onset_template,code,sg_take_type,sg_take_tail,sg_start_time,sg_end_time,sg_circled,sg_no_good,sg_set_notes,sg_camera_setup,sg_camera_setup.CustomEntity10.sg_onset_uuid,sg_camera,sg_camera.Camera.sg_onset_uuid,sg_lens,sg_lens.CustomEntity19.sg_onset_uuid,sg_rig,sg_focal_length,sg_focal_length_end,sg_t_stop,sg_focus_distance_m,sg_focus_distance_end_m,sg_lens_height_m,sg_lens_height_end_m,sg_tilt,sg_tilt_end,sg_dutch_angle,sg_dutch_angle_end,sg_subject_distance_m,sg_subject_distance_end_m,sg_frame_rate,sg_shutter_angle,sg_iso,sg_white_balance,sg_filter,sg_camera_roll,sg_clip_name,sg_timecode_in,sg_timecode_out"
   }
  },
  {
@@ -3385,7 +3441,7 @@
     "size": 1,
     "number": 1
    },
-   "fields": "sg_onset_templates,sg_onset_reference_kinds"
+   "fields": "sg_onset_templates,sg_onset_reference_kinds,sg_onset_rigs"
   }
  },
  {
@@ -3394,7 +3450,8 @@
   "path": "/api/v1/entity/projects/1000",
   "body": {
    "sg_onset_templates": "{\"list\":\"template\",\"version\":1,\"entries\":[{\"id\":\"tp1\",\"name\":\"Day ext\",\"scope\":\"take\",\"values\":{\"tStop\":2.8}}]}",
-   "sg_onset_reference_kinds": "{\"list\":\"referenceKind\",\"version\":1,\"entries\":[{\"id\":\"k1\",\"name\":\"Drone scan\"}]}"
+   "sg_onset_reference_kinds": "{\"list\":\"referenceKind\",\"version\":1,\"entries\":[{\"id\":\"k1\",\"name\":\"Drone scan\"}]}",
+   "sg_onset_rigs": "{\"list\":\"rig\",\"version\":1,\"entries\":[{\"id\":\"g1\",\"name\":\"Russian arm\"}]}"
   }
  },
  {
@@ -3416,7 +3473,7 @@
     "size": 1,
     "number": 1
    },
-   "fields": "sg_onset_templates,sg_onset_reference_kinds"
+   "fields": "sg_onset_templates,sg_onset_reference_kinds,sg_onset_rigs"
   }
  },
  {
@@ -3441,7 +3498,7 @@
     "size": 500,
     "number": 1
    },
-   "fields": "sg_onset_uuid,code,sg_camera,sg_camera.Camera.sg_onset_uuid,sg_lens,sg_lens.CustomEntity19.sg_onset_uuid,sg_sort_order"
+   "fields": "sg_onset_uuid,code,sg_camera,sg_camera.Camera.sg_onset_uuid,sg_lens,sg_lens.CustomEntity19.sg_onset_uuid,sg_rig,sg_sort_order"
   }
  },
  {
@@ -3538,7 +3595,7 @@
     "size": 1,
     "number": 1
    },
-   "fields": "sg_onset_templates,sg_onset_reference_kinds"
+   "fields": "sg_onset_templates,sg_onset_reference_kinds,sg_onset_rigs"
   }
  },
  {

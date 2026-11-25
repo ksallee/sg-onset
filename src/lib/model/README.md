@@ -58,8 +58,8 @@ Made by Claude where the brief and the crosswalk are silent. Kevin can overrule 
 1. **A take is one camera's take.** Take 3 on A and take 3 on B are two records with the same
    slate and number. Reason: lens, height and focus differ per camera, and CRIF has one row per
    camera too.
-2. **A take holds its own `cameraId` and `lensId`.** The camera setup is where a new take gets
-   them. Reason: swapping the lens on camera A must not rewrite the takes already shot. A saved
+2. **A take holds its own `cameraId`, `lensId` and `cameraMount` (the rig, #138).** The camera
+   setup is where a new take gets them. Reason: swapping the lens on camera A must not rewrite the takes already shot. A saved
    value never reverts.
 3. **Camera setups, lighting setups, cameras and lenses belong to the project.** Slates belong to
    a shoot day. Reason: A camera and the gear list outlive a day.

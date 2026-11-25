@@ -901,6 +901,7 @@ describe('the shared lists', () => {
 		await s.edit.create('lightingSetup', { id: 'ls1', projectId: 'p1', label: 'Day ext' });
 		await s.edit.create('template', { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } });
 		await s.edit.create('referenceKind', { id: 'k1', projectId: 'p1', name: 'Drone scan' });
+		await s.edit.create('rig', { id: 'g1', projectId: 'p1', name: 'Russian arm' });
 		await linked(s);
 		s.world.visible = true;
 		await settle(s.engine, s.fpt);
@@ -919,6 +920,7 @@ describe('the shared lists', () => {
 		expect(await ids(b.store, 'lightingSetup')).toEqual(['ls1']);
 		expect(await b.store.get('template', 'tp1')).toEqual({ id: 'tp1', projectId: 'pB', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } });
 		expect(await b.store.get('referenceKind', 'k1')).toEqual({ id: 'k1', projectId: 'pB', name: 'Drone scan' });
+		expect(await b.store.get('rig', 'g1')).toEqual({ id: 'g1', projectId: 'pB', name: 'Russian arm' });
 		expect(await b.store.get('lens', 'l1')).toEqual({ id: 'l1', projectId: 'pB', lensModel: 'S4/i 32mm', focalLength: 32 });
 		expect(await b.store.remoteId('l1')).toBe(s.fpt.byUuid('CustomEntity19', 'l1')!.id);
 		expect((await b.store.outbox.entries()).length).toBe(0);
@@ -1020,10 +1022,11 @@ describe('the shared lists', () => {
 		const s = setup();
 		delete s.fpt.fields.Project.sg_onset_templates;
 		delete s.fpt.fields.Project.sg_onset_reference_kinds;
+		delete s.fpt.fields.Project.sg_onset_rigs;
 		await lists(s);
 		expect(s.engine.state.listsMissing).toBe(true);
 		const left = await s.store.outbox.entries();
-		expect(left.map((e) => e.op.table).sort()).toEqual(['referenceKind', 'template']);
+		expect(left.map((e) => e.op.table).sort()).toEqual(['referenceKind', 'rig', 'template']);
 		expect(left.every((e) => e.state === 'pending' && e.attempts === 0)).toBe(true);
 		expect(s.fpt.byUuid('CustomEntity19', 'l1')).toBeDefined();
 
@@ -1032,6 +1035,7 @@ describe('the shared lists', () => {
 		await settle(s.engine, s.fpt);
 		expect(await s.store.outbox.entries()).toEqual([]);
 		expect(s.fpt.rows.get(`Project:${s.fptProject}`)!.values.sg_onset_reference_kinds).toContain('Drone scan');
+		expect(s.fpt.rows.get(`Project:${s.fptProject}`)!.values.sg_onset_rigs).toContain('Russian arm');
 	});
 });
 

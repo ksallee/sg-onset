@@ -14,6 +14,7 @@
 	import Section from '$lib/components/ios/Section.svelte';
 	import Toggle from '$lib/components/ios/Toggle.svelte';
 	import ReferenceKindsSheet from '$lib/components/references/ReferenceKindsSheet.svelte';
+	import RigsSheet from '$lib/components/gear/RigsSheet.svelte';
 	import { auth } from '$lib/auth/session.svelte';
 	import { removeSample } from '$lib/app/actions';
 	import { useApp } from '$lib/app/app.svelte';
@@ -75,6 +76,9 @@
 	// The project's own kinds of reference, beside the built-in ones.
 	const kinds = liveList('referenceKind', () => current.project?.id);
 	let kindsOpen = $state(false);
+	// The project's own rigs, beside the built-in ones (#138).
+	const rigs = liveList('rig', () => current.project?.id);
+	let rigsOpen = $state(false);
 
 	// The sample project, if this device holds it.
 	const sample = liveRecord('project', () => s.sampleProjectId);
@@ -173,6 +177,7 @@
 				<InputRow label={t('settings.project.name')} bind:value={name} onchange={rename} error={nameError} oninput={() => (nameError = '')} autocapitalize="words" enterkeyhint="done" />
 				<Row title={t('settings.project.day')} detail={day} />
 				<Row title={t('references.kinds')} detail={kinds.value.length ? String(kinds.value.length) : undefined} chevron onclick={() => (kindsOpen = true)} />
+				<Row title={t('gear.rigs')} detail={rigs.value.length ? String(rigs.value.length) : undefined} chevron onclick={() => (rigsOpen = true)} />
 				<Row title={t('settings.project.switch')} class="tint" onclick={() => shell.openContext()} />
 				{#if sampleAction(!!sample.value) === 'delete'}
 					<Row title={t('settings.sample.remove')} destructive onclick={askDropSample} />
@@ -208,6 +213,7 @@
 	</SideColumns>
 
 	<ReferenceKindsSheet bind:open={kindsOpen} projectId={current.project?.id} />
+	<RigsSheet bind:open={rigsOpen} projectId={current.project?.id} />
 
 	<ActionSheet
 		bind:open={confirmSample}

@@ -191,6 +191,14 @@ describe('mergeShared: sent back', () => {
 		expect(plan.relink).toEqual([{ table: 'take', id: 't1', key: 'cameraSetupId', value: 'cs1' }]);
 	});
 
+	// A rig is text on a take, held by its name (#138): there is no link to write again.
+	it('keeps a rig a take uses and sends it back, with no link to write again', () => {
+		const rig = { id: 'g1', projectId: P, name: 'Russian arm' };
+		const plan = mergeShared({ table: 'rig', keys: ['name'], complete: true, records: [] }, local({ rows: [rig], remotes: { g1: 'g1', t1: 50 }, used: new Set(['g1']), users: { take: [{ id: 't1', cameraMount: 'Russian arm' }] } }));
+		expect(plan.resend).toEqual(['g1']);
+		expect(plan.relink).toEqual([]);
+	});
+
 	it('writes nothing again for a record kept but not sent back yet', () => {
 		const plan = mergeShared(
 			pulled([]),
@@ -249,14 +257,15 @@ describe('mergeShared: the lists Flow PT has no entity for', () => {
 });
 
 describe('listsWaiting', () => {
-	it('counts the changes to templates and reference kinds not yet confirmed', () => {
+	it('counts the changes to templates, reference kinds and rigs not yet confirmed', () => {
 		const queue = [
 			pending(create('template', 'tp1')),
 			pending(update('referenceKind', 'k1', { name: ['a', 'b'] }), 'needsAttention'),
+			pending(create('rig', 'g1')),
 			pending(create('lens', 'l1')),
 			pending(del('template', 'tp2'), 'confirmed')
 		];
-		expect(listsWaiting(queue)).toBe(2);
+		expect(listsWaiting(queue)).toBe(3);
 	});
 });
 
@@ -272,12 +281,13 @@ describe('keepKept', () => {
 });
 
 describe('sharedHref', () => {
-	it('opens a camera, a lens or a camera setup in Gear, a template in Templates, a kind in Settings', () => {
+	it('opens a camera, a lens or a camera setup in Gear, a template in Templates, a kind or a rig in Settings', () => {
 		expect(sharedHref({ table: 'lens', id: 'l1' })).toBe('/gear?sel=lens.l1');
 		expect(sharedHref({ table: 'camera', id: 'c 1' })).toBe('/gear?sel=camera.c%201');
 		expect(sharedHref({ table: 'cameraSetup', id: 'cs1' })).toBe('/gear?sel=cameraSetup.cs1');
 		expect(sharedHref({ table: 'template', id: 'tp1' })).toBe('/templates/tp1');
 		expect(sharedHref({ table: 'referenceKind', id: 'k1' })).toBe('/settings');
+		expect(sharedHref({ table: 'rig', id: 'g1' })).toBe('/settings');
 		expect(sharedHref({ table: 'lightingSetup', id: 'ls1' })).toBeUndefined();
 	});
 });
@@ -319,5 +329,16 @@ describe('usedIds', () => {
 			{ id: 'k2', projectId: P, name: 'Sky dome' }
 		];
 		expect([...usedIds('referenceKind', { reference: [{ id: 'r1', kind: ' drone SCAN ' }, { id: 'r2', kind: 'hdri360' }] }, kinds)]).toEqual(['k1']);
+	});
+
+	it('names the rigs a camera setup or a take holds, by name, case and outer spaces aside (#138)', () => {
+		const rigs = [
+			{ id: 'g1', projectId: P, name: 'Russian arm' },
+			{ id: 'g2', projectId: P, name: 'Spidercam' },
+			{ id: 'g3', projectId: P, name: 'Bike rig' }
+		];
+		const users = { cameraSetup: [{ id: 'cs1', cameraMount: ' russian ARM ' }, { id: 'cs2', cameraMount: 'dolly' }], take: [{ id: 't1', cameraMount: 'Spidercam' }, { id: 't2' }] };
+		expect([...usedIds('rig', users, rigs)].sort()).toEqual(['g1', 'g2']);
+		expect(USERS.rig).toEqual(['cameraSetup', 'take']);
 	});
 });

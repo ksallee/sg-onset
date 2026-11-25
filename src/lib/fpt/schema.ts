@@ -15,6 +15,7 @@ import {
 	OPTIONAL_SCOPES,
 	PROJECT_COLUMNS,
 	PROJECT_KINDS,
+	PROJECT_RIGS,
 	PROJECT_TEMPLATES,
 	UUID,
 	VERSION_COLUMNS,
@@ -380,10 +381,11 @@ export type Resolution = {
 	 */
 	note?: { key: string; captured: string };
 	/**
-	 * The names on the site of the Project fields of the shared lists (#110): the templates and the
-	 * kinds of set reference. Here only once both are there; until then the lists wait on the device.
+	 * The names on the site of the Project fields of the shared lists (#110): the templates, the
+	 * kinds of set reference, and the rigs (#138). Here only once all three are there; until then the
+	 * lists wait on the device.
 	 */
-	project?: { templates: string; referenceKinds: string };
+	project?: { templates: string; referenceKinds: string; rigs: string };
 	/**
 	 * The names an admin picked that it was resolved with (#111, naming.ts). Absent: the default,
 	 * the names the app always used, as in a resolution kept before names could be picked.
@@ -434,7 +436,7 @@ export function toResolution(site: string, entities: readonly EntityResolution[]
 	const noteOf = (column: Column) => plans.find((p) => p.scope === 'note' && p.column.name === column.name && p.status === 'present')?.name;
 	const [key, captured] = [noteOf(NOTE_KEY), noteOf(NOTE_CAPTURED)];
 	const projectOf = (column: Column) => plans.find((p) => p.scope === 'project' && p.column.name === column.name && p.status === 'present')?.name;
-	const [templates, referenceKinds] = [projectOf(PROJECT_TEMPLATES), projectOf(PROJECT_KINDS)];
+	const [templates, referenceKinds, rigs] = [projectOf(PROJECT_TEMPLATES), projectOf(PROJECT_KINDS), projectOf(PROJECT_RIGS)];
 	return {
 		version: 1,
 		site,
@@ -442,7 +444,7 @@ export function toResolution(site: string, entities: readonly EntityResolution[]
 		fields: fields as Resolution['fields'],
 		versionUuid: uuid.name,
 		...(key && captured ? { note: { key, captured } } : {}),
-		...(templates && referenceKinds ? { project: { templates, referenceKinds } } : {}),
+		...(templates && referenceKinds && rigs ? { project: { templates, referenceKinds, rigs } } : {}),
 		...(sameNaming(naming, DEFAULT_NAMING) ? {} : { naming })
 	};
 }
@@ -495,8 +497,9 @@ export function parseResolution(raw: string | undefined | null, site: string, na
 	if (r.version !== 1 || r.site !== site || !r.entities || !r.fields || typeof r.versionUuid !== 'string') return undefined;
 	// Without `note`: the Notes on Shots wait, the rest syncs. A `note` kept must name both fields.
 	if (r.note !== undefined && (r.note === null || typeof r.note.key !== 'string' || typeof r.note.captured !== 'string')) return undefined;
-	// Without `project`: the shared lists wait, the rest syncs. A `project` kept must name both fields.
-	if (r.project !== undefined && (r.project === null || typeof r.project.templates !== 'string' || typeof r.project.referenceKinds !== 'string')) return undefined;
+	// Without `project`: the shared lists wait, the rest syncs. A `project` kept must name all three
+	// fields: one kept before the rigs (#138) is read again, to find the third.
+	if (r.project !== undefined && (r.project === null || typeof r.project.templates !== 'string' || typeof r.project.referenceKinds !== 'string' || typeof r.project.rigs !== 'string')) return undefined;
 	// Without `naming`: the default names. A `naming` kept must be one, and the one asked for.
 	if (r.naming !== undefined && !parseNaming(r.naming)) return undefined;
 	if (naming !== undefined && !sameNaming(r.naming, naming)) return undefined;

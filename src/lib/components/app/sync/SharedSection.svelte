@@ -1,6 +1,6 @@
 <script lang="ts">
 	// The lists a show shares (#110, app/sync/shared.ts). On a site without the Project fields, the
-	// changes to templates and reference kinds that wait, and what an admin does. Then the entries
+	// changes to templates, reference kinds and rigs that wait, and what an admin does. Then the entries
 	// changed on another device that this device uses, until seen: opening a row marks it seen
 	// (Kevin, #110). Then the records removed on another device and kept here, used or changed here,
 	// this session. A row opens one.
@@ -19,7 +19,7 @@
 	const queue = liveQueue();
 	const waiting = $derived(listsWaiting(queue.value));
 	const changed = live<{ table: Kept['table']; id: string; title: string; fields: string; href?: string }[]>(
-		['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind'],
+		['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind', 'rig'],
 		async (store) => {
 			// Read before the first await: the effect then follows it.
 			const list = sync.state.changed;
@@ -31,7 +31,7 @@
 		[]
 	);
 	const kept = live<(Kept & { title: string; href?: string })[]>(
-		['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind'],
+		['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind', 'rig'],
 		async (store) => {
 			// Read before the first await: the effect then follows it.
 			const list = sync.state.kept ?? [];

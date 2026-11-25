@@ -124,7 +124,7 @@ export function projectFields(ours = true): RawFields {
 	return {
 		name: rawField('text', 'Project Name'),
 		code: rawField('text', 'Project Code'),
-		...(ours ? { sg_onset_templates: rawField('text', 'Onset Templates'), sg_onset_reference_kinds: rawField('text', 'Onset Reference Kinds') } : {})
+		...(ours ? { sg_onset_templates: rawField('text', 'Onset Templates'), sg_onset_reference_kinds: rawField('text', 'Onset Reference Kinds'), sg_onset_rigs: rawField('text', 'Onset Rigs') } : {})
 	};
 }
 

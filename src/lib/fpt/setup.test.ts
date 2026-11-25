@@ -49,13 +49,14 @@ describe('checkSetup', () => {
 
 	// The shared lists (#110): the templates and the kinds of set reference, as JSON in two text
 	// fields of the Project. Optional: a site set up before them syncs the rest, and the lists wait.
-	it('creates the two lists on Project, and the transport may use them', async () => {
+	it('creates the three lists on Project, and the transport may use them', async () => {
 		const { fpt, cache, check } = world('bare');
 		const report = await check();
 		expect(field(report, 'project', 'sg_onset_templates')).toMatchObject({ entityType: 'Project', status: 'created', dataType: 'text' });
 		expect(field(report, 'project', 'sg_onset_reference_kinds')).toMatchObject({ entityType: 'Project', status: 'created', dataType: 'text' });
+		expect(field(report, 'project', 'sg_onset_rigs')).toMatchObject({ entityType: 'Project', status: 'created', dataType: 'text' });
 		expect(fpt.fields.Project.sg_onset_templates.data_type.value).toBe('text');
-		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.project).toEqual({ templates: 'sg_onset_templates', referenceKinds: 'sg_onset_reference_kinds' });
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.project).toEqual({ templates: 'sg_onset_templates', referenceKinds: 'sg_onset_reference_kinds', rigs: 'sg_onset_rigs' });
 	});
 
 	it('is ready while Project lacks them, and says they are missing', async () => {

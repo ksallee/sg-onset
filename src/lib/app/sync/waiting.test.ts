@@ -17,8 +17,8 @@ describe('waitingTables', () => {
 
 	// #110: templates and reference kinds are JSON on the Project; without its two fields they wait.
 	it('holds templates and reference kinds back on a site without the Project fields', () => {
-		expect(waitingTables({ listsMissing: true })).toEqual(['template', 'referenceKind']);
-		expect(waitingTables({ referencesMissing: true, listsMissing: true })).toEqual(['reference', 'template', 'referenceKind']);
+		expect(waitingTables({ listsMissing: true })).toEqual(['template', 'referenceKind', 'rig']);
+		expect(waitingTables({ referencesMissing: true, listsMissing: true })).toEqual(['reference', 'template', 'referenceKind', 'rig']);
 	});
 
 	// A Set Shot is no record on the device: nothing of the queue waits for it.

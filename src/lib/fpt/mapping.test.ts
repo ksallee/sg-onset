@@ -73,6 +73,10 @@ describe('fieldMaps', () => {
 		expect(fieldMap('take', 'takeTail')).toMatchObject({ kind: 'stringList', columns: [{ name: 'sg_take_tail', display: 'Take Tail', dataType: 'text' }] });
 	});
 
+	it('keeps the rig of a camera setup and of a take as text named Rig, a built-in rig by its key (#138)', () => {
+		for (const scope of ['cameraSetup', 'take'] as const) expect(fieldMap(scope, 'cameraMount')).toMatchObject({ kind: 'text', columns: [{ name: 'sg_rig', display: 'Rig', dataType: 'text' }] });
+	});
+
 	it('stores a length as a number of metres, named with its unit', () => {
 		expect(fieldMap('take', 'focusDistance')).toMatchObject({
 			kind: 'length',
@@ -247,7 +251,7 @@ describe('wantedColumns', () => {
 	});
 
 	it('lists what a camera setup needs', () => {
-		expect(names('cameraSetup').sort()).toEqual(['sg_camera', 'sg_lens', 'sg_onset_uuid', 'sg_sort_order']);
+		expect(names('cameraSetup').sort()).toEqual(['sg_camera', 'sg_lens', 'sg_onset_uuid', 'sg_rig', 'sg_sort_order']);
 		expect(fieldMap('cameraSetup', 'order')).toMatchObject({ kind: 'integer', columns: [{ name: 'sg_sort_order', display: 'Sort Order', dataType: 'number' }] });
 	});
 

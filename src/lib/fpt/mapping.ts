@@ -210,8 +210,16 @@ export const PROJECT_KINDS: Column = {
 	note: 'The kinds of set reference this project adds in SG OnSet, as JSON. Edit them in SG OnSet'
 };
 
+/** The rigs the project adds (#138), shared the same way. */
+export const PROJECT_RIGS: Column = {
+	name: 'sg_onset_rigs',
+	display: 'Onset Rigs',
+	dataType: 'text',
+	note: 'The rigs this project adds in SG OnSet, as JSON. Edit them in SG OnSet'
+};
+
 /** Ours on Project, a stock type: the shared lists (#110). Optional: a site without them syncs the rest. */
-export const PROJECT_COLUMNS: readonly Column[] = [PROJECT_TEMPLATES, PROJECT_KINDS];
+export const PROJECT_COLUMNS: readonly Column[] = [PROJECT_TEMPLATES, PROJECT_KINDS, PROJECT_RIGS];
 
 /**
  * The names an admin picked for the project (#111, naming.ts): JSON in a text field of the Project,
@@ -279,6 +287,8 @@ const OVERRIDES: Record<string, Override> = {
 	'take.captureFrameRate': { display: 'Frame Rate' },
 	'take.timecodeStart': { display: 'Timecode In' },
 	'take.timecodeEnd': { display: 'Timecode Out' },
+	// The app's word, as Flow PT shows it. CRIF calls it Camera Mount (#138).
+	'*.cameraMount': { display: 'Rig' },
 	'shootDay.cameraUnit': { display: 'Unit' },
 	'lightingSetup.referenceBalls': { display: 'Grey and Chrome Balls' },
 	'lens.focalLengthMax': { display: 'Focal Length Long End' },

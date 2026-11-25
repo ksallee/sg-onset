@@ -20,7 +20,7 @@ The outbox (`$lib/outbox`) and the transport (`$lib/fpt`) do the work; this hold
 | `shots.ts` | yes | Which slates to bring in line, when, and what the sync sheet lists of their Set Shots. Nothing kept. |
 | `notes.ts` | yes | Notes on Shots (#97): the setting per project, what the sheet shows, which Shots get a Note. |
 | `referenceSlates.ts` | yes | The slates each set reference shows on, by Flow PT id, for its Slates field (#107). Nothing kept. |
-| `waiting.ts` | yes | What waits on the device for what the site lacks: the set references, without Set Reference (#117); templates and reference kinds, without the Project fields (#110). |
+| `waiting.ts` | yes | What waits on the device for what the site lacks: the set references, without Set Reference (#117); templates, reference kinds and rigs, without the Project fields (#110, #138). |
 | `shared.ts` | yes | The lists a show shares (#110): `mergeShared`, what a list read back from Flow PT does to the device's; `usedIds`; the sheet's kept list. |
 | `changed.ts` | yes | The sheet's "Changed on another device" list (#110): what a merge changed of entries used here, until seen. |
 | `scope.ts` | no | `projectScope`: the outbox kept to one project's entries. `withoutWaiting`: and without what waits. |

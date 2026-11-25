@@ -1,15 +1,15 @@
 // The tables of the store, from the model: one per scope, one for stills, one for templates, one
 // for the kinds of set reference a project adds, one for the drawings on photos, one for setup
-// diagrams and one for the imports of the DIT's clips. Which key holds the parent, which keys link
+// diagrams, one for the imports of the DIT's clips and one for the rigs a project adds. Which key holds the parent, which keys link
 // to other records, which tables stay on the device. Pure.
 
 import type { Diagram } from '$lib/draw/diagram';
 import type { Markup } from '$lib/draw/markup';
 import { FIELDS, SCOPES, type Scope } from '$lib/model/catalogue';
 import type { TemplateRecord } from '$lib/model/template';
-import type { ClipImport, RecordOf, ReferenceKind, Still } from '$lib/model/types';
+import type { ClipImport, RecordOf, ReferenceKind, Rig, Still } from '$lib/model/types';
 
-export const TABLES = [...SCOPES, 'still', 'template', 'referenceKind', 'markup', 'diagram', 'clipImport'] as const;
+export const TABLES = [...SCOPES, 'still', 'template', 'referenceKind', 'markup', 'diagram', 'clipImport', 'rig'] as const;
 export type TableName = (typeof TABLES)[number];
 
 export type RowOf<T extends TableName> = T extends Scope
@@ -24,7 +24,9 @@ export type RowOf<T extends TableName> = T extends Scope
 					? Diagram
 					: T extends 'clipImport'
 						? ClipImport
-						: Still;
+						: T extends 'rig'
+							? Rig
+							: Still;
 
 export function isTable(name: string): name is TableName {
 	return (TABLES as readonly string[]).includes(name);
@@ -36,7 +38,7 @@ export function isTable(name: string): name is TableName {
  * setup diagram reaches it as an image, a file of the slate (`$lib/draw/diagram`). What an import of
  * the DIT's clips wrote stays here; the takes hold the values. Templates and a project's own kinds
  * of set reference were kept here too, until they were shared (#110): they sync now, as JSON on the
- * Project (lib/fpt/lists.ts).
+ * Project (lib/fpt/lists.ts), as a project's own rigs do (#138).
  */
 export const LOCAL_TABLES = ['markup', 'diagram', 'clipImport'] as const satisfies readonly TableName[];
 
@@ -62,7 +64,8 @@ export const PARENTS: Record<TableName, Link | undefined> = {
 	referenceKind: { key: 'projectId', table: 'project' },
 	markup: { key: 'stillId', table: 'still' },
 	diagram: { key: 'slateId', table: 'slate' },
-	clipImport: { key: 'shootDayId', table: 'shootDay' }
+	clipImport: { key: 'shootDayId', table: 'shootDay' },
+	rig: { key: 'projectId', table: 'project' }
 };
 
 /** Every key of `table` that holds the id of another record: the parent, then the catalogue's refs. */

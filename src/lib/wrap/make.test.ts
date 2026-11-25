@@ -15,7 +15,8 @@ const labels: PlainLabels = {
 	yes: 'yes',
 	no: 'no',
 	references: 'References',
-	kind: (kind) => `<${kind}>`
+	kind: (kind) => `<${kind}>`,
+	rig: (rig) => `[${rig}]`
 };
 const ctx = { now: '2026-11-11T02:00:00.000Z', timeZone: 'Europe/London', labels };
 const day3 = { ...defaultChoice() };
@@ -61,6 +62,13 @@ describe('makeTexts', () => {
 	it('names the kinds of set reference in the camera report as the all fields file does', () => {
 		expect(made.texts.crif).toContain('<lidarScan>: Scan 01');
 		expect(made.texts.plainCsv).toContain('<lidarScan>: Scan 01');
+	});
+
+	it('names the rig in the camera report and the editorial file as the all fields file does (#138)', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => ({ ...t, cameraMount: 'dolly' }));
+		const rigged = makeTexts(shoot, day3, ['d3'], ctx);
+		for (const kind of ['crif', 'plainCsv', 'ale'] as const) expect(rigged.texts[kind]).toContain('[dolly]');
 	});
 
 	it('makes none it was not asked for', () => {

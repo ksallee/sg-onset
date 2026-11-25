@@ -24,7 +24,7 @@
 // them apart. A setup check makes a new runner, so they go at the drain after Set Up Fields.
 //
 // Then the lists a show shares are read back from Flow PT and merged with this device's (#110,
-// shared.ts): cameras, lenses, lighting setups, templates and reference kinds. At most once a
+// shared.ts): cameras, lenses, lighting setups, templates, reference kinds and rigs. At most once a
 // minute, at once on Sync Now. No drain runs while they are merged, and they are not read while a
 // drain runs: a change confirmed between the read and the merge would look like a change made
 // elsewhere.
@@ -116,7 +116,7 @@ export interface SyncState {
 	notesOnShots: boolean;
 	/** The site is ready, without the Note fields: the Notes on Shots wait for Set Up Fields (#97). */
 	notesMissing?: boolean;
-	/** The site is ready, without the Project fields: templates and reference kinds wait on the device (#110). */
+	/** The site is ready, without the Project fields: templates, reference kinds and rigs wait on the device (#110). */
 	listsMissing?: boolean;
 	/** Records removed on another device and kept here, used or edited here, this session (#110). */
 	kept?: Kept[];

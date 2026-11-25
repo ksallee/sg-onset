@@ -388,16 +388,18 @@ describe('planFields: Note', () => {
 	});
 });
 
-// The shared lists (#110): the templates and the kinds of set reference a project adds, as JSON in
-// two text fields of the Project (lists.ts). Project is stock; both fields are ours, and optional: a
+// The shared lists (#110): the templates, the kinds of set reference and the rigs (#138) a project
+// adds, as JSON in three text fields of the Project (lists.ts). Project is stock; both fields are ours, and optional: a
 // site without them syncs the rest, and the lists wait on the device.
 describe('planFields: Project', () => {
 	const project = (plans: ReturnType<typeof planFields>) => plans.filter((p) => p.scope === 'project');
 
-	it('plans the two lists as text fields of Project, neither unique', () => {
-		const [templates, kinds] = project(planFields(TYPES, complete(), { ...VERSION_DONE, project: projectFields(false) }));
+	it('plans the three lists as text fields of Project, none unique', () => {
+		const [templates, kinds, rigs] = project(planFields(TYPES, complete(), { ...VERSION_DONE, project: projectFields(false) }));
 		expect(templates).toMatchObject({ entityType: 'Project', name: 'sg_onset_templates', displayName: 'Onset Templates', dataType: 'text', status: 'create' });
 		expect(kinds).toMatchObject({ entityType: 'Project', name: 'sg_onset_reference_kinds', displayName: 'Onset Reference Kinds', dataType: 'text', status: 'create' });
+		expect(rigs).toMatchObject({ entityType: 'Project', name: 'sg_onset_rigs', displayName: 'Onset Rigs', dataType: 'text', status: 'create' });
+		expect(createInput(rigs).properties.description).toBe('The rigs this project adds in SG OnSet, as JSON. Edit them in SG OnSet. Written by SG OnSet.');
 		expect(templates.unique).toBeUndefined();
 		expect(createInput(templates).properties.description).toBe('The templates of SG OnSet for this project, as JSON. Edit them in SG OnSet. Written by SG OnSet.');
 	});
@@ -405,7 +407,8 @@ describe('planFields: Project', () => {
 	it('finds them present the next time', () => {
 		expect(project(planFields(TYPES, complete(), { ...VERSION_DONE, project: projectFields(true) }))).toMatchObject([
 			{ status: 'present', name: 'sg_onset_templates' },
-			{ status: 'present', name: 'sg_onset_reference_kinds' }
+			{ status: 'present', name: 'sg_onset_reference_kinds' },
+			{ status: 'present', name: 'sg_onset_rigs' }
 		]);
 	});
 
@@ -574,22 +577,26 @@ describe('toResolution', () => {
 	});
 
 	// The shared lists (#110) are optional: without the Project fields the rest is ready and the lists wait.
-	it('holds the Project fields once both are there, and is ready without them', () => {
+	it('holds the Project fields once all three are there, and is ready without them', () => {
 		const withLists = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), { ...VERSION_DONE, project: projectFields(true) }))!;
-		expect(withLists.project).toEqual({ templates: 'sg_onset_templates', referenceKinds: 'sg_onset_reference_kinds' });
+		expect(withLists.project).toEqual({ templates: 'sg_onset_templates', referenceKinds: 'sg_onset_reference_kinds', rigs: 'sg_onset_rigs' });
 		expect(hasLists(withLists)).toBe(true);
 		expect(parseResolution(serializeResolution(withLists), 'https://a.example')).toEqual(withLists);
 
-		const half = projectFields(true);
-		delete half.sg_onset_reference_kinds;
-		const without = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), { ...VERSION_DONE, project: half }))!;
-		expect(without.project).toBeUndefined();
-		expect(hasLists(without)).toBe(false);
+		for (const lacking of ['sg_onset_reference_kinds', 'sg_onset_rigs']) {
+			const half = projectFields(true);
+			delete half[lacking];
+			const without = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), { ...VERSION_DONE, project: half }))!;
+			expect(without.project).toBeUndefined();
+			expect(hasLists(without)).toBe(false);
+		}
 	});
 
 	it('is read again from a cache whose Project fields are not names, and keeps one written before them', () => {
 		const res = toResolution('https://a.example', resolveEntities(SITE), planFields(TYPES, complete(), { ...VERSION_DONE, project: projectFields(true) }))!;
 		expect(parseResolution(JSON.stringify({ ...res, project: { templates: 'sg_onset_templates' } }), 'https://a.example')).toBeUndefined();
+		// One kept before the rigs (#138) names two fields: read again, to find the third.
+		expect(parseResolution(JSON.stringify({ ...res, project: { templates: 'sg_onset_templates', referenceKinds: 'sg_onset_reference_kinds' } }), 'https://a.example')).toBeUndefined();
 		const { project: _p, ...before } = res;
 		expect(parseResolution(JSON.stringify(before), 'https://a.example')).toEqual(before);
 	});

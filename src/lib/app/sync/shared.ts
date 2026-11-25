@@ -1,6 +1,6 @@
 // The lists a show shares, read back from Flow PT at each sync and merged with this device's (#110):
-// cameras, lenses, camera setups, lighting setups, templates and the kinds of set reference a
-// project adds. Every
+// cameras, lenses, camera setups, lighting setups, templates, and the kinds of set reference and the
+// rigs a project adds. Every
 // device of the project then has the same lists, and a new one starts with them. Slates, takes and
 // references stay with the device that made them: they are not read back. Pure: the store applies
 // the plan (`reconcile`), the transport reads (lib/fpt).
@@ -19,7 +19,7 @@ import { sameValue } from '$lib/model/value';
 import { isActive, isOpen, type Entry, type RemoteId } from '$lib/outbox/types';
 import type { TableName } from '$lib/store/tables';
 
-export const SHARED_TABLES = ['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind'] as const;
+export const SHARED_TABLES = ['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind', 'rig'] as const;
 export type SharedTable = (typeof SHARED_TABLES)[number];
 
 export type Row = { id: string } & Record<string, unknown>;
@@ -149,10 +149,10 @@ export function mergeShared(pulled: PulledTable, local: LocalState): SharedPlan 
 
 /**
  * The synced takes and slates here that link a record sent back, by an entity field: the tables no
- * device reads back. A template or kind is text in Flow PT: none.
+ * device reads back. A template, a kind or a rig is text in Flow PT: none.
  */
 function relinks(table: SharedTable, resend: readonly string[], users: Partial<Record<TableName, readonly Row[]>>, remotes: Readonly<Record<string, RemoteId>>): SharedPlan['relink'] {
-	if (!resend.length || table === 'template' || table === 'referenceKind') return [];
+	if (!resend.length || table === 'template' || isNamed(table)) return [];
 	const key = HELD_BY[table];
 	const sent = new Set(resend);
 	const history = USERS[table].filter((name) => !(SHARED_TABLES as readonly string[]).includes(name));
@@ -161,9 +161,9 @@ function relinks(table: SharedTable, resend: readonly string[], users: Partial<R
 	);
 }
 
-/** How many changes to templates and reference kinds wait: on a site without the Project fields, all of them. */
+/** How many changes to templates, reference kinds and rigs wait: on a site without the Project fields, all of them. */
 export function listsWaiting(queue: readonly Entry[]): number {
-	return queue.filter((e) => isActive(e) && (e.op.table === 'template' || e.op.table === 'referenceKind')).length;
+	return queue.filter((e) => isActive(e) && (e.op.table === 'template' || e.op.table === 'referenceKind' || e.op.table === 'rig')).length;
 }
 
 /** A record removed on another device and kept here, for the sync sheet. */
@@ -180,7 +180,7 @@ export function keepKept(before: readonly Kept[], now: readonly Kept[]): Kept[] 
 export function sharedHref(record: { table: SharedTable; id: string }): string | undefined {
 	if (record.table === 'camera' || record.table === 'lens' || record.table === 'cameraSetup') return `/gear?sel=${encodeURIComponent(`${record.table}.${record.id}`)}`;
 	if (record.table === 'template') return `/templates/${encodeURIComponent(record.id)}`;
-	if (record.table === 'referenceKind') return '/settings';
+	if (isNamed(record.table)) return '/settings';
 	return undefined;
 }
 
@@ -191,11 +191,19 @@ export const USERS: Record<SharedTable, TableName[]> = {
 	cameraSetup: ['take'],
 	lightingSetup: ['slate'],
 	template: ['slate', 'take'],
-	referenceKind: ['reference']
+	referenceKind: ['reference'],
+	rig: ['cameraSetup', 'take']
 };
 
-/** The key a user holds the id of a shared record in. A kind is held by its name. */
-const HELD_BY: Record<Exclude<SharedTable, 'referenceKind'>, string> = { camera: 'cameraId', lens: 'lensId', cameraSetup: 'cameraSetupId', lightingSetup: 'lightingSetupId', template: 'templateId' };
+/** The shared tables whose records are held by their name, not their id: a kind, a rig. */
+type Named = 'referenceKind' | 'rig';
+const isNamed = (table: SharedTable): table is Named => table === 'referenceKind' || table === 'rig';
+
+/** The key a user holds the name of a record of a named table in. */
+const NAMED_BY: Record<Named, string> = { referenceKind: 'kind', rig: 'cameraMount' };
+
+/** The key a user holds the id of a shared record in. */
+const HELD_BY: Record<Exclude<SharedTable, Named>, string> = { camera: 'cameraId', lens: 'lensId', cameraSetup: 'cameraSetupId', lightingSetup: 'lightingSetupId', template: 'templateId' };
 
 const loose = (text: unknown) => (typeof text === 'string' ? text.trim().toLowerCase() : '');
 
@@ -204,8 +212,9 @@ const loose = (text: unknown) => (typeof text === 'string' ? text.trim().toLower
  * kinds. `shotWith`: the camera setups this device shoots with (lib/gear/shooting.ts), used too.
  */
 export function usedIds(table: SharedTable, users: Partial<Record<TableName, readonly Row[]>>, rows: readonly Row[], shotWith?: ReadonlySet<string>): Set<string> {
-	if (table === 'referenceKind') {
-		const names = new Set((users.reference ?? []).map((r) => loose(r.kind)).filter((n) => n !== ''));
+	if (isNamed(table)) {
+		const key = NAMED_BY[table];
+		const names = new Set(USERS[table].flatMap((name) => (users[name] ?? []).map((r) => loose(r[key]))).filter((n) => n !== ''));
 		return new Set(rows.filter((r) => names.has(loose(r.name))).map((r) => r.id));
 	}
 	const key = HELD_BY[table];

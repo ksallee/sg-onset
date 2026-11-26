@@ -22,6 +22,7 @@ export const fields = {
 	'scope.markup': 'Drawing',
 	'scope.diagram': 'Setup diagram',
 	'scope.clipImport': 'Clip import',
+	'scope.rig': 'Rig',
 
 	'unit.mm': 'mm',
 	'unit.m': 'm',
@@ -52,6 +53,7 @@ export const fields = {
 	'field.cameraSetup.cameraLabel': 'Camera letter',
 	'field.cameraSetup.cameraId': 'Camera',
 	'field.cameraSetup.lensId': 'Lens',
+	'field.cameraSetup.cameraMount': 'Rig',
 	'field.cameraSetup.order': 'Order',
 
 	'field.slate.slateUID': 'Slate',
@@ -104,6 +106,7 @@ export const fields = {
 	'field.take.cameraSetupId.short': 'Cam',
 	'field.take.cameraId': 'Camera',
 	'field.take.lensId': 'Lens',
+	'field.take.cameraMount': 'Rig',
 	'field.take.focalLength': 'Focal length',
 	'field.take.focalLength.short': 'Focal',
 	'field.take.tStop': 'T-stop',

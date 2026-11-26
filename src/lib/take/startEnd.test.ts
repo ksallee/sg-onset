@@ -76,6 +76,21 @@ describe('nextTakes', () => {
 		expect(next).toMatchObject({ take: '2', lensId: 'prime50', cameraSetupId: 'A' });
 		expect(next.startedAt).toBeUndefined();
 	});
+	// #138: the rig is set on the setup, as the lens is. A take already shot keeps its own.
+	it('takes the rig from the setup; the take before keeps its own', () => {
+		const before = take('a', '1', 'A', { cameraMount: 'tripod' });
+		const onSteadicam = [{ ...setups[0], cameraMount: 'steadicam' }];
+		const [next] = nextTakes({ groups: groupTakes([before]), active: ['A'], setups: onSteadicam, slateId: 's', newId: ids() });
+		expect(next).toMatchObject({ take: '2', cameraMount: 'steadicam' });
+		expect(before.cameraMount).toBe('tripod');
+		// A project rig is text as typed.
+		const [own] = nextTakes({ groups: groupTakes([before]), active: ['A'], setups: [{ ...setups[0], cameraMount: 'Russian arm' }], slateId: 's', newId: ids() });
+		expect(own.cameraMount).toBe('Russian arm');
+	});
+	it('keeps the last take’s rig when the setup names none, as for the lens', () => {
+		const [next] = nextTakes({ groups: groupTakes([take('a', '1', 'A', { cameraMount: 'dolly' })]), active: ['A'], setups, slateId: 's', newId: ids() });
+		expect(next.cameraMount).toBe('dolly');
+	});
 	it('starts a camera new to the slate from its setup alone', () => {
 		const next = nextTakes({ groups: groupTakes([take('a', '1', 'A', { tStop: 4 })]), active: ['A', 'B'], setups, slateId: 's', newId: ids() });
 		expect(next[1]).toEqual({ id: 'new2', slateId: 's', take: '2', cameraSetupId: 'B', cameraId: 'mini', lensId: 'zoom' });
@@ -87,6 +102,11 @@ describe('addCameraTake', () => {
 		const groups = groupTakes([take('a', '2', 'A', { startedAt: T0, endedAt: T1 })]);
 		const added = addCameraTake({ groups, number: '2', setupId: 'B', setups, slateId: 's', id: 'n' });
 		expect(added).toEqual({ id: 'n', slateId: 's', take: '2', cameraSetupId: 'B', cameraId: 'mini', lensId: 'zoom', startedAt: T0, endedAt: T1 });
+	});
+	it('gives a camera put on a take the rig of its setup', () => {
+		const groups = groupTakes([take('a', '2', 'A', { startedAt: T0, endedAt: T1 })]);
+		const added = addCameraTake({ groups, number: '2', setupId: 'B', setups: [setups[0], { ...setups[1], cameraMount: 'jib' }], slateId: 's', id: 'n' });
+		expect(added.cameraMount).toBe('jib');
 	});
 });
 

@@ -49,13 +49,14 @@ describe('checkSetup', () => {
 
 	// The shared lists (#110): the templates and the kinds of set reference, as JSON in two text
 	// fields of the Project. Optional: a site set up before them syncs the rest, and the lists wait.
-	it('creates the two lists on Project, and the transport may use them', async () => {
+	it('creates the three lists on Project, and the transport may use them', async () => {
 		const { fpt, cache, check } = world('bare');
 		const report = await check();
 		expect(field(report, 'project', 'sg_onset_templates')).toMatchObject({ entityType: 'Project', status: 'created', dataType: 'text' });
 		expect(field(report, 'project', 'sg_onset_reference_kinds')).toMatchObject({ entityType: 'Project', status: 'created', dataType: 'text' });
+		expect(field(report, 'project', 'sg_onset_rigs')).toMatchObject({ entityType: 'Project', status: 'created', dataType: 'text' });
 		expect(fpt.fields.Project.sg_onset_templates.data_type.value).toBe('text');
-		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.project).toEqual({ templates: 'sg_onset_templates', referenceKinds: 'sg_onset_reference_kinds' });
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.project).toEqual({ templates: 'sg_onset_templates', referenceKinds: 'sg_onset_reference_kinds', rigs: 'sg_onset_rigs' });
 	});
 
 	it('is ready while Project lacks them, and says they are missing', async () => {
@@ -64,7 +65,23 @@ describe('checkSetup', () => {
 		const report = await check({ createFields: false });
 		expect(report.ready).toBe(true);
 		expect(field(report, 'project', 'sg_onset_templates')).toMatchObject({ status: 'missing' });
-		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.project).toBeUndefined();
+		// Each list follows its own field (#138): the kinds and the rigs sync, the templates wait.
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.project).toEqual({ referenceKinds: 'sg_onset_reference_kinds', rigs: 'sg_onset_rigs' });
+	});
+
+	// Kevin, 2026-11-25 (#138): the Rig is optional. A site without it is ready; Set Up Fields makes it.
+	it('is ready while Take and Camera Setup lack the Rig, says it is missing, and makes it on Set Up Fields', async () => {
+		const { fpt, cache, check } = world();
+		delete fpt.fields.CustomEntity09.sg_rig;
+		delete fpt.fields.CustomEntity10.sg_rig;
+		const report = await check({ createFields: false });
+		expect(report.ready).toBe(true);
+		expect(field(report, 'take', 'sg_rig')).toMatchObject({ status: 'missing' });
+		expect(field(report, 'cameraSetup', 'sg_rig')).toMatchObject({ status: 'missing' });
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.fields.take.sg_rig).toBeUndefined();
+		const made = await check();
+		expect(field(made, 'take', 'sg_rig')).toMatchObject({ status: 'created', dataType: 'text' });
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.fields.take.sg_rig).toBe('sg_rig');
 	});
 
 	// Notes on Shots (#97): one Note per Shot, keyed in a unique text field (findings/146).

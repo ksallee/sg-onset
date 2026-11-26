@@ -31,6 +31,13 @@ describe('groupLinkPatch', () => {
 			{ id: 'b', key: 'shutterAngle', from: undefined, to: 180 }
 		]);
 	});
+	// #138: the rig is the setup's, as the lens is: a template on the take screen leaves it alone.
+	it('leaves each camera its rig', () => {
+		const g = group(take('a', 'A', { cameraMount: 'steadicam' }), take('b', 'B'));
+		const keys = groupLinkPatch(g, { id: 'tp', values: { cameraMount: 'tripod', isoSpeed: 800 } }).map((c) => c.key);
+		expect(keys).not.toContain('cameraMount');
+		expect(groupChanged(group(take('a', 'A', { templateId: 'tp', cameraMount: 'steadicam' })), { id: 'tp', values: { cameraMount: 'tripod' } })).toEqual([]);
+	});
 	it('is empty when every camera already follows it', () => {
 		const g = group(take('a', 'A', { templateId: 'tp', isoSpeed: 800, shutterAngle: 180 }));
 		expect(groupLinkPatch(g, day)).toEqual([]);

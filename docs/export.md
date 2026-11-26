@@ -112,7 +112,8 @@ How it is written:
 | Camera Move Description | | none |
 | Camera Body | yes | `camera.cameraMake` |
 | Camera Body Right | stereo | none |
-| Camera Mount, Characters, Props | | none |
+| Camera Mount | | `take.cameraMount`: the take's rig as the app shows it, a project rig as typed (#138) |
+| Characters, Props | | none |
 | Film Stock | yes | none |
 | ASA | yes | `take.isoSpeed` |
 | HDRI Filename | | `lightingSetup.hdriFilename` |
@@ -182,7 +183,8 @@ Lost in CRIF:
   bare numbers with a unit column after each field that has a unit. Lengths there are metres to
   the millimetre, or decimal feet to four places.
 - Enums show their label, booleans yes or no, lists joined with ", ", refs as the UUID. A take
-  with no type shows Main. The plates at a take's tail, a list of options, show their labels.
+  with no type shows Main. The plates at a take's tail, a list of options, show their labels. A
+  rig, on the camera setup and on the take, shows its label, a project rig as typed (#138).
 - RFC 4180 quoting, CRLF. Option `bom` for Excel. Formula guard on by default: a cell starting with
   `=`, `+`, `-`, `@`, tab or CR gets a `'` in front, unless it is a number with at most a short
   unit (`-5`, `-5°`).
@@ -196,7 +198,7 @@ language. A reference's logged time, and the references of a slate with no take 
 
 ## ALE: editorial
 
-`exportAle(rows, { fps, videoFormat, dropFrame, withoutTimecode, lengths })`. File:
+`exportAle(rows, { fps, videoFormat, dropFrame, withoutTimecode, lengths, rigLabel })`. File:
 `<project>_<day>_editorial.ale`.
 
 ```
@@ -247,6 +249,7 @@ A001C003	V	14:39:39:09	14:39:59:11	…
 | T-Stop | `take.tStop` (ours) |
 | Focus Distance, Lens Height, End | metres, or decimal feet (ours) |
 | Tilt, Dutch, End | degrees (ours) |
+| Rig | `take.cameraMount` as the app shows it, a project rig as typed (ours, #138) |
 | Sensor Fps | `take.captureFrameRate` |
 | Shutter_angle | `take.shutterAngle` |
 | ASA | `take.isoSpeed` |
@@ -301,7 +304,8 @@ render:
 - `totals`: slates, takes, circled, no good, photos.
 - The printed page (`src/lib/wrap/report.ts`) has a Type column on a day with a take that is not
   Main or has a plate at its tail: the type, then each plate at the tail ("Light pass, Clean plate
-  tail"). A Main take with nothing at the tail leaves it empty.
+  tail"). A Main take with nothing at the tail leaves it empty. A Rig column after Tilt, on a day
+  with a take that has a rig (#138): the rig as the app shows it, a project rig as typed.
 - `warnings`, per take: `noEndTime`, `noFocalLength` (no prime and none typed),
   `zoomNoFocalLength` (a zoom and none typed).
 

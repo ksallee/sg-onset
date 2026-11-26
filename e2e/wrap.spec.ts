@@ -158,6 +158,10 @@ test.describe('wrap', () => {
 		await expect(page).toHaveURL(/\/wrap\/report\?days=/);
 		await expect(page.getByRole('heading', { name: 'Sample project', level: 1 })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Slate 42A' }).first()).toBeVisible();
+		// The lens timeline (#137): A stayed on its prime all day, B's zoom ran 85 to 150 mm.
+		await expect(page.getByRole('heading', { name: 'Lens timeline' })).toBeVisible();
+		await expect(page.getByRole('row', { name: '42A/1 to 42B/1 S4/i 32 mm T2 32 mm 4' })).toBeVisible();
+		await expect(page.getByRole('row', { name: '42A/1 to 42A/2 Optimo 24-290 mm T2.8 85 to 150 mm 2' })).toBeVisible();
 		await page.getByRole('button', { name: 'Print' }).tap();
 		expect(await page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1);
 	});

@@ -10,7 +10,7 @@ const messages = en as Record<string, string>;
 const NUMERIC: readonly FieldDef['type'][] = ['integer', 'number', 'length', 'rational'];
 
 /** Labels that more than one scope uses, each for the same concept. */
-const SHARED = new Set(['Name', 'Notes', 'Make', 'Model', 'Serial number', 'Focal length', 'Camera', 'Lens', 'Lighting setup', 'Camera setup']);
+const SHARED = new Set(['Name', 'Notes', 'Make', 'Model', 'Serial number', 'Focal length', 'Camera', 'Lens', 'Lighting setup', 'Camera setup', 'Rig']);
 
 /** The longest a short label may be, so the take table's columns stay narrow. */
 const SHORT_MAX = 8;

@@ -6,7 +6,8 @@ import type { Scope } from '$lib/model/catalogue';
 import { formatField } from '$lib/model/fieldText';
 import type { UnitSystem } from '$lib/model/length';
 import { takeTypeOf } from '$lib/model/takeType';
-import { t } from '$lib/i18n/messages';
+import { rigLabel } from '$lib/gear/rigs';
+import { t, tk } from '$lib/i18n/messages';
 import { fieldLabel, optionLabel, unitLabel } from '$lib/i18n/modelText';
 import type { FieldRef } from '$lib/slates/fields';
 import { fieldRef } from '$lib/slates/fields';
@@ -19,6 +20,8 @@ export function valueText(ref: FieldRef, value: unknown, units: UnitSystem, name
 	// A take with no type is Main.
 	if (def.scope === 'take' && def.key === 'takeType') value = takeTypeOf({ takeType: value as string | undefined });
 	if (value === undefined || value === null || value === '') return '';
+	// A rig: a built-in key by its label, a project rig as typed (#138).
+	if (def.key === 'cameraMount') return rigLabel(String(value), tk);
 	switch (def.type) {
 		case 'boolean':
 			return value ? t('slates.field.yes') : t('slates.field.no');

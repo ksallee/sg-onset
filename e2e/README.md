@@ -39,7 +39,8 @@ network beyond localhost: every test fails if a request leaves 127.0.0.1.
 - A test that finds an app bug: `test.fixme` with the reason above it. The report lists it.
 - To run the app against Flow PT, answer the site from this process with the fake site of
   `src/lib/fpt/fakeFpt.ts` through a route, block the service worker (it takes requests before a
-  route sees them), and abort anything else off localhost. `names.spec.ts` does it (#111).
+  route sees them), and abort anything else off localhost. `fakeSite.ts` does it, for `names.spec.ts`
+  (#111) and `rig-sync.spec.ts` (#138).
 
 ## Screenshots
 

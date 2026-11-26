@@ -10,10 +10,11 @@
 	import SearchField from '$lib/components/ios/SearchField.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Tile from '$lib/components/ios/Tile.svelte';
-	import { t } from '$lib/i18n/messages';
+	import { t, tk } from '$lib/i18n/messages';
 	import { searchCameras, searchLenses, searchSetups } from '$lib/gear/list';
 	import { cameraTitle, lensTitle, type GearScope } from '$lib/gear/names';
 	import type { Selection } from '$lib/gear/records';
+	import { rigLabel } from '$lib/gear/rigs';
 	import { cameraLine, focalBadge, focalText, lensLine } from '$lib/gear/text';
 	import type { Camera, CameraSetup, Lens } from '$lib/model/types';
 	import SetupRow from './SetupRow.svelte';
@@ -105,14 +106,25 @@
 		if (d.to < d.from && index >= d.to && index < d.from) return d.h;
 		return 0;
 	}
+	// The grip a key moved, until the list shows it in its new place. The list comes from the store
+	// after the save, and moving a row in the page drops its focus: so focus goes back once the row
+	// sits where it was sent, and only if nothing else took it meanwhile (#143).
+	let refocus = $state<{ id: string; to: number } | null>(null);
+	$effect(() => {
+		const want = refocus;
+		if (!want || setups.findIndex((s) => s.id === want.id) !== want.to) return;
+		refocus = null;
+		const active = document.activeElement;
+		if (active && active !== document.body && !list?.contains(active)) return;
+		void tick().then(() => list?.querySelector<HTMLElement>(`[data-setup-handle="${want.id}"]`)?.focus());
+	});
 	async function key(setup: CameraSetup, index: number, e: KeyboardEvent) {
 		const to = e.key === 'ArrowUp' ? index - 1 : e.key === 'ArrowDown' ? index + 1 : null;
 		if (to === null) return;
 		e.preventDefault();
 		if (to < 0 || to >= setups.length) return;
+		refocus = { id: setup.id, to };
 		await onmove(setup, to);
-		await tick();
-		list?.querySelector<HTMLElement>(`[data-setup-handle="${setup.id}"]`)?.focus();
 	}
 
 	const kinds = { prime: t('gear.kind.prime'), zoom: t('gear.kind.zoom') };
@@ -157,6 +169,7 @@
 					label={setup.cameraLabel ?? ''}
 					line={cameraName(setup)}
 					lensName={lensName(setup)}
+					rig={rigLabel(setup.cameraMount, tk)}
 					lens={lensShort(setup)}
 					selected={isSel('cameraSetup', setup.id)}
 					chevron={!wide}

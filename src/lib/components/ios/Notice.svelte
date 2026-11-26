@@ -36,8 +36,12 @@
 	let seen: { text: string; stamp: unknown; width: number } | null = null;
 	let morph: Animation[] = [];
 
-	/** The words as they change: the new come up, the old go up and out, out of the layout. */
-	function swap(_node: Element, { out = false }: { out?: boolean } = {}) {
+	/**
+	 * The words as they change: the new come up, the old go up and out, out of the layout. The old
+	 * words leave the status at once, so VoiceOver reads only the new ones (#143).
+	 */
+	function swap(node: Element, { out = false }: { out?: boolean } = {}) {
+		if (out) node.setAttribute('aria-hidden', 'true');
 		if (reducedMotion()) return { duration: 0 };
 		return {
 			duration: out ? DURATIONS.fade : DURATIONS.exit,

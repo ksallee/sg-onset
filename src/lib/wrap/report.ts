@@ -6,6 +6,7 @@
 import { dayName } from '$lib/app/context';
 import { formatDate, formatTime } from '$lib/app/format';
 import type { DayReport, DayReportSlate } from '$lib/export/dayReport';
+import type { LensRun, TimelineCamera } from '$lib/export/lensTimeline';
 import type { FlatTake } from '$lib/export/selection';
 import { t, tk } from '$lib/i18n/messages';
 import { fieldShortLabel, optionLabel } from '$lib/i18n/modelText';
@@ -14,6 +15,7 @@ import { formatLength, type Length, type UnitSystem } from '$lib/model/length';
 import { formatRational } from '$lib/model/rational';
 import { takeTailOf } from '$lib/model/takeTail';
 import { takeTypeOf } from '$lib/model/takeType';
+import { rigLabel } from '$lib/gear/rigs';
 import { kindLabel } from '$lib/references/kinds';
 import { referenceLine } from '$lib/references/log';
 import { countLine } from './mediaCount';
@@ -67,6 +69,7 @@ function columns(units: UnitSystem): { head: string; cls?: string; cell: (r: Fla
 		{ head: short('focusDistance'), cls: 'n', cell: (r) => range(length(r.take.focusDistance, units), length(r.take.focusDistanceEnd, units)) },
 		{ head: short('lensHeight'), cls: 'n', cell: (r) => range(length(r.take.lensHeight, units), length(r.take.lensHeightEnd, units)) },
 		{ head: short('tilt'), cls: 'n', cell: (r) => range(signed(r.take.tilt), signed(r.take.tiltEnd)) },
+		{ head: short('cameraMount'), cell: (r) => rigLabel(r.take.cameraMount, tk) },
 		{ head: short('isoSpeed'), cls: 'n', cell: (r) => (r.take.isoSpeed === undefined ? '' : String(r.take.isoSpeed)) },
 		{ head: short('whiteBalance'), cls: 'n', cell: (r) => (r.take.whiteBalance === undefined ? '' : `${r.take.whiteBalance}K`) },
 		{ head: short('shutterAngle'), cls: 'n', cell: (r) => (r.take.shutterAngle === undefined ? '' : `${r.take.shutterAngle}°`) },
@@ -127,6 +130,52 @@ function slateBlock(block: DayReportSlate, cols: readonly Column[]): string {
 	return `<section class="slate${block.takes.length <= KEEP_TOGETHER ? ' keep' : ''}" data-slate="${e(s.slateUID)}"><div class="slate-head"><h2>${e(t('wrap.report.slate', { slate: s.slateUID ?? '' }))}</h2><span class="about">${e(about.join(' · '))}</span></div>${s.description ? `<p class="desc">${e(s.description)}</p>` : ''}${facts ? `<p class="facts">${facts}</p>` : ''}${cams ? `<p class="cams">${cams}</p>` : ''}${refs}${s.notes ? `<p class="snotes">${e(s.notes)}</p>` : ''}${table}</section>`;
 }
 
+// ---------- The lens timeline (#137) ----------
+
+const bodyName = (c: LensRun['camera']) => [c?.cameraMake, c?.cameraModel].filter(Boolean).join(' ');
+const lensName = (l: LensRun['lens']) => (l ? (l.lensModel ?? [l.lensMake, l.focalLength ? `${l.focalLength} mm` : ''].filter(Boolean).join(' ')) : t('wrap.report.timeline.noLens'));
+
+/** "A to B", or "A" alone when both ends are the same or one is missing. */
+function span(first: string | undefined, last: string | undefined): string {
+	if (!first || !last || first === last) return first ?? last ?? '';
+	return t('wrap.report.timeline.range', { first, last });
+}
+
+const takeName = (r: LensRun['rows'][number]) => t('wrap.report.timeline.take', { slate: r.slate.slateUID ?? '', take: r.take.take ?? '' });
+
+/** The timeline's columns: header and cell. */
+const TIMELINE: { key: string; cls?: string; cell: (run: LensRun, header: TimelineCamera) => string }[] = [
+	{ key: 'takes', cls: 'n', cell: (r) => span(takeName(r.rows[0]), takeName(r.rows[r.rows.length - 1])) },
+	{ key: 'clips', cls: 'n', cell: (r) => span(r.clips?.first, r.clips?.last) },
+	{ key: 'timecode', cls: 'n', cell: (r) => span(r.timecode?.start, r.timecode?.end) },
+	{
+		key: 'lens',
+		// A body other than the camera's first is named before the lens: it changed during the day.
+		cell: (r, c) => (r.camera?.id !== c.runs[0].camera?.id && r.camera ? `${bodyName(r.camera)} · ${lensName(r.lens)}` : lensName(r.lens))
+	},
+	{
+		key: 'focal',
+		cls: 'n',
+		cell: (r) => (!r.focal ? '' : r.focal.min === r.focal.max ? t('wrap.report.timeline.mm', { mm: r.focal.min }) : t('wrap.report.timeline.mmRange', { min: r.focal.min, max: r.focal.max }))
+	},
+	{ key: 'count', cls: 'n', cell: (r) => String(r.rows.length) }
+];
+
+function timelineBlock(report: DayReport): string {
+	if (!report.timeline.length) return '';
+	// A column no run fills is left out, as in the take table.
+	const cols = TIMELINE.filter((col) => report.timeline.some((c) => c.runs.some((r) => col.cell(r, c) !== '')));
+	const head = `<tr>${cols.map((c) => `<th${c.cls ? ` class="${c.cls}"` : ''}>${e(tk(`wrap.report.timeline.${c.key}`))}</th>`).join('')}</tr>`;
+	const rows = report.timeline
+		.map((c) => {
+			const camera = `<tr class="cam"><td colspan="${cols.length}"><b>${e(c.cameraLetter)}</b> ${e(bodyName(c.runs[0].camera))}</td></tr>`;
+			const runs = c.runs.map((r) => `<tr>${cols.map((col) => `<td${col.cls ? ` class="${col.cls}"` : ''}>${e(col.cell(r, c))}</td>`).join('')}</tr>`).join('');
+			return camera + runs;
+		})
+		.join('');
+	return `<section class="timeline" data-section="timeline"><h2>${e(t('wrap.report.timeline'))}</h2><table><thead>${head}</thead><tbody>${rows}</tbody></table></section>`;
+}
+
 function todoBlock(report: DayReport): string {
 	if (!report.warnings.length) return '';
 	const items = report.warnings
@@ -154,7 +203,7 @@ function dayBlock(report: DayReport, options: ReportOptions, next: boolean): str
 	const rows = report.slates.flatMap((s) => s.takes);
 	const cols = columns(options.units).filter((c) => rows.some((r) => c.cell(r) !== ''));
 	const printed = t('wrap.report.printed', { date: formatDate(`${options.printedAt.getFullYear()}-${String(options.printedAt.getMonth() + 1).padStart(2, '0')}-${String(options.printedAt.getDate()).padStart(2, '0')}`), time: formatTime(options.printedAt.toISOString()) });
-	const body = report.slates.length && report.totals.takes ? report.slates.map((b) => slateBlock(b, cols)).join('') : `<p class="empty" data-empty>${e(t('wrap.report.noTakesDay'))}</p>`;
+	const body = report.slates.length && report.totals.takes ? timelineBlock(report) + report.slates.map((b) => slateBlock(b, cols)).join('') : `<p class="empty" data-empty>${e(t('wrap.report.noTakesDay'))}</p>`;
 	return `<article class="day${next ? ' next' : ''}"><header class="head"><div class="kind">${e(t('wrap.report.kind'))}</div><h1>${e(h.project)}</h1><dl>${meta
 		.filter(([, v]) => v)
 		.map(([k, v]) => `<div><dt>${e(k)}</dt><dd>${e(v)}</dd></div>`)
@@ -204,6 +253,10 @@ export function reportCss(paper: Paper): string {
 .wrap-report td.m { white-space: nowrap; font-weight: 600; font-size: 7.5pt; }
 .wrap-report td.notes { width: 22%; }
 .wrap-report .empty { color: #444; font-style: italic; margin: 4pt 0; }
+.wrap-report .timeline { margin: 0 0 12pt; }
+.wrap-report .timeline h2 { border-bottom: 0.75pt solid #000; padding-bottom: 1.5pt; break-after: avoid; }
+.wrap-report .timeline tr.cam td { font-weight: 600; padding-top: 4pt; border-bottom: 0.75pt solid #000; break-after: avoid; }
+.wrap-report .timeline tr.cam b { font-weight: 700; margin-right: 3pt; }
 .wrap-report .todo { margin-top: 12pt; border-top: 0.75pt solid #000; padding-top: 4pt; break-inside: avoid; }
 .wrap-report .todo ul { margin: 3pt 0 0; padding-left: 12pt; columns: 2; column-gap: 18pt; }
 .wrap-report .todo li { break-inside: avoid; }

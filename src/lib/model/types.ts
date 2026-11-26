@@ -59,6 +59,9 @@ export type Reference = Rec & { slateId: string } & FieldsOf<'reference'>;
 /** A kind of set reference a project added to the built-in ones. Kept on the device. */
 export type ReferenceKind = Rec & { projectId: string; name: string };
 
+/** A rig a project added to the built-in ones (#138), shared as the kinds are. */
+export type Rig = Rec & { projectId: string; name: string };
+
 /**
  * One import of the DIT's clips into a shoot day (#109): what it wrote, take id to field to value,
  * so a later import of the day knows which fields it filled and nobody edited since. Kept on the

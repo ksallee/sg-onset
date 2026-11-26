@@ -14,6 +14,14 @@ describe('valueText', () => {
 		expect(valueText(ref, undefined, 'metric')).toBe('');
 		expect(valueText(ref, [], 'metric')).toBe('');
 	});
+	it('shows a rig by its label, a project rig as typed (#138)', () => {
+		for (const scope of ['take', 'cameraSetup'] as const) {
+			const ref = fieldRef(scope, 'cameraMount')!;
+			expect(valueText(ref, 'hiHat', 'metric')).toBe('Hi-hat');
+			expect(valueText(ref, 'Russian arm', 'metric')).toBe('Russian arm');
+			expect(valueText(ref, undefined, 'metric')).toBe('');
+		}
+	});
 	it('shows nothing for a field with no value', () => {
 		expect(valueText(fieldRef('take', 'tStop')!, undefined, 'metric')).toBe('');
 	});

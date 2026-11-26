@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { CRIF_EXTRA_COLUMNS, CRIF_NEVER_FILLED, crifCsv, crifMissing, crifRecords, exportCrif } from './crif';
 import { flatten } from './selection';
-import { input, kindLabel, s42A, t42A1A, t42A1B } from './testData';
+import { input, kindLabel, rigLabel, s42A, t42A1A, t42A1B } from './testData';
 import { uuidV5 } from './uuid';
 
 const SPEC_HEADER = [
@@ -157,6 +157,20 @@ describe('crifCsv', () => {
 		const names = CRIF_EXTRA_COLUMNS.map((c) => c.name);
 		expect(names.indexOf('Tk Tail')).toBe(names.indexOf('Tk Type') + 1);
 		expect(crifRecords(flatten(shoot), { ...options, extras: false })[0].values['Tk Tail']).toBeUndefined();
+	});
+});
+
+describe('crifRecords: Camera Mount (#138)', () => {
+	it('fills Camera Mount with the take’s rig as the app shows it, a project rig as typed, empty for none', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, cameraMount: 'hiHat' } : t.id === t42A1B.id ? { ...t, cameraMount: 'Russian arm' } : t));
+		const records = crifRecords(flatten(shoot), { ...options, rigLabel });
+		const mount = (id: string) => records.find((r) => r.takeId === id)!.values['Camera Mount'];
+		expect(mount(t42A1A.id)).toBe('Hi-hat');
+		expect(mount(t42A1B.id)).toBe('Russian arm');
+		expect(records.filter((r) => r.takeId !== t42A1A.id && r.takeId !== t42A1B.id).every((r) => r.values['Camera Mount'] === '')).toBe(true);
+		// Without labels, the rig is written as stored.
+		expect(crifRecords(flatten(shoot), options).find((r) => r.takeId === t42A1A.id)!.values['Camera Mount']).toBe('hiHat');
 	});
 });
 

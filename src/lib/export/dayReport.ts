@@ -1,11 +1,12 @@
-// The data of a printable camera report for one shoot day: a header, a block per slate with its
-// camera setups and takes, totals, and what is missing. No rendering: a UI turns it into HTML or
-// PDF. Pure.
+// The data of a printable camera report for one shoot day: a header, the lens timeline per camera
+// (#137), a block per slate with its camera setups and takes, totals, and what is missing. No
+// rendering: a UI turns it into HTML or PDF. Pure.
 
 import { isZoom } from '$lib/model/take';
 import type { MediaCounts } from '$lib/wrap/mediaCount';
 import type { Camera, Lens, LightingSetup, Reference, Slate } from '$lib/model/types';
 import { shownBySlate } from '$lib/references/lighting';
+import { lensTimeline, type TimelineCamera } from './lensTimeline';
 import { flatten, selectSlates, type ExportFilters, type ExportInput, type FlatTake } from './selection';
 
 export type DayReportHeader = {
@@ -50,6 +51,8 @@ export type DayReportWarning = {
 
 export type DayReport = {
 	header: DayReportHeader;
+	/** Per camera, the runs of takes on one lens, from the takes the report shows (#137). */
+	timeline: TimelineCamera[];
 	slates: DayReportSlate[];
 	totals: DayReportTotals & { slates: number };
 	/** In take order, end time first for a take with both. */
@@ -127,6 +130,7 @@ export function dayReport(input: ExportInput, shootDayId: string, filters: Omit<
 		.filter((block) => !takeFilters || block.takes.length > 0);
 	return {
 		header: { project: input.project.name, shootDate: day.shootDate, shootDay: day.shootDay, unit: day.cameraUnit, location: day.location, wrangler: day.wrangler },
+		timeline: lensTimeline(slates.flatMap((block) => block.takes)),
 		slates,
 		totals: { slates: slates.length, ...totals(rows, videos) },
 		warnings: rows.flatMap(warningsOf)

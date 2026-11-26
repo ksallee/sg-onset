@@ -46,8 +46,8 @@ function lastOf(groups: readonly TakeGroup[], setupId: string): Take | undefined
 
 /**
  * A camera's take with number `number`: a copy of its last take (`nextTake`: what belongs to one
- * take is left out), or a new one. The body and the lens come from the setup when it names them:
- * the setup is where a lens swap is made (model decision 2).
+ * take is left out), or a new one. The body, the lens and the rig come from the setup when it names
+ * them: the setup is where a lens swap or a change of rig is made (model decision 2, #138).
  */
 function cameraTake(groups: readonly TakeGroup[], setupId: string, setups: readonly CameraSetup[], slateId: string, number: string, id: string): Take {
 	const last = lastOf(groups, setupId);
@@ -59,7 +59,8 @@ function cameraTake(groups: readonly TakeGroup[], setupId: string, setups: reado
 		take: number,
 		cameraSetupId: setupId === NO_SETUP ? undefined : setupId,
 		cameraId: setup?.cameraId ?? base.cameraId,
-		lensId: setup?.lensId ?? base.lensId
+		lensId: setup?.lensId ?? base.lensId,
+		cameraMount: setup?.cameraMount ?? base.cameraMount
 	});
 }
 

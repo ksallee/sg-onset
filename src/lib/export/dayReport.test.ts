@@ -65,6 +65,20 @@ describe('dayReport', () => {
 		expect(w.some((x) => x.takeId === t42A1A.id)).toBe(false);
 	});
 
+	// #137: the lens timeline of the day, from the takes the report shows.
+	it('gives the day its lens timeline, per camera', () => {
+		const timeline = report()!.timeline;
+		expect(timeline.map((c) => [c.cameraLetter, c.runs.map((r) => [r.lens?.lensModel, r.rows.length])])).toEqual([
+			['A', [['S4/i 32mm', 4]]],
+			['B', [['Optimo 24-290', 2]]]
+		]);
+	});
+
+	it('builds the lens timeline from the filtered takes', () => {
+		const timeline = dayReport(input(), 'd3', { circledOnly: true })!.timeline;
+		expect(timeline.map((c) => [c.cameraLetter, c.runs.map((r) => r.rows.map((x) => x.take.id))])).toEqual([['A', [[t42A1A.id]]]]);
+	});
+
 	it('applies the filters', () => {
 		const r = dayReport(input(), 'd3', { circledOnly: true })!;
 		expect(r.totals.takes).toBe(2);

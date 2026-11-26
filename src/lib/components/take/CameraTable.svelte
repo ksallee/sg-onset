@@ -1,6 +1,6 @@
 <script lang="ts">
 	// The take's numbers for every camera at once: one column per camera setup (letter, camera,
-	// lens), one row per number, its unit once beside its label. The column picked is the one the
+	// lens, and the take's rig after the lens, #138), one row per number, its unit once beside its label. The column picked is the one the
 	// dock types into and a photo goes on. Every number that can be typed sits in a well: tap it to
 	// pick its camera and put it in the keypad. A prime's focal length comes from the lens: no well,
 	// a small lock in the corner, not typed. A small diamond marks a number that changed since the
@@ -9,7 +9,8 @@
 	// moves to and the camera just picked each answer with a little motion (feedback.svelte.ts).
 	import { Lock, Plus } from '@lucide/svelte';
 	import { settings } from '$lib/app/settings.svelte';
-	import { t } from '$lib/i18n/messages';
+	import { rigLabel } from '$lib/gear/rigs';
+	import { t, tk } from '$lib/i18n/messages';
 	import { radioStep } from '$lib/ios/keys';
 	import { slotKey } from '$lib/take/fields';
 	import type { Shoot } from '$lib/take/shoot.svelte';
@@ -71,6 +72,7 @@
 			{@const on = col.id === shoot.setupId}
 			{@const lens = shoot.lensOf(take, col.id)}
 			{@const body = shoot.cameraName(take, col.id)}
+			{@const rig = rigLabel(take?.cameraMount, tk)}
 			{@const name = cameraName(col)}
 			{@const gone = !col.label && !!col.id}
 			<div class="cam" class:on class:off={!take}>
@@ -79,7 +81,7 @@
 					class="head"
 					role="radio"
 					aria-checked={on}
-					aria-label={[name, body, lens?.lensModel].filter(Boolean).join(', ')}
+					aria-label={[name, body, lens?.lensModel, rig].filter(Boolean).join(', ')}
 					tabindex={on ? 0 : -1}
 					onclick={() => shoot.pick(col.id)}
 					onkeydown={(e) => key(e, i)}
@@ -87,7 +89,8 @@
 					<span class="letter" {@attach feedback(() => (on ? col.id : null), PICKED)}>{col.label || '–'}</span>
 					<span class="what">
 						{#if gone}<span class="body gone">{t('take.setup.gone.short')}</span>{:else}<span class="body">{body || '–'}</span>{/if}
-						<span class="lens">{lens?.lensModel ?? ''}</span>
+						<!-- The rig after the lens on one line; a long rig is cut before the lens is. -->
+						<span class="gear"><span class="lens">{lens?.lensModel ?? ''}</span>{#if rig}<span class="rig" class:alone={!lens?.lensModel}>{rig}</span>{/if}</span>
 					</span>
 				</button>
 				{#if !take}
@@ -246,11 +249,34 @@
 		max-width: 100%;
 	}
 	.body,
-	.lens {
+	.lens,
+	.rig {
 		max-width: 100%;
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
+	}
+	.gear {
+		display: flex;
+		justify-content: center;
+		max-width: 100%;
+		min-width: 0;
+		font-size: 12px;
+		line-height: 15px;
+		color: var(--label-2);
+	}
+	.gear .lens {
+		flex: 0 1 auto;
+		min-width: 0;
+	}
+	/* The rig gives way first: the lens is cut only once the rig is down to a few letters. */
+	.rig {
+		flex: 0 1000 auto;
+		min-width: 3.5em;
+	}
+	.rig:not(.alone)::before {
+		content: ' · ';
+		white-space: pre;
 	}
 	.body {
 		font-size: 13px;
@@ -372,7 +398,7 @@
 			gap: 4px;
 			grid-auto-columns: minmax(92px, 1fr);
 		}
-		.lens {
+		.gear {
 			display: none;
 		}
 		.n {

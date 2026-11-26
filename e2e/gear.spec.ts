@@ -58,7 +58,7 @@ test('makes a camera setup and swaps its lens in two taps', async ({ page }) => 
 	await expect(sheet.getByRole('textbox', { name: 'Camera letter' })).toHaveValue('C');
 	await page.getByRole('button', { name: 'Create' }).tap();
 	await expect(detail(page, 'C')).toBeVisible();
-	await expect(page.getByText('Takes already shot keep the camera and lens they were shot with.').first()).toBeVisible();
+	await expect(page.getByText('Takes already shot keep the camera, lens and rig they were shot with.').first()).toBeVisible();
 	await toList(page);
 
 	// Two taps: the lens button, the lens.
@@ -112,6 +112,9 @@ test('moves camera setups by grip, arrow keys and Move Up; one undo each; kept o
 	await page.getByRole('button', { name: 'Move A' }).focus();
 	await page.keyboard.press('ArrowDown');
 	await expect(page.getByRole('status').filter({ hasText: 'A moved to place 2' })).toBeVisible();
+	// The list, read from the store, says the move landed; the notice's fading words may still say
+	// an earlier move's (#143).
+	await expect.poll(() => setupOrder(page)).toEqual(['B', 'A']);
 	await page.reload();
 	await expect.poll(() => setupOrder(page)).toEqual(['B', 'A']);
 });

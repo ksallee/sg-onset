@@ -105,6 +105,9 @@ export const FIELDS = [
 	{ scope: 'cameraSetup', key: 'cameraLabel', type: 'string', labelKey: 'field.cameraSetup.cameraLabel', required: true, names: { crif: 'Camera Letter', omc: 'cameraLabel', otk: 'static.camera.label', ale: { avid: 'Camera', arri: 'Camera_index', silverstack: 'Camera' } } },
 	{ scope: 'cameraSetup', key: 'cameraId', type: 'ref', ref: 'camera', labelKey: 'field.cameraSetup.cameraId' },
 	{ scope: 'cameraSetup', key: 'lensId', type: 'ref', ref: 'lens', labelKey: 'field.cameraSetup.lensId' },
+	// What carries the camera: a built-in key or a rig the project added (lib/gear/rigs.ts), so text,
+	// not an enum. Each new take on the setup gets it, as it gets the lens (#138).
+	{ scope: 'cameraSetup', key: 'cameraMount', type: 'string', labelKey: 'field.cameraSetup.cameraMount', names: { crif: 'Camera Mount' } },
 	// The place of the setup in every list, set by hand. Never a form field: set by moving the setup.
 	{ scope: 'cameraSetup', key: 'order', type: 'integer', labelKey: 'field.cameraSetup.order' },
 
@@ -135,10 +138,12 @@ export const FIELDS = [
 	{ scope: 'take', key: 'noGood', type: 'boolean', labelKey: 'field.take.noGood', carry: false },
 	{ scope: 'take', key: 'notes', type: 'string', labelKey: 'field.take.notes', carry: false, names: { crif: 'Tk Notes', ves: '1.1' } },
 
-	// Take: camera and lens in use
+	// Take: camera, lens and rig in use
 	{ scope: 'take', key: 'cameraSetupId', type: 'ref', ref: 'cameraSetup', labelKey: 'field.take.cameraSetupId' },
 	{ scope: 'take', key: 'cameraId', type: 'ref', ref: 'camera', labelKey: 'field.take.cameraId' },
 	{ scope: 'take', key: 'lensId', type: 'ref', ref: 'lens', labelKey: 'field.take.lensId' },
+	// The rig the take was shot on. A new take gets it from the camera setup (#138).
+	{ scope: 'take', key: 'cameraMount', type: 'string', labelKey: 'field.take.cameraMount', names: { crif: 'Camera Mount' } },
 
 	// Take: lens and position
 	{ scope: 'take', key: 'focalLength', type: 'number', unit: 'mm', labelKey: 'field.take.focalLength', end: true, above: 0, names: { crif: 'Tk Focal Length', crifEnd: 'Tk Focal Length End', omc: 'focalLength', otk: 'static.lens.nominalFocalLength', usd: 'focalLength', ves: '1.4' } },

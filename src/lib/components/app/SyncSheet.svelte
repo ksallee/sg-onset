@@ -1,6 +1,6 @@
 <script lang="ts">
-	// The sync detail: the state and Sync Now, what waits by kind, what needs attention, the VFX
-	// shots to check, the references waiting for Set Reference, the shared lists kept here or waiting,
+	// The sync detail: the state and Sync Now, what waits by kind (the rigs waiting for the Rig field
+	// too), what needs attention, the VFX shots to check, the references waiting for Set Reference, the shared lists kept here or waiting,
 	// the Flow PT project, Notes on Shots, the site's setup, the account, the backup. The work is in
 	// app/sync; this lays it out.
 	import Row from '$lib/components/ios/Row.svelte';

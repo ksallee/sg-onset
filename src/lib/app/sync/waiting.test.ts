@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Entry, Op } from '$lib/outbox/types';
-import { elsewhereCount, splitWaiting, waitingTables, waits } from './waiting';
+import { arrivedFields, elsewhereCount, fieldsHeld, readLacking, splitWaiting, waitingTables, waits, withoutFields, writeLacking } from './waiting';
 
 const entry = (id: string, seq: number, op: Op, extra: Partial<Entry> = {}): Entry => ({ id, seq, op, dependsOn: [], state: 'pending', attempts: 0, createdAt: seq, ...extra });
 const create = (table: string, recordId: string): Op => ({ kind: 'create', table, recordId, fields: {} });
@@ -15,10 +15,11 @@ describe('waitingTables', () => {
 		expect(waitingTables({})).toEqual([]);
 	});
 
-	// #110: templates and reference kinds are JSON on the Project; without its two fields they wait.
-	it('holds templates and reference kinds back on a site without the Project fields', () => {
-		expect(waitingTables({ listsMissing: true })).toEqual(['template', 'referenceKind']);
-		expect(waitingTables({ referencesMissing: true, listsMissing: true })).toEqual(['reference', 'template', 'referenceKind']);
+	// #110: templates, reference kinds and rigs are JSON on the Project; each waits without its field (#138).
+	it('holds back each shared list whose Project field the site lacks', () => {
+		expect(waitingTables({ listsMissing: ['template', 'referenceKind', 'rig'] })).toEqual(['template', 'referenceKind', 'rig']);
+		expect(waitingTables({ referencesMissing: true, listsMissing: ['rig'] })).toEqual(['reference', 'rig']);
+		expect(waitingTables({ listsMissing: [] })).toEqual([]);
 	});
 
 	// A Set Shot is no record on the device: nothing of the queue waits for it.
@@ -65,5 +66,54 @@ describe('elsewhereCount', () => {
 		expect(elsewhereCount(counts(4), undefined, undefined)).toBe(0);
 		expect(elsewhereCount(undefined, undefined, undefined)).toBe(0);
 		expect(elsewhereCount(counts(2), counts(3), counts(1))).toBe(0);
+	});
+});
+
+// Kevin, 2026-11-25 (#138): the Rig is an optional field. On a site without it the rest of each
+// record goes, the rig stays on the device, and once the field is made every rig is sent.
+describe('withoutFields', () => {
+	const fields = ['take.cameraMount'];
+	it('leaves the waiting keys out of a create or an update of their table, and the entry alone otherwise', () => {
+		const made = entry('e1', 1, { kind: 'create', table: 'take', recordId: 't1', fields: { take: '1', cameraMount: 'dolly' } });
+		expect(withoutFields(made, fields).op).toEqual({ kind: 'create', table: 'take', recordId: 't1', fields: { take: '1' } });
+		const edited = entry('e2', 2, { kind: 'update', table: 'take', recordId: 't1', changes: { cameraMount: { base: 'tripod', value: 'dolly' } } });
+		expect(withoutFields(edited, fields).op).toEqual({ kind: 'update', table: 'take', recordId: 't1', changes: {} });
+		const setup = entry('e3', 3, { kind: 'create', table: 'cameraSetup', recordId: 'cs1', fields: { cameraMount: 'dolly' } });
+		expect(withoutFields(setup, fields)).toBe(setup);
+		const plain = entry('e4', 4, { kind: 'update', table: 'take', recordId: 't1', changes: { tStop: { base: 2, value: 4 } } });
+		expect(withoutFields(plain, fields)).toBe(plain);
+		expect(withoutFields(made, [])).toBe(made);
+	});
+});
+
+describe('arrivedFields', () => {
+	it('is the fields the site lacked before and has now', () => {
+		expect(arrivedFields(['take.cameraMount', 'cameraSetup.cameraMount'], ['cameraSetup.cameraMount'])).toEqual(['take.cameraMount']);
+		expect(arrivedFields(['take.cameraMount'], ['take.cameraMount'])).toEqual([]);
+	});
+	it('is none when nothing was kept: a device that never saw the field missing sent every rig', () => {
+		expect(arrivedFields(undefined, [])).toEqual([]);
+	});
+	it('reads what was kept, and nothing from text it cannot read', () => {
+		expect(readLacking(writeLacking(['take.cameraMount']))).toEqual(['take.cameraMount']);
+		expect(readLacking(null)).toBeUndefined();
+		expect(readLacking('{"x":1}')).toBeUndefined();
+		expect(readLacking('[1]')).toBeUndefined();
+		expect(readLacking('not json')).toBeUndefined();
+	});
+});
+
+// Kevin, 2026-11-25 (#138): the sync sheet says rigs wait while the site lacks the Rig and a take or
+// camera setup here holds one.
+describe('fieldsHeld', () => {
+	const rows = { take: [{ id: 't1' }, { id: 't2', cameraMount: 'dolly' }], cameraSetup: [{ id: 'cs1', cameraMount: '' }] };
+	it('is the missing fields a record here holds a value of', () => {
+		expect(fieldsHeld(['take.cameraMount', 'cameraSetup.cameraMount'], rows)).toEqual(['take.cameraMount']);
+		expect(fieldsHeld(['cameraSetup.cameraMount'], rows)).toEqual([]);
+	});
+	it('is none while no field is missing, or no record holds one', () => {
+		expect(fieldsHeld([], rows)).toEqual([]);
+		expect(fieldsHeld(['take.cameraMount'], { take: [{ id: 't1' }] })).toEqual([]);
+		expect(fieldsHeld(['take.cameraMount'], {})).toEqual([]);
 	});
 });

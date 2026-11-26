@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CameraSetup, Take } from '$lib/model/types';
 import { validateRecord } from '$lib/model/validate';
-import { blankSetup, moveSetup, nextSetupLabel, pickerList, pushPick, recentIds, setupLabelTaken, setupsUsing, sortSetups } from './setups';
+import { blankSetup, movePatch, moveSetup, nextSetupLabel, pickerList, pushPick, recentIds, setupLabelTaken, setupsUsing, sortSetups } from './setups';
 
 const setup = (id: string, cameraLabel: string, rest: Partial<CameraSetup> = {}): CameraSetup => ({ id, projectId: 'p', cameraLabel, ...rest });
 
@@ -23,6 +23,20 @@ describe('sortSetups', () => {
 	});
 	it('breaks a tie in the order by the rule', () => {
 		expect(sortSetups([setup('1', 'B', { order: 1 }), setup('2', 'A', { order: 1 })]).map((s) => s.cameraLabel)).toEqual(['A', 'B']);
+	});
+});
+
+// #143: a move is one patch, so the store writes it in one transaction: whole or not at all.
+describe('movePatch', () => {
+	const numbered = [setup('a', 'A', { order: 1 }), setup('b', 'B', { order: 2 }), setup('c', 'C', { order: 3 })];
+	it('sets the order of every setup that moves, in one patch', () => {
+		expect(movePatch(numbered, 'a', 1)).toEqual([
+			{ id: 'b', key: 'order', from: 2, to: 1 },
+			{ id: 'a', key: 'order', from: 1, to: 2 }
+		]);
+	});
+	it('is empty for no move', () => {
+		expect(movePatch(numbered, 'b', 1)).toEqual([]);
 	});
 });
 

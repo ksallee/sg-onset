@@ -1,5 +1,5 @@
 <script lang="ts">
-	// A camera setup in the list: its letter, the camera and the lens it holds. The row opens the
+	// A camera setup in the list: its letter, the camera, the lens and the rig it holds (#138). The row opens the
 	// setup; the lens button beside it opens the lens picker at once, so a swap is two taps. With
 	// `handle`, a grip at the leading edge moves the setup: drag it, or focus it and press the up
 	// and down arrow keys. The list does the moving; the row only shows where it is (`offset`). With
@@ -12,6 +12,7 @@
 		label,
 		line,
 		lensName,
+		rig = '',
 		lens,
 		selected = false,
 		chevron = false,
@@ -28,6 +29,8 @@
 		line: string;
 		/** The lens it holds, in full. */
 		lensName: string;
+		/** Its rig as the app shows it; empty for none (#138). */
+		rig?: string;
 		/** The lens's short name on the button: its focal length, or its model. */
 		lens: string;
 		selected?: boolean;
@@ -78,6 +81,7 @@
 				<span class="title">{label}</span>
 				<span class="subtitle">{line}</span>
 				<span class="subtitle">{lensName}</span>
+				{#if rig}<span class="subtitle">{rig}</span>{/if}
 			</span>
 		</button>
 		<button type="button" class="lens" onclick={onlens} aria-label={t('gear.setup.swap', { setup: label })}>
@@ -225,7 +229,7 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	/* A long camera or lens name wraps to a second line before it is cut. */
+	/* A long camera, lens or rig name wraps to a second line before it is cut. */
 	.subtitle {
 		display: -webkit-box;
 		-webkit-box-orient: vertical;

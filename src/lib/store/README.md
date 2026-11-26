@@ -8,7 +8,7 @@ interface. The implementation here is IndexedDB through Dexie. A Capacitor store
 | module | pure | what it does |
 |---|---|---|
 | `types.ts` | types | `Store`, `BlobMeta`, `StorageStatus`, `BackupSource`, `BackupTarget`. |
-| `tables.ts` | yes | The tables, from the model: one per scope, `still`, `template`, `referenceKind`, `markup` and `diagram`. Parent keys, link keys, `dependsOn`, `LOCAL_TABLES`. |
+| `tables.ts` | yes | The tables, from the model: one per scope, `still`, `template`, `referenceKind`, `markup`, `diagram`, `clipImport` and `rig`. Parent keys, link keys, `dependsOn`, `LOCAL_TABLES`. |
 | `schema.ts` | yes | The IndexedDB schema by version. How to add a version. |
 | `storage.ts` | yes | `storageStatus`, `prunable`, `BLOB_KEEP_MS`. |
 | `dexieStore.ts` | no | `openStore`: the `Store` on Dexie. |
@@ -50,6 +50,7 @@ interface Store {
 	retry(entryId): Promise<void>;
 	remoteId(id): Promise<RemoteId | undefined>;
 	reconcile(table, users, plan): Promise<Plan>;
+	refill(table, key): Promise<void>;
 	snapshots: Snapshots;
 
 	subscribe(listener: (event: { tables: readonly string[] }) => void): () => void;
@@ -68,6 +69,9 @@ interface Store {
   the trash, hands them to the plan (pure, `app/sync/shared.ts`), and applies it. Records put,
   changed or removed so are not queued, and are not on the undo stack: they came from Flow PT. Only
   a record sent back, or one Flow PT never had, gets a create queued.
+- `refill` runs once a site has an optional field it lacked (#138, app/sync/waiting.ts), in one
+  transaction: the key leaves every unsent update of the table, and each record holding a value
+  gets an update of it from no value queued. The records are not changed.
 - Reads are plain promises. `subscribe` fires after each committed change with the names of the
   tables touched, plus `outbox`, `blobs`, `trash`, `snapshots`, `meta`. The UI wraps it in runes.
 - `persist()` asks through `$lib/pwa/persist`. `storage()` gives `persisted`, `usage`, `quota`,
@@ -87,13 +91,15 @@ store.subscribe((e) => e.tables.includes('outbox') && sync.kick());
 ## Tables
 
 - One per scope (`project`, `shootDay`, `lightingSetup`, `cameraSetup`, `slate`, `take`,
-  `camera`, `lens`, `reference`), `still`, `template`, `referenceKind`, `markup`, `diagram` and
-  `clipImport`. Key `id`, index on the parent key.
+  `camera`, `lens`, `reference`), `still`, `template`, `referenceKind`, `markup`, `diagram`,
+  `clipImport` and `rig`. Key `id`, index on the parent key.
 - `template`: a live template, under its project (schema version 3). Synced since #110, as JSON on
   the Project (fpt README, "The shared lists"); kept on the device only before.
 - `reference`: a set reference, under its slate (schema version 4). Synced like a take.
 - `referenceKind`: a kind of set reference the project added, `{ id, projectId, name }` (schema
   version 4). Synced as a template is, since #110.
+- `rig`: a rig the project added, `{ id, projectId, name }` (schema version 8, #138). Synced as a
+  kind is.
 - `markup`: the drawing on a photo, under its still (schema version 5, #86). Kept on the device:
   it is in the backup and on the undo stack, and nothing is queued for it (`LOCAL_TABLES`). It
   reaches Flow PT as the still's annotated copy (below).

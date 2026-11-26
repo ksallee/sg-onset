@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { dropUpload, enqueue } from './queue';
+import { dropUpload, enqueue, refillOps, refillQueue } from './queue';
 import { blob, create, del, entry, fresh, update } from './testkit';
-import type { CreateOp, Entry, UpdateOp } from './types';
+import type { CreateOp, Entry, Op, UpdateOp } from './types';
 
 const changes = (e: Entry) => (e.op as UpdateOp).changes;
 
@@ -206,5 +206,34 @@ describe('dropUpload', () => {
 		for (const state of ['inFlight', 'sentUnconfirmed', 'needsAttention'] as const) {
 			expect(dropUpload([entry(blob('p1', 'b1'), { state })], 'b1')).toBeUndefined();
 		}
+	});
+});
+
+const queued = (id: string, seq: number, op: Op, extra: Partial<Entry> = {}): Entry => ({ id, seq, op, dependsOn: [], state: 'pending', attempts: 0, createdAt: seq, ...extra });
+
+// Kevin, 2026-11-25 (#138): once a site has an optional field it lacked, every record that holds a
+// value sends it from no value; an unsent edit of the field leaves the queue.
+describe('refill', () => {
+	it('takes the key out of the unsent updates of its table, drops one left empty, and keeps the rest', () => {
+		const queue = [
+			queued('e1', 1, { kind: 'update', table: 'take', recordId: 't1', changes: { cameraMount: { base: 'tripod', value: 'dolly' } } }),
+			queued('e2', 2, { kind: 'update', table: 'take', recordId: 't2', changes: { cameraMount: { base: undefined, value: 'jib' }, tStop: { base: 2, value: 4 } } }, { state: 'needsAttention' }),
+			queued('e3', 3, { kind: 'update', table: 'cameraSetup', recordId: 'cs1', changes: { cameraMount: { base: undefined, value: 'jib' } } }),
+			queued('e4', 4, { kind: 'create', table: 'take', recordId: 't3', fields: { cameraMount: 'jib' } })
+		];
+		const out = refillQueue(queue, 'take', 'cameraMount');
+		expect(out.map((e) => e.id)).toEqual(['e2', 'e3', 'e4']);
+		expect(out[0].op).toEqual({ kind: 'update', table: 'take', recordId: 't2', changes: { tStop: { base: 2, value: 4 } } });
+		expect(out[1]).toBe(queue[2]);
+		// A create not sent yet carries the record's rig: it goes as it is.
+		expect(out[2]).toBe(queue[3]);
+	});
+
+	it('sends the value of every record that holds one, from no value in Flow PT', () => {
+		const rows = [{ id: 't1', cameraMount: 'dolly' }, { id: 't2' }, { id: 't3', cameraMount: 'Russian arm' }];
+		expect(refillOps('take', 'cameraMount', rows)).toEqual([
+			{ op: { kind: 'update', table: 'take', recordId: 't1', changes: { cameraMount: { base: undefined, value: 'dolly' } } }, dependsOn: [] },
+			{ op: { kind: 'update', table: 'take', recordId: 't3', changes: { cameraMount: { base: undefined, value: 'Russian arm' } } }, dependsOn: [] }
+		]);
 	});
 });

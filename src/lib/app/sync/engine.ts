@@ -33,9 +33,10 @@ import { checkSetup, createFptTransport, readShotCodes, type FptTransport, type 
 import { actionUrl } from '$lib/fpt/actionMenu';
 import { createApi, type FptOptions } from '$lib/fpt/api';
 import { resolutionKey } from '$lib/fpt/cache';
+import type { ListTable } from '$lib/fpt/lists';
 import { DEFAULT_NAMING, type Naming } from '$lib/fpt/naming';
 import { readNamesReview, setUpNames, type NamesOutcome, type NamesReview } from '$lib/fpt/setup';
-import { hasLists, hasNotes, hasScope, missingFields, namingOf, parseResolution } from '$lib/fpt/schema';
+import { hasNotes, hasScope, missingFields, missingLists, namingOf, parseResolution } from '$lib/fpt/schema';
 import { browserEnv, runInForeground, type Foreground, type Page } from '$lib/outbox/foreground';
 import { createRunner, type DrainReport, type Progress, type Runner, type StopReason } from '$lib/outbox/runner';
 import { unsynced, type Unsynced } from '$lib/outbox/select';
@@ -117,8 +118,8 @@ export interface SyncState {
 	notesOnShots: boolean;
 	/** The site is ready, without the Note fields: the Notes on Shots wait for Set Up Fields (#97). */
 	notesMissing?: boolean;
-	/** The site is ready, without the Project fields: templates, reference kinds and rigs wait on the device (#110). */
-	listsMissing?: boolean;
+	/** The shared lists whose Project field the site lacks: they wait on the device (#110). Each follows its own field (#138). */
+	listsMissing?: ListTable[];
 	/**
 	 * The optional fields the site lacks, as `<table>.<key>` (#138): the Rig of Take or Camera Setup.
 	 * Their values stay on the records; the rest syncs (waiting.ts).
@@ -239,7 +240,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 	 */
 	async function readSetup(
 		site: string | null
-	): Promise<{ ready: boolean; setShotsMissing: boolean; referencesMissing: boolean; notesMissing: boolean; listsMissing: boolean; fieldsMissing: string[]; naming: Naming }> {
+	): Promise<{ ready: boolean; setShotsMissing: boolean; referencesMissing: boolean; notesMissing: boolean; listsMissing: ListTable[]; fieldsMissing: string[]; naming: Naming }> {
 		const res = site ? parseResolution(await deps.schemaCache.get(resolutionKey(site)), site) : undefined;
 		const fieldsMissing = res ? missingFields(res) : [];
 		if (site && res) await refillArrived(site, fieldsMissing);
@@ -248,7 +249,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			setShotsMissing: res !== undefined && !hasScope(res, 'setShot'),
 			referencesMissing: res !== undefined && !hasScope(res, 'reference'),
 			notesMissing: res !== undefined && !hasNotes(res),
-			listsMissing: res !== undefined && !hasLists(res),
+			listsMissing: res ? missingLists(res) : [],
 			fieldsMissing,
 			naming: res ? namingOf(res) : DEFAULT_NAMING
 		};

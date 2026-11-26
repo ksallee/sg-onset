@@ -170,6 +170,9 @@ export const sync = {
 	'sync.setShots.waiting': 'Slates waiting',
 	'sync.setShots.footer':
 		'This Flow PT site has no {name} entity. An admin enables a custom entity named {name}, then runs Set Up Fields. Until then the VFX shot codes stay as text on their slates, and their Set Shots and Shot links wait. Everything else syncs.',
+	// The Rig of Take and Camera Setup is optional (#138): while the site lacks it, rigs wait.
+	'sync.rigs.header': 'Rigs',
+	'sync.rigs.waiting': 'Rigs wait until an admin runs Set Up Fields.',
 	'sync.references.header': 'Set References',
 	'sync.references.waiting': 'References waiting',
 	'sync.references.footer':

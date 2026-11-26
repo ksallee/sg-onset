@@ -65,7 +65,8 @@ describe('checkSetup', () => {
 		const report = await check({ createFields: false });
 		expect(report.ready).toBe(true);
 		expect(field(report, 'project', 'sg_onset_templates')).toMatchObject({ status: 'missing' });
-		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.project).toBeUndefined();
+		// Each list follows its own field (#138): the kinds and the rigs sync, the templates wait.
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.project).toEqual({ referenceKinds: 'sg_onset_reference_kinds', rigs: 'sg_onset_rigs' });
 	});
 
 	// Kevin, 2026-11-25 (#138): the Rig is optional. A site without it is ready; Set Up Fields makes it.

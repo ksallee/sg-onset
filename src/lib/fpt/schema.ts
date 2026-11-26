@@ -31,6 +31,7 @@ import {
 } from './mapping';
 import { DEFAULT_NAMING, entityName, entityNames, fieldChoice, parseNaming, sameNaming, type CustomScope, type Naming } from './naming';
 import { codeName, reverseField } from './names';
+import { LIST_TABLES, type ListTable } from './lists';
 import { VERSION } from './versions';
 
 /**
@@ -383,16 +384,22 @@ export type Resolution = {
 	note?: { key: string; captured: string };
 	/**
 	 * The names on the site of the Project fields of the shared lists (#110): the templates, the
-	 * kinds of set reference, and the rigs (#138). Here only once all three are there; until then the
-	 * lists wait on the device.
+	 * kinds of set reference, and the rigs (#138). Each list follows its own field (Kevin,
+	 * 2026-11-25): a field not there is left out, and its list waits on the device.
 	 */
-	project?: { templates: string; referenceKinds: string; rigs: string };
+	project?: ProjectFields;
 	/**
 	 * The names an admin picked that it was resolved with (#111, naming.ts). Absent: the default,
 	 * the names the app always used, as in a resolution kept before names could be picked.
 	 */
 	naming?: Naming;
 };
+
+/** The names of the Project fields of the shared lists, those there (#110, #138). */
+export type ProjectFields = { templates?: string; referenceKinds?: string; rigs?: string };
+
+/** The key of `Resolution.project` that names each list's field. */
+export const LIST_FIELDS: Record<ListTable, keyof ProjectFields> = { template: 'templates', referenceKind: 'referenceKinds', rig: 'rigs' };
 
 /** The fields of an optional scope and the fields that link it, by scope. An optional field of its own (#138) is not among them. */
 function optionalColumns(optional: OptionalScope): { scope: EntityScope; column: Column }[] {
@@ -447,7 +454,11 @@ export function toResolution(site: string, entities: readonly EntityResolution[]
 	const noteOf = (column: Column) => plans.find((p) => p.scope === 'note' && p.column.name === column.name && p.status === 'present')?.name;
 	const [key, captured] = [noteOf(NOTE_KEY), noteOf(NOTE_CAPTURED)];
 	const projectOf = (column: Column) => plans.find((p) => p.scope === 'project' && p.column.name === column.name && p.status === 'present')?.name;
-	const [templates, referenceKinds, rigs] = [projectOf(PROJECT_TEMPLATES), projectOf(PROJECT_KINDS), projectOf(PROJECT_RIGS)];
+	const lists: ProjectFields = {};
+	for (const [key, column] of [['templates', PROJECT_TEMPLATES], ['referenceKinds', PROJECT_KINDS], ['rigs', PROJECT_RIGS]] as const) {
+		const name = projectOf(column);
+		if (name) lists[key] = name;
+	}
 	return {
 		version: 1,
 		site,
@@ -455,7 +466,7 @@ export function toResolution(site: string, entities: readonly EntityResolution[]
 		fields: fields as Resolution['fields'],
 		versionUuid: uuid.name,
 		...(key && captured ? { note: { key, captured } } : {}),
-		...(templates && referenceKinds && rigs ? { project: { templates, referenceKinds, rigs } } : {}),
+		...(Object.keys(lists).length ? { project: lists } : {}),
 		...(sameNaming(naming, DEFAULT_NAMING) ? {} : { naming })
 	};
 }
@@ -470,9 +481,9 @@ export function hasNotes(resolution: Resolution): boolean {
 	return resolution.note !== undefined;
 }
 
-/** Whether the site has the Project fields of the shared lists (#110). */
-export function hasLists(resolution: Resolution): boolean {
-	return resolution.project !== undefined;
+/** The shared lists whose Project field the site lacks (#110, #138): they wait on the device. */
+export function missingLists(resolution: Resolution): ListTable[] {
+	return LIST_TABLES.filter((table) => typeof resolution.project?.[LIST_FIELDS[table]] !== 'string');
 }
 
 /**
@@ -524,9 +535,9 @@ export function parseResolution(raw: string | undefined | null, site: string, na
 	if (r.version !== 1 || r.site !== site || !r.entities || !r.fields || typeof r.versionUuid !== 'string') return undefined;
 	// Without `note`: the Notes on Shots wait, the rest syncs. A `note` kept must name both fields.
 	if (r.note !== undefined && (r.note === null || typeof r.note.key !== 'string' || typeof r.note.captured !== 'string')) return undefined;
-	// Without `project`: the shared lists wait, the rest syncs. A `project` kept must name all three
-	// fields: one kept before the rigs (#138) is read again, to find the third.
-	if (r.project !== undefined && (r.project === null || typeof r.project.templates !== 'string' || typeof r.project.referenceKinds !== 'string' || typeof r.project.rigs !== 'string')) return undefined;
+	// Without `project`, or a field of it: that list waits, the rest syncs. What a `project` kept names
+	// must be names: one kept before the rigs (#138) names two, and is good.
+	if (r.project !== undefined && (r.project === null || typeof r.project !== 'object' || Object.values(r.project).some((v) => typeof v !== 'string'))) return undefined;
 	// Without `naming`: the default names. A `naming` kept must be one, and the one asked for.
 	if (r.naming !== undefined && !parseNaming(r.naming)) return undefined;
 	if (naming !== undefined && !sameNaming(r.naming, naming)) return undefined;

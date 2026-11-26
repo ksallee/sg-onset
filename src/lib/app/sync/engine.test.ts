@@ -1024,18 +1024,37 @@ describe('the shared lists', () => {
 		delete s.fpt.fields.Project.sg_onset_reference_kinds;
 		delete s.fpt.fields.Project.sg_onset_rigs;
 		await lists(s);
-		expect(s.engine.state.listsMissing).toBe(true);
+		expect(s.engine.state.listsMissing).toEqual(['template', 'referenceKind', 'rig']);
 		const left = await s.store.outbox.entries();
 		expect(left.map((e) => e.op.table).sort()).toEqual(['referenceKind', 'rig', 'template']);
 		expect(left.every((e) => e.state === 'pending' && e.attempts === 0)).toBe(true);
 		expect(s.fpt.byUuid('CustomEntity19', 'l1')).toBeDefined();
 
 		expect((await s.engine.check(true))?.ready).toBe(true);
-		expect(s.engine.state.listsMissing).toBe(false);
+		expect(s.engine.state.listsMissing).toEqual([]);
 		await settle(s.engine, s.fpt);
 		expect(await s.store.outbox.entries()).toEqual([]);
 		expect(s.fpt.rows.get(`Project:${s.fptProject}`)!.values.sg_onset_reference_kinds).toContain('Drone scan');
 		expect(s.fpt.rows.get(`Project:${s.fptProject}`)!.values.sg_onset_rigs).toContain('Russian arm');
+	});
+
+	// Kevin, 2026-11-25 (#138): each list follows its own field. A site set up before the rigs keeps
+	// its templates and kinds; only the project's rigs wait, and go once the field is made.
+	it('syncs templates and kinds on a site set up before the rigs, and the rigs once their field is made', async () => {
+		const s = setup();
+		delete s.fpt.fields.Project.sg_onset_rigs;
+		await lists(s);
+		expect(s.engine.state.listsMissing).toEqual(['rig']);
+		const project = () => s.fpt.rows.get(`Project:${s.fptProject}`)!.values;
+		expect(project().sg_onset_reference_kinds).toContain('Drone scan');
+		expect(project().sg_onset_templates).toContain('Day ext');
+		expect((await s.store.outbox.entries()).map((e) => [e.op.table, e.state])).toEqual([['rig', 'pending']]);
+
+		expect((await s.engine.check(true))?.ready).toBe(true);
+		expect(s.engine.state.listsMissing).toEqual([]);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.outbox.entries()).toEqual([]);
+		expect(project().sg_onset_rigs).toContain('Russian arm');
 	});
 });
 

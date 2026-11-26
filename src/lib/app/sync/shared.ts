@@ -161,9 +161,19 @@ function relinks(table: SharedTable, resend: readonly string[], users: Partial<R
 	);
 }
 
-/** How many changes to templates, reference kinds and rigs wait: on a site without the Project fields, all of them. */
-export function listsWaiting(queue: readonly Entry[]): number {
-	return queue.filter((e) => isActive(e) && (e.op.table === 'template' || e.op.table === 'referenceKind' || e.op.table === 'rig')).length;
+/** How many changes to the shared lists in `missing` wait: those whose Project field the site lacks (#110, #138). */
+export function listsWaiting(queue: readonly Entry[], missing: readonly string[]): number {
+	return queue.filter((e) => isActive(e) && missing.includes(e.op.table)).length;
+}
+
+/**
+ * Whether the sync sheet shows its section on the lists that wait: while the templates or the
+ * reference kinds do, as its words name them. A site set up before the rigs lacks only the rigs
+ * field: no section. Such a site lacks the Rig of Take and Camera Setup too, and the sheet's line
+ * on rigs shows while a take or setup holds one (#138).
+ */
+export function listsSection(missing: readonly string[] | undefined): boolean {
+	return !!missing && (missing.includes('template') || missing.includes('referenceKind'));
 }
 
 /** A record removed on another device and kept here, for the sync sheet. */

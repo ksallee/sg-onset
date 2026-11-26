@@ -1928,6 +1928,16 @@ describe('the shared lists', () => {
 		expect((await w.transport.readShared())?.map((t) => t.table)).toEqual(['cameraSetup', 'camera', 'lens', 'lightingSetup', 'referenceKind', 'rig']);
 	});
 
+	// Kevin, 2026-11-25 (#138): each list follows its own field. A site set up before the rigs keeps
+	// its templates and kinds.
+	it('reads and writes the templates and kinds on a site without the rigs field', async () => {
+		const w = world();
+		delete w.fpt.fields.Project.sg_onset_rigs;
+		await applied(w, [create('referenceKind', 'k1', { name: 'Drone scan' })]);
+		expect(listOf(w, 'sg_onset_reference_kinds')).toEqual([{ id: 'k1', name: 'Drone scan' }]);
+		expect((await w.transport.readShared())?.map((t) => t.table)).toEqual(['cameraSetup', 'camera', 'lens', 'lightingSetup', 'template', 'referenceKind']);
+	});
+
 	it('answers nothing, and never throws, when the site cannot be asked', async () => {
 		const w = world();
 		w.fpt.online = false;

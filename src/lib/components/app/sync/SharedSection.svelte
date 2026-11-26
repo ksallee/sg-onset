@@ -9,7 +9,7 @@
 	import { live, liveQueue } from '$lib/app/live.svelte';
 	import { useSync } from '$lib/app/sync/controller.svelte';
 	import { changedFields } from '$lib/app/sync/changed';
-	import { listsWaiting, sharedHref, type Kept } from '$lib/app/sync/shared';
+	import { listsSection, listsWaiting, sharedHref, type Kept } from '$lib/app/sync/shared';
 	import { recordTitle } from '$lib/app/titles';
 	import { t, tk } from '$lib/i18n/messages';
 
@@ -17,7 +17,7 @@
 
 	const sync = useSync();
 	const queue = liveQueue();
-	const waiting = $derived(listsWaiting(queue.value));
+	const waiting = $derived(listsWaiting(queue.value, sync.state.listsMissing ?? []));
 	const changed = live<{ table: Kept['table']; id: string; title: string; fields: string; href?: string }[]>(
 		['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind', 'rig'],
 		async (store) => {
@@ -43,7 +43,7 @@
 	);
 </script>
 
-{#if sync.state.listsMissing}
+{#if listsSection(sync.state.listsMissing)}
 	<Section header={t('sync.lists.header')} footer={t('sync.lists.footer')}>
 		<Row title={t('sync.lists.waiting')} detail={String(waiting)} />
 	</Section>

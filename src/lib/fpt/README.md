@@ -371,8 +371,8 @@ the rest, and the Notes wait.
 
 A template's values are in our field form, as on the device: a length in metres, a rational as
 `{num, den}`. Only SG OnSet reads them. Set Up Fields makes the three fields on every site. They
-are optional: a site without all three syncs the rest, and templates, kinds and rigs wait on the
-device.
+are optional, and each list follows its own field (#138): a list whose field the site lacks waits
+on the device, and the rest syncs.
 
 **still** (an Attachment)
 
@@ -735,7 +735,7 @@ app/sync README): `readShared` reads them, nothing else. Slates, takes and refer
 | lenses | Lens | the same |
 | camera setups | Camera Setup | the same; its camera and lens as their client UUIDs, read through the link (findings/138) |
 | lighting setups | Lighting Setup | the same |
-| templates, reference kinds, rigs | the Project's three fields | one search of the Project, the three fields |
+| templates, reference kinds, rigs | the Project's three fields | one search of the Project, the fields the site has |
 
 A row with no client UUID was made in Flow PT, not by a device: it is left out. A read of 40 full
 pages (20,000 rows) is not judged whole, so nothing is judged removed from it. A list whose field
@@ -1108,9 +1108,14 @@ Made by Claude. Kevin can overrule any of them.
       value (the store's `refill`). Records synced while it was missing get their rig that way. A
       device that never saw it missing sends nothing again.
 90. **A project's own rigs are a third shared list, `sg_onset_rigs` on the Project** (#138), beside
-    the templates and the kinds (decisions 68 to 72), and held in the resolution with them: the
-    lists sync once all three fields are there. A resolution kept before the rigs names two fields
-    and is read again.
+    the templates and the kinds (decisions 68 to 72). **Each list follows its own field** (Kevin,
+    2026-11-25): the resolution names the fields that are there (`missingLists` gives the others),
+    and a list whose field is missing waits on the device. A site set up before the rigs keeps
+    syncing its templates and kinds; its rigs go once Set Up Fields makes `sg_onset_rigs`. A
+    resolution kept before the rigs names two fields and stays good. The sync sheet's section on the
+    lists shows while the templates or the kinds wait, as its words name them; a site that lacks
+    only the rigs field lacks the Rig of Take and Camera Setup too, and the sheet's line on rigs
+    says they wait while a take or camera setup holds one.
 
 ## Where FPT did not fit the contract
 

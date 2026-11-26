@@ -52,7 +52,7 @@ import { entityName, sameNaming, type Naming } from './naming';
 import { referenceSlatesWrite, type ReferenceSlates } from './referenceSlates';
 import { slugOf } from './names';
 import { createData, fromRow, onSite, readFields, updateData, uuidField, type Row } from './payload';
-import { fieldName, namingOf, PROJECT as PROJECT_TYPE, type Resolution } from './schema';
+import { fieldName, LIST_FIELDS, namingOf, PROJECT as PROJECT_TYPE, type Resolution } from './schema';
 import { currentNaming, loadResolution } from './setup';
 import { derivedShots, linkIdsOf, missingCodes, setShotData, setShotKey, severalCodes, slateSetShots, type SetShotRow } from './setShots';
 import { matchSetShots, readSetShots, setShotFields, slateLinks, writeSlateLinks, type SetShotFields, type SlateLinks } from './setShotLinks';
@@ -177,9 +177,6 @@ type Denied = 'create' | 'update' | 'delete';
 
 /** The key in `forbidden` of a Project write refused for want of rights: the shared lists wait. */
 const LISTS = 'project:lists';
-
-/** The key of the resolution's Project fields that holds each list (#110, #138). */
-const LIST_FIELD: Record<ListTable, keyof NonNullable<Resolution['project']>> = { template: 'templates', referenceKind: 'referenceKinds', rig: 'rigs' };
 
 const groupBy =<T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> => {
 	const out = new Map<string, T[]>();
@@ -476,7 +473,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	// ------------------------------------------------------------------ the shared lists
 
 	/** The Project field of a list on this site. Undefined: the site lacks the shared lists (#110). */
-	const listField = (res: Resolution, table: ListTable): string | undefined => res.project?.[LIST_FIELD[table]];
+	const listField = (res: Resolution, table: ListTable): string | undefined => res.project?.[LIST_FIELDS[table]];
 
 	/** The lists the Project holds now, by table, in one read. */
 	async function readLists(res: Resolution, tables: readonly ListTable[], signal?: AbortSignal): Promise<Map<ListTable, ListRead>> {

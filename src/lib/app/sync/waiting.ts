@@ -9,11 +9,11 @@ import type { Entry } from '$lib/outbox/types';
 
 /**
  * The tables whose entries wait on the device: the set references', on a site without Set
- * Reference; the templates', the reference kinds' and the rigs', on a site without the Project
- * fields (#110, #138).
+ * Reference; each shared list's, on a site without its Project field (#110): the templates, the
+ * reference kinds, the rigs (#138).
  */
-export function waitingTables(setup: { referencesMissing?: boolean; setShotsMissing?: boolean; listsMissing?: boolean }): string[] {
-	return [...(setup.referencesMissing ? ['reference'] : []), ...(setup.listsMissing ? ['template', 'referenceKind', 'rig'] : [])];
+export function waitingTables(setup: { referencesMissing?: boolean; setShotsMissing?: boolean; listsMissing?: readonly string[] }): string[] {
+	return [...(setup.referencesMissing ? ['reference'] : []), ...(setup.listsMissing ?? [])];
 }
 
 /** Whether an entry waits for an entity the site lacks. */
@@ -76,4 +76,12 @@ export function readLacking(raw: string | null | undefined): string[] | undefine
 	} catch {
 		return undefined;
 	}
+}
+
+/** The fields the site lacks that a record here holds a value of: what the sync sheet says waits (#138). */
+export function fieldsHeld(missing: readonly string[], rows: Partial<Record<string, readonly Record<string, unknown>[]>>): string[] {
+	return missing.filter((field) => {
+		const [table, key] = field.split('.');
+		return (rows[table] ?? []).some((r) => r[key] !== undefined && r[key] !== null && r[key] !== '');
+	});
 }

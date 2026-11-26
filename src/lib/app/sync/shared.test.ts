@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { create, del, entry, update } from '$lib/outbox/testkit';
 import type { Entry, EntryState } from '$lib/outbox/types';
-import { keepKept, listsWaiting, mergeShared, sharedHref, usedIds, USERS, type LocalState, type PulledTable } from './shared';
+import { keepKept, listsSection, listsWaiting, mergeShared, sharedHref, usedIds, USERS, type LocalState, type PulledTable } from './shared';
 
 const P = 'p1';
 const KEYS = ['lensMake', 'lensModel', 'lensSerialNumber', 'focalLength', 'focalLengthMax', 'anamorphicSqueeze'];
@@ -257,7 +257,7 @@ describe('mergeShared: the lists Flow PT has no entity for', () => {
 });
 
 describe('listsWaiting', () => {
-	it('counts the changes to templates, reference kinds and rigs not yet confirmed', () => {
+	it('counts the changes to the lists that wait, not yet confirmed', () => {
 		const queue = [
 			pending(create('template', 'tp1')),
 			pending(update('referenceKind', 'k1', { name: ['a', 'b'] }), 'needsAttention'),
@@ -265,7 +265,20 @@ describe('listsWaiting', () => {
 			pending(create('lens', 'l1')),
 			pending(del('template', 'tp2'), 'confirmed')
 		];
-		expect(listsWaiting(queue)).toBe(3);
+		expect(listsWaiting(queue, ['template', 'referenceKind', 'rig'])).toBe(3);
+		// Each list follows its own field (#138).
+		expect(listsWaiting(queue, ['rig'])).toBe(1);
+		expect(listsWaiting(queue, [])).toBe(0);
+	});
+
+	// The section names templates and reference kinds; a site that lacks only the rigs field shows
+	// none (#138).
+	it('shows the lists section while the templates or the reference kinds wait', () => {
+		expect(listsSection(['template', 'referenceKind', 'rig'])).toBe(true);
+		expect(listsSection(['referenceKind'])).toBe(true);
+		expect(listsSection(['rig'])).toBe(false);
+		expect(listsSection([])).toBe(false);
+		expect(listsSection(undefined)).toBe(false);
 	});
 });
 

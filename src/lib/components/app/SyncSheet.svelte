@@ -1,6 +1,6 @@
 <script lang="ts">
 	// The sync detail: the state and Sync Now, what waits by kind, what needs attention, the VFX
-	// shots to check, the references waiting for Set Reference, the shared lists kept here or waiting,
+	// shots to check, the references waiting for Set Reference, the rigs waiting for the Rig field, the shared lists kept here or waiting,
 	// the Flow PT project, Notes on Shots, the site's setup, the account, the backup. The work is in
 	// app/sync; this lays it out.
 	import Row from '$lib/components/ios/Row.svelte';
@@ -20,6 +20,7 @@
 	import NotesSection from './sync/NotesSection.svelte';
 	import PrototypeNote from './sync/PrototypeNote.svelte';
 	import QueueSections from './sync/QueueSections.svelte';
+	import RigSection from './sync/RigSection.svelte';
 	import SetupSections from './sync/SetupSections.svelte';
 	import SharedSection from './sync/SharedSection.svelte';
 	import ShotSection from './sync/ShotSection.svelte';
@@ -66,6 +67,8 @@
 			<Row title={t('sync.references.waiting')} detail={String(sync.state.waiting?.records ?? 0)} />
 		</Section>
 	{/if}
+
+	<RigSection />
 
 	<SharedSection onnavigate={() => (open = false)} />
 

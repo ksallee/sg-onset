@@ -24,7 +24,7 @@
 	import { sortCameras, sortLenses } from '$lib/gear/list';
 	import { cameraTitle, gearTitle, lensTitle, type GearScope } from '$lib/gear/names';
 	import { duplicateGear, formSelection, parseSelection, type Selection } from '$lib/gear/records';
-	import { moveSetup, setupsUsing, sortSetups } from '$lib/gear/setups';
+	import { movePatch, setupsUsing, sortSetups } from '$lib/gear/setups';
 	import { shootsWith } from '$lib/gear/shooting';
 	import { shooting } from '$lib/gear/shooting.svelte';
 	import GearDetail from './GearDetail.svelte';
@@ -140,14 +140,12 @@
 		});
 		select(undefined);
 	}
-	/** Moves a setup to an index of the sorted list: every order that changes, as one edit. */
+	/** Moves a setup to an index of the sorted list: every order that changes, as one edit in one write (#143). */
 	async function move(setup: CameraSetup, to: number) {
-		const changes = moveSetup(setups, setup.id, to);
-		if (!changes.length) return;
+		const patch = movePatch(setups, setup.id, to);
+		if (!patch.length) return;
 		const place = Math.max(0, Math.min(to, setups.length - 1)) + 1;
-		await app.edit.group({ key: 'gear.edit.moved', params: { setup: setup.cameraLabel ?? '', n: place } }, async () => {
-			for (const change of changes) await app.edit.set('cameraSetup', change.setup, 'order', change.order);
-		});
+		await app.edit.apply('cameraSetup', patch, { key: 'gear.edit.moved', params: { setup: setup.cameraLabel ?? '', n: place } });
 	}
 	async function removeSetup(setup: CameraSetup) {
 		await app.edit.remove('cameraSetup', setup.id, { key: 'edit.removed', params: { what: `${tk('scope.cameraSetup')} ${setup.cameraLabel ?? ''}` } });

@@ -112,6 +112,9 @@ test('moves camera setups by grip, arrow keys and Move Up; one undo each; kept o
 	await page.getByRole('button', { name: 'Move A' }).focus();
 	await page.keyboard.press('ArrowDown');
 	await expect(page.getByRole('status').filter({ hasText: 'A moved to place 2' })).toBeVisible();
+	// The list, read from the store, says the move landed; the notice's fading words may still say
+	// an earlier move's (#143).
+	await expect.poll(() => setupOrder(page)).toEqual(['B', 'A']);
 	await page.reload();
 	await expect.poll(() => setupOrder(page)).toEqual(['B', 'A']);
 });

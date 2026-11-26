@@ -4,6 +4,7 @@
 // A setup holds a body and a lens for the takes to come. A take holds its own `cameraId` and
 // `lensId` (model decision 2): changing a setup never rewrites a take already shot.
 
+import { change, type Patch } from '$lib/model/patch';
 import type { CameraSetup, Take } from '$lib/model/types';
 
 const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
@@ -43,6 +44,14 @@ export function moveSetup(setups: readonly CameraSetup[], id: string, to: number
 	const [moving] = sorted.splice(from, 1);
 	sorted.splice(Math.max(0, Math.min(to, sorted.length)), 0, moving);
 	return sorted.map((setup, i) => ({ setup, order: i + 1 })).filter((c) => c.setup.order !== c.order);
+}
+
+/**
+ * The same move as one patch (#143): the store writes a patch in one transaction, so a move lands
+ * whole or not at all, and two setups never share a place after a reload in the middle of one.
+ */
+export function movePatch(setups: readonly CameraSetup[], id: string, to: number): Patch {
+	return moveSetup(setups, id, to).map((c) => change(c.setup, 'order', c.order));
 }
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';

@@ -507,6 +507,26 @@ describe('reconcile', () => {
 	});
 });
 
+// Kevin, 2026-11-25 (#138): once a site has an optional field it lacked, every record that holds a
+// value sends it, and an unsent edit of the field leaves the queue: its base was never in Flow PT.
+describe('refill', () => {
+	it('queues the value of each record that holds one, after taking the key out of unsent updates', async () => {
+		const s = setup();
+		await s.store.create('project', { id: 'p1', name: 'Show' });
+		await s.store.create('cameraSetup', { id: 'cs1', projectId: 'p1', cameraLabel: 'A', cameraMount: 'tripod' });
+		await s.store.create('cameraSetup', { id: 'cs2', projectId: 'p1', cameraLabel: 'B' });
+		await confirmAll(s);
+		await s.store.apply('cameraSetup', [{ id: 'cs1', key: 'cameraMount', from: 'tripod', to: 'dolly' }]);
+		await s.store.apply('cameraSetup', [{ id: 'cs2', key: 'cameraLabel', from: 'B', to: 'C' }]);
+		await s.store.refill('cameraSetup', 'cameraMount');
+		const queue = await s.store.outbox.entries();
+		expect(kinds(queue)).toEqual(['update cs2', 'update cs1']);
+		expect(queue[1].op).toEqual({ kind: 'update', table: 'cameraSetup', recordId: 'cs1', changes: { cameraMount: { base: undefined, value: 'dolly' } } });
+		// The records are as they were.
+		expect((await s.store.get('cameraSetup', 'cs1'))!.cameraMount).toBe('dolly');
+	});
+});
+
 describe('files', () => {
 	async function withPhoto(s: S) {
 		await shoot(s);

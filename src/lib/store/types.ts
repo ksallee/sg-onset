@@ -143,6 +143,12 @@ export interface Store {
 	 * only for `resend` and `push`. Returns the plan.
 	 */
 	reconcile<P extends ReconcilePlan>(table: TableName, users: readonly TableName[], plan: (state: ReconcileState) => P): Promise<P>;
+	/**
+	 * An optional field a site lacked is there now (#138, app/sync/waiting.ts): the key leaves every
+	 * unsent update of the table, and an update of it, from no value, is queued for each record that
+	 * holds a value. One transaction.
+	 */
+	refill(table: TableName, key: string): Promise<void>;
 
 	/** Rolling snapshots of the whole store but the photo bytes: `snapshots/`. */
 	snapshots: Snapshots;

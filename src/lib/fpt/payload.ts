@@ -9,7 +9,7 @@ import { rigFromFlowPt, rigToFlowPt } from '$lib/gear/rigs';
 import type { FieldEdit, RemoteId } from '$lib/outbox/types';
 import { readValue, writeValue } from './convert';
 import { CREATED_AT, fieldMap, UUID, type Column, type EntityScope, type FieldMap, type Target } from './mapping';
-import { fieldName, type Resolution } from './schema';
+import { fieldName, hasField, type Resolution } from './schema';
 
 export type Built = { ok: true; data: Record<string, unknown> } | { ok: false; message: string };
 
@@ -55,7 +55,13 @@ function linkOf(resolution: Resolution, map: FieldMap, value: unknown, links: Re
 const outward = (map: FieldMap, value: unknown) => (map.key === 'cameraMount' && typeof value === 'string' ? rigToFlowPt(value) : value);
 const inward = (map: FieldMap, value: unknown) => (map.key === 'cameraMount' && typeof value === 'string' ? rigFromFlowPt(value) : value);
 
+/** Whether the site has every field of a key: an optional field it lacks (#138) leaves the key out, its value waiting on the device. */
+export function onSite(resolution: Resolution, map: FieldMap): boolean {
+	return map.columns.every((column) => hasField(resolution, map.scope, column));
+}
+
 function put(resolution: Resolution, data: Record<string, unknown>, map: FieldMap, value: unknown, links: Record<string, RemoteId>, projectId: number, clear: boolean): void {
+	if (!onSite(resolution, map)) return;
 	const name = (column: Column) => fieldName(resolution, map.scope, column);
 	if (map.kind === 'ref') {
 		const link = linkOf(resolution, map, value, links, projectId);
@@ -145,7 +151,7 @@ export function readFields(resolution: Resolution, scope: EntityScope, keys: rea
 	const out: string[] = [];
 	for (const key of keys) {
 		const map = fieldMap(scope, key);
-		if (!map) continue;
+		if (!map || !onSite(resolution, map)) continue;
 		for (const column of map.columns) out.push(fieldName(resolution, scope, column));
 		if (map.kind === 'ref') {
 			const path = uuidPath(resolution, scope, map.columns[0]);
@@ -165,7 +171,7 @@ export function fromRow(resolution: Resolution, scope: EntityScope, row: Row, ke
 	const attributes = row.attributes ?? {};
 	for (const key of keys) {
 		const map = fieldMap(scope, key);
-		if (!map) continue;
+		if (!map || !onSite(resolution, map)) continue;
 		let value: unknown;
 		if (map.kind === 'ref') {
 			// A link is under `relationships`, never `attributes` (field_types/entity.md).

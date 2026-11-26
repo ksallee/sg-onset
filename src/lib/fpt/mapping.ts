@@ -62,6 +62,11 @@ export type Column = {
 	readonly target?: Target;
 	/** For the field's description on the site: the unit, or what the field is for. */
 	readonly note?: string;
+	/**
+	 * A field a site may lack and still sync (Kevin, #138): Set Up Fields makes it, but until then
+	 * its values wait on the device (app/sync/waiting.ts) and the rest of the record syncs.
+	 */
+	readonly optional?: true;
 };
 
 /** How a value crosses: see convert.ts. `ref` is a link, resolved in payload.ts. */
@@ -251,6 +256,8 @@ type Override = {
 	/** Display names of the width and the height field of dimensions. */
 	displays?: readonly [string, string];
 	alsoCode?: true;
+	/** The field is optional (`Column.optional`): a site without it syncs the rest. */
+	optional?: true;
 };
 
 /**
@@ -287,8 +294,8 @@ const OVERRIDES: Record<string, Override> = {
 	'take.captureFrameRate': { display: 'Frame Rate' },
 	'take.timecodeStart': { display: 'Timecode In' },
 	'take.timecodeEnd': { display: 'Timecode Out' },
-	// The app's word, as Flow PT shows it. CRIF calls it Camera Mount (#138).
-	'*.cameraMount': { display: 'Rig' },
+	// The app's word, as Flow PT shows it. CRIF calls it Camera Mount. Optional (Kevin, #138).
+	'*.cameraMount': { display: 'Rig', optional: true },
 	'shootDay.cameraUnit': { display: 'Unit' },
 	'lightingSetup.referenceBalls': { display: 'Grey and Chrome Balls' },
 	'lens.focalLengthMax': { display: 'Focal Length Long End' },
@@ -350,12 +357,12 @@ function mapsOf(def: FieldDef): FieldMap[] {
 	const override = OVERRIDES[`${scope}.${def.key}`] ?? OVERRIDES[`*.${def.key}`] ?? {};
 	const kind = KIND[def.type];
 	const note = noteOf(def, kind);
-	const extra = note ? { note } : {};
+	const extra = { ...(note ? { note } : {}), ...(override.optional ? { optional: true as const } : {}) };
 	const rest = { ...(override.alsoCode ? { alsoCode: true as const } : {}), ...(def.infinity ? { infinity: true as const } : {}) };
 
 	const columnsFor = (end: boolean): Column[] => {
 		if (override.stock) return [STOCK[override.stock]];
-		if (kind === 'ref') return [column(displayOf(def.key.replace(/Id$/, '')), 'entity', { target: def.ref as Target })];
+		if (kind === 'ref') return [column(displayOf(def.key.replace(/Id$/, '')), 'entity', { target: def.ref as Target, ...(override.optional ? { optional: true as const } : {}) })];
 		if (kind === 'dimensions') {
 			const dataType = def.unit === 'px' ? 'number' : 'float';
 			const base = override.display ?? displayOf(def.key);
@@ -447,11 +454,11 @@ export function wantedFields(): { place: FieldPlace; column: Column }[] {
 }
 
 /**
- * A field a site may lack and still sync: one of an optional scope, or one that links it. It is
- * made once the entity is there.
+ * A field a site may lack and still sync: one of an optional scope, or one that links it, made once
+ * the entity is there; or an optional field of its own (`Column.optional`, #138).
  */
 export function isOptionalColumn(scope: EntityScope, column: Column): boolean {
-	return isOptionalScope(scope) || (column.target !== undefined && isOptionalScope(column.target));
+	return column.optional === true || isOptionalScope(scope) || (column.target !== undefined && isOptionalScope(column.target));
 }
 
 /** The mapping as rows, for the README and for a person checking it. */

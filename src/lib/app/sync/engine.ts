@@ -35,11 +35,12 @@ import { createApi, type FptOptions } from '$lib/fpt/api';
 import { resolutionKey } from '$lib/fpt/cache';
 import { DEFAULT_NAMING, type Naming } from '$lib/fpt/naming';
 import { readNamesReview, setUpNames, type NamesOutcome, type NamesReview } from '$lib/fpt/setup';
-import { hasLists, hasNotes, hasScope, namingOf, parseResolution } from '$lib/fpt/schema';
+import { hasLists, hasNotes, hasScope, missingFields, namingOf, parseResolution } from '$lib/fpt/schema';
 import { browserEnv, runInForeground, type Foreground, type Page } from '$lib/outbox/foreground';
 import { createRunner, type DrainReport, type Progress, type Runner, type StopReason } from '$lib/outbox/runner';
 import { unsynced, type Unsynced } from '$lib/outbox/select';
 import type { DexieStore } from '$lib/store/dexieStore';
+import type { TableName } from '$lib/store/tables';
 import { syncError, type SyncError } from './errors';
 import { linkOn, linkProblem, type ProjectLink } from './link';
 import { linkStore, type LinkStore } from './links';
@@ -52,10 +53,10 @@ import type { CameraSetup } from '$lib/model/types';
 import { changedKey, markSeen, noteChanged, parseChanged, serializeChanged, type Changed } from './changed';
 import { keepKept, mergeShared, usedIds, USERS, type Kept } from './shared';
 import { CODES_MS, legacyKeys, linkDue, linkItems, mergeSeveral, projectSlates, type Several } from './shots';
-import { splitWaiting, waitingTables } from './waiting';
+import { arrivedFields, readLacking, splitWaiting, waitingTables, writeLacking } from './waiting';
 
 export interface SyncDeps {
-	store: Pick<DexieStore, 'get' | 'list' | 'rows' | 'outbox' | 'remoteId' | 'subscribe' | 'reconcile'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
+	store: Pick<DexieStore, 'get' | 'list' | 'rows' | 'outbox' | 'remoteId' | 'subscribe' | 'reconcile' | 'refill'> & { snapshots: Pick<DexieStore['snapshots'], 'markOffDevice'> };
 	/** The signed-in site, or null. */
 	site(): string | null;
 	/** A live session (`auth.canSync`). */
@@ -118,6 +119,11 @@ export interface SyncState {
 	notesMissing?: boolean;
 	/** The site is ready, without the Project fields: templates, reference kinds and rigs wait on the device (#110). */
 	listsMissing?: boolean;
+	/**
+	 * The optional fields the site lacks, as `<table>.<key>` (#138): the Rig of Take or Camera Setup.
+	 * Their values stay on the records; the rest syncs (waiting.ts).
+	 */
+	fieldsMissing?: string[];
 	/** Records removed on another device and kept here, used or edited here, this session (#110). */
 	kept?: Kept[];
 	/** Changes read back from Flow PT of entries this device uses, not seen yet (#110). Kept on the device. */
@@ -172,6 +178,8 @@ export interface SyncEngine {
 }
 
 const lastKey = (projectId: string) => `last:${projectId}`;
+/** The optional fields a site lacked when this device last read its schema (#138). */
+const lackingKey = (site: string) => `lacking:${site}`;
 
 export function createSyncEngine(deps: SyncDeps): SyncEngine {
 	const links: LinkStore = linkStore(deps.kv);
@@ -231,16 +239,54 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 	 */
 	async function readSetup(
 		site: string | null
-	): Promise<{ ready: boolean; setShotsMissing: boolean; referencesMissing: boolean; notesMissing: boolean; listsMissing: boolean; naming: Naming }> {
+	): Promise<{ ready: boolean; setShotsMissing: boolean; referencesMissing: boolean; notesMissing: boolean; listsMissing: boolean; fieldsMissing: string[]; naming: Naming }> {
 		const res = site ? parseResolution(await deps.schemaCache.get(resolutionKey(site)), site) : undefined;
+		const fieldsMissing = res ? missingFields(res) : [];
+		if (site && res) await refillArrived(site, fieldsMissing);
 		return {
 			ready: res !== undefined,
 			setShotsMissing: res !== undefined && !hasScope(res, 'setShot'),
 			referencesMissing: res !== undefined && !hasScope(res, 'reference'),
 			notesMissing: res !== undefined && !hasNotes(res),
 			listsMissing: res !== undefined && !hasLists(res),
+			fieldsMissing,
 			naming: res ? namingOf(res) : DEFAULT_NAMING
 		};
+	}
+
+	let refilling: Promise<void> = Promise.resolve();
+	/**
+	 * An optional field the site lacked when this device last read its schema, and has now (#138):
+	 * every record holding a value of it sends it, those synced while it was missing too. One at a
+	 * time, so two reads never send twice. What the site lacks now is kept for the next read.
+	 */
+	function refillArrived(site: string, missing: readonly string[]): Promise<void> {
+		refilling = refilling.then(async () => {
+			const before = readLacking(await deps.kv.get(lackingKey(site)));
+			const arrived = arrivedFields(before, missing);
+			// A runner of before strips the field from what it sends: none may run while it is refilled.
+			if (arrived.length) await halt();
+			for (const field of arrived) {
+				const [table, key] = field.split('.') as [TableName, string];
+				await deps.store.refill(table, key);
+			}
+			if (writeLacking(before ?? []) !== writeLacking(missing)) await deps.kv.set(lackingKey(site), writeLacking(missing));
+		});
+		return refilling;
+	}
+
+	/** The drain under way, if any: `halt` waits for it. */
+	let draining: Promise<unknown> | undefined;
+	function track<T>(drain: Promise<T>): Promise<T> {
+		draining = drain;
+		void drain.finally(() => draining === drain && (draining = undefined)).catch(() => undefined);
+		return drain;
+	}
+
+	/** Stops the runner and waits for a drain under way to end: nothing writes the queue after. */
+	async function halt(): Promise<void> {
+		stopRunner();
+		await draining?.catch(() => undefined);
 	}
 
 	function stopRunner(): void {
@@ -396,7 +442,8 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 		const allowed = !disposed && !!projectId && !!site && !!link && ready && deps.canSync();
 		// What waits for an entity the site lacks is kept from the runner: a new runner when that changes.
 		const waits = waitingTables(state);
-		const key = allowed ? `${site}|${projectId}|${link!.projectId}|${waits.join(',')}` : '';
+		const fields = state.fieldsMissing ?? [];
+		const key = allowed ? `${site}|${projectId}|${link!.projectId}|${waits.join(',')}|${fields.join(',')}` : '';
 		if (live && live.key === key) return;
 		stopRunner();
 		if (!allowed) return;
@@ -408,7 +455,7 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			onShots: (results) => recordShots(projectId!, results)
 		});
 		const runner = createRunner({
-			port: withoutWaiting(runScope.port, waits),
+			port: withoutWaiting(runScope.port, waits, fields),
 			transport,
 			env: browserEnv(deps.page),
 			onProgress: (p) => {
@@ -428,24 +475,26 @@ export function createSyncEngine(deps: SyncDeps): SyncEngine {
 			return drain();
 		};
 		const reported = (asked: boolean) =>
-			before()
-				.then(drainAlone)
-				.then(
-					async (report) => {
-						await onReport(projectId!, report);
-						if (report.stopped === 'idle' || report.stopped === 'waiting') {
-							// The references first: the Notes written with the slates read their Slates.
-							await linkReferences(projectId!, transport, asked);
-							await linkSlates(projectId!, transport, asked);
-							await pullShared(projectId!, transport, asked, () => runner.running);
+			track(
+				before()
+					.then(drainAlone)
+					.then(
+						async (report) => {
+							await onReport(projectId!, report);
+							if (report.stopped === 'idle' || report.stopped === 'waiting') {
+								// The references first: the Notes written with the slates read their Slates.
+								await linkReferences(projectId!, transport, asked);
+								await linkSlates(projectId!, transport, asked);
+								await pullShared(projectId!, transport, asked, () => runner.running);
+							}
+							return report;
+						},
+						(error) => {
+							set({ error: syncError(error), phase: 'stopped' });
+							throw error;
 						}
-						return report;
-					},
-					(error) => {
-						set({ error: syncError(error), phase: 'stopped' });
-						throw error;
-					}
-				);
+					)
+			);
 		const reporting: Runner = {
 			drain: () => reported(false),
 			stop: () => runner.stop(),

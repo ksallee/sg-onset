@@ -235,6 +235,18 @@ describe('wantedColumns', () => {
 		expect(isOptionalColumn('slate', SHOTS)).toBe(false);
 	});
 
+	// Kevin, 2026-11-25 (#138): the Rig is an optional field of required entities. A site without it
+	// syncs the rest; the rigs wait on the device.
+	it('makes the Rig of a take and of a camera setup an optional field, and nothing else of theirs', () => {
+		for (const scope of ['take', 'cameraSetup'] as const) {
+			const rig = fieldMap(scope, 'cameraMount')!.columns[0];
+			expect(rig.optional).toBe(true);
+			expect(isOptionalColumn(scope, rig)).toBe(true);
+			expect(wantedColumns(scope).filter((c) => c.optional)).toEqual([rig]);
+		}
+		expect(isOptionalColumn('take', fieldMap('take', 'lensId')!.columns[0])).toBe(false);
+	});
+
 	it('tells the scopes of records on the device from the Set Shot', () => {
 		expect(isRecordScope('slate')).toBe(true);
 		expect(isRecordScope('reference')).toBe(true);

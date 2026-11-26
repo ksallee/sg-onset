@@ -10,7 +10,7 @@ import type { Entry, Queue } from '$lib/outbox/types';
 import type { DexieStore } from '$lib/store/dexieStore';
 import { isTable } from '$lib/store/tables';
 import { entryParent, parentOf, scopedUpdate } from './queue';
-import { waits } from './waiting';
+import { waits, withoutFields } from './waiting';
 
 type ScopeStore = Pick<DexieStore, 'get' | 'rows' | 'outbox'>;
 type Parent = { table: string; id: string };
@@ -80,13 +80,16 @@ export function projectScope(store: ScopeStore, projectId: string): ProjectScope
 /**
  * The outbox without the entries that wait for an entity the site lacks (waiting.ts): the runner
  * drains through it, so they stay in the queue as they are, never sent, never dropped (Kevin, #117).
+ * The keys of an optional field the site lacks (`fields`, #138) are left out of what the runner
+ * sees and writes back: the rest of the record goes, and the value waits on the record itself.
  */
-export function withoutWaiting(port: OutboxPort, tables: readonly string[]): OutboxPort {
-	if (!tables.length) return port;
+export function withoutWaiting(port: OutboxPort, tables: readonly string[], fields: readonly string[] = []): OutboxPort {
+	if (!tables.length && !fields.length) return port;
 	const sendable = (e: Entry) => !waits(e, tables);
+	const seen = (queue: Queue) => queue.map((e) => withoutFields(e, fields));
 	return {
-		entries: async () => (await port.entries()).filter(sendable),
-		update: async (fn) => (await port.update(scopedUpdate(fn, sendable))).filter(sendable),
+		entries: async () => seen((await port.entries()).filter(sendable)),
+		update: async (fn) => seen((await port.update(scopedUpdate((q) => fn(seen(q)), sendable))).filter(sendable)),
 		remoteIds: (ids) => port.remoteIds(ids),
 		blob: (id) => port.blob(id)
 	};

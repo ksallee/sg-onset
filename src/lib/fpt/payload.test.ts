@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createData, fromRow, readFields, updateData } from './payload';
+import type { Resolution } from './schema';
 import { RESOLUTION, STEPPED_ASIDE } from './testkit';
+
+/** The resolution of a site whose `scope` has no Rig field (#138). */
+function withoutRig(res: Resolution, scope: 'take' | 'cameraSetup'): Resolution {
+	const { sg_rig: _r, ...rest } = res.fields[scope];
+	return { ...res, fields: { ...res.fields, [scope]: rest } };
+}
 
 const PROJECT = 70;
 const links = { p1: 70, d1: 11, s1: 21, c1: 31, l1: 41, cs1: 51, ls1: 61 };
@@ -211,6 +218,19 @@ describe('updateData', () => {
 		expect(ok(updateData(RESOLUTION, 'take', { cameraMount: edit(undefined, 'dolly') }, {}, PROJECT))).toEqual({ sg_rig: null });
 	});
 
+	// Kevin, 2026-11-25 (#138): the Rig is optional. On a site without it the rig waits on the
+	// device; the rest of the record is sent. Each entity follows its own field.
+	it('leaves the rig out on a site without the Rig, and sends the rest', () => {
+		const lacking = withoutRig(RESOLUTION, 'take');
+		expect(ok(updateData(lacking, 'take', { cameraMount: edit('steadicam'), tStop: edit(4) }, {}, PROJECT))).toEqual({ sg_t_stop: '4.0' });
+		expect(ok(updateData(lacking, 'take', { cameraMount: edit('steadicam') }, {}, PROJECT))).toEqual({});
+		const made = ok(createData(lacking, 'take', 't1', { slateId: 's1', take: '1', cameraMount: 'steadicam' }, links, PROJECT));
+		expect(made).not.toHaveProperty('sg_rig');
+		expect(made.code).toBe('1');
+		// Camera Setup has its own Rig on this site: it is sent.
+		expect(ok(updateData(lacking, 'cameraSetup', { cameraMount: edit('dolly') }, {}, PROJECT))).toEqual({ sg_rig: 'Dolly' });
+	});
+
 	it('sends the plates at the tail as their keys in one text; none clears it', () => {
 		expect(ok(updateData(RESOLUTION, 'take', { takeTail: edit(['cleanPlate', 'ballsAndChart']) }, {}, PROJECT))).toEqual({ sg_take_tail: 'cleanPlate, ballsAndChart' });
 		expect(ok(updateData(RESOLUTION, 'take', { takeTail: edit(undefined, ['cleanPlate']) }, {}, PROJECT))).toEqual({ sg_take_tail: null });
@@ -303,6 +323,13 @@ describe('fromRow', () => {
 	it('reads a built-in rig back from its label, a project rig as typed', () => {
 		expect(fromRow(RESOLUTION, 'take', { ...row, attributes: { sg_rig: 'Shoulder rig' } }, ['cameraMount'])).toEqual({ cameraMount: 'shoulderRig' });
 		expect(fromRow(RESOLUTION, 'cameraSetup', { ...row, attributes: { sg_rig: 'Russian arm' } }, ['cameraMount'])).toEqual({ cameraMount: 'Russian arm' });
+	});
+
+	it('neither asks for nor reads the rig on a site without the Rig', () => {
+		const lacking = withoutRig(RESOLUTION, 'take');
+		expect(readFields(lacking, 'take', ['cameraMount', 'tStop'])).toEqual(['sg_t_stop']);
+		expect(fromRow(lacking, 'take', { ...row, attributes: { sg_rig: 'Dolly', sg_t_stop: 4 } }, ['cameraMount', 'tStop'])).toEqual({ tStop: 4 });
+		expect(readFields(lacking, 'cameraSetup', ['cameraMount'])).toEqual(['sg_rig']);
 	});
 
 	it('reads the plates at the tail back from their text', () => {

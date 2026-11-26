@@ -7,6 +7,7 @@
 import {
 	ENTITY_SCOPES,
 	ENTITY_TYPES,
+	fieldMaps,
 	isOptionalColumn,
 	isOptionalScope,
 	NOTE_CAPTURED,
@@ -393,9 +394,13 @@ export type Resolution = {
 	naming?: Naming;
 };
 
-/** The fields of an optional scope and the fields that link it, by scope. */
+/** The fields of an optional scope and the fields that link it, by scope. An optional field of its own (#138) is not among them. */
 function optionalColumns(optional: OptionalScope): { scope: EntityScope; column: Column }[] {
-	return ENTITY_SCOPES.flatMap((scope) => wantedColumns(scope).filter((c) => isOptionalColumn(scope, c) && (scope === optional || c.target === optional)).map((column) => ({ scope, column })));
+	return ENTITY_SCOPES.flatMap((scope) =>
+		wantedColumns(scope)
+			.filter((c) => !c.optional && isOptionalColumn(scope, c) && (scope === optional || c.target === optional))
+			.map((column) => ({ scope, column }))
+	);
 }
 
 /**
@@ -416,6 +421,12 @@ export function toResolution(site: string, entities: readonly EntityResolution[]
 		if (isOptionalScope(scope)) continue;
 		fields[scope] = {};
 		for (const column of wantedColumns(scope)) {
+			// An optional field (#138) is named when it is there; until then its values wait.
+			if (column.optional) {
+				const name = nameOf(scope, column);
+				if (name) fields[scope]![column.name] = name;
+				continue;
+			}
 			if (isOptionalColumn(scope, column)) continue;
 			const name = nameOf(scope, column);
 			if (!name) return undefined;
@@ -462,6 +473,22 @@ export function hasNotes(resolution: Resolution): boolean {
 /** Whether the site has the Project fields of the shared lists (#110). */
 export function hasLists(resolution: Resolution): boolean {
 	return resolution.project !== undefined;
+}
+
+/**
+ * The keys whose optional field (#138) the site lacks, as `<scope>.<key>`, in mapping order: what waits on the device (app/sync/waiting.ts). An optional entity the site lacks is not
+ * listed: its records wait whole.
+ */
+export function missingFields(resolution: Resolution): string[] {
+	const fields: Partial<Record<EntityScope, Record<string, string>>> = resolution.fields;
+	const entities: Partial<Record<EntityScope, string>> = resolution.entities;
+	return ENTITY_SCOPES.filter((scope) => typeof entities[scope] === 'string').flatMap((scope) => fieldMaps(scope).filter((m) => m.columns.some((c) => c.optional && typeof fields[scope]?.[c.name] !== 'string')).map((m) => `${scope}.${m.key}`));
+}
+
+/** Whether the site has a mapped field: a stock field always, an optional one once it is made (#138). */
+export function hasField(resolution: Resolution, scope: EntityScope, column: Column): boolean {
+	const fields: Partial<Record<EntityScope, Record<string, string>>> = resolution.fields;
+	return column.stock === true || !column.optional || typeof fields[scope]?.[column.name] === 'string';
 }
 
 /** Whether the site has an optional entity, with its fields and the fields that link it. */

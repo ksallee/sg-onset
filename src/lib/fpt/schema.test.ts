@@ -7,6 +7,7 @@ import {
 	hasLists,
 	hasNotes,
 	hasScope,
+	missingFields,
 	parseResolution,
 	planFields,
 	planSite,
@@ -472,6 +473,32 @@ describe('toResolution', () => {
 		expect(toResolution('s', resolveEntities(SITE), planFields(TYPES, fields, VERSION_DONE))).toBeUndefined();
 		const { Slate: _s, ...rest } = SITE;
 		expect(toResolution('s', resolveEntities(rest), planFields(TYPES, complete(), VERSION_DONE))).toBeUndefined();
+	});
+
+	// Kevin, 2026-11-25 (#138): the Rig is optional. A site without it is ready, and each entity
+	// follows its own field.
+	it('is ready without the Rig on Take or Camera Setup, and names the Rig where it is there', () => {
+		const lacking = complete();
+		delete lacking.take.sg_rig;
+		delete lacking.cameraSetup.sg_rig;
+		const without = toResolution('s', resolveEntities(SITE), planFields(TYPES, lacking, VERSION_DONE))!;
+		expect(without).toBeDefined();
+		expect(without.fields.take.sg_rig).toBeUndefined();
+		expect(missingFields(without)).toEqual(['cameraSetup.cameraMount', 'take.cameraMount']);
+
+		const takeOnly = complete();
+		delete takeOnly.cameraSetup.sg_rig;
+		const half = toResolution('s', resolveEntities(SITE), planFields(TYPES, takeOnly, VERSION_DONE))!;
+		expect(half.fields.take.sg_rig).toBe('sg_rig');
+		expect(half.fields.cameraSetup.sg_rig).toBeUndefined();
+		expect(missingFields(half)).toEqual(['cameraSetup.cameraMount']);
+
+		const whole = toResolution('s', resolveEntities(SITE), planFields(TYPES, complete(), VERSION_DONE))!;
+		expect(whole.fields.take.sg_rig).toBe('sg_rig');
+		expect(missingFields(whole)).toEqual([]);
+		// The cache keeps either.
+		expect(parseResolution(serializeResolution(without), 's')).toEqual(without);
+		expect(parseResolution(serializeResolution(whole), 's')).toEqual(whole);
 	});
 
 	it("is nothing while Version lacks the client UUID, or Version's fields were not read", () => {

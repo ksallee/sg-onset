@@ -68,6 +68,21 @@ describe('checkSetup', () => {
 		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.project).toBeUndefined();
 	});
 
+	// Kevin, 2026-11-25 (#138): the Rig is optional. A site without it is ready; Set Up Fields makes it.
+	it('is ready while Take and Camera Setup lack the Rig, says it is missing, and makes it on Set Up Fields', async () => {
+		const { fpt, cache, check } = world();
+		delete fpt.fields.CustomEntity09.sg_rig;
+		delete fpt.fields.CustomEntity10.sg_rig;
+		const report = await check({ createFields: false });
+		expect(report.ready).toBe(true);
+		expect(field(report, 'take', 'sg_rig')).toMatchObject({ status: 'missing' });
+		expect(field(report, 'cameraSetup', 'sg_rig')).toMatchObject({ status: 'missing' });
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.fields.take.sg_rig).toBeUndefined();
+		const made = await check();
+		expect(field(made, 'take', 'sg_rig')).toMatchObject({ status: 'created', dataType: 'text' });
+		expect(parseResolution(await cache.get(resolutionKey(fpt.site)), fpt.site)?.fields.take.sg_rig).toBe('sg_rig');
+	});
+
 	// Notes on Shots (#97): one Note per Shot, keyed in a unique text field (findings/146).
 	it('creates the key on Note, unique, and the list beside it, and the transport may use them', async () => {
 		const { fpt, cache, check } = world('bare');

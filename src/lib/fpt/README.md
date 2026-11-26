@@ -1091,9 +1091,22 @@ Made by Claude. Kevin can overrule any of them.
     as its English label (`Steadicam`), so people reading the take in Flow PT see words, read back
     to its key, case and outer spaces ignored (Kevin, 2026-11-25); a project rig as typed. Unlike a
     set reference's kind (decision 27), which keeps its key.
-    No list field: a project adds rigs. Like `sg_take_tail` (#108), it is a field every site needs:
-    a site set up before it reads its schema again and is not ready until an admin runs Set Up
-    Fields once more.
+    No list field: a project adds rigs. **It is optional** (Kevin, 2026-11-25): a site without it is
+    ready and syncs the rest. Set Up Fields makes it and the review lists it, like every field. The
+    first optional field of a required entity: `optional: true` in its line of `OVERRIDES` makes the
+    next one. Each entity follows its own field, so Take may have it while Camera Setup does not.
+    - The resolution names it when it is there, and a cache without it stays good. `missingFields`
+      lists what the site lacks as `take.cameraMount`.
+    - The transport never sends, asks for or reads a field the site lacks (`onSite` in payload.ts),
+      and the shared read of camera setups leaves the key out, so the device keeps its own rig.
+    - The app strips the key from what the runner sees (app/sync `withoutWaiting`): the rest of the
+      record goes, the rig stays on the record. Nothing waits in the queue and nothing needs a
+      person.
+    - The device keeps the fields a site lacked when it last read its schema. When one of them is
+      there at a later read (an admin ran Set Up Fields, then a check), the runner stops, each unsent
+      update of the key loses it, and every record holding a value queues an update of it from no
+      value (the store's `refill`). Records synced while it was missing get their rig that way. A
+      device that never saw it missing sends nothing again.
 90. **A project's own rigs are a third shared list, `sg_onset_rigs` on the Project** (#138), beside
     the templates and the kinds (decisions 68 to 72), and held in the resolution with them: the
     lists sync once all three fields are there. A resolution kept before the rigs names two fields

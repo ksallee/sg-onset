@@ -83,3 +83,26 @@ export function dropUpload(queue: Queue, blobId: string): Entry[] | undefined {
 	if (mine.some((e) => !isOpen(e))) return undefined;
 	return queue.filter((e) => !mine.includes(e));
 }
+
+// An optional field a site lacked is there now (#138, app/sync/waiting.ts).
+
+/**
+ * The queue once a field arrived: the key out of every unsent update of its table, an update left
+ * with nothing dropped. Its base is what the device last saw, never what Flow PT held, which was
+ * nothing: the refill sends the record's value instead (`refillOps`). A create goes as it is.
+ */
+export function refillQueue(queue: Queue, table: string, key: string): Entry[] {
+	return queue.flatMap((e) => {
+		const op = e.op;
+		if (op.kind !== 'update' || op.table !== table || !(key in op.changes) || !(isOpen(e) || e.state === 'needsAttention')) return [e];
+		const { [key]: _gone, ...changes } = op.changes;
+		return Object.keys(changes).length ? [{ ...e, op: { ...op, changes } }] : [];
+	});
+}
+
+/** The updates that send each record's value of a field that arrived, from no value in Flow PT. */
+export function refillOps(table: string, key: string, rows: readonly ({ id: string } & Record<string, unknown>)[]): { op: Op; dependsOn: string[] }[] {
+	return rows
+		.filter((r) => r[key] !== undefined && r[key] !== null && r[key] !== '')
+		.map((r) => ({ op: { kind: 'update', table, recordId: r.id, changes: { [key]: { base: undefined, value: r[key] } } }, dependsOn: [] }));
+}

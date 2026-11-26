@@ -50,6 +50,7 @@ interface Store {
 	retry(entryId): Promise<void>;
 	remoteId(id): Promise<RemoteId | undefined>;
 	reconcile(table, users, plan): Promise<Plan>;
+	refill(table, key): Promise<void>;
 	snapshots: Snapshots;
 
 	subscribe(listener: (event: { tables: readonly string[] }) => void): () => void;
@@ -68,6 +69,9 @@ interface Store {
   the trash, hands them to the plan (pure, `app/sync/shared.ts`), and applies it. Records put,
   changed or removed so are not queued, and are not on the undo stack: they came from Flow PT. Only
   a record sent back, or one Flow PT never had, gets a create queued.
+- `refill` runs once a site has an optional field it lacked (#138, app/sync/waiting.ts), in one
+  transaction: the key leaves every unsent update of the table, and each record holding a value
+  gets an update of it from no value queued. The records are not changed.
 - Reads are plain promises. `subscribe` fires after each committed change with the names of the
   tables touched, plus `outbox`, `blobs`, `trash`, `snapshots`, `meta`. The UI wraps it in runes.
 - `persist()` asks through `$lib/pwa/persist`. `storage()` gives `persisted`, `usage`, `quota`,

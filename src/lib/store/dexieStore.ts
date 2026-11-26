@@ -10,7 +10,7 @@ import { sameValue } from '$lib/model/value';
 import { resolveConflict } from '$lib/outbox/conflict';
 import { retry } from '$lib/outbox/machine';
 import { settle, type OutboxPort } from '$lib/outbox/port';
-import { dropUpload, enqueue } from '$lib/outbox/queue';
+import { dropUpload, enqueue, refillOps, refillQueue } from '$lib/outbox/queue';
 import { unsynced } from '$lib/outbox/select';
 import { isActive, isOpen, type Entry, type FieldEdit, type Fresh, type Op, type Queue, type RemoteId } from '$lib/outbox/types';
 import { persistStorage } from '$lib/pwa/persist';
@@ -468,6 +468,16 @@ export function openStore(options: StoreOptions = {}): DexieStore {
 			});
 			if (touched || queued) emit([...(touched ? [name] : []), ...(queued ? ['outbox'] : [])]);
 			return result;
+		},
+
+		async refill(name, key) {
+			let queued = false;
+			await write([name], async () => {
+				const rows = await table<Row>(name).toArray();
+				const { changed } = await editQueue('all', (q) => refillQueue(q, name, key));
+				queued = (await queue(refillOps(name, key, rows))) || changed;
+			});
+			if (queued) emit(['outbox']);
 		},
 
 		subscribe(listener) {

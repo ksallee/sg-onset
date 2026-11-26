@@ -1899,6 +1899,23 @@ describe('the shared lists', () => {
 		expect(w.fpt.requests.slice(writes).every((r) => r.method === 'GET' || r.path.endsWith('/_search'))).toBe(true);
 	});
 
+	// Kevin, 2026-11-25 (#138): the Rig is optional. A site without it syncs the rest: the rig is
+	// neither sent nor read, so the device keeps its own.
+	it('syncs a take and reads a camera setup back on a site without the Rig, leaving the rig out', async () => {
+		const w = world();
+		delete w.fpt.fields.CustomEntity09.sg_rig;
+		delete w.fpt.fields.CustomEntity10.sg_rig;
+		const ids = await shoot(w);
+		await applied(w, [create('take', 't2', { slateId: 's1', take: '2', cameraMount: 'steadicam', tStop: 4 }, { s1: ids.s1 })]);
+		const row = w.fpt.byUuid('CustomEntity09', 't2')!;
+		expect(row.values.sg_t_stop).toBeDefined();
+		expect(row.values).not.toHaveProperty('sg_rig');
+		await applied(w, [create('cameraSetup', 'cs1', { projectId: 'p1', cameraLabel: 'A', cameraMount: 'dolly' }, { p1: w.projectId })]);
+		const setups = (await w.transport.readShared())!.find((t) => t.table === 'cameraSetup')!;
+		expect(setups.keys).not.toContain('cameraMount');
+		expect(setups.records[0].fields).toEqual({ cameraLabel: 'A' });
+	});
+
 	it('reads no list on a site without the Project fields, and leaves out a list it cannot read', async () => {
 		const bare = world();
 		delete bare.fpt.fields.Project.sg_onset_templates;

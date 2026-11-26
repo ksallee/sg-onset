@@ -27,6 +27,9 @@ test('rigs wait on a site without the Rig, the sheet says so, and Set Up Fields 
 	await expect(page.getByRole('button', { name: /^Rig\b/ })).toContainText('Steadicam');
 	await openSheet(page);
 	await expect(waiting(page)).toBeVisible();
+	// In Waiting, by kind, in place of "Nothing is waiting." (Kevin, 2026-11-25).
+	await expect(page.getByText('Nothing is waiting.', { exact: true })).toBeHidden();
+	await expect(page.getByRole('heading', { name: 'Rigs', exact: true })).toHaveCount(0);
 
 	// An admin runs Set Up Fields: the Rig is made, the line goes, the rig is in Flow PT.
 	await page.getByRole('button', { name: 'Set Up Fields' }).first().tap();

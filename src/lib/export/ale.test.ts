@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALE_COLUMNS, exportAle } from './ale';
 import { flatten } from './selection';
-import { input, t42A1A, t42A1B } from './testData';
+import { input, rigLabel, t42A1A, t42A1B } from './testData';
 
 const rows = () => flatten(input());
 const lines = (text: string) => text.split('\n');
@@ -34,6 +34,19 @@ describe('exportAle', () => {
 		expect(t.cell(row('1', 'A'), 'Take Tail')).toBe('Clean Plate, Balls and Chart');
 		expect(t.cell(row('1', 'B'), 'Take Tail')).toBe('');
 		expect(t.head.indexOf('Take Tail')).toBe(t.head.indexOf('Take Type') + 1);
+	});
+
+	it('writes the rig as the app shows it, after the camera angles, empty for none (#138)', () => {
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, cameraMount: 'steadicam' } : t));
+		const t = parse(exportAle(flatten(shoot), { fps: { num: 24, denom: 1 }, withoutTimecode: 'keep', rigLabel }).text);
+		const row = (take: string, cam: string) => t.data.findIndex((_, i) => t.cell(i, 'Take') === take && t.cell(i, 'Camera') === cam && t.cell(i, 'Slate') === '42A');
+		expect(t.cell(row('1', 'A'), 'Rig')).toBe('Steadicam');
+		expect(t.cell(row('1', 'B'), 'Rig')).toBe('');
+		expect(t.head.indexOf('Rig')).toBe(t.head.indexOf('Dutch End') + 1);
+		// Without labels, as stored.
+		const raw = parse(exportAle(flatten(shoot), { fps: { num: 24, denom: 1 }, withoutTimecode: 'keep' }).text);
+		expect(raw.cell(row('1', 'A'), 'Rig')).toBe('steadicam');
 	});
 
 	it('writes the heading block, then Column and Data', () => {

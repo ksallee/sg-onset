@@ -100,6 +100,9 @@ export const ref50: Reference = { id: 'r3', slateId: 's50', kind: 'Drone survey'
 /** The kind labels as the app shows them, for the exports that write words. */
 export const kindLabel = (kind: string) => ({ hdri360: 'HDRI 360', lidarScan: 'Lidar scan' })[kind] ?? kind;
 
+/** The rig labels as the app shows them (#138): a project rig is shown as typed. */
+export const rigLabel = (rig: string) => ({ steadicam: 'Steadicam', hiHat: 'Hi-hat' })[rig] ?? rig;
+
 export function input(): ExportInput {
 	return {
 		project,

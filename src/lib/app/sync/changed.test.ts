@@ -69,5 +69,6 @@ describe('changedFields', () => {
 		expect(changedFields('cameraSetup', ['lensId'])).toBe(tk('field.cameraSetup.lensId'));
 		expect(changedFields('template', ['name', 'values'])).toBe(`${tk('templates.edit.name')}, ${tk('templates.edit.fields')}`);
 		expect(changedFields('referenceKind', ['name'])).toBe(tk('templates.edit.name'));
+		expect(changedFields('rig', ['name'])).toBe(tk('templates.edit.name'));
 	});
 });

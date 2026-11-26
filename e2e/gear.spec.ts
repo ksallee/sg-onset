@@ -58,7 +58,7 @@ test('makes a camera setup and swaps its lens in two taps', async ({ page }) => 
 	await expect(sheet.getByRole('textbox', { name: 'Camera letter' })).toHaveValue('C');
 	await page.getByRole('button', { name: 'Create' }).tap();
 	await expect(detail(page, 'C')).toBeVisible();
-	await expect(page.getByText('Takes already shot keep the camera and lens they were shot with.').first()).toBeVisible();
+	await expect(page.getByText('Takes already shot keep the camera, lens and rig they were shot with.').first()).toBeVisible();
 	await toList(page);
 
 	// Two taps: the lens button, the lens.

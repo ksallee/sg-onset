@@ -51,8 +51,8 @@ import { applyListOps, isListTable, landed, listFields, LIST_KEYS, LIST_TABLES, 
 import { entityName, sameNaming, type Naming } from './naming';
 import { referenceSlatesWrite, type ReferenceSlates } from './referenceSlates';
 import { slugOf } from './names';
-import { createData, fromRow, readFields, updateData, uuidField, type Row } from './payload';
-import { fieldName, namingOf, PROJECT as PROJECT_TYPE, type Resolution } from './schema';
+import { createData, fromRow, onSite, readFields, updateData, uuidField, type Row } from './payload';
+import { fieldName, LIST_FIELDS, namingOf, PROJECT as PROJECT_TYPE, type Resolution } from './schema';
 import { currentNaming, loadResolution } from './setup';
 import { derivedShots, linkIdsOf, missingCodes, setShotData, setShotKey, severalCodes, slateSetShots, type SetShotRow } from './setShots';
 import { matchSetShots, readSetShots, setShotFields, slateLinks, writeSlateLinks, type SetShotFields, type SlateLinks } from './setShotLinks';
@@ -473,7 +473,7 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 	// ------------------------------------------------------------------ the shared lists
 
 	/** The Project field of a list on this site. Undefined: the site lacks the shared lists (#110). */
-	const listField = (res: Resolution, table: ListTable): string | undefined => (table === 'template' ? res.project?.templates : res.project?.referenceKinds);
+	const listField = (res: Resolution, table: ListTable): string | undefined => res.project?.[LIST_FIELDS[table]];
 
 	/** The lists the Project holds now, by table, in one read. */
 	async function readLists(res: Resolution, tables: readonly ListTable[], signal?: AbortSignal): Promise<Map<ListTable, ListRead>> {
@@ -804,10 +804,11 @@ export function createFptTransport(options: FptTransportOptions): FptTransport {
 				const res = await resolved(signal);
 				const out: SharedRead[] = [];
 				for (const scope of SHARED_SCOPES) {
-					// Every key but the project, which is this one: the record is put under the device's.
+					// Every key but the project, which is this one: the record is put under the device's. A key
+					// whose optional field the site lacks (#138) is the device's alone until the field is made.
 					const keys = fieldMaps(scope)
-						.map((m) => m.key)
-						.filter((k) => k !== 'projectId');
+						.filter((m) => m.key !== 'projectId' && onSite(res, m))
+						.map((m) => m.key);
 					const uuid = uuidField(res, scope);
 					const rows = await api.searchAll(res.entities[scope], ['project', 'is', { type: PROJECT_TYPE, id: projectId }], [...new Set([uuid, ...readFields(res, scope, keys)])], signal, SHARED_PAGES);
 					// A row with no client UUID was made in Flow PT, not by a device: not ours to take.

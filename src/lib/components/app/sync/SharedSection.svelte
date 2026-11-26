@@ -1,6 +1,6 @@
 <script lang="ts">
 	// The lists a show shares (#110, app/sync/shared.ts). On a site without the Project fields, the
-	// changes to templates and reference kinds that wait, and what an admin does. Then the entries
+	// changes to templates, reference kinds and rigs that wait, and what an admin does. Then the entries
 	// changed on another device that this device uses, until seen: opening a row marks it seen
 	// (Kevin, #110). Then the records removed on another device and kept here, used or changed here,
 	// this session. A row opens one.
@@ -9,7 +9,7 @@
 	import { live, liveQueue } from '$lib/app/live.svelte';
 	import { useSync } from '$lib/app/sync/controller.svelte';
 	import { changedFields } from '$lib/app/sync/changed';
-	import { listsWaiting, sharedHref, type Kept } from '$lib/app/sync/shared';
+	import { listsSection, listsWaiting, sharedHref, type Kept } from '$lib/app/sync/shared';
 	import { recordTitle } from '$lib/app/titles';
 	import { t, tk } from '$lib/i18n/messages';
 
@@ -17,9 +17,9 @@
 
 	const sync = useSync();
 	const queue = liveQueue();
-	const waiting = $derived(listsWaiting(queue.value));
+	const waiting = $derived(listsWaiting(queue.value, sync.state.listsMissing ?? []));
 	const changed = live<{ table: Kept['table']; id: string; title: string; fields: string; href?: string }[]>(
-		['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind'],
+		['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind', 'rig'],
 		async (store) => {
 			// Read before the first await: the effect then follows it.
 			const list = sync.state.changed;
@@ -31,7 +31,7 @@
 		[]
 	);
 	const kept = live<(Kept & { title: string; href?: string })[]>(
-		['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind'],
+		['camera', 'lens', 'cameraSetup', 'lightingSetup', 'template', 'referenceKind', 'rig'],
 		async (store) => {
 			// Read before the first await: the effect then follows it.
 			const list = sync.state.kept ?? [];
@@ -43,7 +43,7 @@
 	);
 </script>
 
-{#if sync.state.listsMissing}
+{#if listsSection(sync.state.listsMissing)}
 	<Section header={t('sync.lists.header')} footer={t('sync.lists.footer')}>
 		<Row title={t('sync.lists.waiting')} detail={String(waiting)} />
 	</Section>

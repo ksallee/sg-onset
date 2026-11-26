@@ -170,6 +170,8 @@ export const sync = {
 	'sync.setShots.waiting': 'Slates waiting',
 	'sync.setShots.footer':
 		'This Flow PT site has no {name} entity. An admin enables a custom entity named {name}, then runs Set Up Fields. Until then the VFX shot codes stay as text on their slates, and their Set Shots and Shot links wait. Everything else syncs.',
+	// The Rig of Take and Camera Setup is optional (#138): while the site lacks it, rigs wait.
+	'sync.rigs.waiting': 'Rigs wait until an admin runs Set Up Fields.',
 	'sync.references.header': 'Set References',
 	'sync.references.waiting': 'References waiting',
 	'sync.references.footer':
@@ -179,9 +181,9 @@ export const sync = {
 	'sync.refused.update': "This Flow PT account can't change {things}. Ask an Admin for the permission.",
 	'sync.refused.delete': "This Flow PT account can't delete {things}. Ask an Admin for the permission.",
 	'sync.refused.missing': 'This Flow PT site has no {entity} entity yet. Once an admin enables it and runs Set Up Fields, tap Try Again.',
-	'sync.refused.lists': "This Flow PT account can't change the Project, where templates and reference kinds are kept. Ask an Admin for the permission.",
+	'sync.refused.lists': "This Flow PT account can't change the Project, where templates, reference kinds and rigs are kept. Ask an Admin for the permission.",
 	'sync.lists.unreadable': 'The {field} field of the Flow PT project holds text SG OnSet cannot read. An admin empties it in Flow PT. Then tap Try Again.',
-	'sync.lists.missing': 'This Flow PT site has no place yet for templates and reference kinds. An admin runs Set Up Fields.',
+	'sync.lists.missing': 'This Flow PT site has no place yet for templates, reference kinds and rigs. An admin runs Set Up Fields.',
 	'sync.things.shootDay': 'Shoot Days',
 	'sync.things.slate': 'Slates',
 	'sync.things.take': 'Takes',
@@ -201,10 +203,10 @@ export const sync = {
 	'sync.conflict.template.values': 'Fields',
 
 	// The lists a show shares (#110): on a site without the Project fields, and what was kept here.
-	'sync.lists.header': 'Templates and reference kinds',
+	'sync.lists.header': 'Templates, reference kinds and rigs',
 	'sync.lists.waiting': 'Changes waiting',
 	'sync.lists.footer':
-		'This Flow PT site has no place yet for the templates and reference kinds of a project. An admin runs Set Up Fields: it adds two fields to Project. Then Check Setup on each device. Until then they wait on this device. Cameras, lenses and lighting setups are shared already.',
+		'This Flow PT site has no place yet for the templates, reference kinds and rigs of a project. An admin runs Set Up Fields: it adds their fields to Project. Then Check Setup on each device. Until then they wait on this device. Cameras, lenses and lighting setups are shared already.',
 	'sync.changed.header': 'Changed on another device',
 	'sync.changed.fields': 'Changed: {fields}',
 	'sync.changed.footer': 'Entries this device uses that another device changed. Takes keep the values they were shot with. Open one to mark it seen.',

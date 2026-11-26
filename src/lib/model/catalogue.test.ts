@@ -70,6 +70,19 @@ describe('FIELDS', () => {
 		});
 	});
 
+	it('keeps the rig on the camera setup and on the take, as text, as CRIF Camera Mount (#138)', () => {
+		for (const scope of ['cameraSetup', 'take'] as const) {
+			// A project adds its own rigs, so the rig is text, not an enum.
+			expect(findField(scope, 'cameraMount')?.def).toMatchObject({ type: 'string', names: { crif: 'Camera Mount' } });
+			// A take carries it as it carries the lens: the setup gives it to each new take.
+			expect(findField(scope, 'cameraMount')?.def.carry).toBeUndefined();
+		}
+		// Beside the lens, in both scopes.
+		const after = (scope: 'cameraSetup' | 'take') => fieldsOf(scope).map((d) => d.key).indexOf('lensId') + 1;
+		expect(fieldsOf('cameraSetup')[after('cameraSetup')].key).toBe('cameraMount');
+		expect(fieldsOf('take')[after('take')].key).toBe('cameraMount');
+	});
+
 	it('logs a set reference by kind, name, device, card or roll, count and notes, named by its file or folder', () => {
 		expect(fieldsOf('reference').map((d) => d.key)).toEqual(['kind', 'name', 'device', 'cardOrRoll', 'count', 'notes', 'loggedAt']);
 		expect(fieldsOf('reference').filter((d) => d.required).map((d) => d.key)).toEqual(['name']);

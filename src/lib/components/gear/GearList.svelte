@@ -10,10 +10,11 @@
 	import SearchField from '$lib/components/ios/SearchField.svelte';
 	import Section from '$lib/components/ios/Section.svelte';
 	import Tile from '$lib/components/ios/Tile.svelte';
-	import { t } from '$lib/i18n/messages';
+	import { t, tk } from '$lib/i18n/messages';
 	import { searchCameras, searchLenses, searchSetups } from '$lib/gear/list';
 	import { cameraTitle, lensTitle, type GearScope } from '$lib/gear/names';
 	import type { Selection } from '$lib/gear/records';
+	import { rigLabel } from '$lib/gear/rigs';
 	import { cameraLine, focalBadge, focalText, lensLine } from '$lib/gear/text';
 	import type { Camera, CameraSetup, Lens } from '$lib/model/types';
 	import SetupRow from './SetupRow.svelte';
@@ -157,6 +158,7 @@
 					label={setup.cameraLabel ?? ''}
 					line={cameraName(setup)}
 					lensName={lensName(setup)}
+					rig={rigLabel(setup.cameraMount, tk)}
 					lens={lensShort(setup)}
 					selected={isSel('cameraSetup', setup.id)}
 					chevron={!wide}

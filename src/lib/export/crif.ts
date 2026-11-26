@@ -137,6 +137,8 @@ export type CrifOptions = {
 	slateNumbers?: Record<string, number>;
 	/** A kind of set reference as the app shows it. Default: as stored. */
 	kindLabel?: (kind: string) => string;
+	/** A rig as the app shows it (#138). Default: as stored. */
+	rigLabel?: (rig: string) => string;
 	/**
 	 * The ids of the stills whose file is a video (`ExportInput.videos`). CRIF counts photos only
 	 * (Kevin, 2026-11-17, #89): a video is left out of Tk Photos and Set Media. An audio note is
@@ -211,6 +213,7 @@ export function crifRecords(rows: readonly FlatTake[], options: CrifOptions): Cr
 	const length = (l: Length) => (options.lengths === 'metric' ? metresText(l.m) : feetInches(l.m));
 	const tz = options.timeZone;
 	const kindLabel = options.kindLabel ?? ((kind: string) => kind);
+	const rigLabel = options.rigLabel ?? ((rig: string) => rig);
 	const videos = new Set(options.videos ?? []);
 
 	return ordered.map((row) => {
@@ -245,6 +248,8 @@ export function crifRecords(rows: readonly FlatTake[], options: CrifOptions): Cr
 			'Interior Exterior': INT_EXT[slate.interiorExterior ?? ''] ?? '',
 			Wrangler: text(shootDay.wrangler),
 			'Camera Body': text(camera?.cameraMake),
+			// The take's rig (#138). CRIF puts it on the slate; a slate on one camera may change rig between takes.
+			'Camera Mount': take.cameraMount ? text(rigLabel(take.cameraMount)) : '',
 			ASA: num(take.isoSpeed),
 			'HDRI Filename': text(lightingSetup?.hdriFilename),
 			'White Balance': take.whiteBalance === undefined ? '' : `${trimNumber(take.whiteBalance)}K`,

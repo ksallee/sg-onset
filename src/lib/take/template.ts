@@ -1,5 +1,5 @@
 // A take template on the take screen. A take number is one record per camera, so the template is
-// linked to every camera of it. The setup, the body and the lens tell the cameras apart: a
+// linked to every camera of it. The setup, the body, the lens and the rig tell the cameras apart: a
 // template never writes them here, and they never count as changed. Pure.
 
 import type { Patch } from '$lib/model/patch';
@@ -10,7 +10,7 @@ import type { TakeGroup } from './groups';
 type AnyTemplate = { id: string; values: object };
 
 /** What makes a camera's take that camera's. */
-const CAMERA_KEYS = new Set(['cameraSetupId', 'cameraId', 'lensId']);
+const CAMERA_KEYS = new Set(['cameraSetupId', 'cameraId', 'lensId', 'cameraMount']);
 
 /** The template without the camera fields. */
 function shared(template: AnyTemplate): AnyTemplate {

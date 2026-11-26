@@ -20,6 +20,7 @@ import { t, tk } from '$lib/i18n/messages';
 import type { PlainLabels } from '$lib/export/plainCsv';
 import { download } from '$lib/pwa/files';
 import { kindLabel } from '$lib/references/kinds';
+import { rigLabel } from '$lib/gear/rigs';
 import { memorySink, opfsSink, removeExport } from '$lib/store/backup';
 import { packagePlan, type PackageEntry } from './assembly';
 import { defaultChoice, pickedDays, readiness, setSpan, toggleDay, toggleFile, type FileKind, type Span, type TextKind, type WrapChoice } from './choice';
@@ -43,7 +44,8 @@ export const plainLabels: PlainLabels = {
 	yes: t('wrap.yes'),
 	no: t('wrap.no'),
 	references: t('wrap.report.references'),
-	kind: (kind) => kindLabel(kind, tk)
+	kind: (kind) => kindLabel(kind, tk),
+	rig: (rig) => rigLabel(rig, tk)
 };
 
 const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';

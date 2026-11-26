@@ -9,9 +9,10 @@ const op = (entryId: string, o: unknown) => ({ entryId, op: o as RecordOp });
 const dayExt: ListEntry = { id: 'tp1', name: 'Day ext', scope: 'take', values: { tStop: 2.8, focusDistance: { m: 3, entered: '3 m' } } };
 
 describe('isListTable', () => {
-	it('is the templates and the kinds of set reference a project adds', () => {
+	it('is the templates, the kinds of set reference and the rigs a project adds', () => {
 		expect(isListTable('template')).toBe(true);
 		expect(isListTable('referenceKind')).toBe(true);
+		expect(isListTable('rig')).toBe(true);
 		expect(isListTable('lens')).toBe(false);
 	});
 });
@@ -41,6 +42,11 @@ describe('readList and writeList', () => {
 	it('keeps only the keys a list holds: the project is the field’s own', () => {
 		const text = writeList('referenceKind', [{ id: 'k1', name: 'Drone scan', projectId: 'p1' }]);
 		expect(readList('referenceKind', text)).toEqual({ ok: true, entries: [{ id: 'k1', name: 'Drone scan' }] });
+		// A rig is a name, as a kind is (#138).
+		const rigs = writeList('rig', [{ id: 'r1', name: 'Russian arm', projectId: 'p1' }]);
+		expect(JSON.parse(rigs)).toEqual({ list: 'rig', version: LIST_VERSION, entries: [{ id: 'r1', name: 'Russian arm' }] });
+		expect(readList('rig', rigs)).toEqual({ ok: true, entries: [{ id: 'r1', name: 'Russian arm' }] });
+		expect(readList('referenceKind', rigs)).toEqual({ ok: false });
 	});
 	// findings/158: Flow PT strips outer spaces and newlines and keeps the rest byte for byte.
 	it('reads a list another writer formatted, its outer newline stripped, as the same entries', () => {

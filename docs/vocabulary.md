@@ -46,6 +46,7 @@ enforces the parts a test can check.
 | Audio note | | A note spoken into the microphone from the take sheet, kept on the take as the browser wrote it. | `still`, an audio file | | Version, linked to the take |
 | Reference | | One thing captured for the slate on another device, logged by name: an HDRI, a scan, a witness clip. The file stays on that device. An HDRI 360, a 360 video or an HDR reference shows on every slate of the slate's lighting setup. | `reference` | VES 2.1, 4.2, 5.1 | Set Reference, linked to its slate (Slate) and to the slates it shows on (Slates) |
 | Reference kind | | What a reference is: HDRI 360, 360 video, HDR reference, Witness camera, Lidar scan, Textured model, Photogrammetry, Splat, Other, or a kind the project adds. | `reference.kind` | | Kind; the project's own kinds in Onset Reference Kinds on the Project |
+| Rig | | What carries the camera: Handheld, Shoulder rig, Easyrig, Steadicam, Gimbal, Tripod, Hi-hat, Dolly, Slider, Jib, Crane, Technocrane, Car mount, Camera car, Drone, Cable cam, Motion control, Underwater housing, or a rig the project adds. Set on the camera setup; each new take gets it. | `cameraMount` | CRIF Camera Mount | Rig; the project's own rigs in Onset Rigs on the Project |
 | Drawing | | What is drawn over a photo: lines, text and measurements. Kept beside the photo, which stays as taken. | `markup` | | |
 | Annotated copy | | The photo with its drawing on it, one image. Sent to Flow PT and put in the wrap package beside the photo, its name ending "-annotated". | `variant: 'annotated'` | | Photos |
 | Measurement | | A dimension line on a drawing with the length typed for it. | `dimension` | | |
@@ -101,6 +102,7 @@ gives.
 | Camera letter | A, B, C: the letter the crew calls the camera by. | `cameraLabel` | CRIF Camera Letter; OMC cameraLabel; OpenTrackIO static.camera.label; ALE Camera | Name (code) |
 | Camera | The body on this setup. | `cameraId` | | Camera |
 | Lens | The lens on this setup. | `lensId` | | Lens |
+| Rig | What carries the camera on this setup: Steadicam, Dolly, or a rig the project adds. | `cameraMount` | CRIF Camera Mount | Rig |
 | Order | The setup's place in every list, set by moving it. Not a form field. | `order` | | Sort Order |
 
 ### Slate
@@ -148,6 +150,7 @@ gives.
 | Camera setup | Cam | The camera setup this take belongs to. | `cameraSetupId` | | Camera Setup |
 | Camera | | The body used on this take. A new take gets it from the camera setup. | `cameraId` | | Camera |
 | Lens | | The lens used on this take. A new take gets it from the camera setup. | `lensId` | | Lens |
+| Rig | | The rig the take was shot on. A new take gets it from the camera setup. | `cameraMount` | CRIF Camera Mount | Rig |
 | Focal length | Focal | Focal length in mm. | `focalLength` | CRIF Tk Focal Length; OMC focalLength; OpenTrackIO static.lens.nominalFocalLength | Focal Length |
 | T-stop | T-stop | The lens stop, in T. | `tStop` | CRIF Tk Stop; OMC tStop; OpenTrackIO lens.tStop; ALE F-Stop | T-Stop |
 | Focus distance | Focus | Where the lens is focused, in m or ft in, or ∞. | `focusDistance` | CRIF Tk Lens Focus; OMC focusPosition; OpenTrackIO lens.focusDistance | Focus Distance m |
@@ -225,6 +228,8 @@ gives.
 - **Camera roll**, not reel or mag. CRIF "Tk Roll", the VES guide's "Roll, Slate, Take", OMC
   `cameraRoll`, ALE "Camroll". Reel is the editorial and tape word; mag is the physical magazine.
   The short form is Roll.
+- **Rig**, not mount or support (#138). Crews say rig; CRIF's "Camera Mount" is the export column.
+  The model key keeps CRIF's name, `cameraMount`. "Shoulder rig" is one rig; the word stays.
 - **Lens height**, not camera height. CRIF measures the lens, which is what matchmove needs.
 - **Focus distance** in forms, **Focus** in the table. "Focus" alone in a form reads as a yes/no.
 - **Subject distance**: reads in step with focus distance, and is what wranglers write.

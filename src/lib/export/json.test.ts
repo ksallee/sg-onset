@@ -72,6 +72,19 @@ describe('exportJson', () => {
 		expect(Object.keys(ref)).toEqual(['id', 'slateId', 'kind', 'name', 'loggedAt']);
 	});
 
+	// #138: the rig as stored, a built-in key or a project rig as typed, beside the lens.
+	it('keeps the rig of a camera setup and a take as stored, after the lens', () => {
+		const data = input();
+		data.cameraSetups = data.cameraSetups.map((s) => (s.id === camA.id ? { ...s, cameraMount: 'steadicam' } : s));
+		data.takes = data.takes.map((t) => (t.id === t42A1A.id ? { ...t, cameraMount: 'Russian arm' } : t));
+		const out = JSON.parse(exportJson(data, { now }));
+		const setup = out.cameraSetups.find((s: { id: string }) => s.id === camA.id);
+		const take = out.takes.find((t: { id: string }) => t.id === t42A1A.id);
+		expect(setup.cameraMount).toBe('steadicam');
+		expect(take.cameraMount).toBe('Russian arm');
+		expect(Object.keys(take).indexOf('cameraMount')).toBe(Object.keys(take).indexOf('lensId') + 1);
+	});
+
 	it('is the same text whatever order the input comes in', () => {
 		const data = input();
 		const shuffled = { ...data, takes: [...data.takes].reverse(), lenses: [...data.lenses].reverse(), stills: [...data.stills].reverse(), references: [...data.references].reverse() };

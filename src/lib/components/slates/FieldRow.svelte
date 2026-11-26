@@ -1,8 +1,8 @@
 <script lang="ts">
 	// One field of an entry or a template, as a row of a Section, typed as the catalogue says:
 	// text with the system keyboard (numbers get the decimal one) and its unit after it; a switch
-	// for yes or no (or a picker with "Not set" in a template, `tri`); a picker for an option or a
-	// linked entry; a chip per option for a list of options (the plates at a take's tail), each
+	// for yes or no (or a picker with "Not set" in a template, `tri`); a picker for an option, a
+	// linked entry, or text picked from a list (`options`: the rigs, #138); a chip per option for a list of options (the plates at a take's tail), each
 	// on or off with a tap. The text follows the stored value, so an undo shows at once. A typed value is
 	// read and checked (`readField`) when the field is left or Return is pressed: saved when it is
 	// good, the issue said under the row when not. `marker`: the value differs from the template.
@@ -37,7 +37,7 @@
 		field: FieldRef;
 		value: unknown;
 		units: UnitSystem;
-		/** The entries a ref can point at. */
+		/** The entries a ref can point at, or the values a text field is picked from. */
 		options?: { value: string; label: string }[];
 		/** A yes-or-no field that may also be left unset (a template). */
 		tri?: boolean;
@@ -55,7 +55,9 @@
 	const id = $props.id();
 	const def = $derived(field.def);
 	const label = $derived(fieldLabel(def, field.end));
-	const kind = $derived(def.type === 'boolean' ? (tri ? 'pick' : 'switch') : def.type === 'enum' || def.type === 'ref' ? 'pick' : def.type === 'stringList' && def.options ? 'chips' : 'text');
+	const kind = $derived(
+		def.type === 'boolean' ? (tri ? 'pick' : 'switch') : def.type === 'enum' || def.type === 'ref' || (def.type === 'string' && options.length) ? 'pick' : def.type === 'stringList' && def.options ? 'chips' : 'text'
+	);
 	const numeric = $derived(['integer', 'number', 'length', 'rational'].includes(def.type));
 	const unit = $derived(def.unit && def.type !== 'length' ? unitLabel(def.unit) : '');
 

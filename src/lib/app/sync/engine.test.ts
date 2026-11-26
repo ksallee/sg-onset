@@ -901,6 +901,7 @@ describe('the shared lists', () => {
 		await s.edit.create('lightingSetup', { id: 'ls1', projectId: 'p1', label: 'Day ext' });
 		await s.edit.create('template', { id: 'tp1', projectId: 'p1', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } });
 		await s.edit.create('referenceKind', { id: 'k1', projectId: 'p1', name: 'Drone scan' });
+		await s.edit.create('rig', { id: 'g1', projectId: 'p1', name: 'Russian arm' });
 		await linked(s);
 		s.world.visible = true;
 		await settle(s.engine, s.fpt);
@@ -919,6 +920,7 @@ describe('the shared lists', () => {
 		expect(await ids(b.store, 'lightingSetup')).toEqual(['ls1']);
 		expect(await b.store.get('template', 'tp1')).toEqual({ id: 'tp1', projectId: 'pB', name: 'Day ext', scope: 'take', values: { tStop: 2.8 } });
 		expect(await b.store.get('referenceKind', 'k1')).toEqual({ id: 'k1', projectId: 'pB', name: 'Drone scan' });
+		expect(await b.store.get('rig', 'g1')).toEqual({ id: 'g1', projectId: 'pB', name: 'Russian arm' });
 		expect(await b.store.get('lens', 'l1')).toEqual({ id: 'l1', projectId: 'pB', lensModel: 'S4/i 32mm', focalLength: 32 });
 		expect(await b.store.remoteId('l1')).toBe(s.fpt.byUuid('CustomEntity19', 'l1')!.id);
 		expect((await b.store.outbox.entries()).length).toBe(0);
@@ -1020,18 +1022,39 @@ describe('the shared lists', () => {
 		const s = setup();
 		delete s.fpt.fields.Project.sg_onset_templates;
 		delete s.fpt.fields.Project.sg_onset_reference_kinds;
+		delete s.fpt.fields.Project.sg_onset_rigs;
 		await lists(s);
-		expect(s.engine.state.listsMissing).toBe(true);
+		expect(s.engine.state.listsMissing).toEqual(['template', 'referenceKind', 'rig']);
 		const left = await s.store.outbox.entries();
-		expect(left.map((e) => e.op.table).sort()).toEqual(['referenceKind', 'template']);
+		expect(left.map((e) => e.op.table).sort()).toEqual(['referenceKind', 'rig', 'template']);
 		expect(left.every((e) => e.state === 'pending' && e.attempts === 0)).toBe(true);
 		expect(s.fpt.byUuid('CustomEntity19', 'l1')).toBeDefined();
 
 		expect((await s.engine.check(true))?.ready).toBe(true);
-		expect(s.engine.state.listsMissing).toBe(false);
+		expect(s.engine.state.listsMissing).toEqual([]);
 		await settle(s.engine, s.fpt);
 		expect(await s.store.outbox.entries()).toEqual([]);
 		expect(s.fpt.rows.get(`Project:${s.fptProject}`)!.values.sg_onset_reference_kinds).toContain('Drone scan');
+		expect(s.fpt.rows.get(`Project:${s.fptProject}`)!.values.sg_onset_rigs).toContain('Russian arm');
+	});
+
+	// Kevin, 2026-11-25 (#138): each list follows its own field. A site set up before the rigs keeps
+	// its templates and kinds; only the project's rigs wait, and go once the field is made.
+	it('syncs templates and kinds on a site set up before the rigs, and the rigs once their field is made', async () => {
+		const s = setup();
+		delete s.fpt.fields.Project.sg_onset_rigs;
+		await lists(s);
+		expect(s.engine.state.listsMissing).toEqual(['rig']);
+		const project = () => s.fpt.rows.get(`Project:${s.fptProject}`)!.values;
+		expect(project().sg_onset_reference_kinds).toContain('Drone scan');
+		expect(project().sg_onset_templates).toContain('Day ext');
+		expect((await s.store.outbox.entries()).map((e) => [e.op.table, e.state])).toEqual([['rig', 'pending']]);
+
+		expect((await s.engine.check(true))?.ready).toBe(true);
+		expect(s.engine.state.listsMissing).toEqual([]);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.outbox.entries()).toEqual([]);
+		expect(project().sg_onset_rigs).toContain('Russian arm');
 	});
 });
 
@@ -1187,5 +1210,91 @@ describe('the shared camera setups', () => {
 		expect(third.state.changed.map((c) => c.id)).toEqual(['l2']);
 		again.dispose();
 		third.dispose();
+	});
+});
+
+// Kevin, 2026-11-25 (#138): the Rig is an optional field of Take and Camera Setup. A site without
+// it is ready and syncs the rest; the rigs stay on the device. Once an admin runs Set Up Fields,
+// every take and camera setup that holds a rig sends it, those synced before included. Each entity
+// follows its own field.
+describe('the Rig, an optional field (#138)', () => {
+	const SETUP = 'CustomEntity10';
+
+	async function rigged(s: S) {
+		await s.edit.create('project', { id: 'p1', name: 'Show' });
+		await s.edit.create('cameraSetup', { id: 'cs1', projectId: 'p1', cameraLabel: 'A', cameraMount: 'dolly' });
+		await s.edit.create('shootDay', { id: 'd1', projectId: 'p1', shootDate: '2026-11-11' });
+		await s.edit.create('slate', { id: 's1', shootDayId: 'd1', slateUID: '42A' });
+		await s.edit.create('take', { id: 't1', slateId: 's1', take: '1', cameraSetupId: 'cs1', cameraMount: 'dolly', tStop: 2.8 });
+	}
+	/** The writes that name the Rig, to an entity type. */
+	const rigWrites = (s: S, type?: string) =>
+		s.fpt.requests.filter((r) => r.method !== 'GET' && !r.path.endsWith('/_search') && !r.path.includes('/schema/') && JSON.stringify(r.body ?? '').includes('sg_rig') && (!type || JSON.stringify(r).includes(type)));
+
+	it('syncs everything but the rigs on a site without the Rig, then sends every rig once it is made', async () => {
+		const s = setup();
+		delete s.fpt.fields[TAKE].sg_rig;
+		delete s.fpt.fields[SETUP].sg_rig;
+		await rigged(s);
+		await linked(s);
+		expect(s.engine.state.fieldsMissing).toEqual(['cameraSetup.cameraMount', 'take.cameraMount']);
+		s.world.visible = true;
+		expect((await settle(s.engine, s.fpt)).stopped).toBe('idle');
+		expect(s.fpt.byUuid(TAKE, 't1')!.values.sg_t_stop).toBe(2.8);
+		expect(s.fpt.byUuid(SETUP, 'cs1')).toBeDefined();
+		// A rig changed meanwhile: the edit leaves the queue, the take keeps its rig.
+		await s.edit.set('take', (await s.store.get('take', 't1'))!, 'cameraMount', 'steadicam');
+		await settle(s.engine, s.fpt);
+		expect(await s.store.outbox.entries()).toEqual([]);
+		expect(rigWrites(s)).toEqual([]);
+		expect((await s.store.get('take', 't1'))!.cameraMount).toBe('steadicam');
+		expect(s.engine.state.waiting?.entries ?? 0).toBe(0);
+
+		// An admin runs Set Up Fields: the Rig is made, and every rig goes.
+		expect((await s.engine.check(true))?.ready).toBe(true);
+		expect(s.engine.state.fieldsMissing).toEqual([]);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.outbox.entries()).toEqual([]);
+		expect(s.fpt.byUuid(TAKE, 't1')!.values.sg_rig).toBe('Steadicam');
+		expect(s.fpt.byUuid(SETUP, 'cs1')!.values.sg_rig).toBe('Dolly');
+
+		// Once is enough: a later check sends nothing again.
+		const writes = rigWrites(s).length;
+		await s.engine.check(false);
+		await settle(s.engine, s.fpt);
+		expect(rigWrites(s)).toHaveLength(writes);
+	});
+
+	it('lets each entity follow its own Rig: a take sends its rig while the camera setup waits', async () => {
+		const s = setup();
+		delete s.fpt.fields[SETUP].sg_rig;
+		await rigged(s);
+		await linked(s);
+		expect(s.engine.state.fieldsMissing).toEqual(['cameraSetup.cameraMount']);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		expect(s.fpt.byUuid(TAKE, 't1')!.values.sg_rig).toBe('Dolly');
+		expect(s.fpt.byUuid(SETUP, 'cs1')!.values).not.toHaveProperty('sg_rig');
+		const takeWrites = rigWrites(s, TAKE).length;
+
+		expect((await s.engine.check(true))?.ready).toBe(true);
+		await settle(s.engine, s.fpt);
+		expect(await s.store.outbox.entries()).toEqual([]);
+		expect(s.fpt.byUuid(SETUP, 'cs1')!.values.sg_rig).toBe('Dolly');
+		// The take's rig went with its create, and only then.
+		expect(rigWrites(s, TAKE)).toHaveLength(takeWrites);
+	});
+
+	it('sends nothing again on a device that never saw the Rig missing', async () => {
+		const s = setup();
+		await rigged(s);
+		await linked(s);
+		s.world.visible = true;
+		await settle(s.engine, s.fpt);
+		const writes = rigWrites(s).length;
+		await s.engine.check(false);
+		await settle(s.engine, s.fpt);
+		expect(rigWrites(s)).toHaveLength(writes);
+		expect(await s.store.outbox.entries()).toEqual([]);
 	});
 });

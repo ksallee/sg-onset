@@ -1,5 +1,5 @@
-// The lists a show shares that Flow PT has no entity for: the live templates, and the kinds of set
-// reference a project adds (#110). Each list is JSON in a text field of the Project the device
+// The lists a show shares that Flow PT has no entity for: the live templates, the kinds of set
+// reference a project adds (#110), and the rigs a project adds (#138). Each list is JSON in a text field of the Project the device
 // syncs with, one field per list, so an edit of one never writes the other. Pure: the reads and
 // writes are in transport.ts.
 //
@@ -11,7 +11,7 @@
 import { sameValue } from '$lib/model/value';
 import type { CreateOp, DeleteOp, UpdateOp } from '$lib/outbox/types';
 
-export const LIST_TABLES = ['template', 'referenceKind'] as const;
+export const LIST_TABLES = ['template', 'referenceKind', 'rig'] as const;
 export type ListTable = (typeof LIST_TABLES)[number];
 
 export function isListTable(name: string): name is ListTable {
@@ -19,7 +19,7 @@ export function isListTable(name: string): name is ListTable {
 }
 
 /** The keys a list keeps of each entry, beside its id. The project is the field's own. */
-export const LIST_KEYS: Record<ListTable, readonly string[]> = { template: ['name', 'scope', 'values'], referenceKind: ['name'] };
+export const LIST_KEYS: Record<ListTable, readonly string[]> = { template: ['name', 'scope', 'values'], referenceKind: ['name'], rig: ['name'] };
 
 /** Keys a record carries that a list does not keep, and does not refuse. */
 const IGNORED = new Set(['id', 'projectId']);

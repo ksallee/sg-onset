@@ -4,7 +4,7 @@ import { parseCsv } from '$lib/model/csv';
 import { BOM } from './csvWrite';
 import { plainColumns, plainCsv, type PlainLabels } from './plainCsv';
 import { flatten } from './selection';
-import { input, kindLabel, t42A1A, t9 } from './testData';
+import { input, kindLabel, rigLabel, t42A1A, t9 } from './testData';
 
 /** Stand-in for the i18n helpers: the label is the key, so the test sees which field it is. */
 const labels: PlainLabels = {
@@ -15,7 +15,8 @@ const labels: PlainLabels = {
 	yes: 'yes',
 	no: 'no',
 	references: 'REFERENCES',
-	kind: kindLabel
+	kind: kindLabel,
+	rig: rigLabel
 };
 
 const base = { labels, header: 'labels', units: 'inline', lengths: 'metric' } as const;
@@ -149,6 +150,18 @@ describe('plainCsv', () => {
 		const t = table(plainCsv(flat, base));
 		expect(t.cell(flat.findIndex((r) => r.take.id === t42A1A.id), 'takeTail')).toBe('<cleanPlate>, <ballsAndChart>');
 		expect(t.cell(flat.findIndex((r) => r.take.id === t9.id), 'takeTail')).toBe('');
+	});
+
+	it('writes the rig of the camera setup and of the take as the app shows it (#138)', () => {
+		const shoot = input();
+		shoot.cameraSetups = shoot.cameraSetups.map((s) => (s.id === 'csA' ? { ...s, cameraMount: 'steadicam' } : s));
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, cameraMount: 'Russian arm' } : t));
+		const flat = flatten(shoot);
+		const t = table(plainCsv(flat, base));
+		const a = flat.findIndex((r) => r.take.id === t42A1A.id);
+		expect(t.cell(a, 'CAMERASETUP: cameraMount')).toBe('Steadicam');
+		expect(t.cell(a, 'TAKE: cameraMount')).toBe('Russian arm');
+		expect(t.cell(flat.findIndex((r) => r.take.id === t9.id), 'TAKE: cameraMount')).toBe('');
 	});
 
 	it('writes enum labels, yes and no, lists and refs', () => {

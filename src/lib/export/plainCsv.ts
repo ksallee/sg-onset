@@ -27,6 +27,8 @@ export type PlainLabels = {
 	references: string;
 	/** A kind of set reference as shown. */
 	kind(kind: string): string;
+	/** A rig as shown (#138). */
+	rig(rig: string): string;
 	/** The header of a unit column. Default: "<header> (unit)". */
 	unitHeader?(header: string): string;
 };
@@ -116,6 +118,8 @@ function withUnit(text: string, unit: Unit | 'ft' | undefined, labels: PlainLabe
 function cellText(def: FieldDef, value: unknown, options: PlainOptions): string {
 	const { labels, units, lengths } = options;
 	if (value == null) return '';
+	// A rig: a built-in key by its label, a project rig as typed (#138).
+	if (def.key === 'cameraMount') return labels.rig(String(value));
 	const inline = units === 'inline';
 	switch (def.type) {
 		case 'boolean':

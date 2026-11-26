@@ -30,7 +30,7 @@ Every behaviour relied on is from `~/dev/sg-groundtruth/corpus`. The comments na
 | `sendPlan.ts` | yes | What a run of the action covers (`sendScope`) and what it did per Shot (`shotReports`). |
 | `setShotLinks.ts` | no | The calls of the Set Shot links, shared by the sync and the action: read by key, match once, read and write a slate's links. |
 | `sendSetData.ts` | no | `previewSend`, `sendSetData`: the action's reads and writes, from Flow PT only, with the person's session. |
-| `lists.ts` | yes | The shared lists (#110): templates and reference kinds as JSON in a text field of the Project. Read, write, apply a push's operations, check they landed. |
+| `lists.ts` | yes | The shared lists (#110): templates, reference kinds and rigs (#138) as JSON in a text field of the Project. Read, write, apply a push's operations, check they landed. |
 | `errors.ts` | yes | What a refusal or a missing answer means. |
 | `token.ts` | yes | The bearer's `exp`, and when to renew it. |
 | `uploadPlan.ts` | yes | Upload sizes, URL life, the completion body. |
@@ -89,7 +89,7 @@ if (report.ready) {
 | (none) | Reply, on that Note, when a sync adds to it | written, never read |
 | (none) | Task, of the Shot: who is assigned | read only |
 | (none) | ActionMenuItem "Send set data to artists", on Shot and on Set Shot (#106) | title and URL. Made by Set Up Fields, one per entity type and deploy, holding each project that ran it |
-| `template`, `referenceKind` | Project, JSON in `sg_onset_templates` and `sg_onset_reference_kinds` | the entry's client UUID, in the list. Optional |
+| `template`, `referenceKind`, `rig` | Project, JSON in `sg_onset_templates`, `sg_onset_reference_kinds` and `sg_onset_rigs` | the entry's client UUID, in the list. Optional |
 
 Custom entities are matched trimmed and whatever the case, among `CustomEntityNN` types only.
 Never by slot number. The display names are the default; an admin may pick others (#111).
@@ -231,6 +231,7 @@ a take is its `startedAt`, of a set reference its `loggedAt`.
 | `cameraLabel` | `code` | text | |
 | `cameraId` | `sg_camera` | entity | |
 | `lensId` | `sg_lens` | entity | |
+| `cameraMount` | `sg_rig` | text | the rig: a built-in rig as its English label (`Steadicam`), or a project rig as typed (#138) |
 | `order` | `sg_sort_order` | number | |
 
 **slate**
@@ -270,6 +271,7 @@ a take is its `startedAt`, of a set reference its `loggedAt`.
 | `cameraSetupId` | `sg_camera_setup` | entity | |
 | `cameraId` | `sg_camera` | entity | |
 | `lensId` | `sg_lens` | entity | |
+| `cameraMount` | `sg_rig` | text | the rig: a built-in rig as its English label, or a project rig as typed; a new take gets the setup's (#138) |
 | `focalLength`, `focalLengthEnd` | `sg_focal_length`, `sg_focal_length_end` | float | mm |
 | `tStop` | `sg_t_stop` | float | |
 | `focusDistance`, `focusDistanceEnd` | `sg_focus_distance_m`, `sg_focus_distance_end_m` | float | m |
@@ -365,10 +367,12 @@ the rest, and the Notes wait.
 |---|---|---|---|
 | the templates of the project | `sg_onset_templates`, "Onset Templates" | text | JSON: `{"list":"template","version":1,"entries":[{"id","name","scope","values"}]}` |
 | the kinds of set reference it adds | `sg_onset_reference_kinds`, "Onset Reference Kinds" | text | JSON: `{"list":"referenceKind","version":1,"entries":[{"id","name"}]}` |
+| the rigs it adds (#138) | `sg_onset_rigs`, "Onset Rigs" | text | JSON: `{"list":"rig","version":1,"entries":[{"id","name"}]}` |
 
 A template's values are in our field form, as on the device: a length in metres, a rational as
-`{num, den}`. Only SG OnSet reads them. Set Up Fields makes both fields on every site. They are
-optional: a site without them syncs the rest, and templates and kinds wait on the device.
+`{num, den}`. Only SG OnSet reads them. Set Up Fields makes the three fields on every site. They
+are optional, and each list follows its own field (#138): a list whose field the site lacks waits
+on the device, and the rest syncs.
 
 **still** (an Attachment)
 
@@ -731,7 +735,7 @@ app/sync README): `readShared` reads them, nothing else. Slates, takes and refer
 | lenses | Lens | the same |
 | camera setups | Camera Setup | the same; its camera and lens as their client UUIDs, read through the link (findings/138) |
 | lighting setups | Lighting Setup | the same |
-| templates, reference kinds | the Project's two fields | one search of the Project, both fields |
+| templates, reference kinds, rigs | the Project's three fields | one search of the Project, the fields the site has |
 
 A row with no client UUID was made in Flow PT, not by a device: it is left out. A read of 40 full
 pages (20,000 rows) is not judged whole, so nothing is judged removed from it. A list whose field
@@ -1019,7 +1023,7 @@ Made by Claude. Kevin can overrule any of them.
     `PUT`. The check parses what it reads and compares values: Flow PT strips outer spaces and
     newlines (findings/158), so a list another writer formatted reads as the same list.
 71. **A list holds the keys the device has, but the project:** a template's `name`, `scope` and
-    `values`, a kind's `name`. The project is the field's own; a device reading it puts the entry
+    `values`, a kind's or a rig's `name`. The project is the field's own; a device reading it puts the entry
     under its own project.
 72. **A list this version cannot read is never written over.** Its entries need a person, with the
     field named, until an admin empties it in Flow PT. It is left out of a read too, so nothing on
@@ -1083,6 +1087,35 @@ Made by Claude. Kevin can overrule any of them.
     measured: the refusal, if any, is said in plain words.
 88. **A file of names is the field's JSON.** Importing puts its names on the page and changes
     nothing in Flow PT; names in use keep the project's, and the page counts them.
+89. **The rig is text on Take and on Camera Setup, `sg_rig`, "Rig"** (Kevin, #138): a built-in rig
+    as its English label (`Steadicam`), so people reading the take in Flow PT see words, read back
+    to its key, case and outer spaces ignored (Kevin, 2026-11-25); a project rig as typed. Unlike a
+    set reference's kind (decision 27), which keeps its key.
+    No list field: a project adds rigs. **It is optional** (Kevin, 2026-11-25): a site without it is
+    ready and syncs the rest. Set Up Fields makes it and the review lists it, like every field. The
+    first optional field of a required entity: `optional: true` in its line of `OVERRIDES` makes the
+    next one. Each entity follows its own field, so Take may have it while Camera Setup does not.
+    - The resolution names it when it is there, and a cache without it stays good. `missingFields`
+      lists what the site lacks as `take.cameraMount`.
+    - The transport never sends, asks for or reads a field the site lacks (`onSite` in payload.ts),
+      and the shared read of camera setups leaves the key out, so the device keeps its own rig.
+    - The app strips the key from what the runner sees (app/sync `withoutWaiting`): the rest of the
+      record goes, the rig stays on the record. Nothing waits in the queue and nothing needs a
+      person.
+    - The device keeps the fields a site lacked when it last read its schema. When one of them is
+      there at a later read (an admin ran Set Up Fields, then a check), the runner stops, each unsent
+      update of the key loses it, and every record holding a value queues an update of it from no
+      value (the store's `refill`). Records synced while it was missing get their rig that way. A
+      device that never saw it missing sends nothing again.
+90. **A project's own rigs are a third shared list, `sg_onset_rigs` on the Project** (#138), beside
+    the templates and the kinds (decisions 68 to 72). **Each list follows its own field** (Kevin,
+    2026-11-25): the resolution names the fields that are there (`missingLists` gives the others),
+    and a list whose field is missing waits on the device. A site set up before the rigs keeps
+    syncing its templates and kinds; its rigs go once Set Up Fields makes `sg_onset_rigs`. A
+    resolution kept before the rigs names two fields and stays good. The sync sheet's section on the
+    lists shows while the templates or the kinds wait, as its words name them; a site that lacks
+    only the rigs field lacks the Rig of Take and Camera Setup too, and the sheet's line on rigs
+    says they wait while a take or camera setup holds one.
 
 ## Where FPT did not fit the contract
 
@@ -1224,6 +1257,6 @@ Notes on Shots came after too (#97). Set Up Fields makes `sg_onset_key` (unique)
 The Action Menu Item came after too (#106). Set Up Fields makes it on Shot and on Set Shot for the
 linked project, pointing at the deploy it runs on. An admin runs it once per project.
 
-The shared lists came after too (#110). Set Up Fields makes `sg_onset_templates` and
-`sg_onset_reference_kinds` on Project, a stock type. Until then the rest syncs and templates and
-kinds wait on the device.
+The shared lists came after too (#110). Set Up Fields makes `sg_onset_templates`,
+`sg_onset_reference_kinds` and `sg_onset_rigs` (#138) on Project, a stock type. Until then the rest
+syncs and templates, kinds and rigs wait on the device.

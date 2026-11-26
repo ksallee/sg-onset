@@ -15,6 +15,7 @@ import { formatLength, type Length, type UnitSystem } from '$lib/model/length';
 import { formatRational } from '$lib/model/rational';
 import { takeTailOf } from '$lib/model/takeTail';
 import { takeTypeOf } from '$lib/model/takeType';
+import { rigLabel } from '$lib/gear/rigs';
 import { kindLabel } from '$lib/references/kinds';
 import { referenceLine } from '$lib/references/log';
 import { countLine } from './mediaCount';
@@ -68,6 +69,7 @@ function columns(units: UnitSystem): { head: string; cls?: string; cell: (r: Fla
 		{ head: short('focusDistance'), cls: 'n', cell: (r) => range(length(r.take.focusDistance, units), length(r.take.focusDistanceEnd, units)) },
 		{ head: short('lensHeight'), cls: 'n', cell: (r) => range(length(r.take.lensHeight, units), length(r.take.lensHeightEnd, units)) },
 		{ head: short('tilt'), cls: 'n', cell: (r) => range(signed(r.take.tilt), signed(r.take.tiltEnd)) },
+		{ head: short('cameraMount'), cell: (r) => rigLabel(r.take.cameraMount, tk) },
 		{ head: short('isoSpeed'), cls: 'n', cell: (r) => (r.take.isoSpeed === undefined ? '' : String(r.take.isoSpeed)) },
 		{ head: short('whiteBalance'), cls: 'n', cell: (r) => (r.take.whiteBalance === undefined ? '' : `${r.take.whiteBalance}K`) },
 		{ head: short('shutterAngle'), cls: 'n', cell: (r) => (r.take.shutterAngle === undefined ? '' : `${r.take.shutterAngle}°`) },

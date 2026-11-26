@@ -31,6 +31,7 @@ describe('recordTitle', () => {
 		// A template and a reference kind are named by `name` (#110: they sync, and a change of one can need a person).
 		expect(recordTitle('template', { id: 'tp', name: ' Day ext ' })).toBe('Day ext');
 		expect(recordTitle('referenceKind', { id: 'k', name: 'Drone scan' })).toBe('Drone scan');
+		expect(recordTitle('rig', { id: 'g', name: 'Russian arm' })).toBe('Russian arm');
 	});
 	it('is empty when there is none', () => {
 		expect(recordTitle('slate', { id: 's' })).toBe('');

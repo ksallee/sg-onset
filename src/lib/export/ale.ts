@@ -43,6 +43,7 @@ export const ALE_COLUMNS = [
 	'Tilt End',
 	'Dutch',
 	'Dutch End',
+	'Rig',
 	'Sensor Fps',
 	'Shutter_angle',
 	'ASA',
@@ -61,6 +62,8 @@ export type AleOptions = {
 	withoutTimecode?: 'skip' | 'keep';
 	/** Lengths as metres (default) or decimal feet. */
 	lengths?: UnitSystem;
+	/** A rig as the app shows it (#138). Default: as stored. */
+	rigLabel?: (rig: string) => string;
 };
 
 export type AleWarning =
@@ -177,6 +180,7 @@ export function exportAle(rows: readonly FlatTake[], options: AleOptions): AleRe
 			'Tilt End': tiltEnd,
 			Dutch: dutch,
 			'Dutch End': dutchEnd,
+			Rig: take.cameraMount ? clean((options.rigLabel ?? ((r: string) => r))(take.cameraMount)) : '',
 			'Sensor Fps': take.captureFrameRate ? formatRational(take.captureFrameRate) : '',
 			Shutter_angle: num(take.shutterAngle),
 			ASA: num(take.isoSpeed),

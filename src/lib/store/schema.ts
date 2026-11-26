@@ -72,7 +72,9 @@ export const VERSIONS: readonly SchemaVersion[] = [
 	// The setup diagrams, one per slate, kept on the device (tables.ts LOCAL_TABLES).
 	{ version: 6, stores: recordStores(['diagram']) },
 	// What each import of the DIT's clips wrote, under its shoot day, kept on the device (#109).
-	{ version: 7, stores: recordStores(['clipImport']) }
+	{ version: 7, stores: recordStores(['clipImport']) },
+	// The rigs a project adds (#138), shared as the kinds are.
+	{ version: 8, stores: recordStores(['rig']) }
 ];
 
 export const SCHEMA_VERSION = VERSIONS[VERSIONS.length - 1].version;

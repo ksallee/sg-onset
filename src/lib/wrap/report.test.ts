@@ -157,6 +157,18 @@ describe('reportBody', () => {
 		expect(tailed).toContain('>Clean plate tail, Balls and chart tail<');
 	});
 
+	// #138: the rig of each take, a built-in one by its label, a project one as typed.
+	it('shows the rig of each take where a take of the day has one, after the tilt', () => {
+		expect(html).not.toContain('>Rig<');
+		const shoot = input();
+		shoot.takes = shoot.takes.map((t) => (t.id === t42A1A.id ? { ...t, cameraMount: 'hiHat' } : t.id === t42A1B.id ? { ...t, cameraMount: 'Russian arm' } : t));
+		const rigged = reportBody([dayReport(shoot, 'd3')!], opts);
+		expect(rigged).toContain('>Rig<');
+		expect(rigged).toContain('>Hi-hat<');
+		expect(rigged).toContain('>Russian arm<');
+		expect(rigged).toContain('>Tilt</th><th>Rig</th>');
+	});
+
 	it('says when a day has no takes', () => {
 		const empty = dayReport({ ...input(), takes: [] }, 'd3')!;
 		expect(reportBody([empty], opts)).toContain('data-empty');

@@ -15,6 +15,6 @@ export function recordTitle(table: string, row: object | undefined): string {
 	const value = key && row ? (row as Record<string, unknown>)[key] : undefined;
 	if (typeof value === 'string') return value.trim();
 	if (table === 'still' && row) return ((row as { caption?: string }).caption ?? '').trim();
-	if ((table === 'template' || table === 'referenceKind') && row) return String((row as { name?: unknown }).name ?? '').trim();
+	if ((table === 'template' || table === 'referenceKind' || table === 'rig') && row) return String((row as { name?: unknown }).name ?? '').trim();
 	return '';
 }

@@ -204,6 +204,13 @@ describe('updateData', () => {
 		expect(ok(updateData(RESOLUTION, 'take', { takeType: edit(undefined, 'cleanPlate') }, {}, PROJECT))).toEqual({ sg_take_type: null });
 	});
 
+	// Kevin, 2026-11-25 (#138): a built-in rig goes as its English label, a project rig as typed.
+	it('sends a built-in rig as its label, a project rig as typed; none clears it', () => {
+		expect(ok(updateData(RESOLUTION, 'take', { cameraMount: edit('shoulderRig') }, {}, PROJECT))).toEqual({ sg_rig: 'Shoulder rig' });
+		expect(ok(updateData(RESOLUTION, 'cameraSetup', { cameraMount: edit('Russian arm') }, {}, PROJECT))).toEqual({ sg_rig: 'Russian arm' });
+		expect(ok(updateData(RESOLUTION, 'take', { cameraMount: edit(undefined, 'dolly') }, {}, PROJECT))).toEqual({ sg_rig: null });
+	});
+
 	it('sends the plates at the tail as their keys in one text; none clears it', () => {
 		expect(ok(updateData(RESOLUTION, 'take', { takeTail: edit(['cleanPlate', 'ballsAndChart']) }, {}, PROJECT))).toEqual({ sg_take_tail: 'cleanPlate, ballsAndChart' });
 		expect(ok(updateData(RESOLUTION, 'take', { takeTail: edit(undefined, ['cleanPlate']) }, {}, PROJECT))).toEqual({ sg_take_tail: null });
@@ -291,6 +298,11 @@ describe('fromRow', () => {
 			take: '3',
 			lensId: 'l1'
 		});
+	});
+
+	it('reads a built-in rig back from its label, a project rig as typed', () => {
+		expect(fromRow(RESOLUTION, 'take', { ...row, attributes: { sg_rig: 'Shoulder rig' } }, ['cameraMount'])).toEqual({ cameraMount: 'shoulderRig' });
+		expect(fromRow(RESOLUTION, 'cameraSetup', { ...row, attributes: { sg_rig: 'Russian arm' } }, ['cameraMount'])).toEqual({ cameraMount: 'Russian arm' });
 	});
 
 	it('reads the plates at the tail back from their text', () => {

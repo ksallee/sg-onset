@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isBuiltInRig, rigChoices, rigLabel, rigLabelKey, RIGS, rigProblem } from './rigs';
+import { isBuiltInRig, rigChoices, rigFromFlowPt, rigLabel, rigLabelKey, RIGS, rigProblem, rigToFlowPt } from './rigs';
 
 /** Stand-in for the message catalogue: the key, so the test sees which rig it is. */
 const label = (key: string) => `<${key}>`;
@@ -84,5 +84,29 @@ describe('rigProblem', () => {
 		expect(rigProblem('hi-hat', [], builtIn)).toBe('taken');
 		expect(rigProblem('Shoulder Rig', [], builtIn)).toBe('taken');
 		expect(rigProblem('hiHat', [], builtIn)).toBe('taken');
+	});
+});
+
+// Kevin, 2026-11-25 (#138): Flow PT keeps a built-in rig as words people read there.
+describe('rigToFlowPt and rigFromFlowPt', () => {
+	it('sends a built-in rig as its English label, a project rig as typed', () => {
+		expect(rigToFlowPt('steadicam')).toBe('Steadicam');
+		expect(rigToFlowPt('shoulderRig')).toBe('Shoulder rig');
+		expect(rigToFlowPt('hiHat')).toBe('Hi-hat');
+		expect(rigToFlowPt('Russian arm')).toBe('Russian arm');
+	});
+
+	it('reads a built-in label back as its key, case and outer spaces ignored', () => {
+		expect(rigFromFlowPt('Steadicam')).toBe('steadicam');
+		expect(rigFromFlowPt(' shoulder RIG ')).toBe('shoulderRig');
+		expect(rigFromFlowPt('Hi-hat')).toBe('hiHat');
+	});
+
+	it('reads anything else as typed', () => {
+		expect(rigFromFlowPt('Russian arm')).toBe('Russian arm');
+	});
+
+	it('gives every built-in rig back unchanged after a round trip', () => {
+		for (const rig of RIGS) expect(rigFromFlowPt(rigToFlowPt(rig))).toBe(rig);
 	});
 });

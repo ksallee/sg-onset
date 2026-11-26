@@ -5,6 +5,7 @@
 // made and can never be read again (corpus recipes/002_batch.md). So everything is checked here,
 // and what cannot be sent is refused with the reason rather than sent in hope.
 
+import { rigFromFlowPt, rigToFlowPt } from '$lib/gear/rigs';
 import type { FieldEdit, RemoteId } from '$lib/outbox/types';
 import { readValue, writeValue } from './convert';
 import { CREATED_AT, fieldMap, UUID, type Column, type EntityScope, type FieldMap, type Target } from './mapping';
@@ -50,6 +51,10 @@ function linkOf(resolution: Resolution, map: FieldMap, value: unknown, links: Re
 	return { type: typeOf(resolution, target), id };
 }
 
+/** A rig goes to Flow PT as words people read there, and comes back as ours (Kevin, #138). */
+const outward = (map: FieldMap, value: unknown) => (map.key === 'cameraMount' && typeof value === 'string' ? rigToFlowPt(value) : value);
+const inward = (map: FieldMap, value: unknown) => (map.key === 'cameraMount' && typeof value === 'string' ? rigFromFlowPt(value) : value);
+
 function put(resolution: Resolution, data: Record<string, unknown>, map: FieldMap, value: unknown, links: Record<string, RemoteId>, projectId: number, clear: boolean): void {
 	const name = (column: Column) => fieldName(resolution, map.scope, column);
 	if (map.kind === 'ref') {
@@ -58,7 +63,7 @@ function put(resolution: Resolution, data: Record<string, unknown>, map: FieldMa
 		return;
 	}
 	if (value === undefined && !clear) return;
-	const written = writeValue(map, value);
+	const written = writeValue(map, outward(map, value));
 	if (!Array.isArray(written)) throw new Refused(written.error);
 	map.columns.forEach((column, i) => (data[name(column)] = written[i]));
 	if (map.alsoCode) data.code = written[0];
@@ -171,9 +176,12 @@ export function fromRow(resolution: Resolution, scope: EntityScope, row: Row, ke
 				value = typeof uuid === 'string' && uuid ? uuid : `fpt:${link.type}:${link.id}`;
 			}
 		} else {
-			value = readValue(
+			value = inward(
 				map,
-				map.columns.map((column) => attributes[fieldName(resolution, scope, column)])
+				readValue(
+					map,
+					map.columns.map((column) => attributes[fieldName(resolution, scope, column)])
+				)
 			);
 		}
 		if (value !== undefined) out[key] = value;

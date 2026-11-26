@@ -1,7 +1,9 @@
 // The rigs a camera can be on: the built-in ones, and the rigs a project adds in Settings (#138).
 // A camera setup and a take keep the rig as text: a built-in key (`steadicam`), or a project rig
 // as typed, as a set reference keeps its kind (lib/references/kinds.ts). Pure: labels come in from
-// the message catalogue.
+// the message catalogue, except for Flow PT, which gets the English label (rigToFlowPt).
+
+import { gear } from '$lib/i18n/en/gear';
 
 /** The built-in rigs, in the order Kevin listed them (2026-11-25). */
 export const RIGS = [
@@ -71,4 +73,18 @@ export function rigProblem(name: string, projectRigs: readonly string[], builtIn
 	if (n === '') return 'empty';
 	const taken = [...RIGS, ...RIGS.map(builtInLabel), ...projectRigs].map(loose);
 	return taken.includes(n) ? 'taken' : undefined;
+}
+
+/**
+ * A rig as Flow PT keeps it: a built-in rig as its English label, whatever the app's language, so
+ * people reading the take there see words; a project rig as typed (Kevin, 2026-11-25, #138).
+ */
+export function rigToFlowPt(rig: string): string {
+	return isBuiltInRig(rig) ? gear[`gear.rig.${rig}`] : rig;
+}
+
+/** A rig as Flow PT answers it, back to ours: a built-in label to its key, case and outer spaces ignored; anything else as typed. */
+export function rigFromFlowPt(text: string): string {
+	const n = loose(text);
+	return RIGS.find((rig) => loose(gear[`gear.rig.${rig}`]) === n) ?? text;
 }

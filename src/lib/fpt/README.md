@@ -231,7 +231,7 @@ a take is its `startedAt`, of a set reference its `loggedAt`.
 | `cameraLabel` | `code` | text | |
 | `cameraId` | `sg_camera` | entity | |
 | `lensId` | `sg_lens` | entity | |
-| `cameraMount` | `sg_rig` | text | the rig: a built-in key (`steadicam`), or a project rig as typed (#138) |
+| `cameraMount` | `sg_rig` | text | the rig: a built-in rig as its English label (`Steadicam`), or a project rig as typed (#138) |
 | `order` | `sg_sort_order` | number | |
 
 **slate**
@@ -271,7 +271,7 @@ a take is its `startedAt`, of a set reference its `loggedAt`.
 | `cameraSetupId` | `sg_camera_setup` | entity | |
 | `cameraId` | `sg_camera` | entity | |
 | `lensId` | `sg_lens` | entity | |
-| `cameraMount` | `sg_rig` | text | the rig: a built-in key, or a project rig as typed; a new take gets the setup's (#138) |
+| `cameraMount` | `sg_rig` | text | the rig: a built-in rig as its English label, or a project rig as typed; a new take gets the setup's (#138) |
 | `focalLength`, `focalLengthEnd` | `sg_focal_length`, `sg_focal_length_end` | float | mm |
 | `tStop` | `sg_t_stop` | float | |
 | `focusDistance`, `focusDistanceEnd` | `sg_focus_distance_m`, `sg_focus_distance_end_m` | float | m |
@@ -1087,8 +1087,10 @@ Made by Claude. Kevin can overrule any of them.
     measured: the refusal, if any, is said in plain words.
 88. **A file of names is the field's JSON.** Importing puts its names on the page and changes
     nothing in Flow PT; names in use keep the project's, and the page counts them.
-89. **The rig is text on Take and on Camera Setup, `sg_rig`, "Rig"** (Kevin, #138): a built-in key
-    (`steadicam`), as a set reference's kind keeps its key (decision 27), or a project rig as typed.
+89. **The rig is text on Take and on Camera Setup, `sg_rig`, "Rig"** (Kevin, #138): a built-in rig
+    as its English label (`Steadicam`), so people reading the take in Flow PT see words, read back
+    to its key, case and outer spaces ignored (Kevin, 2026-11-25); a project rig as typed. Unlike a
+    set reference's kind (decision 27), which keeps its key.
     No list field: a project adds rigs. Like `sg_take_tail` (#108), it is a field every site needs:
     a site set up before it reads its schema again and is not ready until an admin runs Set Up
     Fields once more.

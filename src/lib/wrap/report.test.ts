@@ -43,6 +43,45 @@ describe('reportBody', () => {
 		expect(reportBody([none], opts)).toContain('1 no good · 0 photos');
 	});
 
+	// #137: per camera, runs of takes on the same lens, above the slates.
+	it('shows the lens timeline above the slates, a row per run', () => {
+		const at = html.indexOf('data-section="timeline"');
+		expect(at).toBeGreaterThan(0);
+		expect(at).toBeLessThan(html.indexOf('data-slate="9"'));
+		const section = html.slice(at, html.indexOf('</section>', at));
+		expect(section).toContain('Lens timeline');
+		expect(section).toContain('ARRI ALEXA 35');
+		expect(section).toContain('S4/i 32mm');
+		expect(section).toContain('42A/1 to 10/1');
+		expect(section).toContain('A001C003');
+		expect(section).toContain('14:39:39:09 to 14:39:59:10');
+		expect(section).toContain('32 mm');
+		expect(section).toContain('Sony VENICE 2');
+		expect(section).toContain('Optimo 24-290');
+		expect(section).toContain('85 to 150 mm');
+	});
+
+	it('shows a single clip once, and says a run has no lens', () => {
+		const data = { ...input(), takes: input().takes.map((t) => (t.id === t42A1B.id ? { ...t, lensId: undefined, focalLength: undefined, focalLengthEnd: undefined } : t)) };
+		const out = reportBody([dayReport(data, 'd3')!], opts);
+		const section = out.slice(out.indexOf('data-section="timeline"'));
+		expect(section).not.toContain('A001C003 to A001C003');
+		expect(section).toContain('No lens');
+	});
+
+	it('leaves out the lens timeline on a day with no camera setup', () => {
+		const data = { ...input(), takes: input().takes.map((t) => ({ ...t, cameraSetupId: undefined })) };
+		expect(reportBody([dayReport(data, 'd3')!], opts)).not.toContain('data-section="timeline"');
+	});
+
+	it('leaves out timeline columns no run fills', () => {
+		const data = { ...input(), takes: input().takes.map((t) => ({ ...t, clipName: undefined, timecodeStart: undefined, timecodeEnd: undefined })) };
+		const out = reportBody([dayReport(data, 'd3')!], opts);
+		const section = out.slice(out.indexOf('data-section="timeline"'), out.indexOf('data-slate="9"'));
+		expect(section).not.toContain('>Clips<');
+		expect(section).not.toContain('>Timecode<');
+	});
+
 	it('has a block per slate in order', () => {
 		const at = (s: string) => html.indexOf(`data-slate="${s}"`);
 		expect(at('9')).toBeGreaterThan(0);
